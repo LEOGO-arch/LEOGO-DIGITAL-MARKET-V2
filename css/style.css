@@ -105,3 +105,40 @@
 .checkout-fee-rules b{color:#e35f00}
 .checkout-total-row small{color:#7a8495;font-weight:600}
 @media(max-width:600px){.checkout-fee-rules{grid-template-columns:1fr}.checkout-fee-rules strong{grid-column:auto}}
+
+
+/* Phase 1(A): checkout payment and order confirmation */
+.checkout-step[hidden]{display:none!important}
+.checkout-step-heading{margin-bottom:12px}
+.checkout-step-heading>span{display:block;color:#ff7200;font-size:8px;font-weight:900;letter-spacing:.11em}
+.checkout-step-heading h4{margin:4px 0}
+.checkout-step-heading p{margin:4px 0 0;color:#69758a;font-size:9px;line-height:1.45}
+.payment-method-grid{display:grid;grid-template-columns:1fr;gap:9px}
+.payment-method-grid button{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;text-align:left;padding:12px;border:1px solid #dce2ec;border-radius:12px;background:#fff;color:#07152f;cursor:pointer}
+.payment-method-grid button>span{grid-row:1/4;font-size:22px}
+.payment-method-grid button strong{font-size:11px}
+.payment-method-grid button small{color:#6b778b;font-size:8px;line-height:1.35}
+.payment-method-grid button b{color:#e35f00}
+.payment-method-grid button.active{border-color:#ff7200;background:#fff7f0;box-shadow:0 0 0 2px rgba(255,114,0,.1)}
+.payment-method-grid button.is-disabled{opacity:.5;cursor:not-allowed}
+.payment-rule-notice{margin:11px 0;padding:11px;border-left:4px solid #ffb000;border-radius:8px;background:#fff8df}
+.payment-rule-notice strong{font-size:9px;color:#704e00}
+.payment-rule-notice p{margin:4px 0 0;color:#6e6250;font-size:8px;line-height:1.45}
+.payment-proof-panel{display:grid;gap:10px;margin:12px 0;padding:12px;border:1px solid #dce2ec;border-radius:12px;background:#fbfcfe}
+.payment-proof-panel label{display:grid;gap:6px}
+.payment-proof-panel textarea{width:100%;box-sizing:border-box;border:1px solid #dce2ec;border-radius:9px;padding:10px;resize:vertical;font:inherit;font-size:9px}
+.payment-paid-check{display:flex!important;grid-template-columns:auto 1fr!important;align-items:flex-start}
+.payment-paid-check input{width:auto;margin-top:2px}
+.payment-paid-check span{font-size:8px;line-height:1.4}
+.payment-step-status{min-height:14px;margin:0;color:#c45100;font-size:9px;font-weight:700}
+.payment-order-summary{display:grid;gap:7px;margin:11px 0;padding:11px;border-radius:11px;background:#eef4fc}
+.payment-order-summary div{display:flex;justify-content:space-between;gap:10px;font-size:9px}
+.checkout-payment-actions{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
+.checkout-payment-actions button,.order-created-panel button{border:0;border-radius:10px;padding:10px 12px;background:#e9eef6;color:#07152f;font-size:9px;font-weight:900;cursor:pointer}
+.checkout-payment-actions .make-order-button,.order-created-panel button:last-child{background:#ff7200;color:#fff}
+.order-created-panel{margin-top:14px;padding:14px;border:1px solid #bce2c8;border-radius:13px;background:#f0fff5}
+.order-created-panel>span{color:#18833c;font-size:8px;font-weight:900;letter-spacing:.1em}
+.order-created-panel h5{margin:5px 0;color:#07152f;font-size:14px}
+.order-created-panel p{margin:0;color:#5e6c61;font-size:9px;line-height:1.45}
+.order-created-panel>div{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}
+@media(max-width:600px){.checkout-payment-actions,.order-created-panel>div{flex-direction:column}.checkout-payment-actions button,.order-created-panel button{width:100%}}
