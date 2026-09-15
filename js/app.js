@@ -88,4 +88,46 @@
     requestFormStatus.textContent = 'Form design complete. Live submission and admin approval will be connected in the request workflow phase.';
   });
 
+  const sellingModal = document.getElementById('sellingModal');
+  const openSellingForm = document.getElementById('openSellingForm');
+  const sellingForm = document.getElementById('customerSellingForm');
+  const sellingProof = document.getElementById('sellingProof');
+  const ownershipFileName = document.getElementById('ownershipFileName');
+  const sellingFormStatus = document.getElementById('sellingFormStatus');
+
+  const closeSellingModal = () => {
+    if (!sellingModal) return;
+    sellingModal.classList.remove('is-open');
+    sellingModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('selling-modal-open');
+    openSellingForm?.focus();
+  };
+
+  const showSellingModal = () => {
+    if (!sellingModal) return;
+    sellingModal.classList.add('is-open');
+    sellingModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('selling-modal-open');
+    sellingFormStatus.textContent = '';
+    window.setTimeout(() => document.getElementById('sellingName')?.focus(), 50);
+  };
+
+  openSellingForm?.addEventListener('click', showSellingModal);
+  sellingModal?.querySelectorAll('[data-close-selling-modal]').forEach((button) => {
+    button.addEventListener('click', closeSellingModal);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && sellingModal?.classList.contains('is-open')) closeSellingModal();
+  });
+
+  sellingProof?.addEventListener('change', () => {
+    ownershipFileName.textContent = sellingProof.files?.[0]?.name || 'No document selected';
+  });
+
+  sellingForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!sellingForm.reportValidity()) return;
+    sellingFormStatus.textContent = 'Form design complete. Live submission and admin approval will be connected in the marketplace workflow phase.';
+  });
+
 })();
