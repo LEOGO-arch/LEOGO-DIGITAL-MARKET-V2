@@ -23,7 +23,21 @@
   </div>
   <div class="bar-menu-note">Product listings, prices and availability will appear here after approved sellers add alcoholic drinks to the LEOGO BAR category.</div>
 </section>
-<section class="premium-gateway" id="premium"><div class="premium-card"><div class="premium-main"><div><div class="premium-title-line"><span class="premium-18">18+</span><h2>LEOGO <span>PREMIUM</span></h2></div><p>Matchmaking &amp; meetup for verified adults. Private profiles and connections are protected behind Premium access.</p><a class="premium-enter" href="#premium">Enter Premium <b>→</b></a></div><div class="premium-mini-grid"><div class="premium-mini"><strong>🔎 Discover Profiles</strong><small>Approved members</small></div><div class="premium-mini"><strong>⭐ Membership</strong><small>Premium access</small></div><div class="premium-mini"><strong>👤 My Premium Profile</strong><small>Profile &amp; status</small></div><div class="premium-mini"><strong>🔐 Verification</strong><small>Verified adults only</small></div></div></div><div class="premium-foot">🔒 Private &amp; protected • 18+ only • Identity verification required before restricted access</div></div></section>
+<section class="premium-showcase" id="premium">
+  <div class="premium-showcase-inner">
+    <div class="premium-showcase-head">
+      <div><span class="premium-eyebrow">VERIFIED ADULTS ONLY</span><h2>LEOGO PREMIUM 18+</h2><p>A separate adult dating &amp; matchmaking experience for verified adults.</p></div>
+      <button class="premium-entry-button" id="openPremiumConsent" type="button" aria-haspopup="dialog" aria-controls="premiumConsentModal">Enter Premium 18+</button>
+    </div>
+    <div class="premium-feature-grid">
+      <article><h3>🔐 Verified Adults</h3><p>Identity and age verification are handled privately by authorized LEOGO personnel.</p></article>
+      <article><h3>💬 Match &amp; Connect</h3><p>Discover eligible profiles, manage preferences and connect through the Premium experience.</p></article>
+      <article><h3>⭐ Premium Access</h3><p>Memberships, featured profiles and approved provider listings can be managed securely.</p></article>
+    </div>
+    <div class="premium-prohibited-note">LEOGO Premium 18+ is for consenting adults only. It is a dating/matchmaking service and must not be used to arrange prostitution or payment for sexual acts.</div>
+    <div class="premium-entry-status" id="premiumEntryStatus" aria-live="polite"></div>
+  </div>
+</section>
 <section class="section" id="services"><div class="section-heading"><h2>⚡ Featured Local Sellers</h2><a href="#services">View all</a></div><div class="featured-row"><article><span>🥩</span><strong>John's<br>Butchery</strong><small>★ 4.7</small></article><article><span>🥬</span><strong>Siaya Fresh<br>Veggies</strong><small>★ 4.6</small></article><article><span>💊</span><strong>CarePlus<br>Pharmacy</strong><small>★ 4.8</small></article><article><span>🍗</span><strong>Best Cuts<br>Butchery</strong><small>★ 4.6</small></article></div><div class="local-strip"><div><strong>Support local businesses. Shop local.</strong><small>LEOGO is our community.</small></div><span>♥</span></div></section>
 <section class="section quick-links"><a href="#services"><span>🚚</span><div><strong>Transport &amp; Parcel Delivery</strong><small>Move goods safely.</small></div></a><a href="#looking-for"><span>🔎</span><div><strong>What Are You Looking For?</strong><small>Post a request.</small></div></a><a href="#selling"><span>🏷️</span><div><strong>What Are You Selling?</strong><small>List an item.</small></div></a><a href="#premium"><span>🔞</span><div><strong>Premium 18+</strong><small>Verified adult connections.</small></div></a><a href="#services"><span>📢</span><div><strong>Advertisement</strong><small>Promote your business.</small></div></a><a href="#services"><span>💬</span><div><strong>Feedback &amp; Testimonies</strong><small>Share your experience.</small></div></a></section>
 <div class="request-modal" id="requestModal" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle" aria-hidden="true">
@@ -104,6 +118,30 @@
     <label class="bar-consent-check"><input id="barAgeConsent" type="checkbox"><span>I confirm that I am 18 years or older, I understand the warnings above, and I accept responsibility for accessing the LEOGO BAR section.</span></label>
     <div class="bar-consent-status" id="barConsentStatus" aria-live="polite"></div>
     <div class="bar-consent-actions"><button class="bar-exit-button" type="button" data-close-bar-consent>Exit</button><button class="bar-enter-button" id="enterLeogoBar" type="button" disabled>Agree &amp; Enter LEOGO BAR</button></div>
+  </section>
+</div>
+<div class="premium-consent-modal" id="premiumConsentModal" role="dialog" aria-modal="true" aria-labelledby="premiumConsentTitle" aria-hidden="true">
+  <div class="premium-consent-backdrop" data-close-premium-consent></div>
+  <section class="premium-consent-card">
+    <button class="premium-consent-close" type="button" aria-label="Close Premium consent" data-close-premium-consent>×</button>
+    <div class="premium-consent-icon">🔞</div>
+    <span class="premium-consent-kicker">CONSENT REQUIRED</span>
+    <h2 id="premiumConsentTitle">Before entering LEOGO Premium</h2>
+    <p class="premium-consent-intro">LEOGO Premium is a protected dating and matchmaking area for consenting verified adults.</p>
+    <div class="premium-consent-warning">
+      <strong>Please read and understand:</strong>
+      <ul>
+        <li>You must be 18 years or older to enter.</li>
+        <li>Every conversation, relationship, meeting and activity after connection is a personal decision between the adults involved.</li>
+        <li>LEOGO only provides the connection platform and is not responsible for users’ actions, communications, relationships, meetings, activities or outcomes after connection.</li>
+        <li>Users are responsible for their own safety, choices, consent and conduct.</li>
+        <li>LEOGO Premium must not be used to arrange prostitution, payment for sexual acts, exploitation, harassment or any illegal activity.</li>
+      </ul>
+    </div>
+    <label class="premium-consent-check"><input id="premiumAgeConsent" type="checkbox"><span>I confirm that I am 18 years or older and consent to enter the adult dating and matchmaking section.</span></label>
+    <label class="premium-consent-check"><input id="premiumResponsibilityConsent" type="checkbox"><span>I understand and accept that LEOGO is not responsible for actions, relationships, meetings or activities after users connect.</span></label>
+    <div class="premium-consent-status" id="premiumConsentStatus" aria-live="polite"></div>
+    <div class="premium-consent-actions"><button class="premium-exit-button" type="button" data-close-premium-consent>Exit</button><button class="premium-agree-button" id="enterPremiumArea" type="button" disabled>Agree &amp; Enter Premium 18+</button></div>
   </section>
 </div>
 </main><nav class="mobile-nav"><a class="active" href="#home"><span>⌂</span>Home</a><a href="#catalogue"><span>▤</span>Orders</a><a href="#catalogue"><span>🛒</span>Cart</a><a href="#services"><span>○</span>Chats</a><a href="#services"><span>♙</span>Account</a></nav><footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="js/app.js" defer></script></body></html>
