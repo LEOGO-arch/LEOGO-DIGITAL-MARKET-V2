@@ -434,6 +434,148 @@
     );
   });
 
+  const checkoutDetailsStep = document.getElementById('checkoutDetailsStep');
+  const checkoutPaymentStep = document.getElementById('checkoutPaymentStep');
+  const continueToPayment = document.getElementById('continueToPayment');
+  const backToCheckoutDetails = document.getElementById('backToCheckoutDetails');
+  const paymentMethodButtons = customerShellModal?.querySelectorAll('[data-payment-method]');
+  const paymentProofLabel = document.getElementById('paymentProofLabel');
+  const mpesaPaymentMessage = document.getElementById('mpesaPaymentMessage');
+  const markPaymentPaid = document.getElementById('markPaymentPaid');
+  const markPaymentPaidLabel = document.getElementById('markPaymentPaidLabel');
+  const paymentStepStatus = document.getElementById('paymentStepStatus');
+  const paymentOrderTotal = document.getElementById('paymentOrderTotal');
+  const selectedPaymentLabel = document.getElementById('selectedPaymentLabel');
+  const selectedPaymentStatus = document.getElementById('selectedPaymentStatus');
+  const makeCheckoutOrder = document.getElementById('makeCheckoutOrder');
+  const orderCreatedPanel = document.getElementById('orderCreatedPanel');
+  const createdOrderReference = document.getElementById('createdOrderReference');
+  const downloadOrderReceipt = document.getElementById('downloadOrderReceipt');
+  const sendOrderWhatsApp = document.getElementById('sendOrderWhatsApp');
+  let selectedCheckoutPayment = '';
+  let previewOrderReference = '';
+
+  const checkoutTotalText = () => checkoutGrandTotalValue?.textContent || 'KSh 0';
+  const checkoutSubtotal = () => Number(checkoutShell?.dataset.checkoutSubtotal || 0);
+  const updateCashOnDeliveryAvailability = () => {
+    const limit = Number(checkoutShell?.dataset.codLimit || 10000);
+    const codButton = customerShellModal?.querySelector('[data-payment-method="cod"]');
+    const unavailable = checkoutSubtotal() >= limit;
+    codButton?.classList.toggle('is-disabled', unavailable);
+    codButton?.setAttribute('aria-disabled', String(unavailable));
+    if (unavailable && selectedCheckoutPayment === 'cod') {
+      selectedCheckoutPayment = '';
+      codButton?.classList.remove('active');
+      selectedPaymentLabel.textContent = 'Not selected';
+    }
+  };
+
+  const showCheckoutStep = (step) => {
+    const payment = step === 'payment';
+    checkoutDetailsStep.hidden = payment;
+    checkoutPaymentStep.hidden = !payment;
+    checkoutDetailsStep.classList.toggle('active', !payment);
+    checkoutPaymentStep.classList.toggle('active', payment);
+    if (payment) {
+      paymentOrderTotal.textContent = checkoutTotalText();
+      updateCashOnDeliveryAvailability();
+    }
+  };
+  continueToPayment?.addEventListener('click', () => showCheckoutStep('payment'));
+  backToCheckoutDetails?.addEventListener('click', () => showCheckoutStep('details'));
+
+  paymentMethodButtons?.forEach((button) => {
+    button.addEventListener('click', () => {
+      if (button.getAttribute('aria-disabled') === 'true') {
+        paymentStepStatus.textContent = 'Cash on Delivery is only available for orders below KSh 10,000.';
+        return;
+      }
+      selectedCheckoutPayment = button.dataset.paymentMethod;
+      paymentMethodButtons.forEach((item) => item.classList.toggle('active', item === button));
+      const labels = { till: 'M-Pesa Till', paybill: 'M-Pesa Paybill', cod: 'Cash on Delivery' };
+      selectedPaymentLabel.textContent = labels[selectedCheckoutPayment];
+      selectedPaymentStatus.textContent = 'Waiting for confirmation';
+      paymentStepStatus.textContent = '';
+      if (selectedCheckoutPayment === 'cod') {
+        paymentProofLabel.textContent = 'Paste M-Pesa message for the transport fee';
+        markPaymentPaidLabel.textContent = 'I confirm that I paid the transport fee first. I will pay the order balance in cash on delivery.';
+      } else {
+        paymentProofLabel.textContent = 'Paste M-Pesa payment message';
+        markPaymentPaidLabel.textContent = 'I confirm that I prepaid this order and want to mark the payment as paid.';
+      }
+    });
+  });
+
+  makeCheckoutOrder?.addEventListener('click', () => {
+    paymentStepStatus.textContent = '';
+    if (!selectedCheckoutPayment) {
+      paymentStepStatus.textContent = 'Select a payment method before making the order.';
+      return;
+    }
+    if (!mpesaPaymentMessage.value.trim()) {
+      paymentStepStatus.textContent = selectedCheckoutPayment === 'cod'
+        ? 'Paste the M-Pesa confirmation for the transport fee.'
+        : 'Paste the complete M-Pesa payment confirmation message.';
+      mpesaPaymentMessage.focus();
+      return;
+    }
+    if (!markPaymentPaid.checked) {
+      paymentStepStatus.textContent = 'Tick the payment confirmation box before making the order.';
+      markPaymentPaid.focus();
+      return;
+    }
+    previewOrderReference = 'LEOGO-' + Date.now().toString().slice(-8);
+    createdOrderReference.textContent = previewOrderReference;
+    selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod' ? 'Transport paid — balance on delivery' : 'Marked paid — awaiting verification';
+    orderCreatedPanel.hidden = false;
+    paymentStepStatus.textContent = 'Order created in this visual preview.';
+    orderCreatedPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  const buildPreviewReceipt = () => {
+    const method = selectedPaymentLabel?.textContent || 'Not selected';
+    return [
+      'LEOGO DIGITAL MARKET',
+      'PREVIEW ORDER RECEIPT',
+      '--------------------------------',
+      'Order: ' + (previewOrderReference || 'Not created'),
+      'Payment method: ' + method,
+      'Payment status: ' + (selectedPaymentStatus?.textContent || 'Waiting'),
+      'Order total: ' + checkoutTotalText(),
+      'Delivery location: ' + [
+        checkoutCounty?.value,
+        checkoutSubCounty?.value,
+        document.getElementById('checkoutEstate')?.value,
+        document.getElementById('checkoutLandmark')?.value
+      ].filter(Boolean).join(', '),
+      '--------------------------------',
+      'This is a Phase 1(A) visual preview receipt.',
+      'LEOGO — Everything You Need. Delivered.'
+    ].join('\n');
+  };
+  downloadOrderReceipt?.addEventListener('click', () => {
+    if (!previewOrderReference) return;
+    const blob = new Blob([buildPreviewReceipt()], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = previewOrderReference + '-receipt.txt';
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+  sendOrderWhatsApp?.addEventListener('click', () => {
+    if (!previewOrderReference) return;
+    const message = [
+      'Hello LEOGO Digital Market,',
+      'I am sending order ' + previewOrderReference + '.',
+      'Payment: ' + selectedPaymentLabel.textContent,
+      'Status: ' + selectedPaymentStatus.textContent,
+      'Total: ' + checkoutTotalText(),
+      'Please review and confirm my order.'
+    ].join('\n');
+    window.open('https://wa.me/254700192545?text=' + encodeURIComponent(message), '_blank', 'noopener');
+  });
+
   const activityFilterButtons = customerShellModal?.querySelectorAll('[data-activity-filter]');
   const activityEmptyIcon = document.getElementById('activityEmptyIcon');
   const activityEmptyTitle = document.getElementById('activityEmptyTitle');
