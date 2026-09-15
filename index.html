@@ -202,13 +202,13 @@
 
         <section class="customer-view" data-customer-panel="orders">
           <div class="customer-view-title"><div><span>COMPLETE ACTIVITY HISTORY</span><h3>My Orders &amp; Bookings</h3><p>Track and review every product order, service request and transport booking in one place.</p></div></div>
-          <div class="orders-filter-row activity-filter-row"><button class="active" type="button">All Activity</button><button type="button">Product Orders</button><button type="button">Services</button><button type="button">Transport</button><button type="button">Active</button><button type="button">Completed</button><button type="button">Cancelled</button></div>
+          <div class="orders-filter-row activity-filter-row" role="group" aria-label="Filter customer activity"><button class="active" type="button" data-activity-filter="all" aria-pressed="true">All Activity</button><button type="button" data-activity-filter="products" aria-pressed="false">Product Orders</button><button type="button" data-activity-filter="services" aria-pressed="false">Services</button><button type="button" data-activity-filter="transport" aria-pressed="false">Transport</button><button type="button" data-activity-filter="active" aria-pressed="false">Active</button><button type="button" data-activity-filter="completed" aria-pressed="false">Completed</button><button type="button" data-activity-filter="cancelled" aria-pressed="false">Cancelled</button></div>
           <div class="activity-type-grid">
             <article><span>📦</span><div><strong>Product Orders</strong><small>Items purchased from LEOGO sellers</small></div><b>0</b></article>
             <article><span>🛠️</span><div><strong>Service Requests</strong><small>Booked and completed service jobs</small></div><b>0</b></article>
             <article><span>🚚</span><div><strong>Transport Bookings</strong><small>Delivery, parcel and transport activity</small></div><b>0</b></article>
           </div>
-          <div class="customer-empty-state activity-empty"><span>🧾</span><h4>No previous activity yet</h4><p>Your product orders, service requests and transport bookings will appear here automatically, including their dates, payment and completion status.</p><button type="button" data-close-customer-shell>Explore LEOGO</button></div>
+          <div class="customer-empty-state activity-empty"><span id="activityEmptyIcon">🧾</span><h4 id="activityEmptyTitle">No previous activity yet</h4><p id="activityEmptyText">Your product orders, service requests and transport bookings will appear here automatically, including their dates, payment and completion status.</p><button type="button" data-close-customer-shell>Explore LEOGO</button></div>
           <div class="order-status-guide"><span>Requested</span><b>→</b><span>Confirmed</span><b>→</b><span>In progress</span><b>→</b><span>Completed</span><b>→</b><span>Aftersales</span></div>
         </section>
 
