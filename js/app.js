@@ -28,4 +28,64 @@
       window.location.hash = 'catalogue';
     });
   }
+  const requestModal = document.getElementById('requestModal');
+  const openRequestForm = document.getElementById('openRequestForm');
+  const requestForm = document.getElementById('customerRequestForm');
+  const requestPinButton = document.getElementById('pinRequestLocation');
+  const requestPinStatus = document.getElementById('requestPinStatus');
+  const requestCoordinates = document.getElementById('requestCoordinates');
+  const requestFormStatus = document.getElementById('requestFormStatus');
+
+  const closeRequestModal = () => {
+    if (!requestModal) return;
+    requestModal.classList.remove('is-open');
+    requestModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('request-modal-open');
+    openRequestForm?.focus();
+  };
+
+  const showRequestModal = () => {
+    if (!requestModal) return;
+    requestModal.classList.add('is-open');
+    requestModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('request-modal-open');
+    requestFormStatus.textContent = '';
+    window.setTimeout(() => document.getElementById('requestName')?.focus(), 50);
+  };
+
+  openRequestForm?.addEventListener('click', showRequestModal);
+  requestModal?.querySelectorAll('[data-close-request-modal]').forEach((button) => {
+    button.addEventListener('click', closeRequestModal);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && requestModal?.classList.contains('is-open')) closeRequestModal();
+  });
+
+  requestPinButton?.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      requestPinStatus.textContent = 'Location pinning is not supported on this device.';
+      return;
+    }
+    requestPinButton.disabled = true;
+    requestPinStatus.textContent = 'Getting your location…';
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        requestCoordinates.value = coords.latitude.toFixed(6) + ',' + coords.longitude.toFixed(6);
+        requestPinStatus.textContent = '✓ Location pinned. It will remain private for administrators.';
+        requestPinButton.disabled = false;
+      },
+      () => {
+        requestPinStatus.textContent = 'Location could not be pinned. You can continue without it or paste a location link.';
+        requestPinButton.disabled = false;
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  });
+
+  requestForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!requestForm.reportValidity()) return;
+    requestFormStatus.textContent = 'Form design complete. Live submission and admin approval will be connected in the request workflow phase.';
+  });
+
 })();
