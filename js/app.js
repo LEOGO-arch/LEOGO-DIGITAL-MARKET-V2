@@ -481,7 +481,13 @@
       updateCashOnDeliveryAvailability();
     }
   };
-  continueToPayment?.addEventListener('click', () => showCheckoutStep('payment'));
+  continueToPayment?.addEventListener('click', () => {
+    if (!testCart.length) {
+      openCustomerShell('cart');
+      return;
+    }
+    showCheckoutStep('payment');
+  });
   backToCheckoutDetails?.addEventListener('click', () => showCheckoutStep('details'));
 
   paymentMethodButtons?.forEach((button) => {
@@ -508,6 +514,10 @@
 
   makeCheckoutOrder?.addEventListener('click', () => {
     paymentStepStatus.textContent = '';
+    if (!testCart.length) {
+      paymentStepStatus.textContent = 'Your cart is empty. Add a sample product before making an order.';
+      return;
+    }
     if (!selectedCheckoutPayment) {
       paymentStepStatus.textContent = 'Select a payment method before making the order.';
       return;
@@ -542,6 +552,7 @@
       'Payment method: ' + method,
       'Payment status: ' + (selectedPaymentStatus?.textContent || 'Waiting'),
       'Order total: ' + checkoutTotalText(),
+      'Items: ' + testCart.map((item) => item.name + ' x' + item.quantity + ' (' + money(item.price * item.quantity) + ')').join('; '),
       'Delivery location: ' + [
         checkoutCounty?.value,
         checkoutSubCounty?.value,
@@ -571,10 +582,99 @@
       'Payment: ' + selectedPaymentLabel.textContent,
       'Status: ' + selectedPaymentStatus.textContent,
       'Total: ' + checkoutTotalText(),
+      'Items: ' + testCart.map((item) => item.name + ' x' + item.quantity).join(', '),
       'Please review and confirm my order.'
     ].join('\n');
     window.open('https://wa.me/254700192545?text=' + encodeURIComponent(message), '_blank', 'noopener');
   });
+
+  const testCartStorageKey = 'leogo_phase1_test_cart';
+  const headerCartCount = document.getElementById('headerCartCount');
+  const cartShellCount = document.getElementById('cartShellCount');
+  const cartShellItems = document.getElementById('cartShellItems');
+  const testCartFeedback = document.getElementById('testCartFeedback');
+  let testCart = [];
+  try {
+    const savedCart = JSON.parse(localStorage.getItem(testCartStorageKey) || '[]');
+    testCart = Array.isArray(savedCart) ? savedCart : [];
+  } catch {
+    testCart = [];
+  }
+
+  const money = (value) => 'KSh ' + Number(value || 0).toLocaleString();
+  const testCartCount = () => testCart.reduce((total, item) => total + item.quantity, 0);
+  const testCartSubtotal = () => testCart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const saveTestCart = () => localStorage.setItem(testCartStorageKey, JSON.stringify(testCart));
+
+  const renderTestCart = () => {
+    const count = testCartCount();
+    const subtotal = testCartSubtotal();
+    if (headerCartCount) headerCartCount.textContent = count;
+    if (cartShellCount) cartShellCount.textContent = count + (count === 1 ? ' item' : ' items');
+    if (checkoutShell) checkoutShell.dataset.checkoutSubtotal = String(subtotal);
+    const subtotalValue = document.getElementById('checkoutSubtotalValue');
+    if (subtotalValue) subtotalValue.textContent = money(subtotal);
+
+    if (cartShellItems) {
+      if (!testCart.length) {
+        cartShellItems.innerHTML = '<div class="customer-empty-state compact"><span>🛒</span><h4>Your cart is empty</h4><p>Add one of the active sample products to test checkout.</p><button type="button" data-close-customer-shell>Browse Products</button></div>';
+        cartShellItems.querySelector('[data-close-customer-shell]')?.addEventListener('click', closeCustomerShell);
+      } else {
+        cartShellItems.innerHTML = testCart.map((item) => `
+          <article class="test-cart-item" data-cart-item="${item.id}">
+            <span class="test-cart-item-icon">${item.icon}</span>
+            <div class="test-cart-item-info"><strong>${item.name}</strong><small>${money(item.price)} each · ${money(item.price * item.quantity)}</small></div>
+            <div class="test-cart-item-controls">
+              <button type="button" data-cart-action="decrease" aria-label="Reduce ${item.name}">−</button>
+              <b>${item.quantity}</b>
+              <button type="button" data-cart-action="increase" aria-label="Add another ${item.name}">＋</button>
+              <button type="button" data-cart-action="remove" aria-label="Remove ${item.name}">×</button>
+            </div>
+          </article>`).join('') + '<p class="test-cart-summary-note">Test cart is stored on this browser. Supabase account cart storage will be connected later.</p>';
+      }
+    }
+    updateCheckoutFees();
+    updateCashOnDeliveryAvailability();
+    if (paymentOrderTotal) paymentOrderTotal.textContent = checkoutTotalText();
+  };
+
+  document.querySelectorAll('[data-test-add-cart]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.productId;
+      const existing = testCart.find((item) => item.id === id);
+      if (existing) existing.quantity += 1;
+      else testCart.push({
+        id,
+        name: button.dataset.productName,
+        price: Number(button.dataset.productPrice),
+        icon: button.dataset.productIcon,
+        quantity: 1
+      });
+      saveTestCart();
+      renderTestCart();
+      if (testCartFeedback) testCartFeedback.textContent = button.dataset.productName + ' added to cart. Cart now has ' + testCartCount() + ' item(s).';
+      button.textContent = '✓ Added';
+      window.setTimeout(() => { button.textContent = '＋ Cart'; }, 1000);
+    });
+  });
+
+  cartShellItems?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-cart-action]');
+    const row = event.target.closest('[data-cart-item]');
+    if (!button || !row) return;
+    const index = testCart.findIndex((item) => item.id === row.dataset.cartItem);
+    if (index < 0) return;
+    if (button.dataset.cartAction === 'increase') testCart[index].quantity += 1;
+    if (button.dataset.cartAction === 'decrease') {
+      testCart[index].quantity -= 1;
+      if (testCart[index].quantity <= 0) testCart.splice(index, 1);
+    }
+    if (button.dataset.cartAction === 'remove') testCart.splice(index, 1);
+    saveTestCart();
+    renderTestCart();
+  });
+
+  renderTestCart();
 
   const activityFilterButtons = customerShellModal?.querySelectorAll('[data-activity-filter]');
   const activityEmptyIcon = document.getElementById('activityEmptyIcon');
