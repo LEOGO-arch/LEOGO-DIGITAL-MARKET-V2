@@ -361,6 +361,79 @@
     profileSubCounty.disabled = options.length === 0;
   });
 
+  const checkoutCounty = document.getElementById('checkoutCounty');
+  const checkoutSubCounty = document.getElementById('checkoutSubCounty');
+  const checkoutDeliveryZone = document.getElementById('checkoutDeliveryZone');
+  const checkoutShell = customerShellModal?.querySelector('.checkout-shell');
+  const checkoutServiceRate = document.getElementById('checkoutServiceRate');
+  const checkoutServiceFeeValue = document.getElementById('checkoutServiceFeeValue');
+  const checkoutDeliveryFeeValue = document.getElementById('checkoutDeliveryFeeValue');
+  const checkoutGrandTotalValue = document.getElementById('checkoutGrandTotalValue');
+  const checkoutPinLocation = document.getElementById('checkoutPinLocation');
+  const checkoutPinStatus = document.getElementById('checkoutPinStatus');
+  const checkoutCoordinates = document.getElementById('checkoutCoordinates');
+
+  const populateCheckoutSubCounties = () => {
+    const options = profileSubCounties[checkoutCounty?.value] || [];
+    checkoutSubCounty?.replaceChildren();
+    const prompt = document.createElement('option');
+    prompt.value = '';
+    prompt.textContent = options.length ? 'Select sub-county' : 'Choose a county first';
+    checkoutSubCounty?.appendChild(prompt);
+    options.forEach((subCounty) => {
+      const option = document.createElement('option');
+      option.value = subCounty;
+      option.textContent = subCounty;
+      checkoutSubCounty?.appendChild(option);
+    });
+    if (checkoutSubCounty) checkoutSubCounty.disabled = options.length === 0;
+  };
+  checkoutCounty?.addEventListener('change', populateCheckoutSubCounties);
+
+  const updateCheckoutFees = () => {
+    const subtotal = Number(checkoutShell?.dataset.checkoutSubtotal || 0);
+    const serviceRate = subtotal >= 3000 ? 0.015 : 0.02;
+    const serviceFee = subtotal * serviceRate;
+    const deliveryRules = {
+      cbd: { amount: 50, label: 'KSh 50' },
+      estate: { amount: 80, label: 'KSh 80' },
+      outside: { amount: 200, label: 'From KSh 200' },
+      quote: { amount: null, label: 'Admin quote' }
+    };
+    const delivery = deliveryRules[checkoutDeliveryZone?.value];
+    if (checkoutServiceRate) checkoutServiceRate.textContent = '(' + (serviceRate * 100) + '%)';
+    if (checkoutServiceFeeValue) checkoutServiceFeeValue.textContent = 'KSh ' + Math.round(serviceFee).toLocaleString();
+    if (checkoutDeliveryFeeValue) checkoutDeliveryFeeValue.textContent = delivery?.label || 'Select zone';
+    if (checkoutGrandTotalValue) {
+      checkoutGrandTotalValue.textContent = delivery?.amount === null
+        ? 'Pending quote'
+        : 'KSh ' + Math.round(subtotal + serviceFee + (delivery?.amount || 0)).toLocaleString();
+    }
+  };
+  checkoutDeliveryZone?.addEventListener('change', updateCheckoutFees);
+  updateCheckoutFees();
+
+  checkoutPinLocation?.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      checkoutPinStatus.textContent = 'Location pinning is not supported on this device.';
+      return;
+    }
+    checkoutPinLocation.disabled = true;
+    checkoutPinStatus.textContent = 'Getting your current location…';
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        checkoutCoordinates.value = coords.latitude.toFixed(6) + ',' + coords.longitude.toFixed(6);
+        checkoutPinStatus.textContent = '✓ Location pinned for delivery. It will remain private.';
+        checkoutPinLocation.disabled = false;
+      },
+      () => {
+        checkoutPinStatus.textContent = 'Location could not be pinned. Paste a location link or continue with the written address.';
+        checkoutPinLocation.disabled = false;
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  });
+
   const activityFilterButtons = customerShellModal?.querySelectorAll('[data-activity-filter]');
   const activityEmptyIcon = document.getElementById('activityEmptyIcon');
   const activityEmptyTitle = document.getElementById('activityEmptyTitle');
