@@ -260,7 +260,16 @@
           <div class="profile-shell">
             <div class="profile-completion"><div><strong>Profile completion</strong><span>Basic account information</span></div><b>40%</b></div>
             <div class="profile-progress"><i></i></div>
-            <div class="profile-form-grid"><label><span>Full name</span><input type="text" placeholder="Customer name"></label><label><span>Phone number</span><input type="tel" placeholder="Phone number"></label><label><span>Email address</span><input type="email" placeholder="Email address"></label><label><span>Default location</span><input type="text" placeholder="Town or estate"></label><label class="profile-wide"><span>Nearest landmark</span><input type="text" placeholder="Optional landmark"></label></div>
+            <div class="profile-form-grid">
+              <label><span>Full name</span><input type="text" placeholder="Customer name"></label>
+              <label><span>Phone number</span><input type="tel" placeholder="Phone number"></label>
+              <label class="profile-wide"><span>Email address</span><input type="email" placeholder="Email address"></label>
+              <label><span>County</span><select id="profileCounty" data-admin-managed="customer-counties"><option value="">Select county</option><option value="Siaya">Siaya</option><option value="Kisumu">Kisumu</option><option value="Nairobi">Nairobi</option><option value="Kakamega">Kakamega</option><option value="Bungoma">Bungoma</option><option value="Busia">Busia</option><option value="Homa Bay">Homa Bay</option><option value="Migori">Migori</option></select></label>
+              <label><span>Sub-County</span><select id="profileSubCounty" data-admin-managed="customer-sub-counties" disabled><option value="">Choose a county first</option></select></label>
+              <label><span>Estate / Area</span><input id="profileEstate" type="text" placeholder="Type estate, village or area"></label>
+              <label><span>Nearest landmark <small>(optional)</small></span><input type="text" placeholder="School, road, building or landmark"></label>
+              <p class="profile-location-note profile-wide">📍 Counties and sub-counties are managed by LEOGO Admin and more locations can be added later.</p>
+            </div>
             <div class="profile-shell-actions"><button type="button" data-customer-view="dashboard">Open Dashboard</button><button class="profile-save" type="button">Save Profile</button></div>
             <div class="foundation-preview-note">Visual preview only — profile saving will be connected during Phase 1(C).</div>
           </div>
