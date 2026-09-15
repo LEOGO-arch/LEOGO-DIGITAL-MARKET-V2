@@ -187,23 +187,53 @@
     <div class="customer-shell-layout">
       <nav class="customer-shell-nav" aria-label="Customer area preview">
         <button type="button" data-customer-view="dashboard"><span>▦</span>Dashboard</button>
-        <button type="button" data-customer-view="orders"><span>▤</span>Orders</button>
+        <button type="button" data-customer-view="orders"><span>▤</span>My Activity</button>
+        <button type="button" data-customer-view="aftersales"><span>🛠️</span>Aftersales</button>
         <button type="button" data-customer-view="cart"><span>🛒</span>Cart &amp; Checkout</button>
         <button type="button" data-customer-view="account"><span>♙</span>Account &amp; Profile</button>
         <button type="button" data-customer-view="auth"><span>⇥</span>Login &amp; Register</button>
       </nav>
       <div class="customer-shell-content">
         <section class="customer-view" data-customer-panel="dashboard">
-          <div class="customer-view-title"><div><span>CUSTOMER DASHBOARD</span><h3>Welcome to LEOGO</h3><p>Your marketplace activity will be managed here after login.</p></div><div class="customer-avatar">VO</div></div>
-          <div class="dashboard-stat-grid"><article><small>Active Orders</small><strong>0</strong><span>No active orders</span></article><article><small>Service Requests</small><strong>0</strong><span>No open requests</span></article><article><small>Notifications</small><strong>0</strong><span>You are up to date</span></article><article><small>Saved Items</small><strong>0</strong><span>Nothing saved yet</span></article></div>
-          <div class="dashboard-quick-grid"><button type="button" data-customer-view="cart"><span>🛒</span><strong>View Cart</strong><small>Review items and checkout</small></button><button type="button" data-customer-view="orders"><span>📦</span><strong>My Orders</strong><small>Track current and past orders</small></button><button type="button" data-customer-view="account"><span>👤</span><strong>My Profile</strong><small>Manage customer information</small></button><button type="button" data-close-customer-shell><span>🛍️</span><strong>Continue Shopping</strong><small>Return to the marketplace</small></button></div>
+          <div class="customer-view-title"><div><span>CUSTOMER DASHBOARD</span><h3>Welcome to LEOGO</h3><p>Your purchases, service requests, transport bookings and support will be managed here after login.</p></div><div class="customer-avatar">VO</div></div>
+          <div class="dashboard-stat-grid customer-stat-five"><article><small>Active Orders</small><strong>0</strong><span>No active orders</span></article><article><small>Service Requests</small><strong>0</strong><span>No open requests</span></article><article><small>Transport Bookings</small><strong>0</strong><span>No active bookings</span></article><article><small>Aftersales Cases</small><strong>0</strong><span>No open cases</span></article><article><small>Notifications</small><strong>0</strong><span>You are up to date</span></article></div>
+          <div class="dashboard-quick-grid"><button type="button" data-customer-view="cart"><span>🛒</span><strong>View Cart</strong><small>Review items and checkout</small></button><button type="button" data-customer-view="orders"><span>🧾</span><strong>My Activity</strong><small>Orders, services and transport history</small></button><button type="button" data-customer-view="aftersales"><span>🛠️</span><strong>Aftersales Support</strong><small>Report an issue or request follow-up</small></button><button type="button" data-customer-view="account"><span>👤</span><strong>My Profile</strong><small>Manage customer information</small></button><button type="button" data-close-customer-shell><span>🛍️</span><strong>Continue Shopping</strong><small>Return to the marketplace</small></button></div>
         </section>
 
         <section class="customer-view" data-customer-panel="orders">
-          <div class="customer-view-title"><div><span>ORDERS &amp; HISTORY</span><h3>My Orders</h3><p>Track active purchases and review completed orders.</p></div></div>
-          <div class="orders-filter-row"><button class="active" type="button">All</button><button type="button">Active</button><button type="button">Delivered</button><button type="button">Cancelled</button></div>
-          <div class="customer-empty-state"><span>📦</span><h4>No orders yet</h4><p>Orders placed through LEOGO will appear here with their payment and delivery status.</p><button type="button" data-close-customer-shell>Start Shopping</button></div>
-          <div class="order-status-guide"><span>Order created</span><b>→</b><span>Payment</span><b>→</b><span>Preparing</span><b>→</b><span>Delivery</span><b>→</b><span>Completed</span></div>
+          <div class="customer-view-title"><div><span>COMPLETE ACTIVITY HISTORY</span><h3>My Orders &amp; Bookings</h3><p>Track and review every product order, service request and transport booking in one place.</p></div></div>
+          <div class="orders-filter-row activity-filter-row"><button class="active" type="button">All Activity</button><button type="button">Product Orders</button><button type="button">Services</button><button type="button">Transport</button><button type="button">Active</button><button type="button">Completed</button><button type="button">Cancelled</button></div>
+          <div class="activity-type-grid">
+            <article><span>📦</span><div><strong>Product Orders</strong><small>Items purchased from LEOGO sellers</small></div><b>0</b></article>
+            <article><span>🛠️</span><div><strong>Service Requests</strong><small>Booked and completed service jobs</small></div><b>0</b></article>
+            <article><span>🚚</span><div><strong>Transport Bookings</strong><small>Delivery, parcel and transport activity</small></div><b>0</b></article>
+          </div>
+          <div class="customer-empty-state activity-empty"><span>🧾</span><h4>No previous activity yet</h4><p>Your product orders, service requests and transport bookings will appear here automatically, including their dates, payment and completion status.</p><button type="button" data-close-customer-shell>Explore LEOGO</button></div>
+          <div class="order-status-guide"><span>Requested</span><b>→</b><span>Confirmed</span><b>→</b><span>In progress</span><b>→</b><span>Completed</span><b>→</b><span>Aftersales</span></div>
+        </section>
+
+        <section class="customer-view" data-customer-panel="aftersales">
+          <div class="customer-view-title"><div><span>AFTERSALES SUPPORT</span><h3>Need Help After an Order?</h3><p>Open a support case for a product order, completed service or transport booking.</p></div><span class="aftersales-help-badge">Customer Care</span></div>
+          <div class="aftersales-layout">
+            <form class="aftersales-preview-form">
+              <div class="aftersales-form-grid">
+                <label><span>Related activity</span><select required><option value="">Select an order or booking</option><option>Product order</option><option>Service request</option><option>Transport booking</option></select></label>
+                <label><span>Reference number</span><input type="text" placeholder="Order or booking number" required></label>
+                <label><span>Type of support</span><select required><option value="">Choose the issue</option><option>Wrong or missing item</option><option>Damaged item</option><option>Return or refund request</option><option>Warranty assistance</option><option>Service complaint</option><option>Transport or delivery complaint</option><option>Other follow-up</option></select></label>
+                <label><span>Preferred solution</span><select required><option value="">Choose a solution</option><option>Replacement</option><option>Refund review</option><option>Repair or warranty help</option><option>Service provider follow-up</option><option>Customer-care call</option></select></label>
+                <label class="aftersales-wide"><span>Explain what happened</span><textarea rows="4" placeholder="Give us the details so our support team can assist you" required></textarea></label>
+                <label class="aftersales-wide"><span>Evidence photo or document <small>(optional)</small></span><input type="file" accept="image/*,.pdf"></label>
+              </div>
+              <div class="aftersales-actions"><button type="submit">Submit Aftersales Request</button><span>Private details and uploaded evidence will only be visible to authorized LEOGO administrators.</span></div>
+              <div class="auth-preview-status" id="aftersalesPreviewStatus" aria-live="polite"></div>
+            </form>
+            <aside class="aftersales-guide">
+              <h4>How aftersales works</h4>
+              <ol><li><b>1</b><span><strong>Select the activity</strong><small>Choose the related order, service or transport booking.</small></span></li><li><b>2</b><span><strong>Describe the issue</strong><small>Add clear details and optional evidence.</small></span></li><li><b>3</b><span><strong>Admin review</strong><small>LEOGO customer care reviews and contacts the parties involved.</small></span></li><li><b>4</b><span><strong>Resolution recorded</strong><small>Track the case outcome from your dashboard.</small></span></li></ol>
+              <p>Support: <a href="tel:+254700192545">0700 192 545</a></p>
+            </aside>
+          </div>
+          <div class="foundation-preview-note">Visual preview only — case submission, evidence storage and status tracking will be connected during the backend workflow phase.</div>
         </section>
 
         <section class="customer-view" data-customer-panel="cart">
