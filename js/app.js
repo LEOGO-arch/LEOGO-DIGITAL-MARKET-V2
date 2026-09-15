@@ -332,6 +332,33 @@
       authPreviewStatus.textContent = 'Visual preview only — secure authentication will be connected in Phase 1(B).';
     });
   });
+  const activityFilterButtons = customerShellModal?.querySelectorAll('[data-activity-filter]');
+  const activityEmptyIcon = document.getElementById('activityEmptyIcon');
+  const activityEmptyTitle = document.getElementById('activityEmptyTitle');
+  const activityEmptyText = document.getElementById('activityEmptyText');
+  const activityEmptyMessages = {
+    all: ['🧾', 'No previous activity yet', 'Your product orders, service requests and transport bookings will appear here automatically, including their dates, payment and completion status.'],
+    products: ['📦', 'No product orders yet', 'Your current and previous product orders will appear here when the ordering system is connected.'],
+    services: ['🛠️', 'No service activity yet', 'Your requested, assigned and completed service jobs will appear here when services are connected.'],
+    transport: ['🚚', 'No transport bookings yet', 'Your parcel deliveries and transport bookings will appear here when transport records are connected.'],
+    active: ['⏳', 'No active activity', 'Orders, services and transport bookings currently in progress will appear here.'],
+    completed: ['✅', 'No completed activity', 'Completed orders, services and transport bookings will be stored here for your history.'],
+    cancelled: ['⊘', 'No cancelled activity', 'Any cancelled order, service request or transport booking will appear here with its reason and date.']
+  };
+  activityFilterButtons?.forEach((button) => {
+    button.addEventListener('click', () => {
+      activityFilterButtons.forEach((item) => {
+        const selected = item === button;
+        item.classList.toggle('active', selected);
+        item.setAttribute('aria-pressed', String(selected));
+      });
+      const message = activityEmptyMessages[button.dataset.activityFilter] || activityEmptyMessages.all;
+      activityEmptyIcon.textContent = message[0];
+      activityEmptyTitle.textContent = message[1];
+      activityEmptyText.textContent = message[2];
+    });
+  });
+
   const aftersalesPreviewForm = customerShellModal?.querySelector('.aftersales-preview-form');
   const aftersalesPreviewStatus = document.getElementById('aftersalesPreviewStatus');
   aftersalesPreviewForm?.addEventListener('submit', (event) => {
