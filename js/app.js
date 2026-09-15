@@ -130,4 +130,62 @@
     sellingFormStatus.textContent = 'Form design complete. Live submission and admin approval will be connected in the marketplace workflow phase.';
   });
 
+  const openLeogoBar = document.getElementById('openLeogoBar');
+  const barConsentModal = document.getElementById('barConsentModal');
+  const barAgeConsent = document.getElementById('barAgeConsent');
+  const enterLeogoBar = document.getElementById('enterLeogoBar');
+  const barConsentStatus = document.getElementById('barConsentStatus');
+  const barSection = document.getElementById('leogo-bar');
+  const reviewBarWarning = document.getElementById('reviewBarWarning');
+  const barConsentKey = 'leogo_bar_18_consent';
+
+  const closeBarConsent = () => {
+    if (!barConsentModal) return;
+    barConsentModal.classList.remove('is-open');
+    barConsentModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('bar-consent-open');
+  };
+
+  const showBarConsent = () => {
+    if (!barConsentModal) return;
+    barConsentModal.classList.add('is-open');
+    barConsentModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('bar-consent-open');
+    barConsentStatus.textContent = '';
+    window.setTimeout(() => barAgeConsent?.focus(), 50);
+  };
+
+  const revealLeogoBar = () => {
+    if (!barSection) return;
+    barSection.hidden = false;
+    closeBarConsent();
+    window.setTimeout(() => barSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40);
+  };
+
+  openLeogoBar?.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (sessionStorage.getItem(barConsentKey) === 'accepted') revealLeogoBar();
+    else showBarConsent();
+  });
+
+  reviewBarWarning?.addEventListener('click', showBarConsent);
+  barConsentModal?.querySelectorAll('[data-close-bar-consent]').forEach((button) => {
+    button.addEventListener('click', closeBarConsent);
+  });
+  barAgeConsent?.addEventListener('change', () => {
+    enterLeogoBar.disabled = !barAgeConsent.checked;
+    barConsentStatus.textContent = '';
+  });
+  enterLeogoBar?.addEventListener('click', () => {
+    if (!barAgeConsent.checked) {
+      barConsentStatus.textContent = 'You must confirm that you are 18 years or older before entering.';
+      return;
+    }
+    sessionStorage.setItem(barConsentKey, 'accepted');
+    revealLeogoBar();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && barConsentModal?.classList.contains('is-open')) closeBarConsent();
+  });
+
 })();
