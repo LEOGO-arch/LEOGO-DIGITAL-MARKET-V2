@@ -89,3 +89,19 @@
 .profile-form-grid select:disabled{background:#f2f5f9;color:#8b94a3;cursor:not-allowed}
 .profile-form-grid label small{color:#7a8495;font-weight:600}
 .profile-location-note{margin:0;padding:10px 12px;border-radius:10px;background:#fff6ed;color:#8c4a13;font-size:9px;line-height:1.45}
+
+
+/* Phase 1(A): checkout address and editable fee rules */
+.checkout-address{display:grid;gap:10px;margin:12px 0;padding:13px;border:1px solid #dce2ec;border-radius:13px;background:#fbfcfe}
+.checkout-address legend{padding:0 6px;color:#07152f;font-size:10px;font-weight:900}
+.checkout-shell select,.checkout-shell input{width:100%;box-sizing:border-box;border:1px solid #dce2ec;border-radius:9px;padding:10px;background:#fff;color:#07152f;font:inherit}
+.checkout-shell select:disabled{background:#f2f5f9;color:#8b94a3}
+.checkout-shell label small{color:#7a8495;font-weight:600}
+.checkout-pin-status{min-height:14px;margin:0;color:#39734d;font-size:9px;line-height:1.4}
+.checkout-zone-wrap{margin:12px 0;padding:12px;border-radius:12px;background:#eef4fc}
+.checkout-zone-wrap p{margin:8px 0 0;color:#627087;font-size:9px;line-height:1.45}
+.checkout-fee-rules{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;margin:12px 0;padding:11px;border:1px solid #ffd8b8;border-radius:11px;background:#fff7f0;color:#6f3c13;font-size:9px}
+.checkout-fee-rules strong{grid-column:1/-1;color:#07152f}
+.checkout-fee-rules b{color:#e35f00}
+.checkout-total-row small{color:#7a8495;font-weight:600}
+@media(max-width:600px){.checkout-fee-rules{grid-template-columns:1fr}.checkout-fee-rules strong{grid-column:auto}}
