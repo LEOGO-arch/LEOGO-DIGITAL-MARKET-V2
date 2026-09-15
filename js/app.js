@@ -279,4 +279,61 @@
     if (event.key === 'Escape' && advertRequestModal?.classList.contains('is-open')) closeAdvertRequest();
   });
 
+  const customerShellModal = document.getElementById('customerShellModal');
+  const customerShellViews = customerShellModal?.querySelectorAll('[data-customer-panel]');
+  const customerShellNavButtons = customerShellModal?.querySelectorAll('.customer-shell-nav [data-customer-view]');
+  const authPreviewTabs = customerShellModal?.querySelectorAll('[data-auth-tab]');
+  const authPreviewPanels = customerShellModal?.querySelectorAll('[data-auth-panel]');
+  const authPreviewStatus = document.getElementById('authPreviewStatus');
+
+  const showCustomerView = (viewName) => {
+    customerShellViews?.forEach((panel) => panel.classList.toggle('active', panel.dataset.customerPanel === viewName));
+    customerShellNavButtons?.forEach((button) => button.classList.toggle('active', button.dataset.customerView === viewName));
+    customerShellModal?.querySelector('.customer-shell-content')?.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  const closeCustomerShell = () => {
+    if (!customerShellModal) return;
+    customerShellModal.classList.remove('is-open');
+    customerShellModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('customer-shell-open');
+  };
+
+  const openCustomerShell = (viewName = 'dashboard') => {
+    if (!customerShellModal) return;
+    showCustomerView(viewName);
+    customerShellModal.classList.add('is-open');
+    customerShellModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('customer-shell-open');
+  };
+
+  document.querySelectorAll('[data-open-customer-view]').forEach((trigger) => {
+    trigger.addEventListener('click', (event) => {
+      event.preventDefault();
+      openCustomerShell(trigger.dataset.openCustomerView);
+    });
+  });
+  customerShellModal?.querySelectorAll('[data-customer-view]').forEach((button) => {
+    button.addEventListener('click', () => showCustomerView(button.dataset.customerView));
+  });
+  customerShellModal?.querySelectorAll('[data-close-customer-shell]').forEach((button) => {
+    button.addEventListener('click', closeCustomerShell);
+  });
+  authPreviewTabs?.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      authPreviewTabs.forEach((item) => item.classList.toggle('active', item === tab));
+      authPreviewPanels?.forEach((panel) => panel.classList.toggle('active', panel.dataset.authPanel === tab.dataset.authTab));
+      authPreviewStatus.textContent = '';
+    });
+  });
+  authPreviewPanels?.forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      authPreviewStatus.textContent = 'Visual preview only — secure authentication will be connected in Phase 1(B).';
+    });
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && customerShellModal?.classList.contains('is-open')) closeCustomerShell();
+  });
+
 })();
