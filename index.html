@@ -52,7 +52,7 @@
       <h3>Promote your business to customers across Kenya</h3>
       <p>Approved advertisement headlines, descriptions and promotional information written or uploaded by LEOGO Admin will be displayed in this large featured space.</p>
       <div class="advertisement-meta"><span>✓ Admin approved</span><span>✓ Poster and written information</span></div>
-      <button type="button">View Advertisement</button>
+      <div class="advertisement-actions"><a href="tel:0700192545">☎ Contact Us: 0700192545</a><button id="openAdvertRequest" type="button" aria-haspopup="dialog" aria-controls="advertRequestModal">Submit Advertisement Request</button></div>
     </div>
   </article>
   <p class="advertisement-control-note">Only authorized LEOGO administrators can upload, publish, edit or remove advertisements shown here.</p>
@@ -160,6 +160,21 @@
     <label class="premium-consent-check"><input id="premiumResponsibilityConsent" type="checkbox"><span>I understand and accept that LEOGO is not responsible for actions, relationships, meetings or activities after users connect.</span></label>
     <div class="premium-consent-status" id="premiumConsentStatus" aria-live="polite"></div>
     <div class="premium-consent-actions"><button class="premium-exit-button" type="button" data-close-premium-consent>Exit</button><button class="premium-agree-button" id="enterPremiumArea" type="button" disabled>Agree &amp; Enter Premium 18+</button></div>
+  </section>
+</div>
+<div class="advert-request-modal" id="advertRequestModal" role="dialog" aria-modal="true" aria-labelledby="advertRequestTitle" aria-hidden="true">
+  <div class="advert-request-backdrop" data-close-advert-request></div>
+  <section class="advert-request-card">
+    <div class="advert-request-head"><div><span>ADVERTISE WITH LEOGO</span><h2 id="advertRequestTitle">Submit an advertisement request</h2></div><button type="button" aria-label="Close advertisement request form" data-close-advert-request>×</button></div>
+    <p>Tell us what you want to advertise. LEOGO Admin will review the request before anything is published.</p>
+    <form id="advertRequestForm">
+      <label><span>Name</span><input id="advertRequestName" name="name" type="text" autocomplete="name" placeholder="Your full name" required></label>
+      <label><span>Phone number</span><input id="advertRequestPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="e.g. 0700 192 545" required></label>
+      <label><span>What do you want to advertise?</span><textarea id="advertRequestDetails" name="advertisement" rows="5" maxlength="500" placeholder="Describe the business, product, service, event or announcement" required></textarea></label>
+      <div class="advert-request-privacy">🔒 Your name, phone number and request details will be visible only to authorized LEOGO administrators during review.</div>
+      <div class="advert-request-status" id="advertRequestStatus" aria-live="polite"></div>
+      <div class="advert-request-form-actions"><button class="advert-request-cancel" type="button" data-close-advert-request>Cancel</button><button class="advert-request-submit" type="submit">Submit Request</button></div>
+    </form>
   </section>
 </div>
 </main><nav class="mobile-nav"><a class="active" href="#home"><span>⌂</span>Home</a><a href="#catalogue"><span>▤</span>Orders</a><a href="#catalogue"><span>🛒</span>Cart</a><a href="#services"><span>○</span>Chats</a><a href="#services"><span>♙</span>Account</a></nav><footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="js/app.js" defer></script></body></html>
