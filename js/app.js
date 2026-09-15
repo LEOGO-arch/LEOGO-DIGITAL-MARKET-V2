@@ -332,6 +332,35 @@
       authPreviewStatus.textContent = 'Visual preview only — secure authentication will be connected in Phase 1(B).';
     });
   });
+  const profileCounty = document.getElementById('profileCounty');
+  const profileSubCounty = document.getElementById('profileSubCounty');
+  // Phase 1(A) starter locations. These will be loaded from Admin-managed records later.
+  const profileSubCounties = {
+    'Siaya': ['Alego Usonga', 'Bondo', 'Gem', 'Rarieda', 'Ugenya', 'Ugunja'],
+    'Kisumu': ['Kisumu Central', 'Kisumu East', 'Kisumu West', 'Muhoroni', 'Nyakach', 'Nyando', 'Seme'],
+    'Nairobi': ['Dagoretti North', 'Dagoretti South', 'Embakasi Central', 'Embakasi East', 'Embakasi North', 'Embakasi South', 'Embakasi West', 'Kamukunji', 'Kasarani', 'Kibra', "Lang'ata", 'Makadara', 'Mathare', 'Roysambu', 'Ruaraka', 'Starehe', 'Westlands'],
+    'Kakamega': ['Butere', 'Kakamega Central', 'Kakamega East', 'Kakamega North', 'Kakamega South', 'Khwisero', 'Likuyani', 'Lugari', 'Matete', 'Mumias East', 'Mumias West', 'Navakholo'],
+    'Bungoma': ['Bumula', 'Kabuchai', 'Kanduyi', 'Kimilili', 'Mt. Elgon', 'Sirisia', 'Tongaren', 'Webuye East', 'Webuye West'],
+    'Busia': ['Budadangi', 'Butula', 'Funyula', 'Matayos', 'Nambale', 'Teso North', 'Teso South'],
+    'Homa Bay': ['Homa Bay Town', 'Ndhiwa', 'Rachuonyo East', 'Rachuonyo North', 'Rachuonyo South', 'Rangwe', 'Suba North', 'Suba South'],
+    'Migori': ['Awendo', 'Kuria East', 'Kuria West', 'Nyatike', 'Rongo', 'Suna East', 'Suna West', 'Uriri']
+  };
+  profileCounty?.addEventListener('change', () => {
+    const options = profileSubCounties[profileCounty.value] || [];
+    profileSubCounty.replaceChildren();
+    const prompt = document.createElement('option');
+    prompt.value = '';
+    prompt.textContent = options.length ? 'Select sub-county' : 'Choose a county first';
+    profileSubCounty.appendChild(prompt);
+    options.forEach((subCounty) => {
+      const option = document.createElement('option');
+      option.value = subCounty;
+      option.textContent = subCounty;
+      profileSubCounty.appendChild(option);
+    });
+    profileSubCounty.disabled = options.length === 0;
+  });
+
   const activityFilterButtons = customerShellModal?.querySelectorAll('[data-activity-filter]');
   const activityEmptyIcon = document.getElementById('activityEmptyIcon');
   const activityEmptyTitle = document.getElementById('activityEmptyTitle');
