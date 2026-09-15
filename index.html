@@ -240,17 +240,36 @@
           <div class="customer-view-title"><div><span>CART &amp; CHECKOUT</span><h3>Your Cart</h3><p>Review quantities, delivery information and the full cost before confirming.</p></div><span class="cart-shell-count">0 items</span></div>
           <div class="cart-checkout-grid">
             <div class="cart-shell-items"><div class="customer-empty-state compact"><span>🛒</span><h4>Your cart is empty</h4><p>Add approved products before proceeding to checkout.</p><button type="button" data-close-customer-shell>Browse Products</button></div></div>
-            <aside class="checkout-shell">
+            <aside class="checkout-shell" data-checkout-subtotal="0">
               <h4>Checkout summary</h4>
               <label><span>Receiver name</span><input type="text" placeholder="Full name"></label>
               <label><span>Contact number</span><input type="tel" placeholder="Phone number"></label>
-              <label><span>Delivery location</span><input type="text" placeholder="Town, estate or landmark"></label>
-              <button class="checkout-pin" type="button">📍 Add location pin <small>(optional)</small></button>
-              <div class="checkout-total-row"><span>Items subtotal</span><strong>KSh 0</strong></div>
-              <div class="checkout-total-row"><span>Service fee</span><strong>KSh 0</strong></div>
-              <div class="checkout-total-row"><span>Delivery fee</span><strong>KSh 0</strong></div>
-              <div class="checkout-total-row grand"><span>Grand total</span><strong>KSh 0</strong></div>
+              <fieldset class="checkout-address">
+                <legend>Delivery location</legend>
+                <label><span>County</span><select id="checkoutCounty" data-admin-managed="checkout-counties"><option value="">Select county</option><option value="Siaya">Siaya</option><option value="Kisumu">Kisumu</option><option value="Nairobi">Nairobi</option><option value="Kakamega">Kakamega</option><option value="Bungoma">Bungoma</option><option value="Busia">Busia</option><option value="Homa Bay">Homa Bay</option><option value="Migori">Migori</option></select></label>
+                <label><span>Sub-County</span><select id="checkoutSubCounty" data-admin-managed="checkout-sub-counties" disabled><option value="">Choose a county first</option></select></label>
+                <label><span>Estate / Area</span><input id="checkoutEstate" type="text" placeholder="Type estate, village or area"></label>
+                <label><span>Nearest landmark</span><input id="checkoutLandmark" type="text" placeholder="School, road or building"></label>
+                <label><span>Location link <small>(optional)</small></span><input id="checkoutLocationLink" type="url" placeholder="Paste Google Maps or location link"></label>
+                <button class="checkout-pin" id="checkoutPinLocation" type="button">📍 Pin current location <small>(optional)</small></button>
+                <input id="checkoutCoordinates" type="hidden">
+                <p class="checkout-pin-status" id="checkoutPinStatus" aria-live="polite"></p>
+              </fieldset>
+              <div class="checkout-zone-wrap" data-admin-managed="delivery-fee-rules">
+                <label><span>Delivery zone</span><select id="checkoutDeliveryZone"><option value="">Select delivery zone</option><option value="cbd">Same local town — CBD (KSh 50)</option><option value="estate">Local estate (KSh 80)</option><option value="outside">Outside town (from KSh 200)</option><option value="quote">Far location / large parcel — request quote</option></select></label>
+                <p>Standard KSh 50/80 rates apply to parcels below 50 kg and up to 1 m². Far locations, heavier or oversized parcels are sent to LEOGO Admin/Staff for delivery-price negotiation.</p>
+              </div>
+              <div class="checkout-fee-rules" data-admin-managed="checkout-fee-settings">
+                <strong>Service fee rules</strong>
+                <span>Orders up to KSh 2,999: <b>2%</b></span>
+                <span>Orders from KSh 3,000: <b>1.5%</b></span>
+              </div>
+              <div class="checkout-total-row"><span>Items subtotal</span><strong id="checkoutSubtotalValue">KSh 0</strong></div>
+              <div class="checkout-total-row"><span>Service fee <small id="checkoutServiceRate">(2%)</small></span><strong id="checkoutServiceFeeValue">KSh 0</strong></div>
+              <div class="checkout-total-row"><span>Delivery fee</span><strong id="checkoutDeliveryFeeValue">Select zone</strong></div>
+              <div class="checkout-total-row grand"><span>Grand total</span><strong id="checkoutGrandTotalValue">KSh 0</strong></div>
               <button class="checkout-confirm" type="button" disabled>Proceed to Checkout</button>
+              <div class="foundation-preview-note">Fee percentages, delivery zones and prices can be edited later from the Admin Dashboard.</div>
             </aside>
           </div>
         </section>
