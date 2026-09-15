@@ -3,15 +3,115 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="LEOGO DIGITAL MARKET V2">
+  <meta name="description" content="LEOGO DIGITAL MARKET V2 — Everything you need deliver at your Door Step.">
+  <meta name="theme-color" content="#0b5cab">
   <title>LEOGO DIGITAL MARKET V2</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <main id="app" aria-live="polite">
-    <h1>LEOGO DIGITAL MARKET V2</h1>
-    <p>Project foundation initialized. Marketplace features will be added only through the approved build sequence.</p>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#home" aria-label="LEOGO Digital Market home">
+        <span class="brand-mark" aria-hidden="true">L</span>
+        <span class="brand-text">
+          <strong>LEOGO</strong>
+          <small>DIGITAL MARKET</small>
+        </span>
+      </a>
+
+      <nav class="desktop-nav" aria-label="Primary navigation">
+        <a class="active" href="#home">Home</a>
+        <a href="#goods">Goods</a>
+        <a href="#services">Services</a>
+        <a href="#transport">Transport</a>
+        <a href="#looking">What Are You Looking For?</a>
+      </nav>
+
+      <div class="header-actions">
+        <a class="icon-action" href="#cart" aria-label="Cart">🛒<span class="badge">0</span></a>
+        <a class="account-button" href="#account">Login</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="home">
+    <section class="hero-section" aria-labelledby="hero-title">
+      <div class="hero-content">
+        <span class="eyebrow">LEOGO DIGITAL MARKET</span>
+        <h1 id="hero-title">Everything you need,<br><span>delivered to your doorstep.</span></h1>
+        <p>Shop goods, discover services and connect with trusted local providers — all from one place.</p>
+        <div class="hero-actions">
+          <a class="primary-button" href="#goods">Start Shopping</a>
+          <a class="secondary-button" href="#services">Explore Services</a>
+        </div>
+      </div>
+      <div class="hero-card" aria-label="LEOGO marketplace preview">
+        <div class="hero-card-top"><span>Popular near you</span><span class="status-dot">●</span></div>
+        <div class="preview-grid">
+          <div class="preview-tile">🍲<strong>Food & Drinks</strong></div>
+          <div class="preview-tile">🛒<strong>Groceries</strong></div>
+          <div class="preview-tile">💊<strong>Pharmacy</strong></div>
+          <div class="preview-tile">📦<strong>Dry Goods</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="goods" aria-labelledby="goods-title">
+      <div class="section-heading">
+        <div><span class="eyebrow">SHOP</span><h2 id="goods-title">Browse Goods</h2></div>
+        <a href="#goods">View all</a>
+      </div>
+      <div class="category-grid">
+        <a class="category-card" href="#goods"><span>🍲</span><strong>Food & Drinks</strong><small>Meals, drinks & snacks</small></a>
+        <a class="category-card" href="#goods"><span>🛒</span><strong>Groceries</strong><small>Everyday essentials</small></a>
+        <a class="category-card" href="#goods"><span>💊</span><strong>Pharmacy</strong><small>Health & wellness items</small></a>
+        <a class="category-card" href="#goods"><span>📦</span><strong>Dry Goods</strong><small>Household & general goods</small></a>
+        <a class="category-card" href="#goods"><span>🏪</span><strong>Marketplace</strong><small>Items from local sellers</small></a>
+      </div>
+    </section>
+
+    <section class="section muted-section" id="services" aria-labelledby="services-title">
+      <div class="section-heading">
+        <div><span class="eyebrow">DISCOVER</span><h2 id="services-title">Services</h2></div>
+      </div>
+      <div class="service-strip">
+        <a href="#services">🧹 <strong>Cleaning</strong><small>Find a provider</small></a>
+        <a href="#services">🧺 <strong>Laundry</strong><small>Convenient service</small></a>
+        <a href="#services">💧 <strong>Water Delivery</strong><small>Delivered to you</small></a>
+        <a href="#services">🗑️ <strong>Garbage Collection</strong><small>Local providers</small></a>
+      </div>
+    </section>
+
+    <section class="quick-links" aria-label="More LEOGO services">
+      <a href="#transport"><span>🚚</span><div><strong>Transport & Parcel</strong><small>Move goods and parcels</small></div></a>
+      <a href="#looking"><span>🔎</span><div><strong>What Are You Looking For?</strong><small>Tell LEOGO what you need</small></div></a>
+      <a href="#advertisement"><span>📢</span><div><strong>Advertisement</strong><small>Discover local opportunities</small></div></a>
+      <a href="#premium"><span>🔞</span><div><strong>Premium 18+</strong><small>Protected members area</small></div></a>
+    </section>
+
+    <section class="trust-section" aria-label="LEOGO benefits">
+      <div><span>✓</span><strong>Local discovery</strong><small>Find goods and services in one marketplace.</small></div>
+      <div><span>✓</span><strong>Multiple sellers</strong><small>Discover products from approved marketplace sellers.</small></div>
+      <div><span>✓</span><strong>Doorstep delivery</strong><small>Delivery options will be connected in later phases.</small></div>
+    </section>
   </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need deliver at your Door Step.</p></div>
+      <div class="footer-links"><a href="#feedback">Feedback</a><a href="#testimonies">Testimonies</a><a href="#account">Account</a></div>
+    </div>
+    <p class="footer-note">© <span id="year"></span> LEOGO DIGITAL MARKET. All rights reserved.</p>
+  </footer>
+
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <a class="active" href="#home"><span>⌂</span>Home</a>
+    <a href="#goods"><span>🛍</span>Goods</a>
+    <a href="#services"><span>⚒</span>Services</a>
+    <a href="#cart"><span>🛒</span>Cart</a>
+    <a href="#account"><span>👤</span>Account</a>
+  </nav>
+
   <script src="js/app.js" defer></script>
 </body>
 </html>
