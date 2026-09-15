@@ -2,8 +2,6 @@ name: Import official LEOGO logo
 
 on:
   push:
-    paths:
-      - '.github/workflows/import-official-logo.yml'
   workflow_dispatch:
 
 permissions:
@@ -11,6 +9,7 @@ permissions:
 
 jobs:
   import-logo:
+    if: github.actor != 'LEOGO-V2-Build-Bot'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,5 +33,5 @@ jobs:
           git config user.email 'leogodigitalmarket2@gmail.com'
           git add assets/images/leogo-official-logo.jpg
           git diff --cached --quiet && exit 0
-          git commit -m 'Phase 1A: add exact official LEOGO logo asset'
+          git commit -m 'Phase 1A: add exact official LEOGO logo asset [skip ci]'
           git push
