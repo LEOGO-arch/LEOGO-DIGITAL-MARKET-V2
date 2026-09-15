@@ -332,6 +332,14 @@
       authPreviewStatus.textContent = 'Visual preview only — secure authentication will be connected in Phase 1(B).';
     });
   });
+  const aftersalesPreviewForm = customerShellModal?.querySelector('.aftersales-preview-form');
+  const aftersalesPreviewStatus = document.getElementById('aftersalesPreviewStatus');
+  aftersalesPreviewForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!aftersalesPreviewForm.reportValidity()) return;
+    aftersalesPreviewStatus.textContent = 'Visual preview only — your support case will be securely submitted and tracked when the backend workflow is connected.';
+  });
+
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && customerShellModal?.classList.contains('is-open')) closeCustomerShell();
   });
