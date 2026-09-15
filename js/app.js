@@ -244,4 +244,39 @@
     if (event.key === 'Escape' && premiumConsentModal?.classList.contains('is-open')) closePremiumConsent();
   });
 
+  const openAdvertRequest = document.getElementById('openAdvertRequest');
+  const advertRequestModal = document.getElementById('advertRequestModal');
+  const advertRequestForm = document.getElementById('advertRequestForm');
+  const advertRequestStatus = document.getElementById('advertRequestStatus');
+
+  const closeAdvertRequest = () => {
+    if (!advertRequestModal) return;
+    advertRequestModal.classList.remove('is-open');
+    advertRequestModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('advert-request-open');
+    openAdvertRequest?.focus();
+  };
+
+  const showAdvertRequest = () => {
+    if (!advertRequestModal) return;
+    advertRequestModal.classList.add('is-open');
+    advertRequestModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('advert-request-open');
+    advertRequestStatus.textContent = '';
+    window.setTimeout(() => document.getElementById('advertRequestName')?.focus(), 50);
+  };
+
+  openAdvertRequest?.addEventListener('click', showAdvertRequest);
+  advertRequestModal?.querySelectorAll('[data-close-advert-request]').forEach((button) => {
+    button.addEventListener('click', closeAdvertRequest);
+  });
+  advertRequestForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!advertRequestForm.reportValidity()) return;
+    advertRequestStatus.textContent = 'Form design complete. Live submission and Admin review will be connected in the Admin workflow phase.';
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && advertRequestModal?.classList.contains('is-open')) closeAdvertRequest();
+  });
+
 })();
