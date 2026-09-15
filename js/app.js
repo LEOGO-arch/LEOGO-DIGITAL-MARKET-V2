@@ -188,4 +188,60 @@
     if (event.key === 'Escape' && barConsentModal?.classList.contains('is-open')) closeBarConsent();
   });
 
+  const openPremiumConsent = document.getElementById('openPremiumConsent');
+  const premiumConsentModal = document.getElementById('premiumConsentModal');
+  const premiumAgeConsent = document.getElementById('premiumAgeConsent');
+  const premiumResponsibilityConsent = document.getElementById('premiumResponsibilityConsent');
+  const enterPremiumArea = document.getElementById('enterPremiumArea');
+  const premiumConsentStatus = document.getElementById('premiumConsentStatus');
+  const premiumEntryStatus = document.getElementById('premiumEntryStatus');
+  const premiumConsentKey = 'leogo_premium_18_consent';
+
+  const closePremiumConsent = () => {
+    if (!premiumConsentModal) return;
+    premiumConsentModal.classList.remove('is-open');
+    premiumConsentModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('premium-consent-open');
+  };
+
+  const showPremiumConsent = () => {
+    if (!premiumConsentModal) return;
+    premiumConsentModal.classList.add('is-open');
+    premiumConsentModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('premium-consent-open');
+    premiumConsentStatus.textContent = '';
+    window.setTimeout(() => premiumAgeConsent?.focus(), 50);
+  };
+
+  const updatePremiumConsentButton = () => {
+    enterPremiumArea.disabled = !(premiumAgeConsent.checked && premiumResponsibilityConsent.checked);
+    premiumConsentStatus.textContent = '';
+  };
+
+  openPremiumConsent?.addEventListener('click', () => {
+    if (sessionStorage.getItem(premiumConsentKey) === 'accepted') {
+      premiumEntryStatus.textContent = '✓ Consent accepted for this session. Sign-in, verification and membership access will be connected in the Premium phase.';
+      return;
+    }
+    showPremiumConsent();
+  });
+  premiumAgeConsent?.addEventListener('change', updatePremiumConsentButton);
+  premiumResponsibilityConsent?.addEventListener('change', updatePremiumConsentButton);
+  premiumConsentModal?.querySelectorAll('[data-close-premium-consent]').forEach((button) => {
+    button.addEventListener('click', closePremiumConsent);
+  });
+  enterPremiumArea?.addEventListener('click', () => {
+    if (!(premiumAgeConsent.checked && premiumResponsibilityConsent.checked)) {
+      premiumConsentStatus.textContent = 'Both confirmations are required before entering Premium.';
+      return;
+    }
+    sessionStorage.setItem(premiumConsentKey, 'accepted');
+    closePremiumConsent();
+    premiumEntryStatus.textContent = '✓ Consent accepted for this session. Sign-in, verification and membership access will be connected in the Premium phase.';
+    document.getElementById('premium')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && premiumConsentModal?.classList.contains('is-open')) closePremiumConsent();
+  });
+
 })();
