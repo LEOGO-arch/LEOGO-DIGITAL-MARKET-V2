@@ -217,3 +217,19 @@
 .lpp-collection-lock{margin:10px 0;padding:9px 11px;border-radius:9px;background:#edf3fb;color:#33435b;font-size:9px;font-weight:700}
 .lpp-deadline-warning{background:#fff0f0;color:#a12c2c}
 @media(max-width:600px){.lpp-plan-terms{grid-template-columns:1fr}}
+
+
+/* Lipa Pole Pole cancellation request */
+.lpp-plan-actions .lpp-cancel-button{background:#fff0f0;color:#a12626;border:1px solid #f1bcbc}
+.lpp-plan-actions button:disabled{opacity:.45;cursor:not-allowed}
+.lpp-cancel-form[hidden]{display:none!important}
+.lpp-cancel-form{display:grid;gap:10px;margin-top:12px;padding:14px;border:1px solid #efb8b8;border-radius:12px;background:#fff7f7}
+.lpp-cancel-form h5{margin:0;color:#8e2424;font-size:13px}
+.lpp-cancel-form label{display:grid;gap:5px;color:#07152f;font-size:9px;font-weight:800}
+.lpp-cancel-form select,.lpp-cancel-form textarea{width:100%;box-sizing:border-box;border:1px solid #d8dee8;border-radius:9px;padding:10px;background:#fff;font:inherit;font-size:9px}
+.lpp-cancel-form>button{border:0;border-radius:9px;padding:10px;background:#b52c2c;color:#fff;font-size:9px;font-weight:900;cursor:pointer}
+.lpp-refund-preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.lpp-refund-preview div{padding:10px;border-radius:9px;background:#fff}
+.lpp-refund-preview span,.lpp-refund-preview strong{display:block}.lpp-refund-preview span{color:#737d8d;font-size:8px}.lpp-refund-preview strong{margin-top:4px;color:#07152f;font-size:10px}
+.lpp-cancellation-pending{margin:10px 0;padding:10px;border-radius:9px;background:#fff0f0;color:#8e2d2d;font-size:9px;line-height:1.45}
+@media(max-width:600px){.lpp-plan-actions{flex-direction:column}.lpp-refund-preview{grid-template-columns:1fr}}
