@@ -18,8 +18,22 @@
   const googleLoginButton = document.getElementById('customerGoogleLoginButton');
   const headerLoginButton = document.getElementById('openLoginShell');
   const authNavButton = document.querySelector('.customer-shell-nav [data-customer-view="auth"]');
+  const profileForm = document.getElementById('customerProfileForm');
+  const profileStatus = document.getElementById('profileSaveStatus');
+  const profileCompletionText = document.getElementById('profileCompletionText');
+  const profileCompletionBar = document.getElementById('profileCompletionBar');
+  const profileFields = {
+    fullName: document.getElementById('profileFullName'),
+    phone: document.getElementById('profilePhone'),
+    email: document.getElementById('profileEmail'),
+    county: document.getElementById('profileCounty'),
+    subCounty: document.getElementById('profileSubCounty'),
+    estate: document.getElementById('profileEstate'),
+    nearestLandmark: document.getElementById('profileNearestLandmark')
+  };
   let currentSession = null;
   let authReady = false;
+  let profileLoadedFor = '';
 
   const setStatus = (message = '', type = '') => {
     if (!statusBox) return;
@@ -77,6 +91,8 @@
     setText('signedInCustomerPhone', phone || 'Phone not added');
     setText('dashboardCustomerName', signedIn ? 'Welcome, ' + firstName(currentSession) : 'Welcome to LEOGO');
     setText('dashboardCustomerAvatar', signedIn ? initials(currentSession) : 'LC');
+    setText('profileCustomerAvatar', signedIn ? initials(currentSession) : 'LC');
+    if (!signedIn) profileLoadedFor = '';
   };
 
   const openAuth = (message = 'Please log in or create an account to continue.') => {
@@ -111,6 +127,66 @@
     if (/^2547\d{8}$/.test(compact)) return '+' + compact;
     if (/^\+2547\d{8}$/.test(compact)) return compact;
     return '';
+  };
+
+  const setProfileStatus = (message = '', type = '') => {
+    if (!profileStatus) return;
+    profileStatus.textContent = message;
+    profileStatus.classList.toggle('is-error', type === 'error');
+    profileStatus.classList.toggle('is-success', type === 'success');
+  };
+
+  const updateProfileCompletion = () => {
+    const requiredValues = [
+      profileFields.fullName?.value.trim(),
+      profileFields.phone?.value.trim(),
+      profileFields.email?.value.trim(),
+      profileFields.county?.value,
+      profileFields.subCounty?.value,
+      profileFields.estate?.value.trim()
+    ];
+    const completed = requiredValues.filter(Boolean).length;
+    const percentage = Math.round((completed / requiredValues.length) * 100);
+    if (profileCompletionText) profileCompletionText.textContent = percentage + '%';
+    if (profileCompletionBar) profileCompletionBar.style.width = percentage + '%';
+  };
+
+  const applyProfileValues = (user, profile = null) => {
+    if (!profileForm || !user) return;
+    const metadata = user.user_metadata || {};
+    if (profileFields.fullName) profileFields.fullName.value = profile?.full_name || metadata.full_name || metadata.name || '';
+    if (profileFields.phone) profileFields.phone.value = profile?.phone || metadata.phone || '';
+    if (profileFields.email) profileFields.email.value = user.email || '';
+    if (profileFields.county) {
+      profileFields.county.value = profile?.county || '';
+      profileFields.county.dispatchEvent(new Event('change'));
+    }
+    if (profileFields.subCounty) profileFields.subCounty.value = profile?.sub_county || '';
+    if (profileFields.estate) profileFields.estate.value = profile?.estate || '';
+    if (profileFields.nearestLandmark) profileFields.nearestLandmark.value = profile?.nearest_landmark || '';
+    updateProfileCompletion();
+  };
+
+  const loadCustomerProfile = async (session, force = false) => {
+    const user = session?.user;
+    if (!user || !profileForm) return;
+    if (!force && profileLoadedFor === user.id) return;
+    profileLoadedFor = user.id;
+    applyProfileValues(user);
+    setProfileStatus('Loading your saved profile…');
+    const { data, error } = await authClient
+      .from('customer_profiles')
+      .select('full_name, phone, county, sub_county, estate, nearest_landmark')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (currentSession?.user?.id !== user.id) return;
+    if (error) {
+      profileLoadedFor = '';
+      setProfileStatus('Your profile could not be loaded. Please refresh and try again.', 'error');
+      return;
+    }
+    applyProfileValues(user, data);
+    setProfileStatus(data ? 'Your saved profile is ready.' : 'Complete your delivery profile and select Save Profile.', data ? 'success' : '');
   };
 
   if (!supabaseFactory) {
@@ -241,6 +317,60 @@
     }
   });
 
+  profileForm?.addEventListener('input', updateProfileCompletion);
+  profileForm?.addEventListener('change', updateProfileCompletion);
+
+  profileForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!currentSession?.user) {
+      openAuth('Please log in before saving your profile.');
+      return;
+    }
+    if (!profileForm.reportValidity()) return;
+    runOnce(profileForm, async () => {
+      const fullName = profileFields.fullName.value.trim();
+      const phone = normalizeKenyanPhone(profileFields.phone.value);
+      if (!phone) {
+        setProfileStatus('Enter a valid Kenyan mobile number, for example 0700 192 545.', 'error');
+        profileFields.phone.focus();
+        return;
+      }
+      const payload = {
+        user_id: currentSession.user.id,
+        full_name: fullName,
+        phone,
+        county: profileFields.county.value,
+        sub_county: profileFields.subCounty.value,
+        estate: profileFields.estate.value.trim(),
+        nearest_landmark: profileFields.nearestLandmark.value.trim() || null,
+        updated_at: new Date().toISOString()
+      };
+      setProfileStatus('Saving your profile securely…');
+      const { error } = await authClient
+        .from('customer_profiles')
+        .upsert(payload, { onConflict: 'user_id' });
+      if (error) {
+        setProfileStatus('Your profile could not be saved. Please check the information and try again.', 'error');
+        return;
+      }
+      const metadata = currentSession.user.user_metadata || {};
+      const { data: updatedUser, error: metadataError } = await authClient.auth.updateUser({
+        data: { ...metadata, full_name: fullName, phone }
+      });
+      if (updatedUser?.user) {
+        currentSession = { ...currentSession, user: updatedUser.user };
+        updateAuthUI(currentSession);
+      }
+      profileFields.phone.value = phone;
+      profileLoadedFor = currentSession.user.id;
+      updateProfileCompletion();
+      setProfileStatus(
+        metadataError ? 'Profile saved. Your dashboard name may update after the next login.' : 'Profile saved successfully.',
+        metadataError ? '' : 'success'
+      );
+    });
+  });
+
   document.getElementById('showResetPassword')?.addEventListener('click', () => {
     if (resetRequestForm) resetRequestForm.hidden = false;
     document.getElementById('resetEmail')?.focus();
@@ -301,6 +431,7 @@
 
   authClient.auth.onAuthStateChange((event, session) => {
     updateAuthUI(session);
+    if (session) loadCustomerProfile(session);
     if (event === 'PASSWORD_RECOVERY') {
       window.leogoOpenCustomerView?.('auth', { skipAuthGuard: true });
       if (guestControls) guestControls.hidden = true;
@@ -318,6 +449,7 @@
       return;
     }
     updateAuthUI(data.session);
+    if (data.session) loadCustomerProfile(data.session);
     if (data.session && window.location.hash.includes('access_token')) {
       const provider = data.session.user?.app_metadata?.provider;
       history.replaceState({}, document.title, PRODUCTION_URL);
