@@ -919,13 +919,26 @@
       const balance = Math.max(0, Number(plan.total) - paid);
       const progress = plan.total ? Math.min(100, (paid / Number(plan.total)) * 100) : 0;
       return `<article class="lpp-plan-card" data-lpp-plan="${receiptEscape(plan.id)}">
-        <div class="lpp-plan-head"><div><span>${receiptEscape(plan.orderRef)}</span><h4>${receiptEscape(plan.itemName)}</h4><small>Seller-set deposit: ${receiptEscape(money(plan.depositRequired))}</small></div><b class="lpp-status">${balance <= 0 ? 'PAID IN FULL' : (lppDaysRemaining(plan.deadline) < 0 ? 'PAYMENT OVERDUE' : (pending > 0 ? 'PENDING CONFIRMATION' : 'ACTIVE'))}</b></div>
+        <div class="lpp-plan-head"><div><span>${receiptEscape(plan.orderRef)}</span><h4>${receiptEscape(plan.itemName)}</h4><small>Seller-set deposit: ${receiptEscape(money(plan.depositRequired))}</small></div><b class="lpp-status">${plan.cancellation?.status === 'pending' ? 'CANCELLATION PENDING' : (plan.cancellation?.status === 'approved' ? 'CANCELLED' : (balance <= 0 ? 'PAID IN FULL' : (lppDaysRemaining(plan.deadline) < 0 ? 'PAYMENT OVERDUE' : (pending > 0 ? 'PENDING CONFIRMATION' : 'ACTIVE'))))}</b></div>
         <div class="lpp-plan-terms"><div><span>Maximum Period</span><strong>${receiptEscape(plan.maxDays)} days</strong></div><div><span>Payment Deadline</span><strong>${receiptEscape(formatLppDate(plan.deadline))}</strong></div><div><span>Time Remaining</span><strong>${balance <= 0 ? 'Completed' : (lppDaysRemaining(plan.deadline) >= 0 ? lppDaysRemaining(plan.deadline) + ' days' : Math.abs(lppDaysRemaining(plan.deadline)) + ' days overdue')}</strong></div></div>
         <div class="lpp-plan-money"><div><span>Total Amount</span><strong>${money(plan.total)}</strong></div><div><span>Deposit Paid</span><strong>${money(paid)}</strong></div><div><span>Total Paid</span><strong>${money(paid)}</strong></div><div><span>Total Balance</span><strong>${money(balance)}</strong></div></div>
         <div class="lpp-progress"><i style="width:${progress}%"></i></div>
         ${pending > 0 ? '<p class="lpp-pending-note">⏳ ' + money(pending) + ' submitted and waiting for Admin/Staff confirmation. Pending payments do not reduce the balance.</p>' : ''}
         <p class="lpp-collection-lock ${lppDaysRemaining(plan.deadline) < 0 && balance > 0 ? 'lpp-deadline-warning' : ''}">${balance <= 0 ? '✓ Full payment completed. Item collection can be released after final confirmation.' : (lppDaysRemaining(plan.deadline) < 0 ? '⚠ Deadline missed: subject to a 25% refund deduction or a 5% charge on the total payable amount.' : '🔒 Item collection remains locked until the full amount is paid and confirmed.')}</p>
-        <div class="lpp-plan-actions"><button type="button" data-lpp-pay="${receiptEscape(plan.id)}" ${balance <= 0 ? 'disabled' : ''}>Do Payment</button></div>
+        ${plan.cancellation?.status === 'pending' ? '<p class="lpp-cancellation-pending">Cancellation requested. Estimated refund: <strong>' + money(plan.cancellation.estimatedRefund) + '</strong> after a 25% deduction, subject to Admin/Staff confirmation and payment verification.</p>' : ''}
+        <div class="lpp-plan-actions">
+          <button type="button" data-lpp-pay="${receiptEscape(plan.id)}" ${balance <= 0 || plan.cancellation ? 'disabled' : ''}>Do Payment</button>
+          <button class="lpp-cancel-button" type="button" data-lpp-cancel="${receiptEscape(plan.id)}" ${plan.cancellation || balance <= 0 ? 'disabled' : ''}>Cancel Lipa Pole Pole Order</button>
+        </div>
+        <form class="lpp-cancel-form" data-lpp-cancel-form="${receiptEscape(plan.id)}" hidden>
+          <h5>Cancel Lipa Pole Pole Order</h5>
+          <div class="lpp-refund-preview"><div><span>Submitted/approved payments</span><strong>${money(paid + pending)}</strong></div><div><span>25% cancellation deduction</span><strong>− ${money(Math.round((paid + pending) * 0.25))}</strong></div><div><span>Estimated refund</span><strong>${money(Math.round((paid + pending) * 0.75))}</strong></div></div>
+          <label><span>Reason for cancellation</span><select name="reason" required><option value="">Select reason</option><option>Changed my mind</option><option>Unable to complete payments</option><option>Seller or item concern</option><option>Other reason</option></select></label>
+          <label><span>Additional information <small>(optional)</small></span><textarea name="details" rows="3" placeholder="Explain the cancellation request"></textarea></label>
+          <label class="payment-paid-check"><input name="acceptDeduction" type="checkbox"><span>I understand that an approved cancellation refund is subject to a 25% deduction from verified payments.</span></label>
+          <button type="submit">Submit Cancellation Request</button>
+          <p class="payment-step-status" data-lpp-cancel-status></p>
+        </form>
         <form class="lpp-topup-form" data-lpp-topup-form="${receiptEscape(plan.id)}" hidden>
           <label><span>Payment amount</span><input name="amount" type="number" min="1" max="${balance}" placeholder="Enter amount" required></label>
           <label><span>Paste M-Pesa message/reference</span><textarea name="message" rows="3" placeholder="Paste the complete payment message" required></textarea></label>
@@ -980,10 +993,17 @@
   });
 
   lppAccountList?.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-lpp-pay]');
-    if (!button) return;
-    const form = lppAccountList.querySelector('[data-lpp-topup-form="' + button.dataset.lppPay + '"]');
-    if (form) form.hidden = !form.hidden;
+    const payButton = event.target.closest('[data-lpp-pay]');
+    if (payButton) {
+      const form = lppAccountList.querySelector('[data-lpp-topup-form="' + payButton.dataset.lppPay + '"]');
+      if (form) form.hidden = !form.hidden;
+      return;
+    }
+    const cancelButton = event.target.closest('[data-lpp-cancel]');
+    if (cancelButton) {
+      const form = lppAccountList.querySelector('[data-lpp-cancel-form="' + cancelButton.dataset.lppCancel + '"]');
+      if (form) form.hidden = !form.hidden;
+    }
   });
   lppAccountList?.addEventListener('submit', (event) => {
     const form = event.target.closest('[data-lpp-topup-form]');
@@ -1010,6 +1030,35 @@
       return;
     }
     plan.payments.push({ id: 'PAY-' + Date.now(), amount, message, type: 'instalment', status: 'pending', submittedAt: new Date().toISOString() });
+    saveLppPlans();
+    renderLppAccounts();
+  });
+  lppAccountList?.addEventListener('submit', (event) => {
+    const form = event.target.closest('[data-lpp-cancel-form]');
+    if (!form) return;
+    event.preventDefault();
+    const plan = lppPlans.find((entry) => entry.id === form.dataset.lppCancelForm);
+    const status = form.querySelector('[data-lpp-cancel-status]');
+    if (!plan) return;
+    const reason = form.elements.reason.value;
+    if (!reason) {
+      status.textContent = 'Select a reason for cancelling the order.';
+      return;
+    }
+    if (!form.elements.acceptDeduction.checked) {
+      status.textContent = 'Confirm that you understand the 25% cancellation deduction.';
+      return;
+    }
+    const verifiedOrSubmitted = approvedLppTotal(plan) + pendingLppTotal(plan);
+    plan.cancellation = {
+      status: 'pending',
+      reason,
+      details: form.elements.details.value.trim(),
+      requestedAt: new Date().toISOString(),
+      paymentBase: verifiedOrSubmitted,
+      deduction: Math.round(verifiedOrSubmitted * 0.25),
+      estimatedRefund: Math.round(verifiedOrSubmitted * 0.75)
+    };
     saveLppPlans();
     renderLppAccounts();
   });
