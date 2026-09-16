@@ -299,13 +299,25 @@
     document.body.classList.remove('customer-shell-open');
   };
 
-  const openCustomerShell = (viewName = 'dashboard') => {
+  const protectedCustomerViews = new Set(['dashboard', 'orders', 'aftersales', 'wallet', 'lipapolepole', 'account']);
+  const openCustomerShell = (viewName = 'dashboard', options = {}) => {
     if (!customerShellModal) return;
+    const needsLogin = protectedCustomerViews.has(viewName);
+    if (!options.skipAuthGuard && needsLogin && !window.leogoAuth?.isAuthenticated()) {
+      viewName = 'auth';
+      window.setTimeout(() => {
+        if (authPreviewStatus && !authPreviewStatus.textContent) {
+          authPreviewStatus.textContent = 'Please log in or create an account to open this customer section.';
+          authPreviewStatus.classList.add('is-error');
+        }
+      }, 0);
+    }
     showCustomerView(viewName);
     customerShellModal.classList.add('is-open');
     customerShellModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('customer-shell-open');
   };
+  window.leogoOpenCustomerView = openCustomerShell;
 
   document.querySelectorAll('[data-open-customer-view]').forEach((trigger) => {
     trigger.addEventListener('click', (event) => {
@@ -314,7 +326,7 @@
     });
   });
   customerShellModal?.querySelectorAll('[data-customer-view]').forEach((button) => {
-    button.addEventListener('click', () => showCustomerView(button.dataset.customerView));
+    button.addEventListener('click', () => openCustomerShell(button.dataset.customerView));
   });
   customerShellModal?.querySelectorAll('[data-close-customer-shell]').forEach((button) => {
     button.addEventListener('click', closeCustomerShell);
@@ -324,12 +336,6 @@
       authPreviewTabs.forEach((item) => item.classList.toggle('active', item === tab));
       authPreviewPanels?.forEach((panel) => panel.classList.toggle('active', panel.dataset.authPanel === tab.dataset.authTab));
       authPreviewStatus.textContent = '';
-    });
-  });
-  authPreviewPanels?.forEach((form) => {
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      authPreviewStatus.textContent = 'Visual preview only — secure authentication will be connected in Phase 1(B).';
     });
   });
   const profileCounty = document.getElementById('profileCounty');
