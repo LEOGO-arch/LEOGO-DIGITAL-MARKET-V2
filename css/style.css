@@ -280,3 +280,14 @@
   .auth-preview-form button,.auth-reset-form button,.auth-signed-in-panel button{min-height:48px}
   .auth-signed-in-panel>div{display:grid;grid-template-columns:1fr}
 }
+
+
+/* Phase 1(B): Google customer authentication */
+.auth-google-button{display:flex;align-items:center;justify-content:center;gap:11px;width:100%;min-height:48px;margin:14px 0 10px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;color:#172033;font:inherit;font-weight:900;cursor:pointer;box-shadow:0 2px 7px rgba(7,27,61,.06);transition:border-color .18s ease,box-shadow .18s ease,transform .15s ease}
+.auth-google-button:hover{border-color:#8ca0bc;box-shadow:0 5px 14px rgba(7,27,61,.1)}
+.auth-google-button:active{transform:translateY(1px)}
+.auth-google-button:disabled{cursor:wait;opacity:.65}
+.auth-google-mark{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:conic-gradient(from -45deg,#4285f4 0 25%,#34a853 0 40%,#fbbc05 0 65%,#ea4335 0 82%,#4285f4 0);color:#fff;font-size:14px;font-weight:900;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+.auth-provider-divider{display:flex;align-items:center;gap:11px;margin:8px 0 13px;color:#7a8596;font-size:11px;font-weight:800}
+.auth-provider-divider:before,.auth-provider-divider:after{content:'';height:1px;flex:1;background:#dce3ed}
+@media(max-width:600px){.auth-google-button{font-size:15px}}
