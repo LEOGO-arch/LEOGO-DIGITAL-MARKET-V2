@@ -863,6 +863,12 @@
   } catch {
     lppPlans = [];
   }
+  lppPlans = lppPlans.map((plan) => {
+    const maxDays = Number(plan.maxDays || sampleSellerPeriods[plan.itemId] || 30);
+    const createdAt = plan.createdAt || plan.payments?.[0]?.submittedAt || new Date().toISOString();
+    const deadline = plan.deadline || new Date(new Date(createdAt).getTime() + (maxDays * 86400000)).toISOString();
+    return { ...plan, maxDays, createdAt, deadline };
+  });
   const saveLppPlans = () => localStorage.setItem(lppStorageKey, JSON.stringify(lppPlans));
   const approvedLppTotal = (plan) => (plan.payments || []).filter((payment) => payment.status === 'approved').reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   const pendingLppTotal = (plan) => (plan.payments || []).filter((payment) => payment.status === 'pending').reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
