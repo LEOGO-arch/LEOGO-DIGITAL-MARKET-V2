@@ -123,9 +123,9 @@
 
   const normalizeKenyanPhone = (value) => {
     const compact = String(value || '').replace(/[\s()-]/g, '');
-    if (/^07\d{8}$/.test(compact)) return '+254' + compact.slice(1);
-    if (/^2547\d{8}$/.test(compact)) return '+' + compact;
-    if (/^\+2547\d{8}$/.test(compact)) return compact;
+    if (/^0[17]\d{8}$/.test(compact)) return '+254' + compact.slice(1);
+    if (/^254[17]\d{8}$/.test(compact)) return '+' + compact;
+    if (/^\+254[17]\d{8}$/.test(compact)) return compact;
     return '';
   };
 
