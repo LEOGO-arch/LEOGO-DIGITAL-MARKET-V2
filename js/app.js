@@ -658,14 +658,50 @@
   });
   sendOrderWhatsApp?.addEventListener('click', () => {
     if (!previewOrderReference) return;
+    const receiver = document.getElementById('checkoutReceiverName')?.value.trim() || 'Not provided';
+    const contact = document.getElementById('checkoutContactNumber')?.value.trim() || 'Not provided';
+    const county = checkoutCounty?.value || 'Not provided';
+    const subCounty = checkoutSubCounty?.value || 'Not provided';
+    const estate = document.getElementById('checkoutEstate')?.value.trim() || 'Not provided';
+    const landmark = document.getElementById('checkoutLandmark')?.value.trim() || 'Not provided';
+    const locationLink = document.getElementById('checkoutLocationLink')?.value.trim() || 'Not provided';
+    const itemLines = testCart.map((item, index) =>
+      (index + 1) + '. ' + item.name + ' × ' + item.quantity + ' — ' + money(item.price * item.quantity)
+    );
     const message = [
-      'Hello LEOGO Digital Market,',
-      'I am sending order ' + previewOrderReference + '.',
-      'Payment: ' + selectedPaymentLabel.textContent,
+      '🛍️ *LEOGO DIGITAL MARKET*',
+      '*NEW CUSTOMER ORDER*',
+      '',
+      '🧾 *ORDER DETAILS*',
+      'Order No: ' + previewOrderReference,
+      'Date: ' + new Date().toLocaleString('en-KE'),
+      '',
+      '👤 *CUSTOMER*',
+      'Name: ' + receiver,
+      'Phone: ' + contact,
+      '',
+      '📦 *ITEMS*',
+      ...itemLines,
+      '',
+      '💰 *ORDER SUMMARY*',
+      'Items subtotal: ' + (document.getElementById('checkoutSubtotalValue')?.textContent || 'KSh 0'),
+      'Service fee: ' + (checkoutServiceFeeValue?.textContent || 'KSh 0'),
+      'Delivery fee: ' + (checkoutDeliveryFeeValue?.textContent || 'Not selected'),
+      '*Grand total: ' + checkoutTotalText() + '*',
+      '',
+      '💳 *PAYMENT*',
+      'Method: ' + selectedPaymentLabel.textContent,
       'Status: ' + selectedPaymentStatus.textContent,
-      'Total: ' + checkoutTotalText(),
-      'Items: ' + testCart.map((item) => item.name + ' x' + item.quantity).join(', '),
-      'Please review and confirm my order.'
+      '',
+      '📍 *DELIVERY LOCATION*',
+      'County: ' + county,
+      'Sub-County: ' + subCounty,
+      'Estate / Area: ' + estate,
+      'Nearest landmark: ' + landmark,
+      'Map link: ' + locationLink,
+      '',
+      'Please review and confirm this order.',
+      '_LEOGO — Everything You Need. Delivered._'
     ].join('\n');
     window.open('https://wa.me/254700192545?text=' + encodeURIComponent(message), '_blank', 'noopener');
   });
