@@ -762,7 +762,12 @@
   }
 
   const sampleSellerDeposits = { 'samsung-smartphone': 5000, 'modern-office-chair': 2000, 'two-in-one-blender': 1000 };
-  testCart = testCart.map((item) => ({ ...item, deposit: Number(item.deposit || sampleSellerDeposits[item.id] || 0) }));
+  const sampleSellerPeriods = { 'samsung-smartphone': 90, 'modern-office-chair': 60, 'two-in-one-blender': 30 };
+  testCart = testCart.map((item) => ({
+    ...item,
+    deposit: Number(item.deposit || sampleSellerDeposits[item.id] || 0),
+    lppDays: Number(item.lppDays || sampleSellerPeriods[item.id] || 0)
+  }));
   const money = (value) => 'KSh ' + Number(value || 0).toLocaleString();
   const testCartCount = () => testCart.reduce((total, item) => total + item.quantity, 0);
   const testCartSubtotal = () => testCart.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -811,6 +816,7 @@
         name: button.dataset.productName,
         price: Number(button.dataset.productPrice),
         deposit: Number(button.dataset.productDeposit || 0),
+        lppDays: Number(button.dataset.productLppDays || 0),
         icon: button.dataset.productIcon,
         quantity: 1
       });
@@ -844,8 +850,10 @@
   const lppDepositItem = document.getElementById('lppDepositItem');
   const lppDepositTotal = document.getElementById('lppDepositTotal');
   const lppDepositRequired = document.getElementById('lppDepositRequired');
+  const lppDepositPeriod = document.getElementById('lppDepositPeriod');
   const lppDepositMessage = document.getElementById('lppDepositMessage');
   const lppDepositPaidCheck = document.getElementById('lppDepositPaidCheck');
+  const lppRulesAccepted = document.getElementById('lppRulesAccepted');
   const lppDepositStatus = document.getElementById('lppDepositStatus');
   const lppAccountList = document.getElementById('lppAccountList');
   let lppPlans = [];
@@ -863,7 +871,7 @@
     if (!lppDepositItem) return;
     const selected = lppDepositItem.value;
     lppDepositItem.innerHTML = '<option value="">Select an item from your cart</option>' + testCart.map((item) =>
-      '<option value="' + receiptEscape(item.id) + '">' + receiptEscape(item.name) + ' — seller deposit ' + receiptEscape(money((item.deposit || 0) * item.quantity)) + '</option>'
+      '<option value="' + receiptEscape(item.id) + '">' + receiptEscape(item.name) + ' — deposit ' + receiptEscape(money((item.deposit || 0) * item.quantity)) + ' · ' + receiptEscape(item.lppDays || 0) + ' days</option>'
     ).join('');
     if (testCart.some((item) => item.id === selected)) lppDepositItem.value = selected;
   };
@@ -871,6 +879,7 @@
     const item = testCart.find((entry) => entry.id === lppDepositItem?.value);
     if (lppDepositTotal) lppDepositTotal.textContent = item ? money(item.price * item.quantity) : 'KSh 0';
     if (lppDepositRequired) lppDepositRequired.textContent = item ? money((item.deposit || 0) * item.quantity) : 'KSh 0';
+    if (lppDepositPeriod) lppDepositPeriod.textContent = item ? (item.lppDays + ' days') : 'Select item';
   };
   const openLppDepositForm = () => {
     populateLppCartItems();
@@ -879,6 +888,8 @@
   };
   lppDepositItem?.addEventListener('change', updateLppDepositValues);
 
+  const formatLppDate = (value) => new Date(value).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' });
+  const lppDaysRemaining = (deadline) => Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
   const renderLppAccounts = () => {
     const activeCount = lppPlans.length;
     const allApproved = lppPlans.reduce((sum, plan) => sum + approvedLppTotal(plan), 0);
@@ -902,10 +913,12 @@
       const balance = Math.max(0, Number(plan.total) - paid);
       const progress = plan.total ? Math.min(100, (paid / Number(plan.total)) * 100) : 0;
       return `<article class="lpp-plan-card" data-lpp-plan="${receiptEscape(plan.id)}">
-        <div class="lpp-plan-head"><div><span>${receiptEscape(plan.orderRef)}</span><h4>${receiptEscape(plan.itemName)}</h4><small>Seller-set deposit: ${receiptEscape(money(plan.depositRequired))}</small></div><b class="lpp-status">${balance <= 0 ? 'PAID IN FULL' : (pending > 0 ? 'PENDING CONFIRMATION' : 'ACTIVE')}</b></div>
+        <div class="lpp-plan-head"><div><span>${receiptEscape(plan.orderRef)}</span><h4>${receiptEscape(plan.itemName)}</h4><small>Seller-set deposit: ${receiptEscape(money(plan.depositRequired))}</small></div><b class="lpp-status">${balance <= 0 ? 'PAID IN FULL' : (lppDaysRemaining(plan.deadline) < 0 ? 'PAYMENT OVERDUE' : (pending > 0 ? 'PENDING CONFIRMATION' : 'ACTIVE'))}</b></div>
+        <div class="lpp-plan-terms"><div><span>Maximum Period</span><strong>${receiptEscape(plan.maxDays)} days</strong></div><div><span>Payment Deadline</span><strong>${receiptEscape(formatLppDate(plan.deadline))}</strong></div><div><span>Time Remaining</span><strong>${balance <= 0 ? 'Completed' : (lppDaysRemaining(plan.deadline) >= 0 ? lppDaysRemaining(plan.deadline) + ' days' : Math.abs(lppDaysRemaining(plan.deadline)) + ' days overdue')}</strong></div></div>
         <div class="lpp-plan-money"><div><span>Total Amount</span><strong>${money(plan.total)}</strong></div><div><span>Deposit Paid</span><strong>${money(paid)}</strong></div><div><span>Total Paid</span><strong>${money(paid)}</strong></div><div><span>Total Balance</span><strong>${money(balance)}</strong></div></div>
         <div class="lpp-progress"><i style="width:${progress}%"></i></div>
         ${pending > 0 ? '<p class="lpp-pending-note">⏳ ' + money(pending) + ' submitted and waiting for Admin/Staff confirmation. Pending payments do not reduce the balance.</p>' : ''}
+        <p class="lpp-collection-lock ${lppDaysRemaining(plan.deadline) < 0 && balance > 0 ? 'lpp-deadline-warning' : ''}">${balance <= 0 ? '✓ Full payment completed. Item collection can be released after final confirmation.' : (lppDaysRemaining(plan.deadline) < 0 ? '⚠ Deadline missed: subject to a 25% refund deduction or a 5% charge on the total payable amount.' : '🔒 Item collection remains locked until the full amount is paid and confirmed.')}</p>
         <div class="lpp-plan-actions"><button type="button" data-lpp-pay="${receiptEscape(plan.id)}" ${balance <= 0 ? 'disabled' : ''}>Do Payment</button></div>
         <form class="lpp-topup-form" data-lpp-topup-form="${receiptEscape(plan.id)}" hidden>
           <label><span>Payment amount</span><input name="amount" type="number" min="1" max="${balance}" placeholder="Enter amount" required></label>
@@ -933,6 +946,10 @@
       lppDepositStatus.textContent = 'Tick “I have paid” before submitting.';
       return;
     }
+    if (!lppRulesAccepted.checked) {
+      lppDepositStatus.textContent = 'Read and accept the Lipa Pole Pole rules before submitting.';
+      return;
+    }
     const total = item.price * item.quantity;
     const depositRequired = (item.deposit || 0) * item.quantity;
     const reference = 'LPP-' + Date.now().toString().slice(-8);
@@ -943,6 +960,10 @@
       itemName: item.name + (item.quantity > 1 ? ' × ' + item.quantity : ''),
       total,
       depositRequired,
+      maxDays: item.lppDays,
+      createdAt: new Date().toISOString(),
+      deadline: new Date(Date.now() + (item.lppDays * 86400000)).toISOString(),
+      rulesAccepted: true,
       payments: [{ id: 'PAY-' + Date.now(), amount: depositRequired, message: lppDepositMessage.value.trim(), type: 'deposit', status: 'pending', submittedAt: new Date().toISOString() }]
     });
     saveLppPlans();
