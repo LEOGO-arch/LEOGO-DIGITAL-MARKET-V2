@@ -204,3 +204,16 @@
 .lpp-topup-form button{background:#ff7200}
 @media(max-width:900px){.lpp-account-summary,.lpp-plan-money{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.lpp-account-summary,.lpp-plan-money,.lpp-deposit-values{grid-template-columns:1fr}.lpp-plan-head{flex-direction:column}.lpp-plan-actions button{width:100%}}
+
+
+/* Lipa Pole Pole rules and deadline */
+.lpp-rules{padding:13px;border:1px solid #efcc7c;border-radius:11px;background:#fff6dc;color:#5f480f}
+.lpp-rules>strong{display:block;margin-bottom:7px;color:#07152f;font-size:10px}
+.lpp-rules ol{margin:0;padding-left:18px}.lpp-rules li{margin:5px 0;font-size:8px;line-height:1.45}
+.lpp-rule-check{padding:10px;border-radius:9px;background:#fff}
+.lpp-plan-terms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.lpp-plan-terms div{padding:10px;border:1px solid #e3e8f0;border-radius:9px;background:#fff}
+.lpp-plan-terms span,.lpp-plan-terms strong{display:block}.lpp-plan-terms span{color:#747f90;font-size:8px}.lpp-plan-terms strong{margin-top:4px;color:#07152f;font-size:10px}
+.lpp-collection-lock{margin:10px 0;padding:9px 11px;border-radius:9px;background:#edf3fb;color:#33435b;font-size:9px;font-weight:700}
+.lpp-deadline-warning{background:#fff0f0;color:#a12c2c}
+@media(max-width:600px){.lpp-plan-terms{grid-template-columns:1fr}}
