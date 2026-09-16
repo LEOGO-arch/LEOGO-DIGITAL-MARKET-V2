@@ -291,3 +291,13 @@
 .auth-provider-divider{display:flex;align-items:center;gap:11px;margin:8px 0 13px;color:#7a8596;font-size:11px;font-weight:800}
 .auth-provider-divider:before,.auth-provider-divider:after{content:'';height:1px;flex:1;background:#dce3ed}
 @media(max-width:600px){.auth-google-button{font-size:15px}}
+
+
+/* Phase 1(C): secure customer profile */
+.profile-form-grid input[readonly]{background:#eef2f7;color:#667085;cursor:not-allowed}
+.profile-progress i{transition:width .25s ease}
+.profile-save-status{margin-top:13px;padding:11px 13px;border:1px solid #dbe3ee;border-radius:11px;background:#f6f8fb;color:#637086;font-size:9px;font-weight:750;line-height:1.45}
+.profile-save-status.is-success{border-color:#abefc6;background:#ecfdf3;color:#067647}
+.profile-save-status.is-error{border-color:#ffccc7;background:#fff1f0;color:#b42318}
+#customerProfileForm button[disabled]{cursor:wait;opacity:.68}
+@media(max-width:600px){.profile-save-status{font-size:11px}}
