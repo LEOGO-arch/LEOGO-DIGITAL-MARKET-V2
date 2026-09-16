@@ -444,6 +444,7 @@
   const continueToPayment = document.getElementById('continueToPayment');
   const backToCheckoutDetails = document.getElementById('backToCheckoutDetails');
   const paymentMethodButtons = customerShellModal?.querySelectorAll('[data-payment-method]');
+  const walletCheckoutPanel = document.getElementById('walletCheckoutPanel');
   const lppDepositForm = document.getElementById('lppDepositForm');
   const standardPaymentProof = document.getElementById('standardPaymentProof');
   const standardPaymentActions = document.getElementById('standardPaymentActions');
@@ -539,16 +540,21 @@
       }
       selectedCheckoutPayment = button.dataset.paymentMethod;
       paymentMethodButtons.forEach((item) => item.classList.toggle('active', item === button));
-      const labels = { till: 'M-Pesa Till', paybill: 'M-Pesa Paybill', cod: 'Cash on Delivery', lipapolepole: 'Lipa Pole Pole' };
+      const labels = { till: 'M-Pesa Till', paybill: 'M-Pesa Paybill', cod: 'Cash on Delivery', lipapolepole: 'Lipa Pole Pole', wallet: 'LEOGO Savings Wallet' };
       selectedPaymentLabel.textContent = labels[selectedCheckoutPayment];
       selectedPaymentStatus.textContent = 'Waiting for confirmation';
       paymentStepStatus.textContent = '';
       const isLipaPolePole = selectedCheckoutPayment === 'lipapolepole';
+      const isWallet = selectedCheckoutPayment === 'wallet';
       if (lppDepositForm) lppDepositForm.hidden = !isLipaPolePole;
-      if (standardPaymentProof) standardPaymentProof.hidden = isLipaPolePole;
-      if (standardPaymentActions) standardPaymentActions.hidden = isLipaPolePole;
+      if (walletCheckoutPanel) walletCheckoutPanel.hidden = !isWallet;
+      if (standardPaymentProof) standardPaymentProof.hidden = isLipaPolePole || isWallet;
+      if (standardPaymentActions) standardPaymentActions.hidden = isLipaPolePole || isWallet;
       if (isLipaPolePole) {
         openLppDepositForm();
+      } else if (isWallet) {
+        const walletOrderTotal = document.getElementById('walletCheckoutOrderTotal');
+        if (walletOrderTotal) walletOrderTotal.textContent = checkoutTotalText();
       } else if (selectedCheckoutPayment === 'cod') {
         paymentProofLabel.textContent = 'Paste M-Pesa message for the transport fee';
         markPaymentPaidLabel.textContent = 'I confirm that I paid the transport fee first. I will pay the order balance in cash on delivery.';
@@ -1063,6 +1069,79 @@
     renderLppAccounts();
   });
   renderLppAccounts();
+
+  const walletPreviewStorageKey = 'leogo_phase1_wallet_preview';
+  let walletPreview = { availableBalance: 0, totalSaved: 0, streak: 0, transactions: [], challenge: null, loanApplications: [] };
+  try {
+    const storedWallet = JSON.parse(localStorage.getItem(walletPreviewStorageKey) || '{}');
+    walletPreview = { ...walletPreview, ...storedWallet };
+  } catch {}
+  const saveWalletPreview = () => localStorage.setItem(walletPreviewStorageKey, JSON.stringify(walletPreview));
+  const walletTransactionList = document.getElementById('walletTransactionList');
+  const renderWalletPreview = () => {
+    const set = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
+    set('walletAvailableBalance', money(walletPreview.availableBalance));
+    set('walletDashboardBalance', money(walletPreview.availableBalance));
+    set('checkoutWalletBalance', money(walletPreview.availableBalance));
+    set('walletCheckoutAvailable', money(walletPreview.availableBalance));
+    set('walletTotalSaved', money(walletPreview.totalSaved));
+    set('walletSavingStreak', walletPreview.streak + ' days');
+    set('walletLoanEligibility', walletPreview.totalSaved > 0 ? 'History building' : 'Not assessed');
+    if (walletTransactionList) {
+      walletTransactionList.innerHTML = walletPreview.transactions.length
+        ? walletPreview.transactions.slice().reverse().map((transaction) => '<div class="wallet-transaction-row"><div><strong>' + receiptEscape(transaction.title) + '</strong><small>' + receiptEscape(new Date(transaction.date).toLocaleString('en-KE')) + '</small></div><b>' + receiptEscape(transaction.status) + '</b></div>').join('')
+        : '<p>No wallet transactions yet.</p>';
+    }
+  };
+  document.getElementById('walletSavingPreviewForm')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const amount = Number(document.getElementById('walletSavingAmount')?.value || 0);
+    const reference = document.getElementById('walletSavingReference')?.value.trim();
+    const paid = document.getElementById('walletSavingPaid')?.checked;
+    const status = document.getElementById('walletSavingStatus');
+    if (!amount || !reference || !paid) {
+      status.textContent = 'Enter an amount, paste the reference and confirm payment.';
+      return;
+    }
+    walletPreview.transactions.push({ title: 'Test saving submission — ' + money(amount), status: 'Pending verification', date: new Date().toISOString(), amount });
+    saveWalletPreview();
+    renderWalletPreview();
+    status.textContent = 'Test submission recorded as pending. No real money was collected.';
+    event.target.reset();
+  });
+  document.getElementById('walletChallengeForm')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const amount = Number(document.getElementById('walletChallengeAmount')?.value || 0);
+    const days = Number(document.getElementById('walletChallengeDays')?.value || 0);
+    const status = document.getElementById('walletChallengeStatus');
+    if (!amount || !days) {
+      status.textContent = 'Enter a daily amount and select the challenge period.';
+      return;
+    }
+    walletPreview.challenge = { dailyAmount: amount, days, startedAt: new Date().toISOString() };
+    walletPreview.transactions.push({ title: days + '-day saving challenge started — ' + money(amount) + '/day', status: 'Preview active', date: new Date().toISOString() });
+    saveWalletPreview();
+    renderWalletPreview();
+    status.textContent = 'Preview challenge created. Live reminders and deposits will be connected later.';
+  });
+  document.getElementById('walletLoanPreviewForm')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const amount = Number(document.getElementById('walletLoanAmount')?.value || 0);
+    const purpose = document.getElementById('walletLoanPurpose')?.value.trim();
+    const consent = document.getElementById('walletLoanConsent')?.checked;
+    const status = document.getElementById('walletLoanStatus');
+    if (!amount || !purpose || !consent) {
+      status.textContent = 'Complete the application and accept the review conditions.';
+      return;
+    }
+    walletPreview.loanApplications.push({ amount, purpose, status: 'Pending eligibility and Admin/licensed-partner review', date: new Date().toISOString() });
+    walletPreview.transactions.push({ title: 'Preview loan application — ' + money(amount), status: 'Pending review', date: new Date().toISOString() });
+    saveWalletPreview();
+    renderWalletPreview();
+    status.textContent = 'Preview application recorded. This is not a loan approval or offer.';
+    event.target.reset();
+  });
+  renderWalletPreview();
 
   const activityFilterButtons = customerShellModal?.querySelectorAll('[data-activity-filter]');
   const activityEmptyIcon = document.getElementById('activityEmptyIcon');
