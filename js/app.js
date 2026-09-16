@@ -486,6 +486,39 @@
       updateCashOnDeliveryAvailability();
     }
   };
+  const checkoutReadinessMessage = document.getElementById('checkoutReadinessMessage');
+  const requiredCheckoutFields = [
+    document.getElementById('checkoutReceiverName'),
+    document.getElementById('checkoutContactNumber'),
+    checkoutCounty,
+    checkoutSubCounty,
+    document.getElementById('checkoutEstate'),
+    document.getElementById('checkoutLandmark'),
+    checkoutDeliveryZone
+  ];
+  const updateCheckoutReadiness = () => {
+    const detailsComplete = requiredCheckoutFields.every((field) => field && field.value.trim() !== '');
+    const cartReady = typeof testCart !== 'undefined' && testCart.length > 0;
+    const ready = detailsComplete && cartReady;
+    if (continueToPayment) {
+      continueToPayment.disabled = !ready;
+      continueToPayment.classList.toggle('is-ready', ready);
+      continueToPayment.setAttribute('aria-disabled', String(!ready));
+    }
+    if (checkoutReadinessMessage) {
+      checkoutReadinessMessage.classList.toggle('is-ready', ready);
+      checkoutReadinessMessage.textContent = ready
+        ? '✓ All required details are complete. Continue to payment.'
+        : cartReady
+          ? 'Complete receiver name, phone, County, Sub-County, Estate, landmark and delivery zone.'
+          : 'Add an item to the cart and complete all required delivery details.';
+    }
+  };
+  requiredCheckoutFields.forEach((field) => {
+    field?.addEventListener('input', updateCheckoutReadiness);
+    field?.addEventListener('change', updateCheckoutReadiness);
+  });
+
   continueToPayment?.addEventListener('click', () => {
     if (!testCart.length) {
       openCustomerShell('cart');
@@ -753,6 +786,7 @@
     }
     updateCheckoutFees();
     updateCashOnDeliveryAvailability();
+    updateCheckoutReadiness();
     if (paymentOrderTotal) paymentOrderTotal.textContent = checkoutTotalText();
   };
 
