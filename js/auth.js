@@ -15,6 +15,7 @@
   const signedInPanel = document.getElementById('authSignedInPanel');
   const guestControls = document.getElementById('authGuestControls');
   const logoutButton = document.getElementById('customerLogoutButton');
+  const googleLoginButton = document.getElementById('customerGoogleLoginButton');
   const headerLoginButton = document.getElementById('openLoginShell');
   const authNavButton = document.querySelector('.customer-shell-nav [data-customer-view="auth"]');
   let currentSession = null;
@@ -34,6 +35,7 @@
     if (message.includes('user already registered') || message.includes('already been registered')) return 'An account already exists with this email. Please log in instead.';
     if (message.includes('password') && (message.includes('short') || message.includes('least'))) return 'Use a password containing at least 8 characters.';
     if (message.includes('rate limit')) return 'Too many attempts were made. Please wait briefly and try again.';
+    if (message.includes('provider is not enabled') || message.includes('unsupported provider')) return 'Google login is not available yet. Please use email login while LEOGO completes the Google connection.';
     if (message.includes('network') || message.includes('fetch')) return 'We could not reach the secure login service. Check your internet connection and try again.';
     return error?.message || 'The request could not be completed. Please try again.';
   };
@@ -222,6 +224,23 @@
     });
   });
 
+  googleLoginButton?.addEventListener('click', async () => {
+    if (googleLoginButton.disabled) return;
+    googleLoginButton.disabled = true;
+    setStatus('Opening secure Google login…');
+    const { error } = await authClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: PRODUCTION_URL,
+        queryParams: { prompt: 'select_account' }
+      }
+    });
+    if (error) {
+      googleLoginButton.disabled = false;
+      setStatus(friendlyAuthError(error), 'error');
+    }
+  });
+
   document.getElementById('showResetPassword')?.addEventListener('click', () => {
     if (resetRequestForm) resetRequestForm.hidden = false;
     document.getElementById('resetEmail')?.focus();
@@ -300,8 +319,10 @@
     }
     updateAuthUI(data.session);
     if (data.session && window.location.hash.includes('access_token')) {
+      const provider = data.session.user?.app_metadata?.provider;
       history.replaceState({}, document.title, PRODUCTION_URL);
-      setStatus('Email confirmed successfully. You are now logged in.', 'success');
+      setStatus(provider === 'google' ? 'Google login successful. Welcome to LEOGO.' : 'Email confirmed successfully. You are now logged in.', 'success');
+      window.setTimeout(() => window.leogoOpenCustomerView?.('dashboard'), 80);
     }
   }).catch((error) => {
     authReady = true;
