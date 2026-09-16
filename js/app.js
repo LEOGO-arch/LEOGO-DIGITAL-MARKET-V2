@@ -444,6 +444,9 @@
   const continueToPayment = document.getElementById('continueToPayment');
   const backToCheckoutDetails = document.getElementById('backToCheckoutDetails');
   const paymentMethodButtons = customerShellModal?.querySelectorAll('[data-payment-method]');
+  const lppDepositForm = document.getElementById('lppDepositForm');
+  const standardPaymentProof = document.getElementById('standardPaymentProof');
+  const standardPaymentActions = document.getElementById('standardPaymentActions');
   const paymentProofLabel = document.getElementById('paymentProofLabel');
   const mpesaPaymentMessage = document.getElementById('mpesaPaymentMessage');
   const markPaymentPaid = document.getElementById('markPaymentPaid');
@@ -536,11 +539,17 @@
       }
       selectedCheckoutPayment = button.dataset.paymentMethod;
       paymentMethodButtons.forEach((item) => item.classList.toggle('active', item === button));
-      const labels = { till: 'M-Pesa Till', paybill: 'M-Pesa Paybill', cod: 'Cash on Delivery' };
+      const labels = { till: 'M-Pesa Till', paybill: 'M-Pesa Paybill', cod: 'Cash on Delivery', lipapolepole: 'Lipa Pole Pole' };
       selectedPaymentLabel.textContent = labels[selectedCheckoutPayment];
       selectedPaymentStatus.textContent = 'Waiting for confirmation';
       paymentStepStatus.textContent = '';
-      if (selectedCheckoutPayment === 'cod') {
+      const isLipaPolePole = selectedCheckoutPayment === 'lipapolepole';
+      if (lppDepositForm) lppDepositForm.hidden = !isLipaPolePole;
+      if (standardPaymentProof) standardPaymentProof.hidden = isLipaPolePole;
+      if (standardPaymentActions) standardPaymentActions.hidden = isLipaPolePole;
+      if (isLipaPolePole) {
+        openLppDepositForm();
+      } else if (selectedCheckoutPayment === 'cod') {
         paymentProofLabel.textContent = 'Paste M-Pesa message for the transport fee';
         markPaymentPaidLabel.textContent = 'I confirm that I paid the transport fee first. I will pay the order balance in cash on delivery.';
       } else {
@@ -752,6 +761,8 @@
     testCart = [];
   }
 
+  const sampleSellerDeposits = { 'samsung-smartphone': 5000, 'modern-office-chair': 2000, 'two-in-one-blender': 1000 };
+  testCart = testCart.map((item) => ({ ...item, deposit: Number(item.deposit || sampleSellerDeposits[item.id] || 0) }));
   const money = (value) => 'KSh ' + Number(value || 0).toLocaleString();
   const testCartCount = () => testCart.reduce((total, item) => total + item.quantity, 0);
   const testCartSubtotal = () => testCart.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -799,6 +810,7 @@
         id,
         name: button.dataset.productName,
         price: Number(button.dataset.productPrice),
+        deposit: Number(button.dataset.productDeposit || 0),
         icon: button.dataset.productIcon,
         quantity: 1
       });
@@ -827,6 +839,154 @@
   });
 
   renderTestCart();
+
+  const lppStorageKey = 'leogo_phase1_lipa_pole_pole';
+  const lppDepositItem = document.getElementById('lppDepositItem');
+  const lppDepositTotal = document.getElementById('lppDepositTotal');
+  const lppDepositRequired = document.getElementById('lppDepositRequired');
+  const lppDepositMessage = document.getElementById('lppDepositMessage');
+  const lppDepositPaidCheck = document.getElementById('lppDepositPaidCheck');
+  const lppDepositStatus = document.getElementById('lppDepositStatus');
+  const lppAccountList = document.getElementById('lppAccountList');
+  let lppPlans = [];
+  try {
+    const savedPlans = JSON.parse(localStorage.getItem(lppStorageKey) || '[]');
+    lppPlans = Array.isArray(savedPlans) ? savedPlans : [];
+  } catch {
+    lppPlans = [];
+  }
+  const saveLppPlans = () => localStorage.setItem(lppStorageKey, JSON.stringify(lppPlans));
+  const approvedLppTotal = (plan) => (plan.payments || []).filter((payment) => payment.status === 'approved').reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const pendingLppTotal = (plan) => (plan.payments || []).filter((payment) => payment.status === 'pending').reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+
+  const populateLppCartItems = () => {
+    if (!lppDepositItem) return;
+    const selected = lppDepositItem.value;
+    lppDepositItem.innerHTML = '<option value="">Select an item from your cart</option>' + testCart.map((item) =>
+      '<option value="' + receiptEscape(item.id) + '">' + receiptEscape(item.name) + ' — seller deposit ' + receiptEscape(money((item.deposit || 0) * item.quantity)) + '</option>'
+    ).join('');
+    if (testCart.some((item) => item.id === selected)) lppDepositItem.value = selected;
+  };
+  const updateLppDepositValues = () => {
+    const item = testCart.find((entry) => entry.id === lppDepositItem?.value);
+    if (lppDepositTotal) lppDepositTotal.textContent = item ? money(item.price * item.quantity) : 'KSh 0';
+    if (lppDepositRequired) lppDepositRequired.textContent = item ? money((item.deposit || 0) * item.quantity) : 'KSh 0';
+  };
+  const openLppDepositForm = () => {
+    populateLppCartItems();
+    updateLppDepositValues();
+    if (lppDepositStatus) lppDepositStatus.textContent = '';
+  };
+  lppDepositItem?.addEventListener('change', updateLppDepositValues);
+
+  const renderLppAccounts = () => {
+    const activeCount = lppPlans.length;
+    const allApproved = lppPlans.reduce((sum, plan) => sum + approvedLppTotal(plan), 0);
+    const allPending = lppPlans.reduce((sum, plan) => sum + pendingLppTotal(plan), 0);
+    const allBalance = lppPlans.reduce((sum, plan) => sum + Math.max(0, Number(plan.total) - approvedLppTotal(plan)), 0);
+    const setText = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
+    setText('lppDashboardCount', activeCount);
+    setText('lppActiveAccounts', activeCount);
+    setText('lppTotalApproved', money(allApproved));
+    setText('lppTotalPending', money(allPending));
+    setText('lppTotalBalance', money(allBalance));
+    if (!lppAccountList) return;
+    if (!lppPlans.length) {
+      lppAccountList.innerHTML = '<div class="customer-empty-state compact"><span>🪙</span><h4>No Lipa Pole Pole account yet</h4><p>Select Lipa Pole Pole during checkout to submit a seller-set first deposit.</p><button type="button" data-customer-view="cart">Open Cart</button></div>';
+      lppAccountList.querySelector('[data-customer-view="cart"]')?.addEventListener('click', () => showCustomerView('cart'));
+      return;
+    }
+    lppAccountList.innerHTML = lppPlans.map((plan) => {
+      const paid = approvedLppTotal(plan);
+      const pending = pendingLppTotal(plan);
+      const balance = Math.max(0, Number(plan.total) - paid);
+      const progress = plan.total ? Math.min(100, (paid / Number(plan.total)) * 100) : 0;
+      return `<article class="lpp-plan-card" data-lpp-plan="${receiptEscape(plan.id)}">
+        <div class="lpp-plan-head"><div><span>${receiptEscape(plan.orderRef)}</span><h4>${receiptEscape(plan.itemName)}</h4><small>Seller-set deposit: ${receiptEscape(money(plan.depositRequired))}</small></div><b class="lpp-status">${balance <= 0 ? 'PAID IN FULL' : (pending > 0 ? 'PENDING CONFIRMATION' : 'ACTIVE')}</b></div>
+        <div class="lpp-plan-money"><div><span>Total Amount</span><strong>${money(plan.total)}</strong></div><div><span>Deposit Paid</span><strong>${money(paid)}</strong></div><div><span>Total Paid</span><strong>${money(paid)}</strong></div><div><span>Total Balance</span><strong>${money(balance)}</strong></div></div>
+        <div class="lpp-progress"><i style="width:${progress}%"></i></div>
+        ${pending > 0 ? '<p class="lpp-pending-note">⏳ ' + money(pending) + ' submitted and waiting for Admin/Staff confirmation. Pending payments do not reduce the balance.</p>' : ''}
+        <div class="lpp-plan-actions"><button type="button" data-lpp-pay="${receiptEscape(plan.id)}" ${balance <= 0 ? 'disabled' : ''}>Do Payment</button></div>
+        <form class="lpp-topup-form" data-lpp-topup-form="${receiptEscape(plan.id)}" hidden>
+          <label><span>Payment amount</span><input name="amount" type="number" min="1" max="${balance}" placeholder="Enter amount" required></label>
+          <label><span>Paste M-Pesa message/reference</span><textarea name="message" rows="3" placeholder="Paste the complete payment message" required></textarea></label>
+          <label class="payment-paid-check"><input name="paid" type="checkbox"><span>I have paid this amount and request Admin/Staff confirmation.</span></label>
+          <button type="submit">Submit Payment for Confirmation</button>
+          <p class="payment-step-status" data-lpp-topup-status></p>
+        </form>
+      </article>`;
+    }).join('');
+  };
+
+  lppDepositForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const item = testCart.find((entry) => entry.id === lppDepositItem?.value);
+    if (!item) {
+      lppDepositStatus.textContent = 'Select an eligible item from the cart.';
+      return;
+    }
+    if (!lppDepositMessage.value.trim()) {
+      lppDepositStatus.textContent = 'Paste the M-Pesa deposit message/reference.';
+      return;
+    }
+    if (!lppDepositPaidCheck.checked) {
+      lppDepositStatus.textContent = 'Tick “I have paid” before submitting.';
+      return;
+    }
+    const total = item.price * item.quantity;
+    const depositRequired = (item.deposit || 0) * item.quantity;
+    const reference = 'LPP-' + Date.now().toString().slice(-8);
+    lppPlans.push({
+      id: reference,
+      orderRef: reference,
+      itemId: item.id,
+      itemName: item.name + (item.quantity > 1 ? ' × ' + item.quantity : ''),
+      total,
+      depositRequired,
+      payments: [{ id: 'PAY-' + Date.now(), amount: depositRequired, message: lppDepositMessage.value.trim(), type: 'deposit', status: 'pending', submittedAt: new Date().toISOString() }]
+    });
+    saveLppPlans();
+    renderLppAccounts();
+    lppDepositStatus.textContent = 'Deposit submitted. It is pending Admin/Staff confirmation.';
+    selectedPaymentStatus.textContent = 'Deposit pending Admin confirmation';
+    window.setTimeout(() => showCustomerView('lipapolepole'), 700);
+  });
+
+  lppAccountList?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-lpp-pay]');
+    if (!button) return;
+    const form = lppAccountList.querySelector('[data-lpp-topup-form="' + button.dataset.lppPay + '"]');
+    if (form) form.hidden = !form.hidden;
+  });
+  lppAccountList?.addEventListener('submit', (event) => {
+    const form = event.target.closest('[data-lpp-topup-form]');
+    if (!form) return;
+    event.preventDefault();
+    const plan = lppPlans.find((entry) => entry.id === form.dataset.lppTopupForm);
+    const status = form.querySelector('[data-lpp-topup-status]');
+    const amount = Number(form.elements.amount.value);
+    const message = form.elements.message.value.trim();
+    if (!plan || !amount || amount <= 0) {
+      status.textContent = 'Enter a valid payment amount.';
+      return;
+    }
+    if (amount > Math.max(0, plan.total - approvedLppTotal(plan))) {
+      status.textContent = 'Payment cannot be higher than the outstanding balance.';
+      return;
+    }
+    if (!message) {
+      status.textContent = 'Paste the M-Pesa payment message/reference.';
+      return;
+    }
+    if (!form.elements.paid.checked) {
+      status.textContent = 'Tick “I have paid” before submitting.';
+      return;
+    }
+    plan.payments.push({ id: 'PAY-' + Date.now(), amount, message, type: 'instalment', status: 'pending', submittedAt: new Date().toISOString() });
+    saveLppPlans();
+    renderLppAccounts();
+  });
+  renderLppAccounts();
 
   const activityFilterButtons = customerShellModal?.querySelectorAll('[data-activity-filter]');
   const activityEmptyIcon = document.getElementById('activityEmptyIcon');
