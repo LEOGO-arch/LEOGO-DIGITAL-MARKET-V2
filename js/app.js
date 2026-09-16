@@ -1109,21 +1109,121 @@
     status.textContent = 'Test submission recorded as pending. No real money was collected.';
     event.target.reset();
   });
+  const walletLocalDateKey = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+  };
+  const walletDateFromKey = (key) => {
+    const [year, month, day] = key.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+  const walletChallengeCalendar = document.getElementById('walletChallengeCalendar');
+  const walletChallengeSummary = document.getElementById('walletChallengeSummary');
+  const walletChallengePaymentForm = document.getElementById('walletChallengePaymentForm');
+
+  const renderWalletChallengeCalendar = () => {
+    const challenge = walletPreview.challenge;
+    if (!walletChallengeCalendar || !walletChallengeSummary) return;
+    if (!challenge) {
+      walletChallengeSummary.textContent = 'Create a challenge to display the calendar.';
+      walletChallengeCalendar.innerHTML = '';
+      return;
+    }
+    challenge.payments = challenge.payments || {};
+    const todayKey = walletLocalDateKey(new Date());
+    const start = walletDateFromKey(challenge.startDate);
+    let missedCount = 0;
+    let coveredCount = 0;
+    let pendingCount = 0;
+    const days = [];
+    for (let index = 0; index < Number(challenge.days); index += 1) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      const key = walletLocalDateKey(date);
+      const payment = challenge.payments[key];
+      let state = 'upcoming';
+      let label = money(challenge.dailyAmount);
+      if (payment?.status === 'approved') {
+        state = 'covered';
+        label = 'Covered';
+        coveredCount += 1;
+      } else if (payment?.status === 'pending') {
+        state = 'pending';
+        label = 'Pending';
+        pendingCount += 1;
+      } else if (key < todayKey) {
+        state = 'missed';
+        label = '− ' + money(challenge.dailyAmount);
+        missedCount += 1;
+      } else if (key === todayKey) {
+        state = 'due';
+        label = 'Pay ' + money(challenge.dailyAmount);
+      }
+      const canPay = state === 'missed' || state === 'due';
+      days.push('<button type="button" class="wallet-calendar-day is-' + state + (canPay ? ' can-pay' : '') + '" data-wallet-challenge-date="' + key + '" ' + (canPay ? '' : 'disabled') + '><strong>' + date.getDate() + '</strong><small>' + date.toLocaleDateString('en-KE', { month: 'short', weekday: 'short' }) + '</small><b>' + receiptEscape(label) + '</b></button>');
+    }
+    walletChallengeCalendar.innerHTML = days.join('');
+    const missedAmount = missedCount * Number(challenge.dailyAmount);
+    walletChallengeSummary.innerHTML = '<strong>' + receiptEscape(money(challenge.dailyAmount)) + ' daily for ' + receiptEscape(challenge.days) + ' days</strong><br>Covered: ' + coveredCount + ' · Pending: ' + pendingCount + ' · Missed: ' + missedCount + ' (' + receiptEscape(money(missedAmount)) + ' negative)';
+  };
+
   document.getElementById('walletChallengeForm')?.addEventListener('submit', (event) => {
     event.preventDefault();
     const amount = Number(document.getElementById('walletChallengeAmount')?.value || 0);
     const days = Number(document.getElementById('walletChallengeDays')?.value || 0);
+    const startDate = document.getElementById('walletChallengeStart')?.value;
     const status = document.getElementById('walletChallengeStatus');
-    if (!amount || !days) {
-      status.textContent = 'Enter a daily amount and select the challenge period.';
+    if (!amount || !days || !startDate) {
+      status.textContent = 'Enter a daily amount, start date and challenge period.';
       return;
     }
-    walletPreview.challenge = { dailyAmount: amount, days, startedAt: new Date().toISOString() };
-    walletPreview.transactions.push({ title: days + '-day saving challenge started — ' + money(amount) + '/day', status: 'Preview active', date: new Date().toISOString() });
+    const previousPayments = walletPreview.challenge?.payments || {};
+    walletPreview.challenge = { dailyAmount: amount, days, startDate, startedAt: new Date().toISOString(), payments: previousPayments };
+    walletPreview.transactions.push({ title: days + '-day challenge — ' + money(amount) + '/day', status: 'Preview active', date: new Date().toISOString() });
     saveWalletPreview();
     renderWalletPreview();
-    status.textContent = 'Preview challenge created. Live reminders and deposits will be connected later.';
+    renderWalletChallengeCalendar();
+    status.textContent = 'Challenge calendar created. Missed dates remain clickable for recovery.';
   });
+
+  walletChallengeCalendar?.addEventListener('click', (event) => {
+    const day = event.target.closest('[data-wallet-challenge-date]');
+    if (!day || day.disabled || !walletPreview.challenge) return;
+    const key = day.dataset.walletChallengeDate;
+    document.getElementById('walletSelectedChallengeKey').value = key;
+    document.getElementById('walletSelectedChallengeDate').textContent = walletDateFromKey(key).toLocaleDateString('en-KE', { dateStyle: 'long' });
+    document.getElementById('walletSelectedChallengeAmount').textContent = money(walletPreview.challenge.dailyAmount);
+    document.getElementById('walletChallengePaymentStatus').textContent = '';
+    walletChallengePaymentForm.hidden = false;
+    walletChallengePaymentForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  walletChallengePaymentForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const key = document.getElementById('walletSelectedChallengeKey').value;
+    const reference = document.getElementById('walletChallengePaymentReference').value.trim();
+    const paid = document.getElementById('walletChallengePaymentPaid').checked;
+    const status = document.getElementById('walletChallengePaymentStatus');
+    if (!key || !reference || !paid || !walletPreview.challenge) {
+      status.textContent = 'Paste the payment reference and confirm that you paid.';
+      return;
+    }
+    walletPreview.challenge.payments = walletPreview.challenge.payments || {};
+    walletPreview.challenge.payments[key] = { status: 'pending', reference, submittedAt: new Date().toISOString(), amount: walletPreview.challenge.dailyAmount };
+    walletPreview.transactions.push({ title: 'Daily challenge ' + key + ' — ' + money(walletPreview.challenge.dailyAmount), status: 'Pending verification', date: new Date().toISOString() });
+    saveWalletPreview();
+    renderWalletPreview();
+    renderWalletChallengeCalendar();
+    status.textContent = 'Day saving submitted. The date is pending verification and will become covered after approval.';
+    document.getElementById('walletChallengePaymentReference').value = '';
+    document.getElementById('walletChallengePaymentPaid').checked = false;
+  });
+  const challengeStartInput = document.getElementById('walletChallengeStart');
+  if (challengeStartInput && !challengeStartInput.value) challengeStartInput.value = walletLocalDateKey(new Date());
+  renderWalletChallengeCalendar();
+
   document.getElementById('walletLoanPreviewForm')?.addEventListener('submit', (event) => {
     event.preventDefault();
     const amount = Number(document.getElementById('walletLoanAmount')?.value || 0);
