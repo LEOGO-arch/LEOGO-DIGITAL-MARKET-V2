@@ -1131,6 +1131,10 @@
       walletChallengeCalendar.innerHTML = '';
       return;
     }
+    // Migrate challenges created by the earlier preview so existing customers do not lose them.
+    if (!challenge.startDate) {
+      challenge.startDate = String(challenge.startedAt || new Date().toISOString()).slice(0, 10);
+    }
     challenge.payments = challenge.payments || {};
     const todayKey = walletLocalDateKey(new Date());
     const start = walletDateFromKey(challenge.startDate);
