@@ -78,7 +78,7 @@
       <button class="request-modal-close" type="button" aria-label="Close request form" data-close-request-modal>×</button>
     </div>
     <p class="request-modal-intro">Tell LEOGO what you need. Your request will be reviewed before it appears publicly.</p>
-    <form id="customerRequestForm">
+    <form id="customerRequestForm" data-requires-auth>
       <div class="request-form-grid">
         <label><span>Name</span><input id="requestName" name="name" type="text" autocomplete="name" placeholder="Your full name" required></label>
         <label><span>Phone number</span><input id="requestPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="e.g. 0712 345 678" required></label>
@@ -107,7 +107,7 @@
       <button class="selling-modal-close" type="button" aria-label="Close selling form" data-close-selling-modal>×</button>
     </div>
     <p class="selling-modal-intro">Use this simple form to offer a personal item for sale. Registered businesses will use the separate Seller portal.</p>
-    <form id="customerSellingForm">
+    <form id="customerSellingForm" data-requires-auth>
       <div class="selling-form-grid">
         <label><span>Name</span><input id="sellingName" name="name" type="text" autocomplete="name" placeholder="Your full name" required></label>
         <label><span>ID number</span><input id="sellingIdNumber" name="id_number" type="text" inputmode="numeric" autocomplete="off" placeholder="National ID number" required></label>
@@ -179,7 +179,7 @@
   <section class="advert-request-card">
     <div class="advert-request-head"><div><span>ADVERTISE WITH LEOGO</span><h2 id="advertRequestTitle">Submit an advertisement request</h2></div><button type="button" aria-label="Close advertisement request form" data-close-advert-request>×</button></div>
     <p>Tell us what you want to advertise. LEOGO Admin will review the request before anything is published.</p>
-    <form id="advertRequestForm">
+    <form id="advertRequestForm" data-requires-auth>
       <label><span>Name</span><input id="advertRequestName" name="name" type="text" autocomplete="name" placeholder="Your full name" required></label>
       <label><span>Phone number</span><input id="advertRequestPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="e.g. 0700 192 545" required></label>
       <label><span>What do you want to advertise?</span><textarea id="advertRequestDetails" name="advertisement" rows="5" maxlength="500" placeholder="Describe the business, product, service, event or announcement" required></textarea></label>
@@ -193,7 +193,7 @@
   <div class="customer-shell-backdrop" data-close-customer-shell></div>
   <section class="customer-shell-card">
     <header class="customer-shell-head">
-      <div><span>LEOGO CUSTOMER AREA</span><h2 id="customerShellTitle">Customer foundation preview</h2></div>
+      <div><span>LEOGO CUSTOMER AREA</span><h2 id="customerShellTitle">LEOGO Customer Account</h2></div>
       <button type="button" aria-label="Close customer area" data-close-customer-shell>×</button>
     </header>
     <div class="customer-shell-layout">
@@ -209,7 +209,7 @@
       </nav>
       <div class="customer-shell-content">
         <section class="customer-view" data-customer-panel="dashboard">
-          <div class="customer-view-title"><div><span>CUSTOMER DASHBOARD</span><h3>Welcome to LEOGO</h3><p>Your purchases, service requests, transport bookings and support will be managed here after login.</p></div><div class="customer-avatar">VO</div></div>
+          <div class="customer-view-title"><div><span>CUSTOMER DASHBOARD</span><h3 id="dashboardCustomerName">Welcome to LEOGO</h3><p>Your purchases, service requests, transport bookings and support will be managed here after login.</p></div><div class="customer-avatar" id="dashboardCustomerAvatar">LC</div></div>
           <div class="dashboard-stat-grid customer-stat-five"><article><small>Active Orders</small><strong>0</strong><span>No active orders</span></article><article><small>Service Requests</small><strong>0</strong><span>No open requests</span></article><article><small>Transport Bookings</small><strong>0</strong><span>No active bookings</span></article><article><small>Aftersales Cases</small><strong>0</strong><span>No open cases</span></article><article><small>Savings Wallet</small><strong id="walletDashboardBalance">KSh 0</strong><span>Verified available balance</span></article><article><small>Lipa Pole Pole</small><strong id="lppDashboardCount">0</strong><span>Active instalment accounts</span></article><article><small>Notifications</small><strong>0</strong><span>You are up to date</span></article></div>
           <div class="dashboard-quick-grid"><button type="button" data-customer-view="cart"><span>🛒</span><strong>View Cart</strong><small>Review items and checkout</small></button><button type="button" data-customer-view="orders"><span>🧾</span><strong>My Activity</strong><small>Orders, services and transport history</small></button><button type="button" data-customer-view="aftersales"><span>🛠️</span><strong>Aftersales Support</strong><small>Report an issue or request follow-up</small></button><button type="button" data-customer-view="wallet"><span>💰</span><strong>Savings Wallet</strong><small>Save, view challenges and transactions</small></button><button type="button" data-customer-view="lipapolepole"><span>🪙</span><strong>Lipa Pole Pole</strong><small>View instalments and outstanding balance</small></button><button type="button" data-customer-view="account"><span>👤</span><strong>My Profile</strong><small>Manage customer information</small></button><button type="button" data-close-customer-shell><span>🛍️</span><strong>Continue Shopping</strong><small>Return to the marketplace</small></button></div>
         </section>
@@ -255,10 +255,10 @@
           <div class="wallet-safety-banner">No real money is collected or stored in Phase 1(A). Live savings, wallet payments and lending require an approved licensed structure or regulated partner.</div>
           <div class="wallet-summary-grid"><article><small>Available Balance</small><strong id="walletAvailableBalance">KSh 0</strong><span>Verified funds only</span></article><article><small>Total Saved</small><strong id="walletTotalSaved">KSh 0</strong><span>Approved deposits</span></article><article><small>Saving Streak</small><strong id="walletSavingStreak">0 days</strong><span>Daily challenge history</span></article><article><small>Loan Eligibility</small><strong id="walletLoanEligibility">Not assessed</strong><span>Application and review required</span></article></div>
           <div class="wallet-dashboard-grid">
-            <form class="wallet-card" id="walletSavingPreviewForm"><div class="wallet-card-head"><span>💵</span><div><h4>Normal Saving</h4><p>Save any amount whenever you choose and submit it for verification.</p></div></div><label><span>Amount</span><input id="walletSavingAmount" type="number" min="1" placeholder="Enter amount" required></label><label><span>M-Pesa message/reference</span><textarea id="walletSavingReference" rows="3" placeholder="Paste payment confirmation" required></textarea></label><label class="payment-paid-check"><input id="walletSavingPaid" type="checkbox"><span>I have paid and request verification.</span></label><button type="submit">Submit Test Saving</button><p id="walletSavingStatus" class="payment-step-status"></p></form>
-            <form class="wallet-card wallet-challenge-setup" id="walletChallengeForm"><div class="wallet-card-head"><span>📅</span><div><h4>Daily Saving Challenge</h4><p>Choose one amount to save every day. Missed dates remain recoverable.</p></div></div><label><span>Daily target</span><input id="walletChallengeAmount" type="number" min="1" value="50" placeholder="Amount per day" required></label><label><span>Challenge starts</span><input id="walletChallengeStart" type="date" required></label><label><span>Challenge period</span><select id="walletChallengeDays" required><option value="">Select period</option><option value="7">7 days</option><option value="30" selected>30 days</option><option value="90">90 days</option></select></label><button type="submit">Create / Update Challenge</button><p id="walletChallengeStatus" class="payment-step-status"></p></form>
-            <article class="wallet-card wallet-calendar-card"><div class="wallet-card-head"><span>🗓️</span><div><h4>Daily Challenge Calendar</h4><p>Click today or any missed date to submit that day’s saving.</p></div></div><div class="wallet-calendar-legend"><span><i class="covered"></i>Covered</span><span><i class="pending"></i>Pending</span><span><i class="missed"></i>Missed</span><span><i class="upcoming"></i>Upcoming</span></div><div id="walletChallengeSummary" class="wallet-challenge-summary">Create a challenge to display the calendar.</div><div id="walletChallengeCalendar" class="wallet-challenge-calendar"></div><form id="walletChallengePaymentForm" class="wallet-day-payment-form" hidden><h5>Cover Challenge Date</h5><div><span>Selected date</span><strong id="walletSelectedChallengeDate">—</strong></div><div><span>Required amount</span><strong id="walletSelectedChallengeAmount">KSh 0</strong></div><input id="walletSelectedChallengeKey" type="hidden"><label><span>M-Pesa message/reference</span><textarea id="walletChallengePaymentReference" rows="3" placeholder="Paste payment confirmation" required></textarea></label><label class="payment-paid-check"><input id="walletChallengePaymentPaid" type="checkbox"><span>I have paid this daily challenge amount and request verification.</span></label><button type="submit">Submit Day Saving</button><p id="walletChallengePaymentStatus" class="payment-step-status"></p></form></article>
-            <form class="wallet-card wallet-loan-card" id="walletLoanPreviewForm"><div class="wallet-card-head"><span>🤝</span><div><h4>Loan Application</h4><p>Good saving history may support eligibility, but approval is not guaranteed.</p></div></div><label><span>Requested amount</span><input id="walletLoanAmount" type="number" min="1" placeholder="Enter requested amount" required></label><label><span>Purpose</span><textarea id="walletLoanPurpose" rows="3" placeholder="Explain the purpose" required></textarea></label><label class="payment-paid-check"><input id="walletLoanConsent" type="checkbox"><span>I understand that eligibility, affordability checks, terms, regulatory requirements and Admin/licensed-partner approval apply.</span></label><button type="submit">Submit Preview Application</button><p id="walletLoanStatus" class="payment-step-status"></p></form>
+            <form class="wallet-card" id="walletSavingPreviewForm" data-requires-auth><div class="wallet-card-head"><span>💵</span><div><h4>Normal Saving</h4><p>Save any amount whenever you choose and submit it for verification.</p></div></div><label><span>Amount</span><input id="walletSavingAmount" type="number" min="1" placeholder="Enter amount" required></label><label><span>M-Pesa message/reference</span><textarea id="walletSavingReference" rows="3" placeholder="Paste payment confirmation" required></textarea></label><label class="payment-paid-check"><input id="walletSavingPaid" type="checkbox"><span>I have paid and request verification.</span></label><button type="submit">Submit Test Saving</button><p id="walletSavingStatus" class="payment-step-status"></p></form>
+            <form class="wallet-card wallet-challenge-setup" id="walletChallengeForm" data-requires-auth><div class="wallet-card-head"><span>📅</span><div><h4>Daily Saving Challenge</h4><p>Choose one amount to save every day. Missed dates remain recoverable.</p></div></div><label><span>Daily target</span><input id="walletChallengeAmount" type="number" min="1" value="50" placeholder="Amount per day" required></label><label><span>Challenge starts</span><input id="walletChallengeStart" type="date" required></label><label><span>Challenge period</span><select id="walletChallengeDays" required><option value="">Select period</option><option value="7">7 days</option><option value="30" selected>30 days</option><option value="90">90 days</option></select></label><button type="submit">Create / Update Challenge</button><p id="walletChallengeStatus" class="payment-step-status"></p></form>
+            <article class="wallet-card wallet-calendar-card"><div class="wallet-card-head"><span>🗓️</span><div><h4>Daily Challenge Calendar</h4><p>Click today or any missed date to submit that day’s saving.</p></div></div><div class="wallet-calendar-legend"><span><i class="covered"></i>Covered</span><span><i class="pending"></i>Pending</span><span><i class="missed"></i>Missed</span><span><i class="upcoming"></i>Upcoming</span></div><div id="walletChallengeSummary" class="wallet-challenge-summary">Create a challenge to display the calendar.</div><div id="walletChallengeCalendar" class="wallet-challenge-calendar"></div><form id="walletChallengePaymentForm" data-requires-auth class="wallet-day-payment-form" hidden><h5>Cover Challenge Date</h5><div><span>Selected date</span><strong id="walletSelectedChallengeDate">—</strong></div><div><span>Required amount</span><strong id="walletSelectedChallengeAmount">KSh 0</strong></div><input id="walletSelectedChallengeKey" type="hidden"><label><span>M-Pesa message/reference</span><textarea id="walletChallengePaymentReference" rows="3" placeholder="Paste payment confirmation" required></textarea></label><label class="payment-paid-check"><input id="walletChallengePaymentPaid" type="checkbox"><span>I have paid this daily challenge amount and request verification.</span></label><button type="submit">Submit Day Saving</button><p id="walletChallengePaymentStatus" class="payment-step-status"></p></form></article>
+            <form class="wallet-card wallet-loan-card" id="walletLoanPreviewForm" data-requires-auth><div class="wallet-card-head"><span>🤝</span><div><h4>Loan Application</h4><p>Good saving history may support eligibility, but approval is not guaranteed.</p></div></div><label><span>Requested amount</span><input id="walletLoanAmount" type="number" min="1" placeholder="Enter requested amount" required></label><label><span>Purpose</span><textarea id="walletLoanPurpose" rows="3" placeholder="Explain the purpose" required></textarea></label><label class="payment-paid-check"><input id="walletLoanConsent" type="checkbox"><span>I understand that eligibility, affordability checks, terms, regulatory requirements and Admin/licensed-partner approval apply.</span></label><button type="submit">Submit Preview Application</button><p id="walletLoanStatus" class="payment-step-status"></p></form>
             <article class="wallet-card wallet-transaction-card"><div class="wallet-card-head"><span>🧾</span><div><h4>Wallet Transactions</h4><p>Saving, payment and application activity.</p></div></div><div id="walletTransactionList" class="wallet-transaction-list"><p>No wallet transactions yet.</p></div></article>
           </div>
           <div class="foundation-preview-note">Phase 1(A) visual preview only—no money is moved and no loan decision is made.</div>
@@ -311,7 +311,7 @@
               <div class="checkout-total-row"><span>Service fee <small id="checkoutServiceRate">(2%)</small></span><strong id="checkoutServiceFeeValue">KSh 0</strong></div>
               <div class="checkout-total-row"><span>Delivery fee</span><strong id="checkoutDeliveryFeeValue">Select zone</strong></div>
               <div class="checkout-total-row grand"><span>Grand total</span><strong id="checkoutGrandTotalValue">KSh 0</strong></div>
-              <button class="checkout-confirm" id="continueToPayment" type="button" disabled>Continue to Payment</button>
+              <button class="checkout-confirm" id="continueToPayment" type="button" data-requires-auth data-auth-message="Please log in before continuing to payment." disabled>Continue to Payment</button>
               <p class="checkout-readiness" id="checkoutReadinessMessage" aria-live="polite">Complete all required delivery details to continue.</p>
               <div class="foundation-preview-note">Fee percentages, delivery zones and prices can be edited later from the Admin Dashboard.</div>
               </div>
@@ -328,7 +328,7 @@
                 <div class="wallet-checkout-panel" id="walletCheckoutPanel" hidden>
                   <strong>💰 Pay with LEOGO Savings Wallet</strong><div><span>Available verified balance</span><b id="walletCheckoutAvailable">KSh 0</b></div><div><span>Order total</span><b id="walletCheckoutOrderTotal">KSh 0</b></div><p id="walletCheckoutStatus">Wallet payments are not active in Phase 1(A). A sufficient verified balance will be required when the regulated service is connected.</p><button type="button" disabled>Pay from Wallet</button>
                 </div>
-                <form class="lpp-deposit-form" id="lppDepositForm" hidden>
+                <form class="lpp-deposit-form" id="lppDepositForm" data-requires-auth hidden>
                   <div class="lpp-form-head"><span>🪙 LIPA POLE POLE</span><h5>Submit First Deposit</h5><p>The first deposit is set by the seller. It must be confirmed by LEOGO Admin/Staff before it increases Total Paid.</p></div>
                   <label><span>Eligible item</span><select id="lppDepositItem" required><option value="">Select an item from your cart</option></select></label>
                   <div class="lpp-deposit-values"><div><small>Total amount</small><strong id="lppDepositTotal">KSh 0</strong></div><div><small>Seller-set first deposit</small><strong id="lppDepositRequired">KSh 0</strong></div><div><small>Maximum payment period</small><strong id="lppDepositPeriod">Select item</strong></div></div>
@@ -361,7 +361,7 @@
                   <div><span>Selected payment</span><strong id="selectedPaymentLabel">Not selected</strong></div>
                   <div><span>Payment status</span><strong id="selectedPaymentStatus">Waiting</strong></div>
                 </div>
-                <div class="checkout-payment-actions" id="standardPaymentActions"><button type="button" id="backToCheckoutDetails">← Back</button><button class="make-order-button" type="button" id="makeCheckoutOrder">Make Order</button></div>
+                <div class="checkout-payment-actions" id="standardPaymentActions"><button type="button" id="backToCheckoutDetails">← Back</button><button class="make-order-button" type="button" id="makeCheckoutOrder" data-requires-auth data-auth-message="Please log in before placing your order.">Make Order</button></div>
                 <div class="order-created-panel" id="orderCreatedPanel" hidden>
                   <span>✓ ORDER CREATED</span><h5 id="createdOrderReference">LEOGO Order</h5><p>Your preview order is ready. Download the receipt, then send the order details to LEOGO on WhatsApp.</p>
                   <div><button type="button" id="downloadOrderReceipt">⬇ Download Receipt</button><button type="button" id="sendOrderWhatsApp">Send Order to WhatsApp</button></div>
@@ -396,10 +396,43 @@
           <div class="auth-shell-wrap">
             <div class="auth-shell-copy"><span>SIMPLE &amp; SECURE</span><h3>Join LEOGO</h3><p>Create one customer account to shop, request services, track orders and manage your profile.</p><ul><li>Phone-friendly registration</li><li>Secure login and logout</li><li>Persistent customer session</li></ul></div>
             <div class="auth-shell-form">
-              <div class="auth-shell-tabs"><button class="active" type="button" data-auth-tab="login">Login</button><button type="button" data-auth-tab="register">Register</button></div>
-              <form class="auth-preview-form active" data-auth-panel="login"><label><span>Email or phone number</span><input type="text" autocomplete="username" placeholder="Enter email or phone"></label><label><span>Password</span><input type="password" autocomplete="current-password" placeholder="Enter password"></label><button type="submit">Login to LEOGO</button><a href="#auth-preview">Forgot password?</a></form>
-              <form class="auth-preview-form" data-auth-panel="register"><label><span>Full name</span><input type="text" autocomplete="name" placeholder="Your full name"></label><label><span>Phone number</span><input type="tel" autocomplete="tel" placeholder="Your phone number"></label><label><span>Email address</span><input type="email" autocomplete="email" placeholder="Your email address"></label><label><span>Create password</span><input type="password" autocomplete="new-password" placeholder="Create a password"></label><button type="submit">Create Customer Account</button></form>
-              <div class="auth-preview-status" id="authPreviewStatus" aria-live="polite"></div>
+              <div id="authGuestControls">
+                <div class="auth-shell-tabs"><button class="active" type="button" data-auth-tab="login">Login</button><button type="button" data-auth-tab="register">Register</button></div>
+                <form class="auth-preview-form active" id="customerLoginForm" data-auth-panel="login">
+                  <label><span>Email address</span><input id="loginEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="yourname@example.com" required></label>
+                  <label><span>Password</span><input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required></label>
+                  <button type="submit">Login to LEOGO</button>
+                  <button class="auth-link-button" id="showResetPassword" type="button">Forgot password?</button>
+                </form>
+                <form class="auth-preview-form" id="customerRegisterForm" data-auth-panel="register">
+                  <label><span>Full name</span><input id="registerFullName" name="full_name" type="text" autocomplete="name" placeholder="Your full name" minlength="2" required></label>
+                  <label><span>Phone number</span><input id="registerPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0700 192 545" required></label>
+                  <label><span>Email address</span><input id="registerEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="yourname@example.com" required></label>
+                  <label><span>Create password</span><input id="registerPassword" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required></label>
+                  <label><span>Confirm password</span><input id="registerConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" placeholder="Repeat your password" minlength="8" required></label>
+                  <label class="auth-consent-check"><input id="registerTerms" name="terms" type="checkbox" required><span>I agree to create a LEOGO customer account and provide accurate details.</span></label>
+                  <button type="submit">Create Customer Account</button>
+                </form>
+                <form class="auth-reset-form" id="resetPasswordRequestForm" hidden>
+                  <strong>Reset your password</strong>
+                  <label><span>Email address</span><input id="resetEmail" type="email" inputmode="email" autocomplete="email" placeholder="Your registered email" required></label>
+                  <button type="submit">Send Reset Link</button>
+                </form>
+              </div>
+              <section class="auth-signed-in-panel" id="authSignedInPanel" hidden>
+                <span>✓ SECURE SESSION ACTIVE</span>
+                <h4 id="signedInCustomerName">LEOGO Customer</h4>
+                <p id="signedInCustomerEmail"></p>
+                <p id="signedInCustomerPhone"></p>
+                <div><button type="button" data-customer-view="dashboard">Open Dashboard</button><button class="auth-logout-button" id="customerLogoutButton" type="button">Logout</button></div>
+              </section>
+              <form class="auth-reset-form" id="resetPasswordUpdateForm" hidden>
+                <strong>Create your new password</strong>
+                <label><span>New password</span><input id="recoveryPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+                <label><span>Confirm new password</span><input id="recoveryPasswordConfirm" type="password" autocomplete="new-password" minlength="8" required></label>
+                <button type="submit">Update Password</button>
+              </form>
+              <div class="auth-preview-status" id="authPreviewStatus" role="status" aria-live="polite"></div>
             </div>
           </div>
         </section>
@@ -420,4 +453,4 @@
     </div>
   </div>
 </section>
-<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="js/app.js" defer></script></body></html>
+<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.min.js" defer></script><script src="js/app.js" defer></script><script src="js/auth.js" defer></script></body></html>
