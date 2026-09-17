@@ -204,6 +204,9 @@
         <button type="button" data-customer-view="wallet"><span>💰</span>Savings Wallet</button>
         <button type="button" data-customer-view="lipapolepole"><span>🪙</span>Lipa Pole Pole</button>
         <button type="button" data-customer-view="cart"><span>🛒</span>Cart &amp; Checkout</button>
+        <button type="button" data-customer-view="addresses"><span>📍</span>My Addresses</button>
+        <button type="button" data-customer-view="lookingrequests"><span>🔎</span>Looking-For Requests</button>
+        <button type="button" data-customer-view="premiumaccess"><span>🔞</span>Premium Access</button>
         <button type="button" data-customer-view="account"><span>♙</span>Account &amp; Profile</button>
         <button type="button" data-customer-view="auth"><span>⇥</span>Login &amp; Register</button>
       </nav>
@@ -211,7 +214,7 @@
         <section class="customer-view" data-customer-panel="dashboard">
           <div class="customer-view-title"><div><span>CUSTOMER DASHBOARD</span><h3 id="dashboardCustomerName">Welcome to LEOGO</h3><p>Your purchases, service requests, transport bookings and support will be managed here after login.</p></div><div class="customer-avatar" id="dashboardCustomerAvatar">LC</div></div>
           <div class="dashboard-stat-grid customer-stat-five"><article><small>Active Orders</small><strong>0</strong><span>No active orders</span></article><article><small>Service Requests</small><strong>0</strong><span>No open requests</span></article><article><small>Transport Bookings</small><strong>0</strong><span>No active bookings</span></article><article><small>Aftersales Cases</small><strong>0</strong><span>No open cases</span></article><article><small>Savings Wallet</small><strong id="walletDashboardBalance">KSh 0</strong><span>Verified available balance</span></article><article><small>Lipa Pole Pole</small><strong id="lppDashboardCount">0</strong><span>Active instalment accounts</span></article><article><small>Notifications</small><strong>0</strong><span>You are up to date</span></article></div>
-          <div class="dashboard-quick-grid"><button type="button" data-customer-view="cart"><span>🛒</span><strong>View Cart</strong><small>Review items and checkout</small></button><button type="button" data-customer-view="orders"><span>🧾</span><strong>My Activity</strong><small>Orders, services and transport history</small></button><button type="button" data-customer-view="aftersales"><span>🛠️</span><strong>Aftersales Support</strong><small>Report an issue or request follow-up</small></button><button type="button" data-customer-view="wallet"><span>💰</span><strong>Savings Wallet</strong><small>Save, view challenges and transactions</small></button><button type="button" data-customer-view="lipapolepole"><span>🪙</span><strong>Lipa Pole Pole</strong><small>View instalments and outstanding balance</small></button><button type="button" data-customer-view="account"><span>👤</span><strong>My Profile</strong><small>Manage customer information</small></button><button type="button" data-close-customer-shell><span>🛍️</span><strong>Continue Shopping</strong><small>Return to the marketplace</small></button></div>
+          <div class="dashboard-quick-grid"><button type="button" data-customer-view="cart"><span>🛒</span><strong>View Cart</strong><small>Review items and checkout</small></button><button type="button" data-customer-view="orders"><span>🧾</span><strong>My Activity</strong><small>Orders, services and transport history</small></button><button type="button" data-customer-view="aftersales"><span>🛠️</span><strong>Aftersales Support</strong><small>Report an issue or request follow-up</small></button><button type="button" data-customer-view="wallet"><span>💰</span><strong>Savings Wallet</strong><small>Save, view challenges and transactions</small></button><button type="button" data-customer-view="lipapolepole"><span>🪙</span><strong>Lipa Pole Pole</strong><small>View instalments and outstanding balance</small></button><button type="button" data-customer-view="addresses"><span>📍</span><strong>My Addresses</strong><small>Manage saved delivery information</small></button><button type="button" data-customer-view="lookingrequests"><span>🔎</span><strong>My Looking-For Requests</strong><small>Post and later track approved requests</small></button><button type="button" data-customer-view="premiumaccess"><span>🔞</span><strong>Premium Access</strong><small>Review consent and access status</small></button><button type="button" data-customer-view="account"><span>👤</span><strong>My Profile</strong><small>Manage customer information</small></button><button type="button" data-close-customer-shell><span>🛍️</span><strong>Continue Shopping</strong><small>Return to the marketplace</small></button></div>
         </section>
 
         <section class="customer-view" data-customer-panel="orders">
@@ -372,6 +375,32 @@
           </div>
         </section>
 
+        <section class="customer-view" data-customer-panel="addresses">
+          <div class="customer-view-title"><div><span>SAVED DELIVERY INFORMATION</span><h3>My Addresses</h3><p>Your saved County, Sub-County, Estate/Area and nearest landmark are managed from your private profile.</p></div><span class="foundation-status-badge">Profile linked</span></div>
+          <div class="foundation-link-card">
+            <span class="foundation-link-icon">📍</span>
+            <div><h4>Primary Delivery Address</h4><p>Open My Profile to add or update the delivery address used to prefill checkout. Your exact location and phone number remain private.</p></div>
+            <button type="button" data-customer-view="account">Manage Address</button>
+          </div>
+          <div class="foundation-preview-note">Additional saved addresses can be connected in a later customer-address workflow without changing your primary profile address.</div>
+        </section>
+
+        <section class="customer-view" data-customer-panel="lookingrequests">
+          <div class="customer-view-title"><div><span>CUSTOMER REQUESTS</span><h3>What I’m Looking For</h3><p>Post a request for an item or service. Approved requests will later appear here with their review status.</p></div><span class="foundation-status-badge">Admin reviewed</span></div>
+          <div class="customer-empty-state"><span>🔎</span><h4>No connected requests yet</h4><p>The existing request form is ready. Permanent request history and approval status will be connected during the request backend workflow.</p><button id="openRequestFromDashboard" type="button">＋ Add Looking-For Request</button></div>
+          <div class="foundation-preview-note">Your phone number, exact location and optional location pin are visible only to authorized LEOGO Admin/Staff.</div>
+        </section>
+
+        <section class="customer-view" data-customer-panel="premiumaccess">
+          <div class="customer-view-title"><div><span>VERIFIED ADULTS ONLY</span><h3>LEOGO Premium 18+ Access</h3><p>Review the adult-access conditions and complete the existing consent before entering the Premium section.</p></div><span class="foundation-status-badge premium">18+ consent required</span></div>
+          <div class="foundation-link-card premium-foundation-card">
+            <span class="foundation-link-icon">🔞</span>
+            <div><h4>Premium consent and access</h4><p>LEOGO Premium is for consenting verified adults. LEOGO is not responsible for personal actions, relationships or activities after users connect, and the service must not be used for illegal activity.</p><strong id="dashboardPremiumStatus">Consent not completed for this session.</strong></div>
+            <button id="openPremiumFromDashboard" type="button">Review Consent</button>
+          </div>
+          <div class="foundation-preview-note">Identity verification, membership and Premium profiles will be connected in the dedicated Premium phase.</div>
+        </section>
+
         <section class="customer-view" data-customer-panel="account">
           <div class="customer-view-title"><div><span>ACCOUNT &amp; PROFILE</span><h3>My Profile</h3><p>Basic customer information and saved delivery details.</p></div><div class="customer-avatar large" id="profileCustomerAvatar">LC</div></div>
           <form class="profile-shell" id="customerProfileForm" data-requires-auth data-auth-message="Please log in before managing your profile.">
@@ -458,4 +487,4 @@
     </div>
   </div>
 </section>
-<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=phase1c-profile1" defer></script><script src="js/app.js?v=phase1c-profile1" defer></script><script src="js/auth.js?v=phase1c-profile1" defer></script></body></html>
+<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=phase1c-foundation2" defer></script><script src="js/app.js?v=phase1c-foundation2" defer></script><script src="js/auth.js?v=phase1c-foundation2" defer></script></body></html>
