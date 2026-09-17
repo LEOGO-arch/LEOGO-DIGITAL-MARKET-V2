@@ -30,6 +30,12 @@
     pinFormStatus: document.getElementById('walletPinFormStatus'),
     currentPinWrap: document.getElementById('walletCurrentPinWrap'),
     statementStatus: document.getElementById('walletStatementStatus'),
+    statementTransactionCount: document.getElementById('walletStatementTransactionCount'),
+    statementFee: document.getElementById('walletStatementFee'),
+    statementConsent: document.getElementById('walletStatementConsent'),
+    statementConsentText: document.getElementById('walletStatementConsentText'),
+    statementFrom: document.getElementById('walletStatementFrom'),
+    statementTo: document.getElementById('walletStatementTo'),
     downloadExcel: document.getElementById('walletDownloadExcel'),
     downloadPdf: document.getElementById('walletDownloadPdf'),
     transactions: document.getElementById('walletTransactionList'),
@@ -51,9 +57,9 @@
   let ledgerEntries = [];
   let loanApplications = [];
   let withdrawalRequests = [];
-  let walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001 };
+  let walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001, statement_fee_per_200_kes: 10 };
   let walletSecurity = { pin_is_set: false, pin_locked_until: null };
-  let walletSummary = { balance: 0, withdrawable: 0, reserved: 0, total_saved: 0, points: 0 };
+  let walletSummary = { balance: 0, withdrawable: 0, reserved: 0, total_saved: 0, points: 0, statement_transaction_count: 0, statement_download_fee: 0 };
   let loadVersion = 0;
 
   const numberFormat = (value) => Number(value || 0).toLocaleString('en-KE', {
@@ -119,7 +125,11 @@
     wallet_not_active: 'Your wallet account is not active. Please contact LEOGO customer care.',
     profile_phone_required: 'Add a phone number to your customer profile before requesting a withdrawal.',
     invalid_amount: 'Enter a valid withdrawal amount.',
-    insufficient_withdrawable_balance: 'This amount is higher than your available withdrawable balance.'
+    insufficient_withdrawable_balance: 'This amount is higher than your available withdrawable balance.',
+    consent_required: 'Tick the confirmation box before downloading your statement.',
+    no_transactions: 'There are no confirmed wallet transactions available for a statement.',
+    insufficient_statement_balance: 'Your available wallet balance is not enough to pay the statement download charge.',
+    invalid_statement_period: 'The statement start date must be before the end date.'
   }[code] || 'The secure wallet request could not be completed. Please try again.');
 
   const runOnce = async (form, task) => {
@@ -181,6 +191,21 @@
     if (elements.eligibility) {
       elements.eligibility.textContent = openLoan ? 'Under review' : (totals.totalSaved > 0 ? 'History building' : 'Not assessed');
     }
+    const transactionCount = Number(walletSummary.statement_transaction_count || 0);
+    const statementFee = Number(walletSummary.statement_download_fee || 0);
+    if (elements.statementTransactionCount) {
+      elements.statementTransactionCount.textContent = `${numberFormat(transactionCount)} ${transactionCount === 1 ? 'transaction' : 'transactions'}`;
+    }
+    if (elements.statementFee) elements.statementFee.textContent = money(statementFee);
+    if (elements.statementConsentText) {
+      elements.statementConsentText.textContent = transactionCount
+        ? `I authorize LEOGO to deduct ${money(statementFee)} from my wallet before this statement is downloaded.`
+        : 'A statement download becomes available after your first confirmed wallet transaction.';
+    }
+    const canDownload = Boolean(currentUser && transactionCount > 0 && elements.statementConsent?.checked);
+    if (elements.statementConsent) elements.statementConsent.disabled = !currentUser || transactionCount === 0;
+    if (elements.downloadExcel) elements.downloadExcel.disabled = !canDownload;
+    if (elements.downloadPdf) elements.downloadPdf.disabled = !canDownload;
   };
 
   const renderPinSecurity = () => {
@@ -350,9 +375,10 @@
     ledgerEntries = [];
     loanApplications = [];
     withdrawalRequests = [];
-    walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001 };
+    walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001, statement_fee_per_200_kes: 10 };
     walletSecurity = { pin_is_set: false, pin_locked_until: null };
-    walletSummary = { balance: 0, withdrawable: 0, reserved: 0, total_saved: 0, points: 0 };
+    walletSummary = { balance: 0, withdrawable: 0, reserved: 0, total_saved: 0, points: 0, statement_transaction_count: 0, statement_download_fee: 0 };
+    if (elements.statementConsent) elements.statementConsent.checked = false;
     setBadge('SIGN IN REQUIRED');
     renderSummary();
     renderTransactions();
@@ -377,7 +403,7 @@
       client.from('wallet_ledger_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(200),
       client.from('wallet_loan_applications').select('*').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(50),
       client.from('wallet_withdrawal_requests').select('*').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(50),
-      client.from('wallet_settings').select('maintenance_fee_kes,reward_minimum_spend_kes,reward_rate').eq('id', 1).single(),
+      client.from('wallet_settings').select('maintenance_fee_kes,reward_minimum_spend_kes,reward_rate,statement_fee_per_200_kes').eq('id', 1).single(),
       client.rpc('get_wallet_security_status'),
       client.rpc('get_my_wallet_summary')
     ]);
@@ -657,6 +683,31 @@
     return entries;
   };
 
+  let statementQuoteVersion = 0;
+  const refreshStatementQuote = async () => {
+    if (!currentUser) return;
+    const version = ++statementQuoteVersion;
+    if (elements.statementConsent) elements.statementConsent.checked = false;
+    renderSummary();
+    if (elements.statementTransactionCount) elements.statementTransactionCount.textContent = 'Calculating…';
+    if (elements.statementFee) elements.statementFee.textContent = 'Calculating…';
+    const { data, error } = await client.rpc('get_wallet_statement_quote', {
+      p_statement_from: elements.statementFrom?.value || null,
+      p_statement_to: elements.statementTo?.value || null
+    });
+    if (version !== statementQuoteVersion || !currentUser) return;
+    if (error || !data?.success) {
+      setMessage(elements.statementStatus, error ? friendlyError(error) : walletCodeMessage(data?.code), 'error');
+      walletSummary.statement_transaction_count = 0;
+      walletSummary.statement_download_fee = 0;
+    } else {
+      walletSummary.statement_transaction_count = Number(data.transaction_count || 0);
+      walletSummary.statement_download_fee = Number(data.fee_amount_kes || 0);
+      setMessage(elements.statementStatus);
+    }
+    renderSummary();
+  };
+
   const statementData = (statementEntries) => {
     const fromValue = document.getElementById('walletStatementFrom')?.value;
     const toValue = document.getElementById('walletStatementTo')?.value;
@@ -697,8 +748,8 @@
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 
-  const downloadStatementExcel = async () => {
-    const statement = statementData(await fetchStatementLedger());
+  const downloadStatementExcel = (statementEntries) => {
+    const statement = statementData(statementEntries);
     if (!statement.rows.length) throw new Error('There are no confirmed wallet transactions in the selected period.');
     const customer = currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.name || currentUser?.email || 'LEOGO Customer';
     const rows = statement.rows.map((entry) => `
@@ -709,8 +760,8 @@
 
   const pdfEscape = (value) => String(value ?? '').replace(/[^\x20-\x7E]/g, '?').replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
 
-  const downloadStatementPdf = async () => {
-    const statement = statementData(await fetchStatementLedger());
+  const downloadStatementPdf = (statementEntries) => {
+    const statement = statementData(statementEntries);
     if (!statement.rows.length) throw new Error('There are no confirmed wallet transactions in the selected period.');
     const customer = currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.name || currentUser?.email || 'LEOGO Customer';
     const lines = [
@@ -761,29 +812,67 @@
     saveDownload(new Blob([pdf], { type: 'application/pdf' }), `LEOGO-Wallet-Statement-${localDateKey()}.pdf`);
   };
 
-  const runStatementDownload = async (button, task, successMessage) => {
+  const runStatementDownload = async (button, format) => {
     if (!currentUser) return;
+    if (!elements.statementConsent?.checked) {
+      setMessage(elements.statementStatus, walletCodeMessage('consent_required'), 'error');
+      return;
+    }
     button.disabled = true;
+    if (elements.downloadExcel) elements.downloadExcel.disabled = true;
+    if (elements.downloadPdf) elements.downloadPdf.disabled = true;
     const originalText = button.textContent;
     button.textContent = 'Preparing…';
     try {
-      setMessage(elements.statementStatus, 'Preparing your complete verified statement…');
-      await task();
-      setMessage(elements.statementStatus, successMessage, 'success');
+      setMessage(elements.statementStatus, 'Preparing your statement and confirming the wallet deduction…');
+      const statementEntries = await fetchStatementLedger();
+      const requestSignature = `${format}|${elements.statementFrom?.value || ''}|${elements.statementTo?.value || ''}`;
+      if (button.dataset.requestSignature !== requestSignature) delete button.dataset.requestId;
+      const requestId = button.dataset.requestId || crypto.randomUUID();
+      button.dataset.requestId = requestId;
+      button.dataset.requestSignature = requestSignature;
+      const { data, error } = await client.rpc('charge_wallet_statement_download', {
+        p_statement_format: format,
+        p_consent_confirmed: true,
+        p_client_request_id: requestId,
+        p_statement_from: elements.statementFrom?.value || null,
+        p_statement_to: elements.statementTo?.value || null
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(walletCodeMessage(data?.code));
+      if (data.ledger_entry && !statementEntries.some((entry) => entry.id === data.ledger_entry.id)) {
+        statementEntries.push(data.ledger_entry);
+      }
+      if (format === 'excel') downloadStatementExcel(statementEntries);
+      else downloadStatementPdf(statementEntries);
+      delete button.dataset.requestId;
+      delete button.dataset.requestSignature;
+      elements.statementConsent.checked = false;
+      await loadWallet(currentUser);
+      if (elements.statementFrom?.value || elements.statementTo?.value) await refreshStatementQuote();
+      setMessage(elements.statementStatus, `${format === 'excel' ? 'Excel' : 'PDF'} statement downloaded. ${money(data.fee_amount_kes)} was deducted from your wallet.`, 'success');
     } catch (error) {
       setMessage(elements.statementStatus, friendlyError(error), 'error');
     } finally {
-      button.disabled = false;
       button.textContent = originalText;
+      renderSummary();
     }
   };
 
+  elements.statementConsent?.addEventListener('change', () => {
+    setMessage(elements.statementStatus);
+    renderSummary();
+  });
+
+  elements.statementFrom?.addEventListener('change', refreshStatementQuote);
+  elements.statementTo?.addEventListener('change', refreshStatementQuote);
+
   elements.downloadExcel?.addEventListener('click', () => {
-    runStatementDownload(elements.downloadExcel, downloadStatementExcel, 'Excel statement downloaded successfully.');
+    runStatementDownload(elements.downloadExcel, 'excel');
   });
 
   elements.downloadPdf?.addEventListener('click', () => {
-    runStatementDownload(elements.downloadPdf, downloadStatementPdf, 'PDF statement downloaded successfully.');
+    runStatementDownload(elements.downloadPdf, 'pdf');
   });
 
   const challengeStart = document.getElementById('walletChallengeStart');
