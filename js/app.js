@@ -312,7 +312,7 @@
     document.body.classList.remove('customer-shell-open');
   };
 
-  const protectedCustomerViews = new Set(['dashboard', 'orders', 'aftersales', 'wallet', 'lipapolepole', 'addresses', 'lookingrequests', 'premiumaccess', 'account']);
+  const protectedCustomerViews = new Set(['dashboard', 'orders', 'aftersales', 'wallet', 'lipapolepole', 'accommodation', 'addresses', 'lookingrequests', 'premiumaccess', 'account']);
   const openCustomerShell = (viewName = 'dashboard', options = {}) => {
     if (!customerShellModal) return;
     const needsLogin = protectedCustomerViews.has(viewName);
