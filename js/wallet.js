@@ -47,6 +47,10 @@
     challengeCalendar: document.getElementById('walletChallengeCalendar'),
     challengePaymentForm: document.getElementById('walletChallengePaymentForm'),
     challengePaymentStatus: document.getElementById('walletChallengePaymentStatus'),
+    savingsTillNumber: document.getElementById('walletSavingsTillNumber'),
+    savingsTillName: document.getElementById('walletSavingsTillName'),
+    copySavingsTill: document.getElementById('copyWalletSavingsTill'),
+    submitChallengePayment: document.getElementById('submitWalletChallengePayment'),
     loanForm: document.getElementById('walletLoanPreviewForm'),
     loanStatus: document.getElementById('walletLoanStatus')
   };
@@ -57,7 +61,7 @@
   let ledgerEntries = [];
   let loanApplications = [];
   let withdrawalRequests = [];
-  let walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001, statement_fee_per_200_kes: 10 };
+  let walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001, statement_fee_per_200_kes: 10, savings_till_number: null, savings_till_name: 'LEOGO Savings Wallet' };
   let walletSecurity = { pin_is_set: false, pin_locked_until: null };
   let walletSummary = { balance: 0, withdrawable: 0, reserved: 0, total_saved: 0, points: 0, statement_transaction_count: 0, statement_download_fee: 0 };
   let loadVersion = 0;
@@ -315,10 +319,34 @@
     });
   };
 
+  const renderSavingsTill = () => {
+    const till = String(walletSettings.savings_till_number || '').trim();
+    if (elements.savingsTillNumber) elements.savingsTillNumber.textContent = till || 'Awaiting Admin setup';
+    if (elements.savingsTillName) elements.savingsTillName.textContent = walletSettings.savings_till_name || 'LEOGO Savings Wallet';
+    if (elements.copySavingsTill) elements.copySavingsTill.disabled = !till;
+    if (elements.submitChallengePayment) {
+      elements.submitChallengePayment.disabled = !till;
+      elements.submitChallengePayment.title = till ? '' : 'Admin must set the savings Till number first.';
+    }
+  };
+
+  const selectChallengeDate = (key, shouldScroll = false) => {
+    if (!currentChallenge || !key || !elements.challengePaymentForm) return;
+    document.getElementById('walletSelectedChallengeKey').value = key;
+    document.getElementById('walletSelectedChallengeDate').textContent = new Intl.DateTimeFormat('en-KE', {
+      dateStyle: 'long', timeZone: 'Africa/Nairobi'
+    }).format(dateFromKey(key));
+    document.getElementById('walletSelectedChallengeAmount').textContent = money(currentChallenge.daily_amount_kes);
+    setMessage(elements.challengePaymentStatus);
+    elements.challengePaymentForm.hidden = false;
+    if (shouldScroll) elements.challengePaymentForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
   const renderChallenge = () => {
     if (!elements.challengeCalendar || !elements.challengeSummary) return;
     elements.challengeCalendar.replaceChildren();
     if (!currentChallenge) {
+      if (elements.challengePaymentForm) elements.challengePaymentForm.hidden = true;
       elements.challengeSummary.textContent = currentUser
         ? 'Create a challenge to display the calendar.'
         : 'Log in to create and track a daily saving challenge.';
@@ -330,6 +358,7 @@
     let covered = 0;
     let pending = 0;
     let missed = 0;
+    const payableDates = [];
     for (let index = 0; index < Number(currentChallenge.period_days); index += 1) {
       const key = addDays(currentChallenge.start_date, index);
       const payment = paymentByDate.get(key);
@@ -352,6 +381,7 @@
         label = `Pay ${money(currentChallenge.daily_amount_kes)}`;
       }
       const canPay = (state === 'missed' || state === 'due') && payment?.request_status !== 'pending';
+      if (canPay) payableDates.push(key);
       const button = document.createElement('button');
       button.type = 'button';
       button.className = `wallet-calendar-day is-${state}${canPay ? ' can-pay' : ''}`;
@@ -367,6 +397,13 @@
       elements.challengeCalendar.append(button);
     }
     elements.challengeSummary.textContent = `${money(currentChallenge.daily_amount_kes)} daily for ${currentChallenge.period_days} days · Covered: ${covered} · Pending: ${pending} · Missed: ${missed} (${money(missed * Number(currentChallenge.daily_amount_kes))} negative)`;
+    const selectedKey = document.getElementById('walletSelectedChallengeKey')?.value;
+    const defaultKey = payableDates.includes(today) ? today : payableDates[0];
+    if (defaultKey) {
+      selectChallengeDate(payableDates.includes(selectedKey) ? selectedKey : defaultKey);
+    } else if (elements.challengePaymentForm) {
+      elements.challengePaymentForm.hidden = true;
+    }
   };
 
   const clearWallet = () => {
@@ -375,7 +412,7 @@
     ledgerEntries = [];
     loanApplications = [];
     withdrawalRequests = [];
-    walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001, statement_fee_per_200_kes: 10 };
+    walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001, statement_fee_per_200_kes: 10, savings_till_number: null, savings_till_name: 'LEOGO Savings Wallet' };
     walletSecurity = { pin_is_set: false, pin_locked_until: null };
     walletSummary = { balance: 0, withdrawable: 0, reserved: 0, total_saved: 0, points: 0, statement_transaction_count: 0, statement_download_fee: 0 };
     if (elements.statementConsent) elements.statementConsent.checked = false;
@@ -385,6 +422,7 @@
     renderChallenge();
     renderWithdrawals();
     renderPinSecurity();
+    renderSavingsTill();
   };
 
   const loadWallet = async (user) => {
@@ -403,7 +441,7 @@
       client.from('wallet_ledger_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(200),
       client.from('wallet_loan_applications').select('*').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(50),
       client.from('wallet_withdrawal_requests').select('*').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(50),
-      client.from('wallet_settings').select('maintenance_fee_kes,reward_minimum_spend_kes,reward_rate,statement_fee_per_200_kes').eq('id', 1).single(),
+      client.from('wallet_settings').select('maintenance_fee_kes,reward_minimum_spend_kes,reward_rate,statement_fee_per_200_kes,savings_till_number,savings_till_name').eq('id', 1).single(),
       client.rpc('get_wallet_security_status'),
       client.rpc('get_my_wallet_summary')
     ]);
@@ -429,6 +467,7 @@
     renderChallenge();
     renderWithdrawals();
     renderPinSecurity();
+    renderSavingsTill();
   };
 
   elements.savingForm?.addEventListener('submit', (event) => {
@@ -482,21 +521,29 @@
   elements.challengeCalendar?.addEventListener('click', (event) => {
     const day = event.target.closest('[data-wallet-challenge-date]');
     if (!day || day.disabled || !currentChallenge) return;
-    const key = day.dataset.walletChallengeDate;
-    document.getElementById('walletSelectedChallengeKey').value = key;
-    document.getElementById('walletSelectedChallengeDate').textContent = new Intl.DateTimeFormat('en-KE', {
-      dateStyle: 'long', timeZone: 'Africa/Nairobi'
-    }).format(dateFromKey(key));
-    document.getElementById('walletSelectedChallengeAmount').textContent = money(currentChallenge.daily_amount_kes);
-    setMessage(elements.challengePaymentStatus);
-    elements.challengePaymentForm.hidden = false;
-    elements.challengePaymentForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    selectChallengeDate(day.dataset.walletChallengeDate, true);
+  });
+
+  elements.copySavingsTill?.addEventListener('click', async () => {
+    const till = String(walletSettings.savings_till_number || '').trim();
+    if (!till) return;
+    try {
+      await navigator.clipboard.writeText(till);
+      elements.copySavingsTill.textContent = 'Copied';
+      window.setTimeout(() => { elements.copySavingsTill.textContent = 'Copy Till'; }, 1600);
+    } catch {
+      setMessage(elements.challengePaymentStatus, `Till number: ${till}. Press and hold the number to copy it.`, 'error');
+    }
   });
 
   elements.challengePaymentForm?.addEventListener('submit', (event) => {
     event.preventDefault();
     if (!currentUser || !currentChallenge || !elements.challengePaymentForm.reportValidity()) return;
     runOnce(elements.challengePaymentForm, async () => {
+      if (!String(walletSettings.savings_till_number || '').trim()) {
+        setMessage(elements.challengePaymentStatus, 'The savings Till number has not been set by Admin yet.', 'error');
+        return;
+      }
       const challengeDate = document.getElementById('walletSelectedChallengeKey')?.value;
       const reference = document.getElementById('walletChallengePaymentReference')?.value.trim();
       const paid = document.getElementById('walletChallengePaymentPaid')?.checked;
