@@ -230,7 +230,8 @@
 
   openPremiumConsent?.addEventListener('click', () => {
     if (sessionStorage.getItem(premiumConsentKey) === 'accepted') {
-      premiumEntryStatus.textContent = '✓ Consent accepted for this session. Sign-in, verification and membership access will be connected in the Premium phase.';
+      premiumEntryStatus.textContent = '✓ Consent accepted for this session. Opening your Premium area…';
+      window.leogoOpenCustomerView?.('premiumaccess');
       return;
     }
     showPremiumConsent();
@@ -248,8 +249,8 @@
     sessionStorage.setItem(premiumConsentKey, 'accepted');
     updateDashboardPremiumStatus();
     closePremiumConsent();
-    premiumEntryStatus.textContent = '✓ Consent accepted for this session. Sign-in, verification and membership access will be connected in the Premium phase.';
-    document.getElementById('premium')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    premiumEntryStatus.textContent = '✓ Consent accepted for this session.';
+    window.leogoOpenCustomerView?.('premiumaccess');
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && premiumConsentModal?.classList.contains('is-open')) closePremiumConsent();
@@ -349,12 +350,12 @@
     showRequestModal();
   });
   document.getElementById('openPremiumFromDashboard')?.addEventListener('click', () => {
-    closeCustomerShell();
     if (sessionStorage.getItem(premiumConsentKey) === 'accepted') {
-      premiumEntryStatus.textContent = '✓ Consent accepted for this session. Sign-in, verification and membership access will be connected in the Premium phase.';
-      document.getElementById('premium')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      premiumEntryStatus.textContent = '✓ Consent accepted for this session.';
+      updateDashboardPremiumStatus();
       return;
     }
+    closeCustomerShell();
     showPremiumConsent();
   });
   authPreviewTabs?.forEach((tab) => {
