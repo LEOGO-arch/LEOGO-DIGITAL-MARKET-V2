@@ -405,8 +405,12 @@
             <div><h4>Premium consent and access</h4><p>LEOGO is not responsible for personal actions, relationships, meetings or activities after users connect.</p><strong id="dashboardPremiumStatus">Consent not completed for this session.</strong></div>
             <button id="openPremiumFromDashboard" type="button">Review Consent</button>
           </div>
-          <div class="premium-setup-grid">
-            <form class="premium-setup-card premium-application-form" id="premiumApplicationForm" data-requires-auth data-auth-message="Please log in before applying for a Premium profile.">
+          <section class="premium-application-launcher" id="premiumApplicationLauncher">
+            <div><span>👤</span><div><strong>Want to become a Verified Premium Profile?</strong><small>Submit your profile and private identity information for LEOGO Admin verification.</small></div></div>
+            <button id="togglePremiumApplication" type="button" aria-controls="premiumApplicationForm" aria-expanded="false">Apply as a Verified Premium Profile</button>
+          </section>
+          <div class="premium-setup-grid application-collapsed" id="premiumSetupGrid">
+            <form class="premium-setup-card premium-application-form" id="premiumApplicationForm" data-requires-auth data-auth-message="Please log in before applying for a Premium profile." hidden>
               <div class="premium-form-head"><span>1</span><div><h4>Verified Premium Profile Application</h4><p>Complete your identity and public profile information. Every application is reviewed by LEOGO Admin.</p></div></div>
               <div class="premium-form-section"><strong>Private identity — Admin only</strong><small>These details are never shown on your public Premium profile.</small></div>
               <div class="premium-form-grid">
@@ -414,6 +418,7 @@
                 <label><span>ID number</span><input id="premiumIdNumber" type="text" inputmode="numeric" minlength="5" maxlength="20" required></label>
                 <label><span>Phone number</span><input id="premiumPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="0700 192 545" required></label>
                 <label><span>ID verification document</span><input id="premiumIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required><small>JPG, PNG, WebP or PDF. Maximum 8 MB.</small></label>
+                <label><span>Passport-size photo</span><input id="premiumPassportPhoto" type="file" accept="image/jpeg,image/png,image/webp" required><small>Private Admin verification only. JPG, PNG or WebP. Maximum 5 MB.</small></label>
               </div>
               <div class="premium-form-section"><strong>Your Premium profile</strong><small>Approved basic details can be seen by logged-in adults who completed consent.</small></div>
               <div class="premium-form-grid">
@@ -537,4 +542,4 @@
     </div>
   </div>
 </section>
-<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=premium-p1-2" defer></script><script src="js/app.js?v=premium-p1-2" defer></script><script src="js/auth.js?v=premium-p1-2" defer></script><script src="js/premium.js?v=premium-p1-2" defer></script></body></html>
+<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=premium-p1-3" defer></script><script src="js/app.js?v=premium-p1-3" defer></script><script src="js/auth.js?v=premium-p1-3" defer></script><script src="js/premium.js?v=premium-p1-3" defer></script></body></html>
