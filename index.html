@@ -392,13 +392,63 @@
         </section>
 
         <section class="customer-view" data-customer-panel="premiumaccess">
-          <div class="customer-view-title"><div><span>VERIFIED ADULTS ONLY</span><h3>LEOGO Premium 18+ Access</h3><p>Review the adult-access conditions and complete the existing consent before entering the Premium section.</p></div><span class="foundation-status-badge premium">18+ consent required</span></div>
+          <div class="customer-view-title premium-area-title"><div><span>VERIFIED ADULTS ONLY</span><h3>My LEOGO Premium 18+</h3><p>Apply as a verified Premium profile, submit a subscription payment and track Admin review.</p></div><span class="foundation-status-badge premium" id="premiumHeaderBadge">18+ consent required</span></div>
+          <div class="premium-safety-strip"><strong>Private and consent-led.</strong> Real name, ID number and verification document are available only to authorized Admin. Your phone number stays hidden until you accept another customer’s interest or booking request. LEOGO Premium must never be used to arrange prostitution, sexual services or payment for sexual acts.</div>
+          <div class="premium-account-summary" aria-label="Premium account status">
+            <article><small>Application</small><strong id="premiumApplicationStatus">Not started</strong><span>Admin verification required</span></article>
+            <article><small>Payment</small><strong id="premiumPaymentStatus">No payment</strong><span>Admin confirmation required</span></article>
+            <article><small>Membership</small><strong id="premiumMembershipStatus">Inactive</strong><span>Starts after payment confirmation</span></article>
+            <article><small>Access Until</small><strong id="premiumMembershipExpiry">—</strong><span id="premiumMembershipRemaining">Choose an active plan</span></article>
+          </div>
           <div class="foundation-link-card premium-foundation-card">
             <span class="foundation-link-icon">🔞</span>
-            <div><h4>Premium consent and access</h4><p>LEOGO Premium is for consenting verified adults. LEOGO is not responsible for personal actions, relationships or activities after users connect, and the service must not be used for illegal activity.</p><strong id="dashboardPremiumStatus">Consent not completed for this session.</strong></div>
+            <div><h4>Premium consent and access</h4><p>LEOGO is not responsible for personal actions, relationships, meetings or activities after users connect.</p><strong id="dashboardPremiumStatus">Consent not completed for this session.</strong></div>
             <button id="openPremiumFromDashboard" type="button">Review Consent</button>
           </div>
-          <div class="foundation-preview-note">Identity verification, membership and Premium profiles will be connected in the dedicated Premium phase.</div>
+          <div class="premium-setup-grid">
+            <form class="premium-setup-card premium-application-form" id="premiumApplicationForm" data-requires-auth data-auth-message="Please log in before applying for a Premium profile.">
+              <div class="premium-form-head"><span>1</span><div><h4>Verified Premium Profile Application</h4><p>Complete your identity and public profile information. Every application is reviewed by LEOGO Admin.</p></div></div>
+              <div class="premium-form-section"><strong>Private identity — Admin only</strong><small>These details are never shown on your public Premium profile.</small></div>
+              <div class="premium-form-grid">
+                <label><span>Real name</span><input id="premiumRealName" type="text" autocomplete="name" minlength="2" maxlength="100" required></label>
+                <label><span>ID number</span><input id="premiumIdNumber" type="text" inputmode="numeric" minlength="5" maxlength="20" required></label>
+                <label><span>Phone number</span><input id="premiumPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="0700 192 545" required></label>
+                <label><span>ID verification document</span><input id="premiumIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required><small>JPG, PNG, WebP or PDF. Maximum 8 MB.</small></label>
+              </div>
+              <div class="premium-form-section"><strong>Your Premium profile</strong><small>Approved basic details can be seen by logged-in adults who completed consent.</small></div>
+              <div class="premium-form-grid">
+                <label><span>Display name / username</span><input id="premiumDisplayName" type="text" minlength="2" maxlength="40" required></label>
+                <label><span>Profile picture</span><input id="premiumProfilePicture" type="file" accept="image/jpeg,image/png,image/webp" required><small>JPG, PNG or WebP. Maximum 5 MB.</small></label>
+                <label><span>Gender</span><select id="premiumGender" required><option value="">Choose gender</option><option>Woman</option><option>Man</option><option>Non-binary</option><option>Prefer to self-describe</option></select></label>
+                <label><span>Orientation</span><select id="premiumOrientation" required><option value="">Choose orientation</option><option>Straight</option><option>Gay</option><option>Lesbian</option><option>Bisexual</option><option>Other</option><option>Prefer not to say</option></select></label>
+                <label><span>Age</span><input id="premiumAge" type="number" inputmode="numeric" min="18" max="100" required></label>
+                <label><span>General location</span><input id="premiumLocation" type="text" placeholder="Town or area only" minlength="2" maxlength="120" required></label>
+                <label class="premium-wide"><span>About you</span><textarea id="premiumAbout" rows="4" minlength="20" maxlength="700" placeholder="Introduce yourself and what kind of connection you hope to find." required></textarea></label>
+              </div>
+              <div class="premium-consent-list">
+                <label><input id="premiumApplicationAgeConsent" type="checkbox" required><span>I confirm that I am 18 years or older and the information supplied is accurate.</span></label>
+                <label><input id="premiumApplicationResponsibilityConsent" type="checkbox" required><span>I accept that LEOGO is not responsible for actions, relationships, meetings or activities after connection.</span></label>
+                <label><input id="premiumApplicationPrivacyConsent" type="checkbox" required><span>I consent to private identity verification by authorized LEOGO Admin.</span></label>
+              </div>
+              <button class="premium-primary-button" type="submit">Submit Application for Review</button>
+              <div class="premium-form-status" id="premiumApplicationMessage" role="status" aria-live="polite"></div>
+            </form>
+            <section class="premium-setup-card premium-payment-card" id="premiumPaymentCard">
+              <div class="premium-form-head"><span>2</span><div><h4>Choose Premium Access</h4><p>Subscription begins only after authorized Admin confirms your submitted payment.</p></div></div>
+              <div class="premium-admin-rate-note">⚙️ Plans, prices and durations are loaded from Admin settings and may be updated by Admin.</div>
+              <div class="premium-plan-list" id="premiumPlanList"><p>Loading current subscription plans…</p></div>
+              <form id="premiumPaymentForm" data-requires-auth data-auth-message="Please log in before submitting a Premium payment." hidden>
+                <input id="premiumSelectedPlanId" type="hidden">
+                <div class="premium-selected-plan" id="premiumSelectedPlanSummary">Select a plan above.</div>
+                <label><span>Paste M-Pesa payment reference or message</span><textarea id="premiumPaymentReference" rows="4" minlength="6" maxlength="500" placeholder="Paste the transaction confirmation here" required></textarea></label>
+                <label class="premium-paid-check"><input id="premiumPaymentPaid" type="checkbox" required><span>I have paid the displayed amount and request Admin confirmation.</span></label>
+                <button class="premium-primary-button" type="submit">Submit Payment for Confirmation</button>
+              </form>
+              <div class="premium-form-status" id="premiumPaymentMessage" role="status" aria-live="polite"></div>
+              <div class="premium-payment-history"><h5>Recent Premium payments</h5><div id="premiumPaymentHistory"><p>No Premium payment submitted yet.</p></div></div>
+            </section>
+          </div>
+          <div class="premium-next-stage-note"><strong>After approval:</strong> your verified profile can be listed in Premium. Active members will later be able to express interest, request a consensual meetup booking and use limited in-site chat. Contact details remain hidden until the profile owner accepts.</div>
         </section>
 
         <section class="customer-view" data-customer-panel="account">
@@ -487,4 +537,4 @@
     </div>
   </div>
 </section>
-<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=phase1c-transport1" defer></script><script src="js/app.js?v=phase1c-transport1" defer></script><script src="js/auth.js?v=phase1c-transport1" defer></script></body></html>
+<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=premium-p1-1" defer></script><script src="js/app.js?v=premium-p1-1" defer></script><script src="js/auth.js?v=premium-p1-1" defer></script><script src="js/premium.js?v=premium-p1-1" defer></script></body></html>
