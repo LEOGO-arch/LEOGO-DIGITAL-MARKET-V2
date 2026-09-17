@@ -93,6 +93,9 @@
     setText('dashboardCustomerAvatar', signedIn ? initials(currentSession) : 'LC');
     setText('profileCustomerAvatar', signedIn ? initials(currentSession) : 'LC');
     if (!signedIn) profileLoadedFor = '';
+    document.dispatchEvent(new CustomEvent('leogo:authchange', {
+      detail: { session: currentSession, user: currentSession?.user || null }
+    }));
   };
 
   const openAuth = (message = 'Please log in or create an account to continue.') => {
