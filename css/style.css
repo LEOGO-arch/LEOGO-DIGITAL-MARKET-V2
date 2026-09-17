@@ -301,3 +301,23 @@
 .profile-save-status.is-error{border-color:#ffccc7;background:#fff1f0;color:#b42318}
 #customerProfileForm button[disabled]{cursor:wait;opacity:.68}
 @media(max-width:600px){.profile-save-status{font-size:11px}}
+
+/* Phase 1(C): dashboard foundation links */
+.foundation-status-badge{padding:8px 11px;border-radius:999px;background:#eaf8ef;color:#13753c;font-size:8px;font-weight:900;white-space:nowrap}
+.foundation-status-badge.premium{background:#fff0dc;color:#a54800}
+.foundation-link-card{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;padding:22px;border:1px solid #dce3ed;border-radius:17px;background:#fff}
+.foundation-link-icon{display:grid;place-items:center;width:58px;height:58px;border-radius:15px;background:#fff0e3;font-size:28px}
+.foundation-link-card h4{margin:0 0 6px;color:#07152f;font-size:16px}
+.foundation-link-card p{margin:0;color:#6f7b8d;font-size:10px;line-height:1.55}
+.foundation-link-card strong{display:block;margin-top:10px;color:#a54800;font-size:9px}
+.foundation-link-card strong.is-accepted{color:#067647}
+.foundation-link-card button{border:0;border-radius:10px;background:#ff7800;color:#fff;padding:11px 14px;font-size:9px;font-weight:900;white-space:nowrap;cursor:pointer}
+.premium-foundation-card{border-color:#f0c994;background:#fffaf3}
+@media(max-width:600px){
+  .customer-view-title{align-items:flex-start}
+  .foundation-status-badge{font-size:9px}
+  .foundation-link-card{grid-template-columns:1fr;text-align:center;padding:18px}
+  .foundation-link-icon{margin:0 auto}
+  .foundation-link-card p{font-size:12px}
+  .foundation-link-card button{width:100%;min-height:46px;font-size:12px}
+}
