@@ -22,6 +22,9 @@
   const profileStatus = document.getElementById('profileSaveStatus');
   const profileCompletionText = document.getElementById('profileCompletionText');
   const profileCompletionBar = document.getElementById('profileCompletionBar');
+  const profileSummary = document.getElementById('customerProfileSummary');
+  const editProfileButton = document.getElementById('editCustomerProfile');
+  const cancelProfileEditButton = document.getElementById('cancelCustomerProfileEdit');
   const profileFields = {
     fullName: document.getElementById('profileFullName'),
     phone: document.getElementById('profilePhone'),
@@ -34,6 +37,7 @@
   let currentSession = null;
   let authReady = false;
   let profileLoadedFor = '';
+  let savedProfile = null;
 
   const setStatus = (message = '', type = '') => {
     if (!statusBox) return;
@@ -92,7 +96,12 @@
     setText('dashboardCustomerName', signedIn ? 'Welcome, ' + firstName(currentSession) : 'Welcome to LEOGO');
     setText('dashboardCustomerAvatar', signedIn ? initials(currentSession) : 'LC');
     setText('profileCustomerAvatar', signedIn ? initials(currentSession) : 'LC');
-    if (!signedIn) profileLoadedFor = '';
+    if (!signedIn) {
+      profileLoadedFor = '';
+      savedProfile = null;
+      if (profileSummary) profileSummary.hidden = true;
+      if (profileForm) profileForm.hidden = false;
+    }
     document.dispatchEvent(new CustomEvent('leogo:authchange', {
       detail: { session: currentSession, user: currentSession?.user || null }
     }));
@@ -154,6 +163,35 @@
     if (profileCompletionBar) profileCompletionBar.style.width = percentage + '%';
   };
 
+  const isCompleteProfile = (profile) => Boolean(
+    profile?.full_name && profile?.phone && profile?.county && profile?.sub_county && profile?.estate
+  );
+
+  const renderProfileSummary = (user, profile) => {
+    if (!profileSummary || !user || !profile) return;
+    const values = {
+      profileSummaryName: profile.full_name || 'Customer profile',
+      profileSummaryPhone: profile.phone || 'Not added',
+      profileSummaryEmail: user.email || 'Not added',
+      profileSummaryCounty: profile.county || 'Not added',
+      profileSummarySubCounty: profile.sub_county || 'Not added',
+      profileSummaryEstate: profile.estate || 'Not added',
+      profileSummaryLandmark: profile.nearest_landmark || 'Not added'
+    };
+    Object.entries(values).forEach(([id, value]) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    });
+  };
+
+  const setProfileEditing = (editing, shouldFocus = false) => {
+    const hasSavedProfile = isCompleteProfile(savedProfile);
+    if (profileSummary) profileSummary.hidden = editing || !hasSavedProfile;
+    if (profileForm) profileForm.hidden = !editing && hasSavedProfile;
+    if (cancelProfileEditButton) cancelProfileEditButton.hidden = !hasSavedProfile;
+    if (editing && shouldFocus) window.setTimeout(() => profileFields.fullName?.focus(), 40);
+  };
+
   const applyProfileValues = (user, profile = null) => {
     if (!profileForm || !user) return;
     const metadata = user.user_metadata || {};
@@ -185,10 +223,15 @@
     if (currentSession?.user?.id !== user.id) return;
     if (error) {
       profileLoadedFor = '';
+      savedProfile = null;
+      setProfileEditing(true);
       setProfileStatus('Your profile could not be loaded. Please refresh and try again.', 'error');
       return;
     }
     applyProfileValues(user, data);
+    savedProfile = data || null;
+    if (data) renderProfileSummary(user, data);
+    setProfileEditing(!isCompleteProfile(data));
     setProfileStatus(data ? 'Your saved profile is ready.' : 'Complete your delivery profile and select Save Profile.', data ? 'success' : '');
   };
 
@@ -322,6 +365,17 @@
 
   profileForm?.addEventListener('input', updateProfileCompletion);
   profileForm?.addEventListener('change', updateProfileCompletion);
+  editProfileButton?.addEventListener('click', () => setProfileEditing(true, true));
+  cancelProfileEditButton?.addEventListener('click', () => {
+    if (!savedProfile || !currentSession?.user) return;
+    applyProfileValues(currentSession.user, savedProfile);
+    setProfileEditing(false);
+  });
+  document.addEventListener('click', (event) => {
+    if (event.target.closest?.('[data-customer-view="account"]') && isCompleteProfile(savedProfile)) {
+      setProfileEditing(false);
+    }
+  });
 
   profileForm?.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -365,8 +419,11 @@
         updateAuthUI(currentSession);
       }
       profileFields.phone.value = phone;
+      savedProfile = { ...payload, phone };
       profileLoadedFor = currentSession.user.id;
       updateProfileCompletion();
+      renderProfileSummary(currentSession.user, savedProfile);
+      setProfileEditing(false);
       setProfileStatus(
         metadataError ? 'Profile saved. Your dashboard name may update after the next login.' : 'Profile saved successfully.',
         metadataError ? '' : 'success'
