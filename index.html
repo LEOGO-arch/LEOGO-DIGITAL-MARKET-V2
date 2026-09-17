@@ -392,12 +392,13 @@
         </section>
 
         <section class="customer-view" data-customer-panel="premiumaccess">
-          <div class="customer-view-title premium-area-title"><div><span>VERIFIED ADULTS ONLY</span><h3>My LEOGO Premium 18+</h3><p>Apply as a verified Premium profile, submit a subscription payment and track Admin review.</p></div><span class="foundation-status-badge premium" id="premiumHeaderBadge">18+ consent required</span></div>
-          <div class="premium-safety-strip"><strong>Private and consent-led.</strong> Real name, ID number and verification document are available only to authorized Admin. Your phone number stays hidden until you accept another customer’s interest or booking request. LEOGO Premium must never be used to arrange prostitution, sexual services or payment for sexual acts.</div>
+          <div class="customer-view-title premium-area-title"><div><span>VERIFIED ADULTS ONLY</span><h3>My LEOGO Premium Customer Account</h3><p>Create and keep your Premium Customer account, choose or renew a plan, and seek approved meetup profiles.</p></div><span class="foundation-status-badge premium" id="premiumHeaderBadge">18+ consent required</span></div>
+          <div class="premium-role-guide"><article><span>🔎</span><div><strong>Premium Customer</strong><small>Seeking a meetup</small></div></article><b>connects with</b><article><span>✓</span><div><strong>Verified Premium Profile</strong><small>Available for meetup</small></div></article></div>
+          <div class="premium-safety-strip"><strong>Your Premium Customer account is permanent.</strong> When a paid plan expires, the account remains and you can renew at any time. Real name, ID number and optional verification images are available only to authorized Admin. Your phone number is revealed to a Verified Premium Profile only after that profile accepts your booking or interest request.</div>
           <div class="premium-account-summary" aria-label="Premium account status">
-            <article><small>Application</small><strong id="premiumApplicationStatus">Not started</strong><span>Admin verification required</span></article>
+            <article><small>Customer Application</small><strong id="premiumApplicationStatus">Not started</strong><span>One-time Admin approval</span></article>
             <article><small>Payment</small><strong id="premiumPaymentStatus">No payment</strong><span>Admin confirmation required</span></article>
-            <article><small>Membership</small><strong id="premiumMembershipStatus">Inactive</strong><span>Starts after payment confirmation</span></article>
+            <article><small>Paid Plan</small><strong id="premiumMembershipStatus">Inactive</strong><span>Renew without creating a new account</span></article>
             <article><small>Access Until</small><strong id="premiumMembershipExpiry">—</strong><span id="premiumMembershipRemaining">Choose an active plan</span></article>
           </div>
           <div class="foundation-link-card premium-foundation-card">
@@ -406,40 +407,49 @@
             <button id="openPremiumFromDashboard" type="button">Review Consent</button>
           </div>
           <section class="premium-application-launcher" id="premiumApplicationLauncher">
-            <div><span>👤</span><div><strong>Want to become a Verified Premium Profile?</strong><small>Submit your profile and private identity information for LEOGO Admin verification.</small></div></div>
-            <button id="togglePremiumApplication" type="button" aria-controls="premiumApplicationForm" aria-expanded="false">Apply as a Verified Premium Profile</button>
+            <div><span>🔎</span><div><strong>Want to become a Premium Customer?</strong><small>Create a permanent account for seeking approved meetup profiles.</small></div></div>
+            <button id="togglePremiumApplication" type="button" aria-controls="premiumApplicationForm" aria-expanded="false">Apply for a Premium Customer Account</button>
+          </section>
+          <section class="premium-profile-directory">
+            <div class="premium-directory-head"><div><span>AVAILABLE FOR MEETUP</span><h4>Verified Premium Profiles</h4><p>Approved Premium Customers can view Admin-approved profiles. An active paid plan is required to send interest or booking requests.</p></div><span id="premiumDirectoryAccessBadge">Customer approval required</span></div>
+            <div class="premium-directory-grid" id="premiumProfileDirectory"><div class="premium-directory-empty"><span>🔒</span><strong>Premium Customer approval required</strong><small>Submit your one-time customer application. Once Admin approves it, available Verified Premium Profiles will be listed here.</small></div></div>
           </section>
           <div class="premium-setup-grid application-collapsed" id="premiumSetupGrid">
             <form class="premium-setup-card premium-application-form" id="premiumApplicationForm" data-requires-auth data-auth-message="Please log in before applying for a Premium profile." hidden>
-              <div class="premium-form-head"><span>1</span><div><h4>Verified Premium Profile Application</h4><p>Complete your identity and public profile information. Every application is reviewed by LEOGO Admin.</p></div></div>
+              <div class="premium-form-head"><span>1</span><div><h4>Premium Customer Account Application</h4><p>Complete this once. Approval creates a permanent Premium Customer account that remains when a plan expires.</p></div></div>
               <div class="premium-form-section"><strong>Private identity — Admin only</strong><small>These details are never shown on your public Premium profile.</small></div>
               <div class="premium-form-grid">
                 <label><span>Real name</span><input id="premiumRealName" type="text" autocomplete="name" minlength="2" maxlength="100" required></label>
                 <label><span>ID number</span><input id="premiumIdNumber" type="text" inputmode="numeric" minlength="5" maxlength="20" required></label>
                 <label><span>Phone number</span><input id="premiumPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="0700 192 545" required></label>
-                <label><span>ID verification document</span><input id="premiumIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required><small>JPG, PNG, WebP or PDF. Maximum 8 MB.</small></label>
-                <label><span>Passport-size photo</span><input id="premiumPassportPhoto" type="file" accept="image/jpeg,image/png,image/webp" required><small>Private Admin verification only. JPG, PNG or WebP. Maximum 5 MB.</small></label>
+                <label><span>ID document image <small>(optional)</small></span><input id="premiumIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"><small>Private Admin verification only. Maximum 8 MB.</small></label>
+                <label><span>Passport-size photo <small>(optional)</small></span><input id="premiumPassportPhoto" type="file" accept="image/jpeg,image/png,image/webp"><small>Private Admin verification only. Maximum 5 MB.</small></label>
               </div>
-              <div class="premium-form-section"><strong>Your Premium profile</strong><small>Approved basic details can be seen by logged-in adults who completed consent.</small></div>
+              <div class="premium-form-section"><strong>Details shown to a Verified Premium Profile</strong><small>These details help the profile owner review your request before accepting. Your phone remains hidden until acceptance.</small></div>
               <div class="premium-form-grid">
-                <label><span>Display name / username</span><input id="premiumDisplayName" type="text" minlength="2" maxlength="40" required></label>
                 <label><span>Profile picture</span><input id="premiumProfilePicture" type="file" accept="image/jpeg,image/png,image/webp" required><small>JPG, PNG or WebP. Maximum 5 MB.</small></label>
-                <label><span>Gender</span><select id="premiumGender" required><option value="">Choose gender</option><option>Woman</option><option>Man</option><option>Non-binary</option><option>Prefer to self-describe</option></select></label>
-                <label><span>Orientation</span><select id="premiumOrientation" required><option value="">Choose orientation</option><option>Straight</option><option>Gay</option><option>Lesbian</option><option>Bisexual</option><option>Other</option><option>Prefer not to say</option></select></label>
+                <label><span>Sex</span><select id="premiumSex" required><option value="">Choose sex</option><option>Female</option><option>Male</option><option>Intersex</option><option>Prefer not to say</option></select></label>
                 <label><span>Age</span><input id="premiumAge" type="number" inputmode="numeric" min="18" max="100" required></label>
-                <label><span>General location</span><input id="premiumLocation" type="text" placeholder="Town or area only" minlength="2" maxlength="120" required></label>
-                <label class="premium-wide"><span>About you</span><textarea id="premiumAbout" rows="4" minlength="20" maxlength="700" placeholder="Introduce yourself and what kind of connection you hope to find." required></textarea></label>
+                <label><span>Location</span><input id="premiumLocation" type="text" placeholder="Town or area only" minlength="2" maxlength="120" required></label>
+              </div>
+              <div class="premium-form-section"><strong>Choose a paid plan now or later</strong><small>You may submit only the customer application now. After approval, the same account can buy or renew plans at any time.</small></div>
+              <div class="premium-form-grid">
+                <label class="premium-wide"><span>Premium plan <small>(optional)</small></span><select id="premiumApplicationPlan"><option value="">Choose later</option></select></label>
+                <div class="premium-wide premium-application-payment-fields" id="premiumApplicationPaymentFields" hidden>
+                  <label><span>M-Pesa payment reference or message</span><textarea id="premiumApplicationPaymentReference" rows="3" maxlength="500" placeholder="Paste the transaction confirmation"></textarea></label>
+                  <label class="premium-paid-check"><input id="premiumApplicationPaymentPaid" type="checkbox"><span>I have paid for the selected plan and request Admin confirmation.</span></label>
+                </div>
               </div>
               <div class="premium-consent-list">
                 <label><input id="premiumApplicationAgeConsent" type="checkbox" required><span>I confirm that I am 18 years or older and the information supplied is accurate.</span></label>
                 <label><input id="premiumApplicationResponsibilityConsent" type="checkbox" required><span>I accept that LEOGO is not responsible for actions, relationships, meetings or activities after connection.</span></label>
                 <label><input id="premiumApplicationPrivacyConsent" type="checkbox" required><span>I consent to private identity verification by authorized LEOGO Admin.</span></label>
               </div>
-              <button class="premium-primary-button" type="submit">Submit Application for Review</button>
+              <button class="premium-primary-button" type="submit">Submit Premium Customer Application</button>
               <div class="premium-form-status" id="premiumApplicationMessage" role="status" aria-live="polite"></div>
             </form>
             <section class="premium-setup-card premium-payment-card" id="premiumPaymentCard">
-              <div class="premium-form-head"><span>2</span><div><h4>Choose Premium Access</h4><p>Subscription begins only after authorized Admin confirms your submitted payment.</p></div></div>
+              <div class="premium-form-head"><span>2</span><div><h4>Buy or Renew Premium Access</h4><p>Your customer account remains permanent. A paid plan begins only after Admin confirms payment.</p></div></div>
               <div class="premium-admin-rate-note">⚙️ Plans, prices and durations are loaded from Admin settings and may be updated by Admin.</div>
               <div class="premium-plan-list" id="premiumPlanList"><p>Loading current subscription plans…</p></div>
               <form id="premiumPaymentForm" data-requires-auth data-auth-message="Please log in before submitting a Premium payment." hidden>
@@ -453,7 +463,7 @@
               <div class="premium-payment-history"><h5>Recent Premium payments</h5><div id="premiumPaymentHistory"><p>No Premium payment submitted yet.</p></div></div>
             </section>
           </div>
-          <div class="premium-next-stage-note"><strong>After approval:</strong> your verified profile can be listed in Premium. Active members will later be able to express interest, request a consensual meetup booking and use limited in-site chat. Contact details remain hidden until the profile owner accepts.</div>
+          <div class="premium-next-stage-note"><strong>After customer approval:</strong> approved Verified Premium Profiles will be listed for you. An active plan unlocks interest, consensual meetup booking and limited in-site chat. Your phone number remains hidden until the Verified Premium Profile accepts your request.</div>
         </section>
 
         <section class="customer-view" data-customer-panel="account">
@@ -542,4 +552,4 @@
     </div>
   </div>
 </section>
-<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=premium-p1-3" defer></script><script src="js/app.js?v=premium-p1-3" defer></script><script src="js/auth.js?v=premium-p1-3" defer></script><script src="js/premium.js?v=premium-p1-3" defer></script></body></html>
+<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=premium-customer-1" defer></script><script src="js/app.js?v=premium-customer-1" defer></script><script src="js/auth.js?v=premium-customer-1" defer></script><script src="js/premium.js?v=premium-customer-1" defer></script></body></html>
