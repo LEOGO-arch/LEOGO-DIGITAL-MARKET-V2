@@ -15,6 +15,13 @@
     totalSaved: document.getElementById('walletTotalSaved'),
     streak: document.getElementById('walletSavingStreak'),
     eligibility: document.getElementById('walletLoanEligibility'),
+    withdrawable: document.getElementById('walletWithdrawableBalance'),
+    reservedWithdrawals: document.getElementById('walletReservedWithdrawals'),
+    withdrawalCardBalance: document.getElementById('walletWithdrawalCardBalance'),
+    withdrawalToggle: document.getElementById('walletWithdrawalToggle'),
+    withdrawalForm: document.getElementById('walletWithdrawalForm'),
+    withdrawalStatus: document.getElementById('walletWithdrawalStatus'),
+    withdrawalList: document.getElementById('walletWithdrawalList'),
     transactions: document.getElementById('walletTransactionList'),
     savingForm: document.getElementById('walletSavingPreviewForm'),
     savingStatus: document.getElementById('walletSavingStatus'),
@@ -33,6 +40,7 @@
   let depositRequests = [];
   let ledgerEntries = [];
   let loanApplications = [];
+  let withdrawalRequests = [];
   let loadVersion = 0;
 
   const money = (value) => 'KSh ' + Number(value || 0).toLocaleString('en-KE');
@@ -75,6 +83,9 @@
     if (lower.includes('already been submitted') || lower.includes('duplicate key')) return 'This payment reference has already been submitted.';
     if (lower.includes('already have an active')) return 'You already have an active saving challenge. Complete it before starting another.';
     if (lower.includes('already have a loan')) return 'You already have a loan application awaiting review.';
+    if (lower.includes('exceeds your available withdrawable balance')) return 'This amount is higher than your available withdrawable balance.';
+    if (lower.includes('phone number')) return 'Add a phone number to your customer profile before requesting a withdrawal.';
+    if (lower.includes('wallet account is not active')) return 'Your wallet account is not active. Please contact LEOGO customer care.';
     if (lower.includes('authentication required') || lower.includes('jwt')) return 'Please log in again before continuing.';
     if (lower.includes('network') || lower.includes('fetch')) return 'The wallet service could not be reached. Check your connection and try again.';
     return message || 'The wallet request could not be completed. Please try again.';
@@ -119,7 +130,16 @@
       streak += 1;
       cursor = addDays(cursor, -1);
     }
-    return { balance: Math.max(0, balance), totalSaved, streak };
+    const reserved = withdrawalRequests
+      .filter((request) => request.request_status === 'pending_call')
+      .reduce((total, request) => total + Number(request.requested_amount_kes), 0);
+    return {
+      balance: Math.max(0, balance),
+      withdrawable: Math.max(0, balance - reserved),
+      reserved,
+      totalSaved,
+      streak
+    };
   };
 
   const renderSummary = () => {
@@ -128,11 +148,48 @@
       if (element) element.textContent = money(totals.balance);
     });
     if (elements.totalSaved) elements.totalSaved.textContent = money(totals.totalSaved);
+    if (elements.withdrawable) elements.withdrawable.textContent = money(totals.withdrawable);
+    if (elements.withdrawalCardBalance) elements.withdrawalCardBalance.textContent = money(totals.withdrawable);
+    if (elements.reservedWithdrawals) elements.reservedWithdrawals.textContent = money(totals.reserved);
     if (elements.streak) elements.streak.textContent = `${totals.streak} ${totals.streak === 1 ? 'day' : 'days'}`;
     const openLoan = loanApplications.find((loan) => ['pending', 'under_review'].includes(loan.application_status));
     if (elements.eligibility) {
       elements.eligibility.textContent = openLoan ? 'Under review' : (totals.totalSaved > 0 ? 'History building' : 'Not assessed');
     }
+  };
+
+  const renderWithdrawals = () => {
+    if (!elements.withdrawalList) return;
+    elements.withdrawalList.replaceChildren();
+    if (!withdrawalRequests.length) {
+      const empty = document.createElement('p');
+      empty.textContent = currentUser ? 'No withdrawal requests yet.' : 'Log in to view your withdrawal requests.';
+      elements.withdrawalList.append(empty);
+      return;
+    }
+
+    withdrawalRequests.slice(0, 25).forEach((request) => {
+      const row = document.createElement('div');
+      row.className = 'wallet-withdrawal-row';
+      const copy = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = `${money(request.requested_amount_kes)} · ${prettyStatus(request.settlement_method)}`;
+      const account = document.createElement('small');
+      const accountNumber = String(request.account_number || '');
+      const masked = accountNumber.length > 4 ? `••••${accountNumber.slice(-4)}` : accountNumber;
+      account.textContent = `${request.account_name} · ${masked} · Requested ${kenyaDateTime(request.submitted_at)}`;
+      const detail = document.createElement('small');
+      if (request.request_status === 'pending_call') detail.textContent = 'Awaiting Admin/Staff phone confirmation and approval.';
+      if (request.request_status === 'approved_processing') detail.textContent = `Approved and debited. Scheduled completion: ${kenyaDateTime(request.scheduled_completion_at)}.`;
+      if (request.request_status === 'completed') detail.textContent = `24-hour processing completed ${kenyaDateTime(request.completed_at)}.`;
+      if (request.request_status === 'rejected') detail.textContent = request.admin_notes || 'Request was not approved. Reserved funds are available again.';
+      copy.append(title, account, detail);
+      const status = document.createElement('b');
+      status.className = `is-${request.request_status.replaceAll('_', '-')}`;
+      status.textContent = prettyStatus(request.request_status);
+      row.append(copy, status);
+      elements.withdrawalList.append(row);
+    });
   };
 
   const transactionRecord = ({ title, detail, status, date, amount, direction = '' }) => ({ title, detail, status, date, amount, direction });
@@ -252,10 +309,12 @@
     depositRequests = [];
     ledgerEntries = [];
     loanApplications = [];
+    withdrawalRequests = [];
     setBadge('SIGN IN REQUIRED');
     renderSummary();
     renderTransactions();
     renderChallenge();
+    renderWithdrawals();
   };
 
   const loadWallet = async (user) => {
@@ -267,15 +326,16 @@
     currentUser = user;
     const version = ++loadVersion;
     setBadge('LOADING SECURE DATA', 'loading');
-    const [accountsResult, challengesResult, depositsResult, ledgerResult, loansResult] = await Promise.all([
+    const [accountsResult, challengesResult, depositsResult, ledgerResult, loansResult, withdrawalsResult] = await Promise.all([
       client.from('wallet_accounts').select('user_id,account_status,opened_at').eq('user_id', user.id).maybeSingle(),
       client.from('wallet_challenges').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
       client.from('wallet_deposit_requests').select('*').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(200),
       client.from('wallet_ledger_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(200),
-      client.from('wallet_loan_applications').select('*').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(50)
+      client.from('wallet_loan_applications').select('*').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(50),
+      client.from('wallet_withdrawal_requests').select('*').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(50)
     ]);
     if (version !== loadVersion || currentUser?.id !== user.id) return;
-    const error = [accountsResult, challengesResult, depositsResult, ledgerResult, loansResult].find((result) => result.error)?.error;
+    const error = [accountsResult, challengesResult, depositsResult, ledgerResult, loansResult, withdrawalsResult].find((result) => result.error)?.error;
     if (error) {
       setBadge('CONNECTION ERROR');
       setMessage(elements.savingStatus, friendlyError(error), 'error');
@@ -286,10 +346,12 @@
     depositRequests = depositsResult.data || [];
     ledgerEntries = ledgerResult.data || [];
     loanApplications = loansResult.data || [];
+    withdrawalRequests = withdrawalsResult.data || [];
     setBadge(account?.account_status === 'frozen' ? 'ACCOUNT FROZEN' : 'LIVE & SECURE', account?.account_status === 'frozen' ? '' : 'live');
     renderSummary();
     renderTransactions();
     renderChallenge();
+    renderWithdrawals();
   };
 
   elements.savingForm?.addEventListener('submit', (event) => {
@@ -405,6 +467,61 @@
       }
       elements.loanForm.reset();
       setMessage(elements.loanStatus, 'Application submitted for Admin and authorized SACCO-partner review. This is not a loan approval.', 'success');
+      await loadWallet(currentUser);
+    });
+  });
+
+  elements.withdrawalToggle?.addEventListener('click', () => {
+    if (!currentUser) {
+      document.querySelector('[data-customer-view="auth"]')?.click();
+      return;
+    }
+    elements.withdrawalForm.hidden = !elements.withdrawalForm.hidden;
+    elements.withdrawalToggle.textContent = elements.withdrawalForm.hidden ? 'Request Withdrawal' : 'Close Withdrawal Form';
+    setMessage(elements.withdrawalStatus);
+    if (!elements.withdrawalForm.hidden) {
+      document.getElementById('walletWithdrawalAmount')?.focus();
+    }
+  });
+
+  elements.withdrawalForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!currentUser || !elements.withdrawalForm.reportValidity()) return;
+    runOnce(elements.withdrawalForm, async () => {
+      const amount = Number(document.getElementById('walletWithdrawalAmount')?.value || 0);
+      const method = document.getElementById('walletSettlementMethod')?.value;
+      const accountName = document.getElementById('walletSettlementName')?.value.trim();
+      const accountNumber = document.getElementById('walletSettlementNumber')?.value.trim();
+      const consent = document.getElementById('walletWithdrawalConsent')?.checked;
+      const totals = calculateTotals();
+
+      if (!consent) {
+        setMessage(elements.withdrawalStatus, 'Confirm the settlement details and phone-call requirement before submitting.', 'error');
+        return;
+      }
+      if (amount > totals.withdrawable) {
+        setMessage(elements.withdrawalStatus, `You can currently withdraw up to ${money(totals.withdrawable)}.`, 'error');
+        return;
+      }
+
+      setMessage(elements.withdrawalStatus, 'Sending your secure withdrawal request…');
+      const requestId = elements.withdrawalForm.dataset.requestId || crypto.randomUUID();
+      elements.withdrawalForm.dataset.requestId = requestId;
+      const { error } = await client.rpc('submit_wallet_withdrawal', {
+        p_amount_kes: amount,
+        p_settlement_method: method,
+        p_account_name: accountName,
+        p_account_number: accountNumber,
+        p_client_request_id: requestId
+      });
+      if (error) {
+        setMessage(elements.withdrawalStatus, friendlyError(error), 'error');
+        return;
+      }
+
+      elements.withdrawalForm.reset();
+      delete elements.withdrawalForm.dataset.requestId;
+      setMessage(elements.withdrawalStatus, 'Withdrawal request sent. Admin/Staff will call your profile phone number before approval.', 'success');
       await loadWallet(currentUser);
     });
   });
