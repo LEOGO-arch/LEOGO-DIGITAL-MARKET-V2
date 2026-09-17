@@ -588,8 +588,8 @@
         const walletOrderTotal = document.getElementById('walletCheckoutOrderTotal');
         if (walletOrderTotal) walletOrderTotal.textContent = checkoutTotalText();
       } else if (selectedCheckoutPayment === 'cod') {
-        paymentProofLabel.textContent = 'Paste M-Pesa message for the transport fee';
-        markPaymentPaidLabel.textContent = 'I confirm that I paid the transport fee first. I will pay the order balance in cash on delivery.';
+        paymentProofLabel.textContent = 'Paste M-Pesa message for the Transport & Parcel Delivery fee';
+        markPaymentPaidLabel.textContent = 'I confirm that I paid the Transport & Parcel Delivery fee first. I will pay the order balance in cash on delivery.';
       } else {
         paymentProofLabel.textContent = 'Paste M-Pesa payment message';
         markPaymentPaidLabel.textContent = 'I confirm that I prepaid this order and want to mark the payment as paid.';
@@ -609,7 +609,7 @@
     }
     if (!mpesaPaymentMessage.value.trim()) {
       paymentStepStatus.textContent = selectedCheckoutPayment === 'cod'
-        ? 'Paste the M-Pesa confirmation for the transport fee.'
+        ? 'Paste the M-Pesa confirmation for the Transport & Parcel Delivery fee.'
         : 'Paste the complete M-Pesa payment confirmation message.';
       mpesaPaymentMessage.focus();
       return;
@@ -621,7 +621,7 @@
     }
     previewOrderReference = 'LEOGO-' + Date.now().toString().slice(-8);
     createdOrderReference.textContent = previewOrderReference;
-    selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod' ? 'Transport paid — balance on delivery' : 'Marked paid — awaiting verification';
+    selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod' ? 'Transport & Parcel Delivery paid — balance on delivery' : 'Marked paid — awaiting verification';
     orderCreatedPanel.hidden = false;
     paymentStepStatus.textContent = 'Order created in this visual preview.';
     orderCreatedPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1284,13 +1284,13 @@
   const activityEmptyTitle = document.getElementById('activityEmptyTitle');
   const activityEmptyText = document.getElementById('activityEmptyText');
   const activityEmptyMessages = {
-    all: ['🧾', 'No previous activity yet', 'Your product orders, service requests and transport bookings will appear here automatically, including their dates, payment and completion status.'],
+    all: ['🧾', 'No previous activity yet', 'Your product orders, service requests and Transport & Parcel Delivery bookings will appear here automatically, including their dates, payment and completion status.'],
     products: ['📦', 'No product orders yet', 'Your current and previous product orders will appear here when the ordering system is connected.'],
     services: ['🛠️', 'No service activity yet', 'Your requested, assigned and completed service jobs will appear here when services are connected.'],
-    transport: ['🚚', 'No transport bookings yet', 'Your parcel deliveries and transport bookings will appear here when transport records are connected.'],
-    active: ['⏳', 'No active activity', 'Orders, services and transport bookings currently in progress will appear here.'],
-    completed: ['✅', 'No completed activity', 'Completed orders, services and transport bookings will be stored here for your history.'],
-    cancelled: ['⊘', 'No cancelled activity', 'Any cancelled order, service request or transport booking will appear here with its reason and date.']
+    transport: ['🚚', 'No Transport & Parcel Delivery bookings yet', 'Your Transport & Parcel Delivery bookings will appear here when the records are connected.'],
+    active: ['⏳', 'No active activity', 'Orders, services and Transport & Parcel Delivery bookings currently in progress will appear here.'],
+    completed: ['✅', 'No completed activity', 'Completed orders, services and Transport & Parcel Delivery bookings will be stored here for your history.'],
+    cancelled: ['⊘', 'No cancelled activity', 'Any cancelled order, service request or Transport & Parcel Delivery booking will appear here with its reason and date.']
   };
   activityFilterButtons?.forEach((button) => {
     button.addEventListener('click', () => {
