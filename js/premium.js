@@ -203,6 +203,8 @@
     fields.ageConsent.checked = Boolean(identity?.age_consent);
     fields.responsibilityConsent.checked = Boolean(identity?.responsibility_consent);
     fields.privacyConsent.checked = Boolean(identity?.privacy_consent);
+    fields.profilePicture.dataset.existingPath = profile.profile_picture_path || '';
+    fields.idDocument.dataset.existingPath = identity?.id_document_path || '';
     fields.profilePicture.required = false;
     fields.idDocument.required = false;
   };
@@ -278,15 +280,21 @@
       }
       const profileFile = fields.profilePicture.files[0];
       const idFile = fields.idDocument.files[0];
-      if (!profileFile || !idFile) {
+      if ((!profileFile && !fields.profilePicture.dataset.existingPath) || (!idFile && !fields.idDocument.dataset.existingPath)) {
         setMessage(applicationMessage, 'Choose both a profile picture and a private ID verification document.', 'error');
         return;
       }
       try {
-        setMessage(applicationMessage, 'Uploading your profile picture securely…');
-        const profilePath = await uploadPrivateFile('premium-profile-media', profileFile, 5 * 1024 * 1024);
-        setMessage(applicationMessage, 'Uploading your private identity document…');
-        const idPath = await uploadPrivateFile('premium-verification', idFile, 8 * 1024 * 1024);
+        let profilePath = fields.profilePicture.dataset.existingPath;
+        let idPath = fields.idDocument.dataset.existingPath;
+        if (profileFile) {
+          setMessage(applicationMessage, 'Uploading your profile picture securely…');
+          profilePath = await uploadPrivateFile('premium-profile-media', profileFile, 5 * 1024 * 1024);
+        }
+        if (idFile) {
+          setMessage(applicationMessage, 'Uploading your private identity document…');
+          idPath = await uploadPrivateFile('premium-verification', idFile, 8 * 1024 * 1024);
+        }
         setMessage(applicationMessage, 'Submitting your application for Admin review…');
         const { error } = await client.rpc('submit_premium_application', {
           p_display_name: fields.displayName.value.trim(),
