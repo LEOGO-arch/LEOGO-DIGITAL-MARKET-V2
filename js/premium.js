@@ -107,7 +107,7 @@
     } finally {
       form.dataset.submitting = 'false';
       if (button) {
-        button.disabled = false;
+        button.disabled = form.dataset.locked === 'true';
         button.textContent = button.dataset.originalText || 'Submit';
       }
     }
@@ -183,6 +183,7 @@
   };
 
   const setApplicationEditable = (editable) => {
+    if (applicationForm) applicationForm.dataset.locked = editable ? 'false' : 'true';
     applicationForm?.querySelectorAll('input, select, textarea, button[type="submit"]').forEach((control) => {
       control.disabled = !editable;
     });
