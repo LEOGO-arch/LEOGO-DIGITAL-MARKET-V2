@@ -1,4 +1,4 @@
-// LEOGO DIGITAL MARKET V2 — Premium Phase P1 customer application and membership foundation.
+// LEOGO DIGITAL MARKET V2 — permanent Premium Customer account and renewable membership foundation.
 (() => {
   'use strict';
 
@@ -21,9 +21,15 @@
   const headerBadge = document.getElementById('premiumHeaderBadge');
   const applicationToggle = document.getElementById('togglePremiumApplication');
   const setupGrid = document.getElementById('premiumSetupGrid');
+  const applicationPlan = document.getElementById('premiumApplicationPlan');
+  const applicationPaymentFields = document.getElementById('premiumApplicationPaymentFields');
+  const applicationPaymentReference = document.getElementById('premiumApplicationPaymentReference');
+  const applicationPaymentPaid = document.getElementById('premiumApplicationPaymentPaid');
+  const profileDirectory = document.getElementById('premiumProfileDirectory');
+  const directoryAccessBadge = document.getElementById('premiumDirectoryAccessBadge');
   let plans = [];
   let currentUser = null;
-  let currentProfile = null;
+  let currentCustomer = null;
   let loadingFor = '';
 
   const fields = {
@@ -32,13 +38,10 @@
     phone: document.getElementById('premiumPhone'),
     idDocument: document.getElementById('premiumIdDocument'),
     passportPhoto: document.getElementById('premiumPassportPhoto'),
-    displayName: document.getElementById('premiumDisplayName'),
     profilePicture: document.getElementById('premiumProfilePicture'),
-    gender: document.getElementById('premiumGender'),
-    orientation: document.getElementById('premiumOrientation'),
+    sex: document.getElementById('premiumSex'),
     age: document.getElementById('premiumAge'),
     location: document.getElementById('premiumLocation'),
-    about: document.getElementById('premiumAbout'),
     ageConsent: document.getElementById('premiumApplicationAgeConsent'),
     responsibilityConsent: document.getElementById('premiumApplicationResponsibilityConsent'),
     privacyConsent: document.getElementById('premiumApplicationPrivacyConsent')
@@ -123,7 +126,7 @@
     applicationToggle.setAttribute('aria-expanded', String(open));
     applicationToggle.textContent = open
       ? 'Hide Application Form'
-      : (currentProfile ? 'View My Premium Application' : 'Apply as a Verified Premium Profile');
+      : (currentCustomer ? 'View My Premium Customer Application' : 'Apply for a Premium Customer Account');
     if (open) window.setTimeout(() => applicationForm.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
 
@@ -155,6 +158,13 @@
       button.addEventListener('click', () => selectPlan(plan));
       planList.appendChild(button);
     });
+    if (applicationPlan) {
+      const previousValue = applicationPlan.value;
+      applicationPlan.innerHTML = '<option value="">Choose later</option>' + plans.map((plan) =>
+        `<option value="${plan.id}">${plan.name} — ${formatMoney(plan.amount_kes)} / ${durationLabel(plan.duration_hours)}</option>`
+      ).join('');
+      if (plans.some((plan) => plan.id === previousValue)) applicationPlan.value = previousValue;
+    }
   };
 
   const loadPlans = async () => {
@@ -171,8 +181,8 @@
   };
 
   const selectPlan = (plan) => {
-    if (!currentProfile || !['submitted', 'under_review', 'changes_requested', 'approved'].includes(currentProfile.application_status)) {
-      setMessage(paymentMessage, 'Submit your Premium profile application before choosing a subscription.', 'error');
+    if (!currentCustomer || !['submitted', 'under_review', 'changes_requested', 'approved'].includes(currentCustomer.application_status)) {
+      setMessage(paymentMessage, 'Submit your Premium Customer application before buying or renewing a plan here. You may also select an optional plan inside the application form.', 'error');
       setApplicationOpen(true);
       return;
     }
@@ -203,30 +213,98 @@
     });
   };
 
-  const fillExistingProfile = (profile, details, identity) => {
-    if (!profile) return;
-    fields.displayName.value = profile.display_name || '';
-    fields.gender.value = profile.gender || '';
-    fields.location.value = profile.general_location || '';
-    fields.about.value = profile.about || '';
-    fields.orientation.value = details?.orientation || '';
-    fields.age.value = details?.age || '';
-    fields.realName.value = identity?.real_name || '';
-    fields.idNumber.value = identity?.id_number || '';
-    fields.phone.value = identity?.phone || '';
-    fields.ageConsent.checked = Boolean(identity?.age_consent);
-    fields.responsibilityConsent.checked = Boolean(identity?.responsibility_consent);
-    fields.privacyConsent.checked = Boolean(identity?.privacy_consent);
-    fields.profilePicture.dataset.existingPath = profile.profile_picture_path || '';
-    fields.idDocument.dataset.existingPath = identity?.id_document_path || '';
-    fields.passportPhoto.dataset.existingPath = identity?.passport_photo_path || '';
+  const showDirectoryMessage = (icon, title, message) => {
+    if (!profileDirectory) return;
+    profileDirectory.innerHTML = '';
+    const empty = document.createElement('div');
+    empty.className = 'premium-directory-empty';
+    const iconElement = document.createElement('span');
+    iconElement.textContent = icon;
+    const titleElement = document.createElement('strong');
+    titleElement.textContent = title;
+    const messageElement = document.createElement('small');
+    messageElement.textContent = message;
+    empty.append(iconElement, titleElement, messageElement);
+    profileDirectory.appendChild(empty);
+  };
+
+  const loadVerifiedProfileDirectory = async (customer, activePlan) => {
+    if (!customer || customer.application_status !== 'approved') {
+      if (directoryAccessBadge) directoryAccessBadge.textContent = 'Customer approval required';
+      showDirectoryMessage('🔒', 'Premium Customer approval required', 'Once Admin approves your one-time customer application, available Verified Premium Profiles will be listed here.');
+      return;
+    }
+    if (directoryAccessBadge) directoryAccessBadge.textContent = activePlan ? 'Paid plan active' : 'Limited viewing';
+    showDirectoryMessage('⌛', 'Loading verified profiles…', 'Please wait while LEOGO loads approved profiles.');
+    const { data, error } = await client.from('premium_profiles')
+      .select('user_id, display_name, profile_picture_path, gender, general_location, about')
+      .eq('application_status', 'approved')
+      .order('approved_at', { ascending: false });
+    if (error) {
+      showDirectoryMessage('⚠️', 'Profiles could not be loaded', 'Refresh and try again. Your private customer information remains protected.');
+      return;
+    }
+    if (!data?.length) {
+      showDirectoryMessage('♡', 'No approved profiles available yet', 'Admin-approved Verified Premium Profiles will appear here when available for meetup.');
+      return;
+    }
+    const profiles = await Promise.all(data.map(async (profile) => {
+      const { data: signed } = await client.storage.from('premium-profile-media').createSignedUrl(profile.profile_picture_path, 600);
+      return { ...profile, imageUrl: signed?.signedUrl || '' };
+    }));
+    profileDirectory.innerHTML = '';
+    profiles.forEach((profile) => {
+      const card = document.createElement('article');
+      card.className = 'premium-directory-card';
+      const image = document.createElement('div');
+      image.className = 'premium-directory-photo';
+      if (profile.imageUrl) {
+        const img = document.createElement('img');
+        img.src = profile.imageUrl;
+        img.alt = `${profile.display_name} Premium profile`;
+        image.appendChild(img);
+      } else {
+        image.textContent = '👤';
+      }
+      const body = document.createElement('div');
+      body.className = 'premium-directory-body';
+      const name = document.createElement('strong');
+      name.textContent = profile.display_name;
+      const meta = document.createElement('span');
+      meta.textContent = `${profile.gender} · ${profile.general_location}`;
+      const about = document.createElement('p');
+      about.textContent = profile.about;
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.disabled = true;
+      action.textContent = activePlan ? 'Interest & booking coming next' : 'Activate a plan to request meetup';
+      body.append(name, meta, about, action);
+      card.append(image, body);
+      profileDirectory.appendChild(card);
+    });
+  };
+
+  const fillExistingCustomer = (customer, privateDetails) => {
+    if (!customer) return;
+    fields.location.value = customer.location || '';
+    fields.sex.value = customer.sex || '';
+    fields.age.value = customer.age || '';
+    fields.realName.value = privateDetails?.real_name || '';
+    fields.idNumber.value = privateDetails?.id_number || '';
+    fields.phone.value = privateDetails?.phone || '';
+    fields.ageConsent.checked = Boolean(privateDetails?.age_consent);
+    fields.responsibilityConsent.checked = Boolean(privateDetails?.responsibility_consent);
+    fields.privacyConsent.checked = Boolean(privateDetails?.privacy_consent);
+    fields.profilePicture.dataset.existingPath = customer.profile_picture_path || '';
+    fields.idDocument.dataset.existingPath = privateDetails?.id_document_path || '';
+    fields.passportPhoto.dataset.existingPath = privateDetails?.passport_photo_path || '';
     fields.profilePicture.required = false;
     fields.idDocument.required = false;
     fields.passportPhoto.required = false;
   };
 
   const resetDashboard = () => {
-    currentProfile = null;
+    currentCustomer = null;
     setApplicationOpen(false);
     setStatusValue(applicationStatus, '', 'Not started');
     setStatusValue(paymentStatus, '', 'No payment');
@@ -234,6 +312,7 @@
     if (membershipExpiry) membershipExpiry.textContent = '—';
     if (membershipRemaining) membershipRemaining.textContent = 'Choose an active plan';
     if (headerBadge) headerBadge.textContent = '18+ consent required';
+    loadVerifiedProfileDirectory(null, false);
     renderPaymentHistory([]);
     if (paymentForm) paymentForm.hidden = true;
   };
@@ -243,38 +322,38 @@
     if (!force && loadingFor === user.id) return;
     loadingFor = user.id;
     setMessage(applicationMessage, 'Loading your Premium application…');
-    const [profileResult, detailsResult, identityResult, paymentsResult, membershipResult] = await Promise.all([
-      client.from('premium_profiles').select('*').eq('user_id', user.id).maybeSingle(),
-      client.from('premium_profile_details').select('*').eq('user_id', user.id).maybeSingle(),
-      client.from('premium_identity_details').select('*').eq('user_id', user.id).maybeSingle(),
+    const [customerResult, privateResult, paymentsResult, membershipResult] = await Promise.all([
+      client.from('premium_customers').select('*').eq('user_id', user.id).maybeSingle(),
+      client.from('premium_customer_private_details').select('*').eq('user_id', user.id).maybeSingle(),
       client.from('premium_membership_payments').select('id, plan_name, amount_kes, duration_hours, payment_status, submitted_at, admin_notes').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(5),
       client.from('premium_memberships').select('*').eq('user_id', user.id).maybeSingle()
     ]);
     if (currentUser?.id !== user.id) return;
-    const firstError = [profileResult, detailsResult, identityResult, paymentsResult, membershipResult].find((result) => result.error)?.error;
+    const firstError = [customerResult, privateResult, paymentsResult, membershipResult].find((result) => result.error)?.error;
     if (firstError) {
       loadingFor = '';
       setMessage(applicationMessage, 'Your Premium account could not be loaded. Please refresh and try again.', 'error');
       return;
     }
-    currentProfile = profileResult.data;
+    currentCustomer = customerResult.data;
     setApplicationOpen(false);
     const payments = paymentsResult.data || [];
     const membership = membershipResult.data;
-    if (currentProfile) fillExistingProfile(currentProfile, detailsResult.data, identityResult.data);
-    setStatusValue(applicationStatus, currentProfile?.application_status, 'Not started');
+    if (currentCustomer) fillExistingCustomer(currentCustomer, privateResult.data);
+    setStatusValue(applicationStatus, currentCustomer?.application_status, 'Not started');
     setStatusValue(paymentStatus, payments[0]?.payment_status, 'No payment');
     const active = membership && membership.membership_status === 'active' && new Date(membership.ends_at) > new Date();
     setStatusValue(membershipStatus, active ? 'active' : membership?.membership_status, 'Inactive');
     if (membershipExpiry) membershipExpiry.textContent = active ? formatDate(membership.ends_at) : '—';
-    if (membershipRemaining) membershipRemaining.textContent = active ? 'Premium access is active' : 'Awaiting confirmed subscription';
-    if (headerBadge) headerBadge.textContent = active ? 'Premium active' : currentProfile ? prettyStatus(currentProfile.application_status) : 'Application required';
+    if (membershipRemaining) membershipRemaining.textContent = active ? 'Paid access is active' : (currentCustomer ? 'Account remains ready for renewal' : 'Create your customer account');
+    if (headerBadge) headerBadge.textContent = active ? 'Premium plan active' : currentCustomer ? `Customer ${prettyStatus(currentCustomer.application_status)}` : 'Customer application required';
+    await loadVerifiedProfileDirectory(currentCustomer, active);
     renderPaymentHistory(payments);
-    const editable = !currentProfile || ['draft', 'changes_requested'].includes(currentProfile.application_status);
+    const editable = !currentCustomer || ['draft', 'changes_requested', 'rejected'].includes(currentCustomer.application_status);
     setApplicationEditable(editable);
-    setMessage(applicationMessage, currentProfile
-      ? (editable ? 'Admin requested changes. Update the application and submit it again.' : `Application ${prettyStatus(currentProfile.application_status).toLowerCase()}. Admin controls the review decision.`)
-      : 'Complete all required fields and private verification uploads.', currentProfile && !editable ? 'success' : '');
+    setMessage(applicationMessage, currentCustomer
+      ? (editable ? 'Update the requested customer details and submit again.' : `Premium Customer application ${prettyStatus(currentCustomer.application_status).toLowerCase()}. This account remains after any plan expires.`)
+      : 'Complete the required customer details. Passport photo and ID image are optional.', currentCustomer && !editable ? 'success' : '');
   };
 
   applicationForm?.addEventListener('submit', (event) => {
@@ -299,10 +378,14 @@
       const profileFile = fields.profilePicture.files[0];
       const idFile = fields.idDocument.files[0];
       const passportFile = fields.passportPhoto.files[0];
-      if ((!profileFile && !fields.profilePicture.dataset.existingPath) ||
-          (!idFile && !fields.idDocument.dataset.existingPath) ||
-          (!passportFile && !fields.passportPhoto.dataset.existingPath)) {
-        setMessage(applicationMessage, 'Choose a public profile picture, private ID document and private passport-size photo.', 'error');
+      if (!profileFile && !fields.profilePicture.dataset.existingPath) {
+        setMessage(applicationMessage, 'Choose the profile picture that a Verified Premium Profile can review before accepting your request.', 'error');
+        return;
+      }
+      const chosenPlanId = applicationPlan?.value || '';
+      const chosenPaymentReference = applicationPaymentReference?.value.trim() || '';
+      if (chosenPlanId && (!chosenPaymentReference || !applicationPaymentPaid?.checked)) {
+        setMessage(applicationMessage, 'For a plan submitted with the application, paste the payment reference and confirm that you have paid. Otherwise select “Choose later”.', 'error');
         return;
       }
       try {
@@ -321,33 +404,34 @@
           setMessage(applicationMessage, 'Uploading your private passport-size photo…');
           passportPath = await uploadPrivateFile('premium-verification', passportFile, 5 * 1024 * 1024);
         }
-        setMessage(applicationMessage, 'Submitting your application for Admin review…');
-        const { error } = await client.rpc('submit_premium_application', {
-          p_display_name: fields.displayName.value.trim(),
+        setMessage(applicationMessage, chosenPlanId ? 'Submitting your customer application and plan payment…' : 'Submitting your Premium Customer application…');
+        const { error } = await client.rpc('submit_premium_customer_application', {
+          p_location: fields.location.value.trim(),
           p_profile_picture_path: profilePath,
-          p_gender: fields.gender.value,
-          p_orientation: fields.orientation.value,
+          p_sex: fields.sex.value,
           p_age: Number(fields.age.value),
-          p_general_location: fields.location.value.trim(),
-          p_about: fields.about.value.trim(),
           p_real_name: fields.realName.value.trim(),
           p_id_number: fields.idNumber.value.trim(),
           p_phone: phone,
-          p_id_document_path: idPath,
-          p_passport_photo_path: passportPath,
+          p_id_document_path: idPath || null,
+          p_passport_photo_path: passportPath || null,
+          p_plan_id: chosenPlanId || null,
+          p_payment_reference: chosenPlanId ? chosenPaymentReference : null,
           p_age_consent: fields.ageConsent.checked,
           p_responsibility_consent: fields.responsibilityConsent.checked,
           p_privacy_consent: fields.privacyConsent.checked
         });
         if (error) throw error;
-        setMessage(applicationMessage, 'Application submitted successfully. It is now waiting for Admin review.', 'success');
+        setMessage(applicationMessage, chosenPlanId
+          ? 'Premium Customer application and plan payment submitted for Admin review and confirmation.'
+          : 'Premium Customer application submitted for Admin review. You can choose a plan later using the same permanent account.', 'success');
         loadingFor = '';
         await loadPremiumAccount(currentUser, true);
       } catch (error) {
         const duplicate = String(error?.message || '').toLowerCase().includes('unique');
         setMessage(applicationMessage, duplicate
-          ? 'That display name, ID number or phone number is already registered. Check the information and try again.'
-          : (error?.message || 'The Premium application could not be submitted. Please try again.'), 'error');
+          ? 'That ID number or phone number is already registered. Check the information and try again.'
+          : (error?.message || 'The Premium Customer application could not be submitted. Please try again.'), 'error');
       }
     });
   });
@@ -382,6 +466,17 @@
 
   applicationToggle?.addEventListener('click', () => {
     setApplicationOpen(applicationForm?.hidden !== false);
+  });
+
+  applicationPlan?.addEventListener('change', () => {
+    const hasPlan = Boolean(applicationPlan.value);
+    if (applicationPaymentFields) applicationPaymentFields.hidden = !hasPlan;
+    if (applicationPaymentReference) applicationPaymentReference.required = hasPlan;
+    if (applicationPaymentPaid) applicationPaymentPaid.required = hasPlan;
+    if (!hasPlan) {
+      if (applicationPaymentReference) applicationPaymentReference.value = '';
+      if (applicationPaymentPaid) applicationPaymentPaid.checked = false;
+    }
   });
 
   const handleUser = (user) => {
