@@ -19,6 +19,8 @@
   const membershipExpiry = document.getElementById('premiumMembershipExpiry');
   const membershipRemaining = document.getElementById('premiumMembershipRemaining');
   const headerBadge = document.getElementById('premiumHeaderBadge');
+  const applicationToggle = document.getElementById('togglePremiumApplication');
+  const setupGrid = document.getElementById('premiumSetupGrid');
   let plans = [];
   let currentUser = null;
   let currentProfile = null;
@@ -29,6 +31,7 @@
     idNumber: document.getElementById('premiumIdNumber'),
     phone: document.getElementById('premiumPhone'),
     idDocument: document.getElementById('premiumIdDocument'),
+    passportPhoto: document.getElementById('premiumPassportPhoto'),
     displayName: document.getElementById('premiumDisplayName'),
     profilePicture: document.getElementById('premiumProfilePicture'),
     gender: document.getElementById('premiumGender'),
@@ -113,6 +116,17 @@
     }
   };
 
+  const setApplicationOpen = (open) => {
+    if (!applicationForm || !applicationToggle || !setupGrid) return;
+    applicationForm.hidden = !open;
+    setupGrid.classList.toggle('application-collapsed', !open);
+    applicationToggle.setAttribute('aria-expanded', String(open));
+    applicationToggle.textContent = open
+      ? 'Hide Application Form'
+      : (currentProfile ? 'View My Premium Application' : 'Apply as a Verified Premium Profile');
+    if (open) window.setTimeout(() => applicationForm.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
+
   const uploadPrivateFile = async (bucket, file, maxBytes) => {
     const extension = safeExtension(file);
     if (!extension) throw new Error('Unsupported file type. Please choose one of the listed formats.');
@@ -159,7 +173,7 @@
   const selectPlan = (plan) => {
     if (!currentProfile || !['submitted', 'under_review', 'changes_requested', 'approved'].includes(currentProfile.application_status)) {
       setMessage(paymentMessage, 'Submit your Premium profile application before choosing a subscription.', 'error');
-      applicationForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setApplicationOpen(true);
       return;
     }
     document.querySelectorAll('.premium-plan-option').forEach((button) => {
@@ -205,12 +219,15 @@
     fields.privacyConsent.checked = Boolean(identity?.privacy_consent);
     fields.profilePicture.dataset.existingPath = profile.profile_picture_path || '';
     fields.idDocument.dataset.existingPath = identity?.id_document_path || '';
+    fields.passportPhoto.dataset.existingPath = identity?.passport_photo_path || '';
     fields.profilePicture.required = false;
     fields.idDocument.required = false;
+    fields.passportPhoto.required = false;
   };
 
   const resetDashboard = () => {
     currentProfile = null;
+    setApplicationOpen(false);
     setStatusValue(applicationStatus, '', 'Not started');
     setStatusValue(paymentStatus, '', 'No payment');
     setStatusValue(membershipStatus, '', 'Inactive');
@@ -241,6 +258,7 @@
       return;
     }
     currentProfile = profileResult.data;
+    setApplicationOpen(false);
     const payments = paymentsResult.data || [];
     const membership = membershipResult.data;
     if (currentProfile) fillExistingProfile(currentProfile, detailsResult.data, identityResult.data);
@@ -280,13 +298,17 @@
       }
       const profileFile = fields.profilePicture.files[0];
       const idFile = fields.idDocument.files[0];
-      if ((!profileFile && !fields.profilePicture.dataset.existingPath) || (!idFile && !fields.idDocument.dataset.existingPath)) {
-        setMessage(applicationMessage, 'Choose both a profile picture and a private ID verification document.', 'error');
+      const passportFile = fields.passportPhoto.files[0];
+      if ((!profileFile && !fields.profilePicture.dataset.existingPath) ||
+          (!idFile && !fields.idDocument.dataset.existingPath) ||
+          (!passportFile && !fields.passportPhoto.dataset.existingPath)) {
+        setMessage(applicationMessage, 'Choose a public profile picture, private ID document and private passport-size photo.', 'error');
         return;
       }
       try {
         let profilePath = fields.profilePicture.dataset.existingPath;
         let idPath = fields.idDocument.dataset.existingPath;
+        let passportPath = fields.passportPhoto.dataset.existingPath;
         if (profileFile) {
           setMessage(applicationMessage, 'Uploading your profile picture securely…');
           profilePath = await uploadPrivateFile('premium-profile-media', profileFile, 5 * 1024 * 1024);
@@ -294,6 +316,10 @@
         if (idFile) {
           setMessage(applicationMessage, 'Uploading your private identity document…');
           idPath = await uploadPrivateFile('premium-verification', idFile, 8 * 1024 * 1024);
+        }
+        if (passportFile) {
+          setMessage(applicationMessage, 'Uploading your private passport-size photo…');
+          passportPath = await uploadPrivateFile('premium-verification', passportFile, 5 * 1024 * 1024);
         }
         setMessage(applicationMessage, 'Submitting your application for Admin review…');
         const { error } = await client.rpc('submit_premium_application', {
@@ -308,6 +334,7 @@
           p_id_number: fields.idNumber.value.trim(),
           p_phone: phone,
           p_id_document_path: idPath,
+          p_passport_photo_path: passportPath,
           p_age_consent: fields.ageConsent.checked,
           p_responsibility_consent: fields.responsibilityConsent.checked,
           p_privacy_consent: fields.privacyConsent.checked
@@ -351,6 +378,10 @@
       loadingFor = '';
       await loadPremiumAccount(currentUser, true);
     });
+  });
+
+  applicationToggle?.addEventListener('click', () => {
+    setApplicationOpen(applicationForm?.hidden !== false);
   });
 
   const handleUser = (user) => {
