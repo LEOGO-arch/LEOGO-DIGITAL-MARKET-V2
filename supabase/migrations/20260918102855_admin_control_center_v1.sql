@@ -245,9 +245,9 @@ revoke execute on function private.write_admin_audit(text,text,text,jsonb,jsonb,
 
 -- Bootstrap the project owner as Super Admin without hard-coding a generated UUID.
 insert into public.admin_users (user_id, display_name, role, status)
-select u.id, coalesce(nullif(u.raw_user_meta_data->>'full_name',''), 'Vincent Omondi'), 'super_admin', 'active'
+select u.id, coalesce(nullif(u.raw_user_meta_data->>'full_name',''), 'LEOGO Super Admin'), 'super_admin', 'active'
 from auth.users u
-where lower(u.email) = lower('vincentozzomondi1997@gmail.com')
+where lower(u.email) = lower('leogodigitalmarket2@gmail.com')
 on conflict (user_id) do update set
   display_name = excluded.display_name,
   role = 'super_admin',
@@ -259,7 +259,7 @@ select u.id, u.email, 'admin.bootstrap', 'admin_user', u.id::text,
        jsonb_build_object('role','super_admin','status','active'),
        jsonb_build_object('source','Admin Control Center V1 migration')
 from auth.users u
-where lower(u.email) = lower('vincentozzomondi1997@gmail.com')
+where lower(u.email) = lower('leogodigitalmarket2@gmail.com')
   and not exists (
     select 1 from public.admin_audit_log l
     where l.action='admin.bootstrap' and l.entity_id=u.id::text
