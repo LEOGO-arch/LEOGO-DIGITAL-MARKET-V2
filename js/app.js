@@ -397,14 +397,93 @@
   const checkoutCounty = document.getElementById('checkoutCounty');
   const checkoutSubCounty = document.getElementById('checkoutSubCounty');
   const checkoutDeliveryZone = document.getElementById('checkoutDeliveryZone');
+  const checkoutAddressFieldset = customerShellModal?.querySelector('.checkout-address');
   const checkoutShell = customerShellModal?.querySelector('.checkout-shell');
   const checkoutServiceRate = document.getElementById('checkoutServiceRate');
   const checkoutServiceFeeValue = document.getElementById('checkoutServiceFeeValue');
   const checkoutDeliveryFeeValue = document.getElementById('checkoutDeliveryFeeValue');
   const checkoutGrandTotalValue = document.getElementById('checkoutGrandTotalValue');
+  const checkoutPickupStationWrap = document.getElementById('checkoutPickupStationWrap');
+  const checkoutPickupStation = document.getElementById('checkoutPickupStation');
+  const checkoutPickupStationDetails = document.getElementById('checkoutPickupStationDetails');
+  const checkoutPickupStationStatus = document.getElementById('checkoutPickupStationStatus');
+  const checkoutPickupFeeRow = document.getElementById('checkoutPickupFeeRow');
+  const checkoutPickupFeeRate = document.getElementById('checkoutPickupFeeRate');
+  const checkoutPickupFeeValue = document.getElementById('checkoutPickupFeeValue');
   const checkoutPinLocation = document.getElementById('checkoutPinLocation');
   const checkoutPinStatus = document.getElementById('checkoutPinStatus');
   const checkoutCoordinates = document.getElementById('checkoutCoordinates');
+  let pickupStations = [];
+  let updateCheckoutReadiness = () => {};
+  const escapePickupText = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  })[character]);
+
+  const selectedPickupStation = () => pickupStations.find((station) => station.id === checkoutPickupStation?.value) || null;
+  const pickupStationAddress = (station) => station ? [
+    station.county,
+    station.sub_county,
+    station.town,
+    station.address_line,
+    station.door_number ? 'Door No ' + station.door_number : ''
+  ].filter(Boolean).join(', ') : '';
+
+  const renderSelectedPickupStation = () => {
+    const station = selectedPickupStation();
+    if (!checkoutPickupStationDetails) return;
+    checkoutPickupStationDetails.hidden = !station;
+    checkoutPickupStationDetails.innerHTML = station
+      ? '<strong>' + escapePickupText(station.station_name) + '</strong><span>' + escapePickupText(pickupStationAddress(station)) + '</span><span>Pickup service fee: <b>' + Number(station.service_fee_percent || 0).toLocaleString() + '%</b> of the items subtotal</span>'
+      : '';
+  };
+
+  const populatePickupStations = () => {
+    if (!checkoutPickupStation) return;
+    checkoutPickupStation.replaceChildren();
+    const prompt = document.createElement('option');
+    prompt.value = '';
+    prompt.textContent = pickupStations.length ? 'Select pickup station' : 'No active pickup station available';
+    checkoutPickupStation.appendChild(prompt);
+    pickupStations.forEach((station) => {
+      const option = document.createElement('option');
+      option.value = station.id;
+      option.textContent = station.station_name + ' — ' + station.town;
+      checkoutPickupStation.appendChild(option);
+    });
+    checkoutPickupStation.disabled = pickupStations.length === 0;
+    renderSelectedPickupStation();
+  };
+
+  const loadPickupStations = async (user) => {
+    pickupStations = [];
+    populatePickupStations();
+    if (!user || !window.leogoAuth?.client) {
+      if (checkoutPickupStationStatus) checkoutPickupStationStatus.textContent = 'Sign in to load active pickup stations.';
+      updateCheckoutFees();
+      updateCheckoutReadiness();
+      return;
+    }
+    if (checkoutPickupStationStatus) checkoutPickupStationStatus.textContent = 'Loading active pickup stations…';
+    const { data, error } = await window.leogoAuth.client
+      .from('pickup_stations')
+      .select('id,station_name,county,sub_county,town,address_line,landmark,door_number,service_fee_percent,display_order')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .order('station_name', { ascending: true });
+    if (error) {
+      if (checkoutPickupStationStatus) checkoutPickupStationStatus.textContent = 'Pickup stations could not be loaded. Please try again.';
+      updateCheckoutFees();
+      updateCheckoutReadiness();
+      return;
+    }
+    pickupStations = Array.isArray(data) ? data : [];
+    populatePickupStations();
+    if (checkoutPickupStationStatus) checkoutPickupStationStatus.textContent = pickupStations.length
+      ? 'Pickup stations and percentage fees are managed by authorized LEOGO Admin/Staff.'
+      : 'No active pickup station is available. Please choose another delivery zone.';
+    updateCheckoutFees();
+    updateCheckoutReadiness();
+  };
 
   const populateCheckoutSubCounties = () => {
     const options = profileSubCounties[checkoutCounty?.value] || [];
@@ -423,7 +502,7 @@
   };
   checkoutCounty?.addEventListener('change', populateCheckoutSubCounties);
 
-  const updateCheckoutFees = () => {
+  function updateCheckoutFees() {
     const subtotal = Number(checkoutShell?.dataset.checkoutSubtotal || 0);
     const serviceRate = subtotal >= 3000 ? 0.015 : 0.02;
     const serviceFee = subtotal * serviceRate;
@@ -431,19 +510,38 @@
       cbd: { amount: 50, label: 'KSh 50' },
       estate: { amount: 80, label: 'KSh 80' },
       outside: { amount: 200, label: 'From KSh 200' },
-      quote: { amount: null, label: 'Admin quote' }
+      quote: { amount: null, label: 'Admin quote' },
+      pickup: { amount: 0, label: 'Collect at station' }
     };
     const delivery = deliveryRules[checkoutDeliveryZone?.value];
+    const station = checkoutDeliveryZone?.value === 'pickup' ? selectedPickupStation() : null;
+    const pickupRate = Number(station?.service_fee_percent || 0);
+    const pickupFee = subtotal * (pickupRate / 100);
     if (checkoutServiceRate) checkoutServiceRate.textContent = '(' + (serviceRate * 100) + '%)';
     if (checkoutServiceFeeValue) checkoutServiceFeeValue.textContent = 'KSh ' + Math.round(serviceFee).toLocaleString();
+    if (checkoutPickupFeeRow) checkoutPickupFeeRow.hidden = checkoutDeliveryZone?.value !== 'pickup';
+    if (checkoutPickupFeeRate) checkoutPickupFeeRate.textContent = '(' + pickupRate.toLocaleString() + '%)';
+    if (checkoutPickupFeeValue) checkoutPickupFeeValue.textContent = 'KSh ' + Math.round(pickupFee).toLocaleString();
     if (checkoutDeliveryFeeValue) checkoutDeliveryFeeValue.textContent = delivery?.label || 'Select zone';
     if (checkoutGrandTotalValue) {
       checkoutGrandTotalValue.textContent = delivery?.amount === null
         ? 'Pending quote'
-        : 'KSh ' + Math.round(subtotal + serviceFee + (delivery?.amount || 0)).toLocaleString();
+        : 'KSh ' + Math.round(subtotal + serviceFee + pickupFee + (delivery?.amount || 0)).toLocaleString();
     }
-  };
-  checkoutDeliveryZone?.addEventListener('change', updateCheckoutFees);
+  }
+  checkoutDeliveryZone?.addEventListener('change', () => {
+    const isPickup = checkoutDeliveryZone.value === 'pickup';
+    if (checkoutPickupStationWrap) checkoutPickupStationWrap.hidden = !isPickup;
+    if (checkoutAddressFieldset) checkoutAddressFieldset.hidden = isPickup;
+    updateCheckoutFees();
+    updateCheckoutReadiness();
+  });
+  checkoutPickupStation?.addEventListener('change', () => {
+    renderSelectedPickupStation();
+    updateCheckoutFees();
+    updateCheckoutReadiness();
+  });
+  document.addEventListener('leogo:authchange', (event) => loadPickupStations(event.detail?.user || null));
   updateCheckoutFees();
 
   checkoutPinLocation?.addEventListener('click', () => {
@@ -524,17 +622,27 @@
     }
   };
   const checkoutReadinessMessage = document.getElementById('checkoutReadinessMessage');
-  const requiredCheckoutFields = [
-    document.getElementById('checkoutReceiverName'),
-    document.getElementById('checkoutContactNumber'),
+  const deliveryAddressFields = [
     checkoutCounty,
     checkoutSubCounty,
     document.getElementById('checkoutEstate'),
-    document.getElementById('checkoutLandmark'),
+    document.getElementById('checkoutLandmark')
+  ];
+  const checkoutBaseFields = [
+    document.getElementById('checkoutReceiverName'),
+    document.getElementById('checkoutContactNumber'),
     checkoutDeliveryZone
   ];
-  const updateCheckoutReadiness = () => {
-    const detailsComplete = requiredCheckoutFields.every((field) => field && field.value.trim() !== '');
+  const checkoutObservedFields = [...checkoutBaseFields, ...deliveryAddressFields, checkoutPickupStation];
+  updateCheckoutReadiness = () => {
+    const isPickup = checkoutDeliveryZone?.value === 'pickup';
+    deliveryAddressFields.forEach((field) => {
+      if (field) field.required = !isPickup;
+    });
+    const requiredFields = isPickup
+      ? [...checkoutBaseFields, checkoutPickupStation]
+      : [...checkoutBaseFields, ...deliveryAddressFields];
+    const detailsComplete = requiredFields.every((field) => field && field.value.trim() !== '');
     const cartReady = typeof testCart !== 'undefined' && testCart.length > 0;
     const ready = detailsComplete && cartReady;
     if (continueToPayment) {
@@ -547,11 +655,13 @@
       checkoutReadinessMessage.textContent = ready
         ? '✓ All required details are complete. Continue to payment.'
         : cartReady
-          ? 'Complete receiver name, phone, County, Sub-County, Estate, landmark and delivery zone.'
+          ? isPickup
+            ? 'Complete receiver name, phone and choose an active pickup station.'
+            : 'Complete receiver name, phone, County, Sub-County, Estate, landmark and delivery zone.'
           : 'Add an item to the cart and complete all required delivery details.';
     }
   };
-  requiredCheckoutFields.forEach((field) => {
+  checkoutObservedFields.forEach((field) => {
     field?.addEventListener('input', updateCheckoutReadiness);
     field?.addEventListener('change', updateCheckoutReadiness);
   });
@@ -654,15 +764,19 @@
     const receiver = document.getElementById('checkoutReceiverName')?.value || 'Customer';
     const contact = document.getElementById('checkoutContactNumber')?.value || 'Not provided';
     const locationLink = document.getElementById('checkoutLocationLink')?.value || '';
-    const deliveryAddress = [
+    const pickupStation = checkoutDeliveryZone?.value === 'pickup' ? selectedPickupStation() : null;
+    const writtenDeliveryAddress = [
       checkoutCounty?.value,
       checkoutSubCounty?.value,
       document.getElementById('checkoutEstate')?.value,
       document.getElementById('checkoutLandmark')?.value
     ].filter(Boolean).join(', ') || 'Not provided';
+    const deliveryAddress = pickupStation ? pickupStationAddress(pickupStation) : writtenDeliveryAddress;
     const subtotal = testCartSubtotal();
     const serviceRate = subtotal >= 3000 ? 0.015 : 0.02;
     const serviceFee = Math.round(subtotal * serviceRate);
+    const pickupRate = Number(pickupStation?.service_fee_percent || 0);
+    const pickupFee = Math.round(subtotal * (pickupRate / 100));
     const deliveryFee = checkoutDeliveryFeeValue?.textContent || 'Not selected';
     const itemsRows = testCart.map((item) => `
       <tr>
@@ -674,9 +788,14 @@
     const logoMarkup = logoDataUrl
       ? '<img src="' + logoDataUrl + '" alt="LEOGO logo">'
       : '<div class="logo-fallback">LEO<span>GO</span></div>';
-    const mapMarkup = locationLink
+    const mapMarkup = !pickupStation && locationLink
       ? '<a class="map-link" href="' + receiptEscape(locationLink) + '">Open pinned delivery location</a>'
-      : '<span class="muted">No location link supplied</span>';
+      : pickupStation
+        ? '<span class="muted">Customer collection at the selected LEOGO pickup station</span>'
+        : '<span class="muted">No location link supplied</span>';
+    const pickupFeeMarkup = pickupStation
+      ? '<div><span>Pickup station fee (' + receiptEscape(pickupRate.toLocaleString()) + '%)</span><strong>' + receiptEscape(money(pickupFee)) + '</strong></div>'
+      : '';
 
     return `<!doctype html>
 <html lang="en">
@@ -698,7 +817,7 @@
     <div class="preview">Phase 1(A) test receipt — permanent verified receipts will be generated after the Supabase order system is connected.</div>
     <div class="meta">
       <div class="box"><h3>Customer</h3><p><strong>${receiptEscape(receiver)}</strong></p><p>${receiptEscape(contact)}</p><p class="muted">${receiptEscape(new Date().toLocaleString('en-KE'))}</p></div>
-      <div class="box"><h3>Delivery Address</h3><p>${receiptEscape(deliveryAddress)}</p><p>${mapMarkup}</p></div>
+      <div class="box"><h3>${pickupStation ? 'Pickup Station' : 'Delivery Address'}</h3><p>${pickupStation ? '<strong>' + receiptEscape(pickupStation.station_name) + '</strong><br>' : ''}${receiptEscape(deliveryAddress)}</p><p>${mapMarkup}</p></div>
     </div>
     <table>
       <thead><tr><th>Item</th><th class="number">Qty</th><th class="number">Unit price</th><th class="number">Total</th></tr></thead>
@@ -707,6 +826,7 @@
     <div class="totals">
       <div><span>Items subtotal</span><strong>${receiptEscape(money(subtotal))}</strong></div>
       <div><span>Service fee (${serviceRate * 100}%)</span><strong>${receiptEscape(money(serviceFee))}</strong></div>
+      ${pickupFeeMarkup}
       <div><span>Delivery fee</span><strong>${receiptEscape(deliveryFee)}</strong></div>
       <div class="grand"><span>Grand total</span><strong>${receiptEscape(checkoutTotalText())}</strong></div>
     </div>
@@ -746,6 +866,7 @@
     const estate = document.getElementById('checkoutEstate')?.value.trim() || 'Not provided';
     const landmark = document.getElementById('checkoutLandmark')?.value.trim() || 'Not provided';
     const locationLink = document.getElementById('checkoutLocationLink')?.value.trim() || 'Not provided';
+    const pickupStation = checkoutDeliveryZone?.value === 'pickup' ? selectedPickupStation() : null;
     const itemLines = testCart.map((item, index) =>
       (index + 1) + '. ' + item.name + ' × ' + item.quantity + ' — ' + money(item.price * item.quantity)
     );
@@ -767,6 +888,7 @@
       '💰 *ORDER SUMMARY*',
       'Items subtotal: ' + (document.getElementById('checkoutSubtotalValue')?.textContent || 'KSh 0'),
       'Service fee: ' + (checkoutServiceFeeValue?.textContent || 'KSh 0'),
+      ...(pickupStation ? ['Pickup station fee ' + (checkoutPickupFeeRate?.textContent || '') + ': ' + (checkoutPickupFeeValue?.textContent || 'KSh 0')] : []),
       'Delivery fee: ' + (checkoutDeliveryFeeValue?.textContent || 'Not selected'),
       '*Grand total: ' + checkoutTotalText() + '*',
       '',
@@ -774,12 +896,17 @@
       'Method: ' + selectedPaymentLabel.textContent,
       'Status: ' + selectedPaymentStatus.textContent,
       '',
-      '📍 *DELIVERY LOCATION*',
-      'County: ' + county,
-      'Sub-County: ' + subCounty,
-      'Estate / Area: ' + estate,
-      'Nearest landmark: ' + landmark,
-      'Map link: ' + locationLink,
+      pickupStation ? '📍 *PICKUP STATION*' : '📍 *DELIVERY LOCATION*',
+      ...(pickupStation ? [
+        'Station: ' + pickupStation.station_name,
+        'Address: ' + pickupStationAddress(pickupStation)
+      ] : [
+        'County: ' + county,
+        'Sub-County: ' + subCounty,
+        'Estate / Area: ' + estate,
+        'Nearest landmark: ' + landmark,
+        'Map link: ' + locationLink
+      ]),
       '',
       'Please review and confirm this order.',
       '_LEOGO — Everything You Need. Delivered._'
