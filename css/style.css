@@ -100,11 +100,13 @@
 .checkout-pin-status{min-height:14px;margin:0;color:#39734d;font-size:9px;line-height:1.4}
 .checkout-zone-wrap{margin:12px 0;padding:12px;border-radius:12px;background:#eef4fc}
 .checkout-zone-wrap p{margin:8px 0 0;color:#627087;font-size:9px;line-height:1.45}
+.checkout-pickup-wrap{margin:12px 0;padding:12px;border:1px solid #ffc58f;border-radius:12px;background:#fff8f0}.checkout-pickup-wrap[hidden],.checkout-pickup-details[hidden],.pickup-fee-row[hidden]{display:none!important}.checkout-pickup-wrap select{width:100%;border:1px solid #d4dce8;border-radius:9px;background:#fff;padding:9px 10px;color:#07152f;font-size:9px}.checkout-pickup-wrap>p{margin:8px 0 0;color:#6f7b8d;font-size:8px;line-height:1.45}.checkout-pickup-details{margin-top:10px;padding:11px;border-radius:10px;background:#071b3d;color:#fff}.checkout-pickup-details strong,.checkout-pickup-details span{display:block}.checkout-pickup-details strong{font-size:10px}.checkout-pickup-details span{margin-top:4px;color:#d5dfed;font-size:8px;line-height:1.5}.checkout-pickup-details b{color:#ffb067}.pickup-fee-row{color:#9a4e08;background:#fff8f0;padding-inline:6px}
 .checkout-fee-rules{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;margin:12px 0;padding:11px;border:1px solid #ffd8b8;border-radius:11px;background:#fff7f0;color:#6f3c13;font-size:9px}
 .checkout-fee-rules strong{grid-column:1/-1;color:#07152f}
 .checkout-fee-rules b{color:#e35f00}
 .checkout-total-row small{color:#7a8495;font-weight:600}
 @media(max-width:600px){.checkout-fee-rules{grid-template-columns:1fr}.checkout-fee-rules strong{grid-column:auto}}
+@media(max-width:600px){.checkout-pickup-wrap select{min-height:46px;font-size:12px}.checkout-pickup-wrap>p,.checkout-pickup-details span{font-size:10px}.checkout-pickup-details strong{font-size:12px}}
 
 
 /* Phase 1(A): checkout payment and order confirmation */
