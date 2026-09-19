@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=seller-v4">
+  <link rel="stylesheet" href="partner.css?v=seller-v6">
 </head>
 <body>
 <header class="partner-header">
@@ -64,188 +64,228 @@
   </section>
 
   <section class="seller-shell" id="sellerShell" hidden>
-    <button id="backToPartnerships" class="back-link" type="button">← Partnerships</button>
-
     <section id="sellerOnboarding" class="panel seller-onboarding" hidden>
       <div class="seller-onboarding-icon">🏪</div>
-      <div><span>BECOME A SELLER</span><h2>Sell on LEOGO DIGITAL MARKET</h2><p>Register your shop or business. After submission, you will be taken to your Seller Dashboard where you can follow the approval status.</p></div>
+      <div><span>BECOME A SELLER</span><h2>Sell on LEOGO DIGITAL MARKET</h2><p>Register your shop or business once. After submission, your Seller account is managed from the Seller Portal.</p></div>
       <button id="showSellerRegistration" type="button">Become a Seller</button>
     </section>
 
-    <section id="sellerDashboard" hidden>
-      <div class="account-head">
-        <div><span>SELLER DASHBOARD</span><h2 id="sellerWelcome">Seller Dashboard</h2><p>Manage your Seller account, products and settlements.</p></div>
-        <div class="seller-head-actions">
-          <button id="sellerNotificationsButton" class="seller-icon-button" type="button" aria-label="Notifications">🔔 <b id="sellerNotificationBadge" hidden>0</b></button>
-          <button id="sellerProfileButton" class="secondary" type="button">My Profile</button>
-        </div>
-      </div>
-      <section id="sellerNotificationPanel" class="panel seller-notification-panel" hidden>
-        <div class="section-title compact"><span>NOTIFICATIONS</span><h3>Seller activity</h3><p>Approval, settlement and other Seller events appear here.</p></div>
-        <div class="notification-toolbar"><button id="markAllSellerNotificationsRead" class="secondary" type="button">Mark all read</button></div>
-        <div id="sellerNotificationList" class="seller-notification-list"></div>
-      </section>
-      <div class="seller-status-card" id="sellerStatusCard">
-        <div><small>REGISTRATION STATUS</small><strong id="sellerStatusValue">Loading…</strong><p id="sellerStatusMessage"></p></div>
-        <div class="seller-status-meta"><span>Submitted</span><b id="sellerSubmittedAt">—</b><span>Approved</span><b id="sellerApprovedAt">—</b></div>
-      </div>
-      <section id="sellerProfilePanel" hidden>
-        <div class="seller-registration-summary panel" id="sellerRegistrationSummary"></div>
-      <form id="sellerVerificationDocumentsForm" class="panel" hidden>
-        <div class="section-title"><span>PRIVATE VERIFICATION DOCUMENTS</span><h3>Business documents for Admin review</h3><p>These files are private. Customers cannot see them.</p></div>
-        <div class="form-grid">
-          <label class="wide">Business ID / identification document <small>Required. Informal sellers may upload the owner's ID card.</small><input id="dashboardBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
-          <label>Business licence <small>Optional</small><input id="dashboardBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
-          <label>CR12 / Registration Certificate <small>Optional</small><input id="dashboardRegistrationCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
-          <label class="wide">Other related permits <small>Optional, up to 4 files</small><input id="dashboardOtherPermits" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple></label>
-        </div>
-        <button type="submit">Save Verification Documents</button>
-        <p id="sellerVerificationDocumentsStatus" class="status"></p>
-      </form>
-      </section>
-    </section>
-
     <form id="sellerRegistrationForm" class="panel seller-registration" hidden>
-      <div class="section-title"><span>SELLER REGISTRATION</span><h3>Business & owner details</h3><p>All registration data remains available to authorized LEOGO Admin after approval.</p></div>
+      <div class="section-title"><span>SELLER REGISTRATION</span><h3>Business & owner details</h3><p>This form is used only before your Seller account exists, or when Admin specifically asks you to correct and resubmit it.</p></div>
       <div class="form-grid">
         <label>Business / shop name<input id="sellerBusinessName" type="text" maxlength="120" required></label>
         <label>Owner full name<input id="sellerOwnerName" type="text" maxlength="120" required></label>
         <label>National ID / identification number<input id="sellerIdNumber" type="text" maxlength="30" required></label>
         <label>Phone number<input id="sellerPhone" type="tel" placeholder="+2547XXXXXXXX" required></label>
-        <label>County<select id="sellerCounty" required>
-          <option value="">Select county</option>
-          <option value="KE041">Siaya</option>
-          <option value="KE042">Kisumu</option>
-          <option value="KE047">Nairobi</option>
-          <option value="KE040">Busia</option>
-          <option value="KE043">Homa Bay</option>
-          <option value="KE044">Migori</option>
-          <option value="KE037">Kakamega</option>
-          <option value="KE039">Bungoma</option>
-          <option value="KE026">Trans Nzoia (Kitale)</option>
-          <option value="KE027">Uasin Gishu (Eldoret)</option>
-        </select></label>
+        <label>County<select id="sellerCounty" required><option value="">Select county</option></select></label>
         <label>Sub-County<select id="sellerSubCounty" required disabled><option value="">Choose a county first</option></select></label>
         <label>Town<input id="sellerTown" type="text" maxlength="80" required></label>
         <label>Business location / landmark<input id="sellerLocation" type="text" maxlength="180" required></label>
         <label class="wide">Business description<textarea id="sellerDescription" rows="3" maxlength="1000" placeholder="What do you sell?"></textarea></label>
-        <label class="wide">Business ID / identification document <small>(Required — formal businesses can upload business ID/registration ID; informal sellers such as mama mboga may upload the owner's ID card.)</small><input id="sellerBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
-        <label>Business licence <small>(Optional)</small><input id="sellerBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
-        <label>CR12 / Registration Certificate <small>(Optional)</small><input id="sellerRegistrationCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
-        <label class="wide">Other related permits <small>(Optional, up to 4 files)</small><input id="sellerOtherPermits" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple></label>
+        <label class="wide">Business ID / identification document <small>Required. Informal sellers may upload the owner's ID card.</small><input id="sellerBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+        <label>Business licence <small>Optional</small><input id="sellerBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label>CR12 / Registration Certificate <small>Optional</small><input id="sellerRegistrationCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label class="wide">Other related permits <small>Optional, up to 4 files</small><input id="sellerOtherPermits" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple></label>
       </div>
-      <div class="private-doc-note">🔒 Business verification documents are private and available only to the Seller and authorized LEOGO Admin users. They are never shown to customers.</div>
+      <div class="private-doc-note">🔒 Verification documents are private and available only to the Seller and authorized LEOGO Admin users.</div>
       <button type="submit">Submit Seller Application</button>
       <p id="sellerRegistrationStatus" class="status"></p>
     </form>
 
-    <section id="sellerApprovedArea" hidden>
-      <div class="seller-metrics">
-        <article><span>Products</span><strong id="sellerProductCount">0</strong></article>
-        <article><span>Available</span><strong id="sellerAvailableCount">0</strong></article>
-        <article><span>Flash Sale Requests</span><strong id="sellerFlashCount">0</strong></article>
+    <section id="sellerDashboard" class="seller-portal" hidden>
+      <button id="sellerSidebarToggle" class="seller-sidebar-toggle" type="button">☰ Menu</button>
+      <aside id="sellerSidebar" class="seller-sidebar">
+        <div class="seller-sidebar-brand">
+          <span>SELLER PORTAL</span>
+          <strong id="sellerSidebarBusiness">My Shop</strong>
+          <small id="sellerSidebarStatus">Loading…</small>
+        </div>
+        <nav>
+          <button class="active" data-seller-view="overview" type="button"><span>▦</span>Dashboard / Overview</button>
+          <button data-seller-view="products" type="button"><span>□</span>Products</button>
+          <button data-seller-view="flashsale" type="button"><span>⚡</span>Flash Sale</button>
+          <button data-seller-view="settlements" type="button"><span>₿</span>Settlements</button>
+          <button data-seller-view="notifications" type="button"><span>🔔</span>Notifications <b id="sellerNotificationBadge" hidden>0</b></button>
+          <button data-seller-view="profile" type="button"><span>♙</span>My Profile</button>
+        </nav>
+        <div class="seller-sidebar-footer">
+          <button id="backToPartnerships" class="secondary" type="button">← Partnerships</button>
+        </div>
+      </aside>
+      <button id="sellerSidebarScrim" class="seller-sidebar-scrim" type="button" aria-label="Close seller menu"></button>
+
+      <div class="seller-portal-main">
+        <div class="account-head seller-portal-head">
+          <div><span>SELLER DASHBOARD</span><h2 id="sellerWelcome">Seller Dashboard</h2><p id="sellerViewDescription">Overview of your Seller account.</p></div>
+          <div class="seller-head-actions">
+            <button id="sellerNotificationsButton" class="seller-icon-button" type="button" aria-label="Notifications">🔔</button>
+            <button id="sellerProfileButton" class="secondary" type="button">My Profile</button>
+          </div>
+        </div>
+
+        <section id="sellerPendingArea" hidden>
+          <div class="seller-status-card" id="sellerStatusCard">
+            <div><small>ACCOUNT STATUS</small><strong id="sellerStatusValue">Loading…</strong><p id="sellerStatusMessage"></p></div>
+            <div class="seller-status-meta"><span>Submitted</span><b id="sellerSubmittedAt">—</b><span>Approved</span><b id="sellerApprovedAt">—</b></div>
+          </div>
+          <div class="panel pending-dashboard-note">
+            <div class="section-title"><span>SELLER ACCOUNT</span><h3>Your registration is already on file</h3><p>You will not be shown the “Become a Seller” card or the registration form again unless Admin requests a correction.</p></div>
+          </div>
+        </section>
+
+        <section id="sellerApprovedArea" hidden>
+          <section class="seller-view active" data-seller-content="overview">
+            <div class="seller-metrics seller-overview-metrics">
+              <article><span>Products</span><strong id="sellerProductCount">0</strong><small>All products</small></article>
+              <article><span>Available</span><strong id="sellerAvailableCount">0</strong><small>Active & in stock</small></article>
+              <article><span>Flash Sale</span><strong id="sellerFlashCount">0</strong><small>Requested / active</small></article>
+              <article><span>Orders</span><strong id="sellerOrderCount">0</strong><small>Seller orders</small></article>
+              <article><span>Account Status</span><strong id="sellerOverviewStatus">APPROVED</strong><small id="sellerOverviewStatusNote">Ready to sell</small></article>
+            </div>
+            <section class="panel seller-overview-card">
+              <div class="section-title"><span>QUICK OVERVIEW</span><h3 id="sellerOverviewBusiness">Your Seller account</h3><p>Use the side menu to manage products, Flash Sale requests, settlement accounts, notifications and your profile.</p></div>
+              <div class="seller-overview-actions">
+                <button type="button" data-open-seller-view="products">Manage Products</button>
+                <button type="button" data-open-seller-view="flashsale">Send to Flash Sale</button>
+                <button type="button" data-open-seller-view="settlements">Settlements</button>
+              </div>
+            </section>
+          </section>
+
+          <section class="seller-view" data-seller-content="products">
+            <div class="seller-view-heading">
+              <div><span>PRODUCTS</span><h3>Your Products</h3><p>Add products, update stock, price, variants and availability.</p></div>
+              <button id="showSellerProductForm" type="button">+ Add Product</button>
+            </div>
+            <form id="sellerProductForm" class="panel product-form" hidden>
+              <input id="sellerProductId" type="hidden">
+              <div class="section-title"><span>PRODUCT MANAGEMENT</span><h3 id="productFormTitle">Add Product / Item</h3><p>Create the product here. Flash Sale is managed separately from the Flash Sale menu.</p></div>
+              <div class="form-grid">
+                <label>Product / item name<input id="productName" type="text" maxlength="160" required></label>
+                <label>Selling price (KSh)<input id="productPrice" type="number" min="0" step="0.01" required></label>
+                <label>Availability<select id="productAvailability" required><option value="available">Available</option><option value="out_of_stock">Out of Stock</option><option value="unavailable">Unavailable</option></select></label>
+                <label>Quantity available<input id="productQuantity" type="number" min="0" step="0.001" required></label>
+                <label>Measurement unit<select id="productUnit" required>
+                  <option value="piece">Piece</option><option value="pcs">Pcs</option><option value="number">Numbers</option><option value="kg">Kg</option><option value="g">Grams</option><option value="litre">Litres</option><option value="ml">Ml</option><option value="crate">Crates</option><option value="pack">Pack</option><option value="box">Box</option><option value="bag">Bag</option><option value="bunch">Bunch</option><option value="dozen">Dozen</option><option value="pair">Pair</option><option value="set">Set</option><option value="other">Other</option>
+                </select></label>
+                <label id="productOtherUnitWrap" hidden>Other measurement unit<input id="productOtherUnit" type="text" maxlength="40"></label>
+                <label>Category<select id="productCategory" required><option value="">Loading categories…</option></select></label>
+                <label>Sub-category<select id="productSubcategory"><option value="">Optional</option></select></label>
+                <label>Group / collection (optional)<input id="productGroup" type="text" maxlength="100" placeholder="e.g. Breakfast, Ladies Wear"></label>
+                <label>Listing status<select id="productListingStatus"><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option></select></label>
+                <label class="wide">Product details<textarea id="productDetails" rows="4" maxlength="3000" placeholder="Size, what is included, condition, specifications..." required></textarea></label>
+                <label>Main product picture<input id="productMainImage" type="file" accept="image/jpeg,image/png,image/webp"></label>
+                <label>Optional gallery — up to 3 pictures<input id="productGallery" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+              </div>
+              <div class="toggle-card"><label><input id="productHasVariants" type="checkbox"><span><strong>Product has variants</strong><small>Examples: size, pack size, flavour or colour.</small></span></label></div>
+              <div id="variantSection" class="variant-section" hidden>
+                <div class="section-title compact"><span>VARIANTS</span><h4>Add variants</h4></div>
+                <div id="variantRows"></div>
+                <button id="addVariantRow" type="button" class="secondary">+ Add Variant</button>
+              </div>
+              <div class="toggle-card"><label><input id="productLpp" type="checkbox"><span><strong>Accept Lipa Pole Pole</strong><small>Set the required first deposit and maximum payment period.</small></span></label></div>
+              <div id="lppFields" class="mini-grid" hidden>
+                <label>First deposit (KSh)<input id="productLppDeposit" type="number" min="1" step="0.01"></label>
+                <label>Maximum period (days)<input id="productLppDays" type="number" min="1" max="365"></label>
+              </div>
+              <div id="restrictedCategoryNotice" class="restricted-notice" hidden>⚠️ This is a restricted category. The product can be saved to your Seller account, but it will not be publicly displayed until LEOGO activates the required compliance controls.</div>
+              <div class="product-actions"><button id="cancelProductEdit" type="button" class="secondary" hidden>Cancel Edit</button><button type="submit">Save Product</button></div>
+              <p id="productFormStatus" class="status"></p>
+            </form>
+            <section class="panel">
+              <div class="section-title"><span>MY PRODUCTS</span><h3>Products you can edit anytime</h3></div>
+              <div id="sellerProductList" class="product-list"></div>
+            </section>
+          </section>
+
+          <section class="seller-view" data-seller-content="flashsale">
+            <div class="seller-view-heading"><div><span>FLASH SALE</span><h3>Send an Existing Product to Flash Sale</h3><p>First create your product under Products. Then select it here and submit the Flash Sale request.</p></div></div>
+            <form id="sellerFlashSaleForm" class="panel">
+              <div class="form-grid">
+                <label class="wide">Choose one of your products<select id="flashSaleProduct" required><option value="">Choose product…</option></select></label>
+                <label>Normal selling price<input id="flashSaleNormalPrice" type="text" readonly></label>
+                <label>Flash Sale price (KSh)<input id="flashSalePrice" type="number" min="0" step="0.01" required></label>
+                <label>Flash quantity<input id="flashSaleQuantity" type="number" min="0.001" step="0.001" required></label>
+                <label>Starts<input id="flashSaleStart" type="datetime-local" required></label>
+                <label>Ends<input id="flashSaleEnd" type="datetime-local" required></label>
+              </div>
+              <button type="submit">Send to Flash Sale</button>
+              <p id="flashSaleStatus" class="status"></p>
+            </form>
+            <section class="panel">
+              <div class="section-title"><span>FLASH SALE ITEMS</span><h3>Your Flash Sale requests</h3></div>
+              <div id="sellerFlashSaleList" class="product-list"></div>
+            </section>
+          </section>
+
+          <section class="seller-view" data-seller-content="settlements">
+            <section id="sellerSettlementPanel" class="panel seller-settlement-panel">
+              <div class="section-title"><span>SELLER SETTLEMENT ACCOUNTS</span><h3>Where LEOGO sends your money</h3><p>Every new account and every edit must be verified and approved by LEOGO Admin before it can receive settlements.</p></div>
+              <form id="sellerSettlementAccountForm">
+                <input id="sellerSettlementAccountId" type="hidden">
+                <div class="form-grid">
+                  <label>Settlement method<select id="sellerSettlementType" required><option value="mpesa_mobile">M-Pesa Number</option><option value="mpesa_till">M-Pesa Till</option><option value="mpesa_paybill">M-Pesa Paybill</option><option value="bank">Bank Account</option></select></label>
+                  <label>Account / recipient name<input id="sellerSettlementName" type="text" maxlength="120" required></label>
+                  <label data-settlement-field="mpesa_mobile">M-Pesa phone<input id="sellerSettlementPhone" type="tel" placeholder="+2547XXXXXXXX"></label>
+                  <label data-settlement-field="mpesa_till" hidden>Till number<input id="sellerSettlementTill" type="text" maxlength="30"></label>
+                  <label data-settlement-field="mpesa_paybill" hidden>Paybill number<input id="sellerSettlementPaybill" type="text" maxlength="30"></label>
+                  <label data-settlement-field="mpesa_paybill bank" hidden>Account number<input id="sellerSettlementAccountNumber" type="text" maxlength="80"></label>
+                  <label data-settlement-field="bank" hidden>Bank name<input id="sellerSettlementBank" type="text" maxlength="120"></label>
+                  <label data-settlement-field="bank" hidden>Bank branch<input id="sellerSettlementBranch" type="text" maxlength="120"></label>
+                </div>
+                <div class="toggle-card"><label><input id="sellerSettlementPrimary" type="checkbox" checked><span><strong>Primary settlement account</strong><small>Use this as the preferred approved destination for Seller settlements.</small></span></label></div>
+                <div class="product-actions"><button id="cancelSettlementEdit" type="button" class="secondary" hidden>Cancel Edit</button><button type="submit">Send for Admin Verification</button></div>
+                <p id="sellerSettlementStatus" class="status"></p>
+              </form>
+              <div class="section-title compact"><span>MY SETTLEMENT ACCOUNTS</span><h4>Verification status</h4></div>
+              <div id="sellerSettlementAccountList" class="settlement-account-list"></div>
+              <form id="sellerSettlementRequestForm" class="seller-settlement-request-form">
+                <div class="section-title compact"><span>REQUEST SETTLEMENT</span><h4>Request payment from LEOGO</h4><p>You can request settlement only to an Admin-approved settlement account.</p></div>
+                <div class="form-grid">
+                  <label>Approved settlement account<select id="sellerSettlementRequestAccount" required><option value="">No approved settlement account yet</option></select></label>
+                  <label>Amount requested (KSh)<input id="sellerSettlementRequestAmount" type="number" min="1" step="0.01" required></label>
+                  <label class="wide">Note to Admin <small>Optional</small><textarea id="sellerSettlementRequestNote" rows="2" maxlength="500"></textarea></label>
+                </div>
+                <button id="sellerSettlementRequestButton" type="submit">Request Settlement</button>
+                <p id="sellerSettlementRequestStatus" class="status"></p>
+              </form>
+              <div class="section-title compact"><span>MY SETTLEMENT REQUESTS</span><h4>Request status</h4></div>
+              <div id="sellerSettlementRequestList" class="settlement-history"></div>
+              <div class="section-title compact"><span>SETTLEMENT HISTORY</span><h4>Money recorded as sent by LEOGO</h4></div>
+              <div id="sellerSettlementHistory" class="settlement-history"></div>
+            </section>
+          </section>
+
+          <section class="seller-view" data-seller-content="notifications">
+            <section id="sellerNotificationPanel" class="panel seller-notification-panel">
+              <div class="section-title compact"><span>NOTIFICATIONS</span><h3>Seller activity</h3><p>Approval, settlement and Seller events appear here.</p></div>
+              <div class="notification-toolbar"><button id="markAllSellerNotificationsRead" class="secondary" type="button">Mark all read</button></div>
+              <div id="sellerNotificationList" class="seller-notification-list"></div>
+            </section>
+          </section>
+
+          <section class="seller-view" data-seller-content="profile">
+            <section id="sellerProfilePanel">
+              <div class="seller-registration-summary panel" id="sellerRegistrationSummary"></div>
+              <form id="sellerVerificationDocumentsForm" class="panel" hidden>
+                <div class="section-title"><span>PRIVATE VERIFICATION DOCUMENTS</span><h3>Business documents for Admin review</h3><p>These files are private. Customers cannot see them.</p></div>
+                <div class="form-grid">
+                  <label class="wide">Business ID / identification document <input id="dashboardBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+                  <label>Business licence <input id="dashboardBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+                  <label>CR12 / Registration Certificate <input id="dashboardRegistrationCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+                  <label class="wide">Other related permits <input id="dashboardOtherPermits" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple></label>
+                </div>
+                <button type="submit">Save Verification Documents</button>
+                <p id="sellerVerificationDocumentsStatus" class="status"></p>
+              </form>
+            </section>
+          </section>
+        </section>
       </div>
-
-      <section id="sellerSettlementPanel" class="panel seller-settlement-panel">
-        <div class="section-title"><span>SELLER SETTLEMENT ACCOUNTS</span><h3>Where LEOGO sends your money</h3><p>Every new account and every edit must be verified and approved by LEOGO Admin before it can receive settlements.</p></div>
-        <form id="sellerSettlementAccountForm">
-          <input id="sellerSettlementAccountId" type="hidden">
-          <div class="form-grid">
-            <label>Settlement method<select id="sellerSettlementType" required>
-              <option value="mpesa_mobile">M-Pesa Number</option>
-              <option value="mpesa_till">M-Pesa Till</option>
-              <option value="mpesa_paybill">M-Pesa Paybill</option>
-              <option value="bank">Bank Account</option>
-            </select></label>
-            <label>Account / recipient name<input id="sellerSettlementName" type="text" maxlength="120" required></label>
-            <label data-settlement-field="mpesa_mobile">M-Pesa phone<input id="sellerSettlementPhone" type="tel" placeholder="+2547XXXXXXXX"></label>
-            <label data-settlement-field="mpesa_till" hidden>Till number<input id="sellerSettlementTill" type="text" maxlength="30"></label>
-            <label data-settlement-field="mpesa_paybill" hidden>Paybill number<input id="sellerSettlementPaybill" type="text" maxlength="30"></label>
-            <label data-settlement-field="mpesa_paybill bank" hidden>Account number<input id="sellerSettlementAccountNumber" type="text" maxlength="80"></label>
-            <label data-settlement-field="bank" hidden>Bank name<input id="sellerSettlementBank" type="text" maxlength="120"></label>
-            <label data-settlement-field="bank" hidden>Bank branch<input id="sellerSettlementBranch" type="text" maxlength="120"></label>
-          </div>
-          <div class="toggle-card"><label><input id="sellerSettlementPrimary" type="checkbox" checked><span><strong>Primary settlement account</strong><small>Use this as the preferred approved destination for Seller settlements.</small></span></label></div>
-          <div class="product-actions"><button id="cancelSettlementEdit" type="button" class="secondary" hidden>Cancel Edit</button><button type="submit">Send for Admin Verification</button></div>
-          <p id="sellerSettlementStatus" class="status"></p>
-        </form>
-        <div class="section-title compact"><span>MY SETTLEMENT ACCOUNTS</span><h4>Verification status</h4></div>
-        <div id="sellerSettlementAccountList" class="settlement-account-list"></div>
-
-        <form id="sellerSettlementRequestForm" class="seller-settlement-request-form">
-          <div class="section-title compact"><span>REQUEST SETTLEMENT</span><h4>Request payment from LEOGO</h4><p>You can request settlement only to an Admin-approved settlement account. LEOGO Admin will review the request before payment.</p></div>
-          <div class="form-grid">
-            <label>Approved settlement account<select id="sellerSettlementRequestAccount" required><option value="">No approved settlement account yet</option></select></label>
-            <label>Amount requested (KSh)<input id="sellerSettlementRequestAmount" type="number" min="1" step="0.01" required></label>
-            <label class="wide">Note to Admin <small>Optional</small><textarea id="sellerSettlementRequestNote" rows="2" maxlength="500" placeholder="Add any useful settlement note"></textarea></label>
-          </div>
-          <button id="sellerSettlementRequestButton" type="submit">Request Settlement</button>
-          <p id="sellerSettlementRequestStatus" class="status"></p>
-        </form>
-
-        <div class="section-title compact"><span>MY SETTLEMENT REQUESTS</span><h4>Request status</h4></div>
-        <div id="sellerSettlementRequestList" class="settlement-history"></div>
-
-        <div class="section-title compact"><span>SETTLEMENT HISTORY</span><h4>Money recorded as sent by LEOGO</h4></div>
-        <div id="sellerSettlementHistory" class="settlement-history"></div>
-      </section>
-
-      <form id="sellerProductForm" class="panel product-form">
-        <input id="sellerProductId" type="hidden">
-        <div class="section-title"><span>PRODUCT MANAGEMENT</span><h3 id="productFormTitle">Add Product / Item</h3><p>Products saved as active can be shown to customers. Restricted categories remain hidden until LEOGO compliance controls are connected.</p></div>
-        <div class="form-grid">
-          <label>Product / item name<input id="productName" type="text" maxlength="160" required></label>
-          <label>Selling price (KSh)<input id="productPrice" type="number" min="0" step="0.01" required></label>
-          <label>Availability<select id="productAvailability" required><option value="available">Available</option><option value="out_of_stock">Out of Stock</option><option value="unavailable">Unavailable</option></select></label>
-          <label>Quantity available<input id="productQuantity" type="number" min="0" step="0.001" required></label>
-          <label>Measurement unit<select id="productUnit" required>
-            <option value="piece">Piece</option><option value="pcs">Pcs</option><option value="number">Numbers</option><option value="kg">Kg</option><option value="g">Grams</option><option value="litre">Litres</option><option value="ml">Ml</option><option value="crate">Crates</option><option value="pack">Pack</option><option value="box">Box</option><option value="bag">Bag</option><option value="bunch">Bunch</option><option value="dozen">Dozen</option><option value="pair">Pair</option><option value="set">Set</option><option value="other">Other</option>
-          </select></label>
-          <label id="productOtherUnitWrap" hidden>Other measurement unit<input id="productOtherUnit" type="text" maxlength="40"></label>
-          <label>Category<select id="productCategory" required><option value="">Loading categories…</option></select></label>
-          <label>Sub-category<select id="productSubcategory"><option value="">Optional</option></select></label>
-          <label>Group / collection (optional)<input id="productGroup" type="text" maxlength="100" placeholder="e.g. Breakfast, Ladies Wear"></label>
-          <label>Listing status<select id="productListingStatus"><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option></select></label>
-          <label class="wide">Product details<textarea id="productDetails" rows="4" maxlength="3000" placeholder="Size, what is included, condition, specifications..." required></textarea></label>
-
-          <label>Main product picture<input id="productMainImage" type="file" accept="image/jpeg,image/png,image/webp"></label>
-          <label>Optional gallery — up to 3 pictures<input id="productGallery" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
-        </div>
-
-        <div class="toggle-card"><label><input id="productHasVariants" type="checkbox"><span><strong>Product has variants</strong><small>Examples: size, pack size, flavour or colour.</small></span></label></div>
-        <div id="variantSection" class="variant-section" hidden>
-          <div class="section-title compact"><span>VARIANTS</span><h4>Add variants</h4></div>
-          <div id="variantRows"></div>
-          <button id="addVariantRow" type="button" class="secondary">+ Add Variant</button>
-        </div>
-
-        <div class="toggle-card"><label><input id="productLpp" type="checkbox"><span><strong>Accept Lipa Pole Pole</strong><small>Set the required first deposit and maximum payment period.</small></span></label></div>
-        <div id="lppFields" class="mini-grid" hidden>
-          <label>First deposit (KSh)<input id="productLppDeposit" type="number" min="1" step="0.01"></label>
-          <label>Maximum period (days)<input id="productLppDays" type="number" min="1" max="365"></label>
-        </div>
-
-        <div class="toggle-card"><label><input id="productFlashSale" type="checkbox"><span><strong>Send item to Flash Sale</strong><small>Set flash price, start/end time and quantity reserved for Flash Sale.</small></span></label></div>
-        <div id="flashFields" class="form-grid" hidden>
-          <label>Flash Sale price (KSh)<input id="flashPrice" type="number" min="0" step="0.01"></label>
-          <label>Flash quantity<input id="flashQuantity" type="number" min="0.001" step="0.001"></label>
-          <label>Starts<input id="flashStart" type="datetime-local"></label>
-          <label>Ends<input id="flashEnd" type="datetime-local"></label>
-        </div>
-
-        <div id="restrictedCategoryNotice" class="restricted-notice" hidden>⚠️ This is a restricted category. The product can be saved to your seller account, but it will not be publicly displayed until LEOGO activates the required compliance controls.</div>
-        <div class="product-actions"><button id="cancelProductEdit" type="button" class="secondary" hidden>Cancel Edit</button><button type="submit">Save Product</button></div>
-        <p id="productFormStatus" class="status"></p>
-      </form>
-
-      <section class="panel">
-        <div class="section-title"><span>MY PRODUCTS</span><h3>Products you can edit anytime</h3></div>
-        <div id="sellerProductList" class="product-list"></div>
-      </section>
     </section>
   </section>
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="partner.js?v=seller-v11" defer></script>
+<script src="partner.js?v=seller-v13" defer></script>
 </body></html>
