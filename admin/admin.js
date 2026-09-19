@@ -269,12 +269,13 @@
     renderApprovalSummary();
     $('#approvalQueue').innerHTML = visible.length ? visible.map((item) => {
       const key = approvalKey(item);
-      const detail = item.amount_kes == null ? (item.subtitle || '—') : formatMoney(item.amount_kes);
+      const detail = item.amount_kes == null ? (item.subtitle || 'Application details') : formatMoney(item.amount_kes);
+      const requestContext = item.amount_kes == null ? '' : (item.subtitle || '');
       return `<tr class="approval-row">
         <td class="approval-select-cell" data-label="Select"><input type="checkbox" data-approval-select="${escapeHtml(key)}" ${state.selectedApprovals.has(key) ? 'checked' : ''} aria-label="Select approval"></td>
         <td data-label="Type"><strong>${escapeHtml(kindLabels[item.kind] || item.kind)}</strong><small>${escapeHtml(approvalGroup(item.kind))}</small>${approvalIsFinancial(item) ? '<span class="financial-verification-badge">Financial verification</span>' : ''}</td>
         <td data-label="Applicant / Customer"><strong>${escapeHtml(item.applicant_name || 'Customer')}</strong><small>${escapeHtml(item.applicant_email || 'No email')}</small></td>
-        <td data-label="Request"><strong>${escapeHtml(item.title || 'Review request')}</strong><small>${escapeHtml(item.subtitle || '')}</small></td>
+        <td data-label="Request"><strong>${escapeHtml(item.title || 'Review request')}</strong><small>${escapeHtml(requestContext)}</small></td>
         <td data-label="Amount / Details">${escapeHtml(detail)}</td>
         <td data-label="Submitted">${formatDate(item.submitted_at, true)}</td>
         <td data-label="Status"><span class="status-chip">${escapeHtml(item.status)}</span></td>
@@ -349,13 +350,16 @@
     $('#reviewApplicant').innerHTML = `<strong>${escapeHtml(item.applicant_name || 'Customer')}</strong><p>${escapeHtml(item.applicant_email || '')}<br>${escapeHtml(item.subtitle || '')}${item.amount_kes == null ? '' : `<br><b>${formatMoney(item.amount_kes)}</b>`}</p>`;
     const mediaKeys = new Set(Object.keys(approvalMediaFields));
     const hiddenKeys = new Set(['id', 'user_id', 'withdrawal_pin_hash', ...mediaKeys]);
-    const detailRows = Object.entries(item.payload || {}).filter(([key, value]) => !hiddenKeys.has(key) && value !== null && value !== '' && typeof value !== 'object').slice(0, 14);
+    const detailRows = Object.entries(item.payload || {}).filter(([key, value]) => !hiddenKeys.has(key) && value !== null && value !== '' && typeof value !== 'object');
     $('#reviewDetails').innerHTML = detailRows.map(([key, value]) => `<div><small>${escapeHtml(key.replaceAll('_', ' '))}</small><b>${escapeHtml(typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value)}</b></div>`).join('');
     $('#reviewNotes').value = '';
     setFormStatus($('#reviewStatus'));
     const underReview = $('[data-review-action="under_review"]');
+    const requestChanges = $('[data-review-action="changes_requested"]');
     const approve = $('[data-review-action="approve"]');
     underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind);
+    requestChanges.hidden = !['premium_customer', 'premium_profile'].includes(kind);
+    $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
     approve.textContent = kind === 'wallet_withdrawal' && item.status === 'pending_call' ? 'Mark Customer Called' : 'Approve';
     approve.dataset.reviewAction = kind === 'wallet_withdrawal' && item.status === 'pending_call' ? 'contacted' : 'approve';
     $('#approvalReviewModal').hidden = false;
@@ -367,8 +371,8 @@
     if (!item) return;
     const decision = button.dataset.reviewAction;
     const notes = $('#reviewNotes').value.trim();
-    if (decision === 'reject' && notes.length < 3) {
-      setFormStatus($('#reviewStatus'), 'Add a clear rejection reason before rejecting.', 'error'); return;
+    if (['reject','changes_requested'].includes(decision) && notes.length < 3) {
+      setFormStatus($('#reviewStatus'), decision === 'changes_requested' ? 'Explain what the applicant needs to correct before resubmitting.' : 'Add a clear rejection reason before rejecting.', 'error'); return;
     }
     await withButtonLock(button, 'Saving…', async () => {
       const { error } = await db.rpc('admin_review_approval', {
@@ -376,8 +380,14 @@
       });
       if (error) { setFormStatus($('#reviewStatus'), friendlyError(error), 'error'); return; }
       closeModals();
-      globalStatus(decision === 'contacted' ? 'Customer call recorded. The withdrawal can now be approved.' : 'Approval decision saved and audited.');
-      await Promise.all([loadApprovals(), loadDashboard(), loadAuditLog()]);
+      globalStatus(
+        decision === 'contacted'
+          ? 'Customer call recorded. The withdrawal can now be approved.'
+          : decision === 'changes_requested'
+            ? 'Correction request saved and audited. The application is no longer in the pending queue until it is resubmitted.'
+            : 'Approval decision saved and audited.'
+      );
+      await Promise.all([loadApprovals(), loadDashboard(), loadAuditLog(), loadPremiumCustomers(), loadPremiumProfiles()]);
     });
   };
 
@@ -789,15 +799,25 @@
     await exportRows('dashboard','dashboard',format,rows,{range:dashboardLabel(),from:d.range.from,to:d.range.to});
     globalStatus(`Dashboard ${format.toUpperCase()} report downloaded and audited.`);
   };
-  const exportApprovals = async (format='xlsx') => {
-    const source = state.approvals.filter((item) => state.selectedApprovals.has(approvalKey(item)));
-    if (!source.length) { globalStatus('Select at least one approval record to export.', 'error'); return; }
-    const rows = [['Type','Applicant','Email','Request','Amount','Submitted','Status','Reference'], ...source.map((item) => [
-      kindLabels[item.kind] || item.kind, item.applicant_name || 'Customer', item.applicant_email || '',
-      item.title || '', item.amount_kes == null ? '' : item.amount_kes, formatDate(item.submitted_at, true),
-      item.status || '', item.record_id
+  const exportApprovals = async (scope='selected', format='xlsx') => {
+    const source = scope === 'filtered'
+      ? visibleApprovals()
+      : state.approvals.filter((item) => state.selectedApprovals.has(approvalKey(item)));
+    if (!source.length) {
+      globalStatus(scope === 'filtered' ? 'There are no approval records in the current filtered view.' : 'Select at least one approval record to export.', 'error');
+      return;
+    }
+    const rows = [['Type','Applicant','Email','Request','Amount / Details','Submitted','Status','Reference'], ...source.map((item) => [
+      kindLabels[item.kind] || item.kind,
+      item.applicant_name || 'Customer',
+      item.applicant_email || '',
+      item.title || '',
+      item.amount_kes == null ? (item.subtitle || '') : item.amount_kes,
+      formatDate(item.submitted_at, true),
+      item.status || '',
+      item.record_id
     ])];
-    await exportRows('approval-center','selected',format,rows,{filter:state.approvalFilter,search:state.approvalSearch});
+    await exportRows('approval-center',scope,format,rows,{filter:state.approvalFilter,search:state.approvalSearch});
     globalStatus(`${source.length} approval record(s) exported and audited.`);
   };
   const exportCustomers = async (scope,format='xlsx') => { const source=scope==='selected'?state.customers.filter(r=>state.selectedCustomers.has(r.user_id)):filteredCustomers(); const rows=[['Name','Email','Phone','County','Sub-County','Estate','Registered'],...source.map(r=>[r.full_name,r.email,r.phone,r.county,r.sub_county,r.estate,formatDate(r.created_at)])]; if(!source.length){globalStatus('Select at least one customer to export.','error');return;} await exportRows('customers',scope,format,rows,{search:$('#customerSearch').value}); globalStatus(`${source.length} customer record(s) exported and audited.`); };
@@ -867,7 +887,11 @@
     $('#clearApprovalSelection').addEventListener('click', () => { state.selectedApprovals.clear(); renderApprovals(); });
     $('#exportSelectedApprovals').addEventListener('click', async () => {
       const format = (window.prompt('Export format: xlsx or pdf', 'xlsx') || '').toLowerCase();
-      if (['xlsx','pdf'].includes(format)) await exportApprovals(format);
+      if (['xlsx','pdf'].includes(format)) await exportApprovals('selected', format);
+    });
+    $('#exportFilteredApprovals').addEventListener('click', async () => {
+      const format = (window.prompt('Export format: xlsx or pdf', 'xlsx') || '').toLowerCase();
+      if (['xlsx','pdf'].includes(format)) await exportApprovals('filtered', format);
     });
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
