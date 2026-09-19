@@ -197,3 +197,13 @@
 .location-admin-card header button{border:1px solid #efc7c7;background:#fff4f4;color:#9f2525;border-radius:8px;padding:7px 9px;font-weight:800}
 .location-subcounty-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.location-subcounty-chips span{background:#eef3f9;border-radius:999px;padding:5px 8px;font-size:.66rem}
 @media(max-width:760px){.location-admin-grid{grid-template-columns:1fr}.location-admin-form{grid-template-columns:1fr}}
+
+
+/* Admin media previews V1.17 */
+.review-media-file-link{display:block;text-decoration:none;color:inherit}
+.review-media-file-preview{min-height:150px;border:1px dashed #cbd5e3;border-radius:10px;background:#f7f9fc;display:grid;place-items:center;align-content:center;gap:6px;text-align:center;padding:18px}
+.review-media-file-preview b{font-size:1.2rem;color:var(--navy)}
+.review-media-file-preview small{color:var(--muted);font-size:.68rem;max-width:180px;line-height:1.4}
+.review-media-card .review-media-image-link img{display:block;width:100%;height:220px;object-fit:contain;background:#f3f6fa;border-radius:10px}
+.review-media-card .review-media-actions{margin-top:8px}
+.review-media-card .review-media-actions a{font-weight:850}
