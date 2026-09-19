@@ -74,13 +74,23 @@
 
     <section id="sellerDashboard" hidden>
       <div class="account-head">
-        <div><span>SELLER DASHBOARD</span><h2 id="sellerWelcome">Seller Dashboard</h2><p>Manage your Seller account and follow your registration status.</p></div>
+        <div><span>SELLER DASHBOARD</span><h2 id="sellerWelcome">Seller Dashboard</h2><p>Manage your Seller account, products and settlements.</p></div>
+        <div class="seller-head-actions">
+          <button id="sellerNotificationsButton" class="seller-icon-button" type="button" aria-label="Notifications">🔔 <b id="sellerNotificationBadge" hidden>0</b></button>
+          <button id="sellerProfileButton" class="secondary" type="button">My Profile</button>
+        </div>
       </div>
+      <section id="sellerNotificationPanel" class="panel seller-notification-panel" hidden>
+        <div class="section-title compact"><span>NOTIFICATIONS</span><h3>Seller activity</h3><p>Approval, settlement and other Seller events appear here.</p></div>
+        <div class="notification-toolbar"><button id="markAllSellerNotificationsRead" class="secondary" type="button">Mark all read</button></div>
+        <div id="sellerNotificationList" class="seller-notification-list"></div>
+      </section>
       <div class="seller-status-card" id="sellerStatusCard">
         <div><small>REGISTRATION STATUS</small><strong id="sellerStatusValue">Loading…</strong><p id="sellerStatusMessage"></p></div>
         <div class="seller-status-meta"><span>Submitted</span><b id="sellerSubmittedAt">—</b><span>Approved</span><b id="sellerApprovedAt">—</b></div>
       </div>
-      <div class="seller-registration-summary panel" id="sellerRegistrationSummary"></div>
+      <section id="sellerProfilePanel" hidden>
+        <div class="seller-registration-summary panel" id="sellerRegistrationSummary"></div>
       <form id="sellerVerificationDocumentsForm" class="panel" hidden>
         <div class="section-title"><span>PRIVATE VERIFICATION DOCUMENTS</span><h3>Business documents for Admin review</h3><p>These files are private. Customers cannot see them.</p></div>
         <div class="form-grid">
@@ -92,6 +102,7 @@
         <button type="submit">Save Verification Documents</button>
         <p id="sellerVerificationDocumentsStatus" class="status"></p>
       </form>
+      </section>
     </section>
 
     <form id="sellerRegistrationForm" class="panel seller-registration" hidden>
@@ -134,6 +145,35 @@
         <article><span>Available</span><strong id="sellerAvailableCount">0</strong></article>
         <article><span>Flash Sale Requests</span><strong id="sellerFlashCount">0</strong></article>
       </div>
+
+      <section id="sellerSettlementPanel" class="panel seller-settlement-panel">
+        <div class="section-title"><span>SELLER SETTLEMENT ACCOUNTS</span><h3>Where LEOGO sends your money</h3><p>Every new account and every edit must be verified and approved by LEOGO Admin before it can receive settlements.</p></div>
+        <form id="sellerSettlementAccountForm">
+          <input id="sellerSettlementAccountId" type="hidden">
+          <div class="form-grid">
+            <label>Settlement method<select id="sellerSettlementType" required>
+              <option value="mpesa_mobile">M-Pesa Number</option>
+              <option value="mpesa_till">M-Pesa Till</option>
+              <option value="mpesa_paybill">M-Pesa Paybill</option>
+              <option value="bank">Bank Account</option>
+            </select></label>
+            <label>Account / recipient name<input id="sellerSettlementName" type="text" maxlength="120" required></label>
+            <label data-settlement-field="mpesa_mobile">M-Pesa phone<input id="sellerSettlementPhone" type="tel" placeholder="+2547XXXXXXXX"></label>
+            <label data-settlement-field="mpesa_till" hidden>Till number<input id="sellerSettlementTill" type="text" maxlength="30"></label>
+            <label data-settlement-field="mpesa_paybill" hidden>Paybill number<input id="sellerSettlementPaybill" type="text" maxlength="30"></label>
+            <label data-settlement-field="mpesa_paybill bank" hidden>Account number<input id="sellerSettlementAccountNumber" type="text" maxlength="80"></label>
+            <label data-settlement-field="bank" hidden>Bank name<input id="sellerSettlementBank" type="text" maxlength="120"></label>
+            <label data-settlement-field="bank" hidden>Bank branch<input id="sellerSettlementBranch" type="text" maxlength="120"></label>
+          </div>
+          <div class="toggle-card"><label><input id="sellerSettlementPrimary" type="checkbox" checked><span><strong>Primary settlement account</strong><small>Use this as the preferred approved destination for Seller settlements.</small></span></label></div>
+          <div class="product-actions"><button id="cancelSettlementEdit" type="button" class="secondary" hidden>Cancel Edit</button><button type="submit">Send for Admin Verification</button></div>
+          <p id="sellerSettlementStatus" class="status"></p>
+        </form>
+        <div class="section-title compact"><span>MY SETTLEMENT ACCOUNTS</span><h4>Verification status</h4></div>
+        <div id="sellerSettlementAccountList" class="settlement-account-list"></div>
+        <div class="section-title compact"><span>SETTLEMENT HISTORY</span><h4>Money recorded as sent by LEOGO</h4></div>
+        <div id="sellerSettlementHistory" class="settlement-history"></div>
+      </section>
 
       <form id="sellerProductForm" class="panel product-form">
         <input id="sellerProductId" type="hidden">
@@ -192,5 +232,5 @@
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="partner.js?v=seller-v9" defer></script>
+<script src="partner.js?v=seller-v10" defer></script>
 </body></html>
