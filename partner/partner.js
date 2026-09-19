@@ -26,7 +26,7 @@ const applyInitialServiceAreas=()=>{
 
 const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),logout=$('#partnerLogout');
 const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
-const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard');
+const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
 let activeRole='';
 
 $$('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('[data-auth-form]').forEach(f=>f.classList.toggle('active',f.dataset.authForm===b.dataset.authTab));}));
@@ -184,6 +184,9 @@ function renderSellerSummary(){
     ['Business Description',seller.business_description||'—'],['Business ID Document',seller.business_id_document_path?'Uploaded':'Missing'],['Business Licence',seller.business_licence_path?'Uploaded':'Not provided'],['CR12 / Registration Certificate',seller.registration_certificate_path?'Uploaded':'Not provided'],['Other Permits',(seller.other_permit_paths||[]).length+' file(s)']
   ];
   $('#sellerRegistrationSummary').innerHTML='<div class="section-title compact"><span>REGISTRATION DETAILS</span><h3>Your submitted Seller information</h3></div><div class="summary-grid">'+fields.map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('')+'</div>';
+  if(!seller.business_id_document_path){
+    $('#sellerRegistrationSummary').insertAdjacentHTML('beforeend','<div class="restricted-notice">Business ID / identification document is still required before Admin can approve this Seller account.</div>');
+  }
 }
 function renderSeller(){
   const name=currentUser?.user_metadata?.full_name||currentUser?.email||'Partner';
@@ -193,6 +196,7 @@ function renderSeller(){
   sellerDashboard.hidden=!seller;
   sellerReg.hidden=true;
   approvedArea.hidden=state!=='approved';
+  sellerDocsForm.hidden=!seller || state==='approved';
 
   if(seller){
     $('#sellerStatusValue').textContent=state.replaceAll('_',' ').toUpperCase();
@@ -258,6 +262,36 @@ sellerReg.addEventListener('submit',async e=>{
   sellerReg.hidden=true;
   sellerDashboard.hidden=false;
   sellerDashboard.scrollIntoView({behavior:'smooth'});
+});
+
+
+sellerDocsForm.addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!seller)return;
+  try{
+    status($('#sellerVerificationDocumentsStatus'),'Uploading verification documents…');
+    const businessIdFile=$('#dashboardBusinessIdDocument').files[0];
+    const existingBusinessId=seller.business_id_document_path||null;
+    if(!businessIdFile && !existingBusinessId)throw new Error('Business ID / identification document is required.');
+    const otherFiles=[...$('#dashboardOtherPermits').files];
+    if(otherFiles.length>4)throw new Error('Choose a maximum of 4 other permit files.');
+    const [businessIdPath,businessLicencePath,registrationCertificatePath,otherPermitPaths]=await Promise.all([
+      businessIdFile?uploadSellerVerification(businessIdFile,'business-id'):Promise.resolve(existingBusinessId),
+      $('#dashboardBusinessLicence').files[0]?uploadSellerVerification($('#dashboardBusinessLicence').files[0],'business-licence'):Promise.resolve(seller.business_licence_path||null),
+      $('#dashboardRegistrationCertificate').files[0]?uploadSellerVerification($('#dashboardRegistrationCertificate').files[0],'registration-certificate'):Promise.resolve(seller.registration_certificate_path||null),
+      otherFiles.length?Promise.all(otherFiles.map((file,index)=>uploadSellerVerification(file,'permit-'+index))):Promise.resolve(seller.other_permit_paths||[])
+    ]);
+    const {error}=await client.rpc('update_seller_verification_documents',{
+      p_business_id_document_path:businessIdPath,
+      p_business_licence_path:businessLicencePath,
+      p_registration_certificate_path:registrationCertificatePath,
+      p_other_permit_paths:otherPermitPaths
+    });
+    if(error)throw error;
+    status($('#sellerVerificationDocumentsStatus'),'Verification documents saved for Admin review.','success');
+    e.target.reset();
+    await loadSeller();
+  }catch(error){status($('#sellerVerificationDocumentsStatus'),error.message||'Documents could not be saved.','error');}
 });
 
 async function loadTaxonomy(){
