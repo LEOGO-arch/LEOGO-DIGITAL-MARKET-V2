@@ -12,14 +12,20 @@ const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits
 const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null;
 
-const authShell=$('#partnerAuthShell'),sellerShell=$('#sellerShell'),logout=$('#partnerLogout');
-const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea');
+const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),logout=$('#partnerLogout');
+const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard');
+let activeRole='';
 
 $$('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('[data-auth-form]').forEach(f=>f.classList.toggle('active',f.dataset.authForm===b.dataset.authTab));}));
 
 $('#partnerLoginForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Signing in…');const {error}=await client.auth.signInWithPassword({email:$('#partnerLoginEmail').value.trim(),password:$('#partnerLoginPassword').value});if(error)status($('#partnerAuthStatus'),error.message,'error');});
-$('#partnerRegisterForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Creating account…');const {data,error}=await client.auth.signUp({email:$('#partnerRegisterEmail').value.trim(),password:$('#partnerRegisterPassword').value,options:{data:{full_name:$('#partnerRegisterName').value.trim()}}});if(error){status($('#partnerAuthStatus'),error.message,'error');return;}status($('#partnerAuthStatus'),data.session?'Account created. Continue with Seller Registration.':'Account created. Sign in to continue.','success');});
+$('#partnerRegisterForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Creating account…');const {data,error}=await client.auth.signUp({email:$('#partnerRegisterEmail').value.trim(),password:$('#partnerRegisterPassword').value,options:{data:{full_name:$('#partnerRegisterName').value.trim()}}});if(error){status($('#partnerAuthStatus'),error.message,'error');return;}status($('#partnerAuthStatus'),data.session?'Account created. Choose the partnership you want to register for.':'Account created. Sign in to continue to partnership selection.','success');});
 logout.addEventListener('click',()=>client.auth.signOut());
+$('#backToPartnerships').addEventListener('click',()=>showRolePicker());
+$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
+  if(button.disabled)return;
+  if(button.dataset.roleTarget==='seller')openSellerRole();
+}));
 
 const normalisePhone=v=>{const d=String(v||'').replace(/\D/g,'');if(/^0[17]\d{8}$/.test(d))return '+254'+d.slice(1);if(/^254[17]\d{8}$/.test(d))return '+'+d;if(/^[17]\d{8}$/.test(d))return '+254'+d;return String(v||'').trim();};
 
@@ -32,16 +38,57 @@ async function loadSeller(){
   if(seller?.application_status==='approved')await Promise.all([loadTaxonomy(),loadProducts()]);
 }
 
+function formatDate(value){
+  if(!value)return '—';
+  const date=new Date(value);
+  return Number.isNaN(date.getTime())?'—':new Intl.DateTimeFormat('en-KE',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Nairobi'}).format(date);
+}
+function showRolePicker(){
+  activeRole='';
+  rolePicker.hidden=false;
+  sellerShell.hidden=true;
+  authShell.hidden=true;
+}
+async function openSellerRole(){
+  activeRole='seller';
+  rolePicker.hidden=true;
+  sellerShell.hidden=false;
+  await loadSeller();
+}
+function sellerStatusCopy(state){
+  if(state==='submitted')return 'Submitted to LEOGO Admin. Your application is waiting for review.';
+  if(state==='under_review')return 'LEOGO Admin is reviewing your Seller registration.';
+  if(state==='changes_requested')return 'LEOGO Admin requested corrections. Update your registration and resubmit.';
+  if(state==='approved')return 'Approved. You can now add products and manage your Seller account.';
+  if(state==='rejected')return 'The application was not approved. Review the Admin note and resubmit if appropriate.';
+  if(state==='suspended')return 'This Seller account is currently suspended. Contact LEOGO Admin.';
+  return 'Complete Seller registration to start selling on LEOGO.';
+}
+function renderSellerSummary(){
+  if(!seller){$('#sellerRegistrationSummary').innerHTML='';return;}
+  const fields=[
+    ['Business',seller.business_name],['Owner',seller.owner_name],['ID Number',seller.id_number],['Phone',seller.phone],
+    ['County',seller.county],['Sub-County',seller.sub_county||'—'],['Town',seller.town],['Location',seller.location_details],
+    ['Business Description',seller.business_description||'—']
+  ];
+  $('#sellerRegistrationSummary').innerHTML='<div class="section-title compact"><span>REGISTRATION DETAILS</span><h3>Your submitted Seller information</h3></div><div class="summary-grid">'+fields.map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('')+'</div>';
+}
 function renderSeller(){
   const name=currentUser?.user_metadata?.full_name||currentUser?.email||'Partner';
+  const state=seller?.application_status||'not_registered';
   $('#sellerWelcome').textContent=seller?.business_name||name;
-  const state=seller?.application_status||'not registered';
-  $('#sellerAccountStatus').textContent='Seller application: '+state.replaceAll('_',' ');
-  const canRegister=!seller||['draft','changes_requested','rejected'].includes(state);
-  sellerReg.hidden=!canRegister;
-  $('#showSellerRegistration').hidden=!canRegister;
+  sellerOnboarding.hidden=Boolean(seller);
+  sellerDashboard.hidden=!seller;
+  sellerReg.hidden=true;
   approvedArea.hidden=state!=='approved';
+
   if(seller){
+    $('#sellerStatusValue').textContent=state.replaceAll('_',' ').toUpperCase();
+    $('#sellerStatusValue').dataset.status=state;
+    $('#sellerStatusMessage').textContent=sellerStatusCopy(state);
+    $('#sellerSubmittedAt').textContent=formatDate(seller.submitted_at);
+    $('#sellerApprovedAt').textContent=formatDate(seller.approved_at);
+    renderSellerSummary();
     $('#sellerBusinessName').value=seller.business_name||'';
     $('#sellerOwnerName').value=seller.owner_name||'';
     $('#sellerIdNumber').value=seller.id_number||'';
@@ -51,11 +98,18 @@ function renderSeller(){
     $('#sellerTown').value=seller.town||'';
     $('#sellerLocation').value=seller.location_details||'';
     $('#sellerDescription').value=seller.business_description||'';
+
+    if(['changes_requested','rejected'].includes(state)){
+      const editButton=document.createElement('button');
+      editButton.type='button'; editButton.className='secondary seller-correction-button'; editButton.textContent='Update & Resubmit Registration';
+      editButton.addEventListener('click',()=>{sellerReg.hidden=false;sellerReg.scrollIntoView({behavior:'smooth'});});
+      $('#sellerRegistrationSummary').append(editButton);
+    }
   }else if(currentUser){
     $('#sellerOwnerName').value=currentUser.user_metadata?.full_name||'';
   }
 }
-$('#showSellerRegistration').addEventListener('click',()=>{sellerReg.hidden=false;sellerReg.scrollIntoView({behavior:'smooth'});});
+$('#showSellerRegistration').addEventListener('click',()=>{sellerOnboarding.hidden=true;sellerReg.hidden=false;sellerReg.scrollIntoView({behavior:'smooth'});});
 
 sellerReg.addEventListener('submit',async e=>{
   e.preventDefault();const phone=normalisePhone($('#sellerPhone').value);
@@ -68,7 +122,11 @@ sellerReg.addEventListener('submit',async e=>{
     p_location_details:$('#sellerLocation').value.trim(),p_business_description:$('#sellerDescription').value.trim()||null
   });
   if(error){status($('#sellerRegistrationStatus'),error.message,'error');return;}
-  status($('#sellerRegistrationStatus'),'Seller application submitted to LEOGO Admin for approval.','success');await loadSeller();
+  status($('#sellerRegistrationStatus'),'Seller application submitted to LEOGO Admin for approval.','success');
+  await loadSeller();
+  sellerReg.hidden=true;
+  sellerDashboard.hidden=false;
+  sellerDashboard.scrollIntoView({behavior:'smooth'});
 });
 
 async function loadTaxonomy(){
@@ -173,8 +231,17 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
 });
 
 async function handleSession(session){
-  currentUser=session?.user||null;authShell.hidden=Boolean(currentUser);sellerShell.hidden=!currentUser;logout.hidden=!currentUser;
-  if(currentUser)await loadSeller();else{seller=null;products=[];}
+  currentUser=session?.user||null;
+  logout.hidden=!currentUser;
+  if(!currentUser){
+    seller=null;products=[];activeRole='';
+    authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;
+    return;
+  }
+  authShell.hidden=true;
+  sellerShell.hidden=true;
+  rolePicker.hidden=false;
+  if(activeRole==='seller')await openSellerRole();
 }
 client.auth.onAuthStateChange((_e,s)=>handleSession(s));
 client.auth.getSession().then(({data})=>handleSession(data.session));
