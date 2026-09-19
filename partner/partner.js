@@ -11,7 +11,7 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const status=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className='status'+(type?' '+type:'');};
 const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const uid=()=>currentUser?.id||'';
-let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],partnerNotifications=[],sellerOrders=[],sellerOrderFilter='all';
+let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],partnerNotifications=[],sellerOrders=[],sellerOrderFilter='all';
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -677,27 +677,55 @@ $('#refreshSellerOrders').addEventListener('click',async()=>{const b=$('#refresh
 
 async function loadTaxonomy(){
   const select=$('#productCategory');
-  if(select)select.innerHTML='<option value="">Loading categories…</option>';
-  const {data,error}=await client.rpc('seller_product_taxonomy');
-  if(error){
-    if(select)select.innerHTML='<option value="">Categories failed to load — tap Refresh</option>';
-    status($('#productFormStatus'),'Categories could not load: '+error.message,'error');
-    return;
+  const staticTaxonomy=window.LEOGO_PRODUCT_TAXONOMY||{};
+  if(Array.isArray(staticTaxonomy.categories)&&staticTaxonomy.categories.length){
+    categories=staticTaxonomy.categories;
+    subcategories=Array.isArray(staticTaxonomy.subcategories)?staticTaxonomy.subcategories:[];
+    renderTaxonomyOptions();
+  }else if(select){
+    select.innerHTML='<option value="">Loading categories…</option>';
   }
-  categories=Array.isArray(data?.categories)?data.categories:[];
-  subcategories=Array.isArray(data?.subcategories)?data.subcategories:[];
-  if(select){
-    const assignable=categories.filter(x=>x.is_assignable);
-    select.innerHTML='<option value="">Choose category</option>'+assignable.map(x=>'<option value="'+x.id+'">'+escapeHtml(x.name)+'</option>').join('');
-    if(!assignable.length)select.innerHTML='<option value="">No active categories configured</option>';
+
+  try{
+    const rpcPromise=client.rpc('seller_product_taxonomy');
+    const timeoutPromise=new Promise((_,reject)=>setTimeout(()=>reject(new Error('Taxonomy request timed out')),5000));
+    const {data,error}=await Promise.race([rpcPromise,timeoutPromise]);
+    if(error)throw error;
+    if(Array.isArray(data?.categories)&&data.categories.length){
+      categories=data.categories;
+      subcategories=Array.isArray(data?.subcategories)?data.subcategories:[];
+      renderTaxonomyOptions();
+    }
+  }catch(error){
+    if(!categories.length){
+      if(select)select.innerHTML='<option value="">Categories unavailable — refresh page</option>';
+      status($('#productFormStatus'),'Categories could not load: '+error.message,'error');
+    }else{
+      console.warn('Using embedded LEOGO taxonomy fallback:',error.message);
+    }
   }
+}
+function renderTaxonomyOptions(){
+  const select=$('#productCategory');
+  if(!select)return;
+  const current=select.value;
+  const assignable=categories.filter(x=>x.is_active!==false&&x.is_assignable);
+  select.innerHTML='<option value="">Choose category</option>'+assignable.map(x=>'<option value="'+x.id+'">'+escapeHtml(x.name)+'</option>').join('');
+  if(assignable.some(x=>x.id===current))select.value=current;
   renderSubcategories();
 }
 function escapeHtml(v=''){return String(v).replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));}
 function renderSubcategories(){
-  const cat=$('#productCategory').value;
-  $('#productSubcategory').innerHTML='<option value="">Optional</option>'+subcategories.filter(x=>x.category_id===cat).map(x=>'<option value="'+x.id+'">'+escapeHtml(x.name)+'</option>').join('');
-  const selected=categories.find(x=>x.id===cat);$('#restrictedCategoryNotice').hidden=!selected?.restricted_category;
+  const categorySelect=$('#productCategory');
+  const subSelect=$('#productSubcategory');
+  if(!categorySelect||!subSelect)return;
+  const cat=categorySelect.value;
+  const current=subSelect.value;
+  const rows=subcategories.filter(x=>x.is_active!==false&&x.category_id===cat).sort((a,b)=>(a.display_order||0)-(b.display_order||0));
+  subSelect.innerHTML='<option value="">'+(rows.length?'Choose sub-category (optional)':'No sub-category required')+'</option>'+rows.map(x=>'<option value="'+x.id+'">'+escapeHtml(x.name)+'</option>').join('');
+  if(rows.some(x=>x.id===current))subSelect.value=current;
+  const selected=categories.find(x=>x.id===cat);
+  $('#restrictedCategoryNotice').hidden=!selected?.restricted_category;
 }
 $('#productCategory').addEventListener('change',renderSubcategories);
 $('#productUnit').addEventListener('change',()=>{$('#productOtherUnitWrap').hidden=$('#productUnit').value!=='other';});
