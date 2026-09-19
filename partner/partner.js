@@ -11,7 +11,7 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const status=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className='status'+(type?' '+type:'');};
 const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const uid=()=>currentUser?.id||'';
-let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[];
+let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],partnerNotifications=[];
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -27,6 +27,7 @@ const applyInitialServiceAreas=()=>{
 const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),logout=$('#partnerLogout');
 const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
+const sellerProfilePanel=$('#sellerProfilePanel'),sellerNotificationPanel=$('#sellerNotificationPanel'),sellerSettlementPanel=$('#sellerSettlementPanel');
 let activeRole='';
 
 $$('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('[data-auth-form]').forEach(f=>f.classList.toggle('active',f.dataset.authForm===b.dataset.authTab));}));
@@ -146,7 +147,8 @@ async function loadSeller(){
   if(error){status($('#sellerRegistrationStatus'),error.message,'error');return;}
   seller=data||null;
   renderSeller();
-  if(seller?.application_status==='approved')await Promise.all([loadTaxonomy(),loadProducts()]);
+  if(seller) await loadPartnerNotifications();
+  if(seller?.application_status==='approved')await Promise.all([loadTaxonomy(),loadProducts(),loadSellerSettlementData()]);
 }
 
 function formatDate(value){
@@ -197,6 +199,8 @@ function renderSeller(){
   sellerReg.hidden=true;
   approvedArea.hidden=state!=='approved';
   sellerDocsForm.hidden=!seller || state==='approved';
+  sellerProfilePanel.hidden=state==='approved';
+  $('#sellerProfileButton').hidden=!seller;
 
   if(seller){
     $('#sellerStatusValue').textContent=state.replaceAll('_',' ').toUpperCase();
@@ -205,6 +209,7 @@ function renderSeller(){
     $('#sellerSubmittedAt').textContent=formatDate(seller.submitted_at);
     $('#sellerApprovedAt').textContent=formatDate(seller.approved_at);
     renderSellerSummary();
+    if(state==='approved') $('#sellerRegistrationSummary').closest('#sellerProfilePanel').hidden=true;
     $('#sellerBusinessName').value=seller.business_name||'';
     $('#sellerOwnerName').value=seller.owner_name||'';
     $('#sellerIdNumber').value=seller.id_number||'';
@@ -225,6 +230,126 @@ function renderSeller(){
     $('#sellerOwnerName').value=currentUser.user_metadata?.full_name||'';
   }
 }
+
+$('#sellerProfileButton').addEventListener('click',()=>{
+  if(!seller)return;
+  sellerProfilePanel.hidden=!sellerProfilePanel.hidden;
+  if(!sellerProfilePanel.hidden)sellerProfilePanel.scrollIntoView({behavior:'smooth',block:'start'});
+});
+$('#sellerNotificationsButton').addEventListener('click',()=>{
+  sellerNotificationPanel.hidden=!sellerNotificationPanel.hidden;
+  if(!sellerNotificationPanel.hidden)sellerNotificationPanel.scrollIntoView({behavior:'smooth',block:'start'});
+});
+$('#markAllSellerNotificationsRead').addEventListener('click',async()=>{
+  const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'seller'});
+  if(error){status($('#sellerRegistrationStatus'),error.message,'error');return;}
+  await loadPartnerNotifications();
+});
+
+async function loadPartnerNotifications(){
+  if(!currentUser)return;
+  const {data,error}=await client.from('partner_notifications').select('*').eq('partner_type','seller').order('created_at',{ascending:false}).limit(50);
+  if(error){console.error(error);return;}
+  partnerNotifications=data||[];
+  const unread=partnerNotifications.filter(n=>!n.read_at).length;
+  $('#sellerNotificationBadge').hidden=!unread;
+  $('#sellerNotificationBadge').textContent=unread>99?'99+':String(unread);
+  $('#sellerNotificationList').innerHTML=partnerNotifications.length?partnerNotifications.map(n=>`
+    <article class="seller-notification-item ${n.read_at?'':'unread'}" data-notification-id="${escapeHtml(n.id)}">
+      <div><strong>${escapeHtml(n.title)}</strong><p>${escapeHtml(n.message)}</p><small>${formatDate(n.created_at)}</small></div>
+      ${n.read_at?'':'<button class="secondary" type="button" data-mark-notification="'+escapeHtml(n.id)+'">Mark read</button>'}
+    </article>`).join(''):'<div class="empty-card">No Seller notifications yet.</div>';
+  $('[data-mark-notification]').forEach(button=>button.addEventListener('click',async()=>{
+    const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markNotification});
+    if(!error)await loadPartnerNotifications();
+  }));
+}
+
+function settlementDestination(account){
+  if(account.account_type==='mpesa_mobile')return account.phone_number||'—';
+  if(account.account_type==='mpesa_till')return 'Till '+(account.till_number||'—');
+  if(account.account_type==='mpesa_paybill')return 'Paybill '+(account.paybill_number||'—')+' · A/C '+(account.account_number||'—');
+  return (account.bank_name||'Bank')+' · '+(account.account_number||'—')+(account.bank_branch?' · '+account.bank_branch:'');
+}
+function toggleSettlementFields(){
+  const type=$('#sellerSettlementType').value;
+  $('[data-settlement-field]').forEach(label=>{label.hidden=!label.dataset.settlementField.split(' ').includes(type);});
+}
+$('#sellerSettlementType').addEventListener('change',toggleSettlementFields);
+function resetSettlementForm(){
+  $('#sellerSettlementAccountForm').reset();
+  $('#sellerSettlementAccountId').value='';
+  $('#sellerSettlementPrimary').checked=true;
+  $('#cancelSettlementEdit').hidden=true;
+  toggleSettlementFields();
+  status($('#sellerSettlementStatus'),'');
+}
+$('#cancelSettlementEdit').addEventListener('click',resetSettlementForm);
+
+async function loadSellerSettlementData(){
+  if(!currentUser)return;
+  const [accountsResult,settlementsResult]=await Promise.all([
+    client.from('seller_settlement_accounts').select('*').order('created_at',{ascending:false}),
+    client.from('seller_settlements').select('*').order('paid_at',{ascending:false})
+  ]);
+  if(accountsResult.error){status($('#sellerSettlementStatus'),accountsResult.error.message,'error');return;}
+  if(settlementsResult.error){status($('#sellerSettlementStatus'),settlementsResult.error.message,'error');return;}
+  settlementAccounts=accountsResult.data||[];
+  sellerSettlements=settlementsResult.data||[];
+  renderSellerSettlementData();
+}
+function renderSellerSettlementData(){
+  $('#sellerSettlementAccountList').innerHTML=settlementAccounts.length?settlementAccounts.map(a=>`
+    <article class="settlement-account-card">
+      <div><strong>${escapeHtml(a.account_name)}</strong><small>${escapeHtml(a.account_type.replaceAll('_',' '))} · ${escapeHtml(settlementDestination(a))}</small></div>
+      <div><span class="settlement-status ${escapeHtml(a.status)}">${escapeHtml(a.status.replaceAll('_',' ').toUpperCase())}</span>${a.is_primary?'<b>PRIMARY</b>':''}</div>
+      <p>${a.admin_notes?'Admin note: '+escapeHtml(a.admin_notes):'Every change requires Admin verification.'}</p>
+      ${['approved','pending_review','rejected'].includes(a.status)?'<button class="secondary" type="button" data-edit-settlement="'+escapeHtml(a.id)+'">Edit</button>':''}
+    </article>`).join(''):'<div class="empty-card">No settlement account added yet.</div>';
+  $('[data-edit-settlement]').forEach(button=>button.addEventListener('click',()=>editSettlementAccount(button.dataset.editSettlement)));
+  $('#sellerSettlementHistory').innerHTML=sellerSettlements.length?sellerSettlements.map(s=>`
+    <article class="settlement-history-row"><div><strong>${money(s.amount_kes)}</strong><small>${escapeHtml(s.settlement_reference)} · ${formatDate(s.paid_at)}</small></div><span>${escapeHtml(s.status.toUpperCase())}</span></article>`).join(''):'<div class="empty-card">No Seller settlement has been recorded yet.</div>';
+}
+function editSettlementAccount(id){
+  const a=settlementAccounts.find(x=>x.id===id);if(!a)return;
+  $('#sellerSettlementAccountId').value=a.id;
+  $('#sellerSettlementType').value=a.account_type;
+  $('#sellerSettlementName').value=a.account_name||'';
+  $('#sellerSettlementPhone').value=a.phone_number||'';
+  $('#sellerSettlementTill').value=a.till_number||'';
+  $('#sellerSettlementPaybill').value=a.paybill_number||'';
+  $('#sellerSettlementAccountNumber').value=a.account_number||'';
+  $('#sellerSettlementBank').value=a.bank_name||'';
+  $('#sellerSettlementBranch').value=a.bank_branch||'';
+  $('#sellerSettlementPrimary').checked=Boolean(a.is_primary);
+  $('#cancelSettlementEdit').hidden=false;
+  toggleSettlementFields();
+  sellerSettlementPanel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('#sellerSettlementAccountForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const phone=normalisePhone($('#sellerSettlementPhone').value);
+  const payload={
+    p_account_id:$('#sellerSettlementAccountId').value||null,
+    p_account_type:$('#sellerSettlementType').value,
+    p_account_name:$('#sellerSettlementName').value.trim(),
+    p_phone_number:$('#sellerSettlementType').value==='mpesa_mobile'?phone:null,
+    p_till_number:$('#sellerSettlementType').value==='mpesa_till'?$('#sellerSettlementTill').value.trim():null,
+    p_paybill_number:$('#sellerSettlementType').value==='mpesa_paybill'?$('#sellerSettlementPaybill').value.trim():null,
+    p_account_number:['mpesa_paybill','bank'].includes($('#sellerSettlementType').value)?$('#sellerSettlementAccountNumber').value.trim():null,
+    p_bank_name:$('#sellerSettlementType').value==='bank'?$('#sellerSettlementBank').value.trim():null,
+    p_bank_branch:$('#sellerSettlementType').value==='bank'?$('#sellerSettlementBranch').value.trim():null,
+    p_make_primary:$('#sellerSettlementPrimary').checked
+  };
+  status($('#sellerSettlementStatus'),'Sending account to LEOGO Admin for verification…');
+  const {error}=await client.rpc('seller_submit_settlement_account',payload);
+  if(error){status($('#sellerSettlementStatus'),error.message,'error');return;}
+  status($('#sellerSettlementStatus'),'Settlement account submitted. Admin approval is required before it can receive money.','success');
+  resetSettlementForm();
+  await Promise.all([loadSellerSettlementData(),loadPartnerNotifications()]);
+});
+toggleSettlementFields();
+
 $('#showSellerRegistration').addEventListener('click',()=>{sellerOnboarding.hidden=true;sellerReg.hidden=false;sellerReg.scrollIntoView({behavior:'smooth'});});
 
 sellerReg.addEventListener('submit',async e=>{
