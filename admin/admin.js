@@ -681,6 +681,7 @@
       ['Flash Sale requests',s.flash_sale_request_count],['Account created',formatDate(s.created_at,true)]
     ];
     $('#sellerRecordGrid').innerHTML=rows.map(([label,value])=>`<div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value==null||value===''?'—':value)}</strong></div>`).join('');
+    const existingDocs=$('#sellerRecordModal .seller-admin-docs'); if(existingDocs) existingDocs.remove();
     const docs=[['Business ID / Identification',s.business_id_document_path],['Business Licence',s.business_licence_path],['CR12 / Registration Certificate',s.registration_certificate_path],...((s.other_permit_paths||[]).map((path,index)=>['Other Permit '+(index+1),path]))];
     const docHtml=await Promise.all(docs.map(([label,path])=>sellerDocumentCard(label,path)));
     $('#sellerRecordGrid').insertAdjacentHTML('afterend','<section class="review-media seller-admin-docs"><div class="review-media-heading"><span>PRIVATE VERIFICATION DOCUMENTS</span><strong>Business Documents</strong><small>Visible only to authorized LEOGO Admin users.</small></div><div class="review-media-grid">'+docHtml.join('')+'</div></section>');
