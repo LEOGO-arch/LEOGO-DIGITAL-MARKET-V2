@@ -81,6 +81,17 @@
         <div class="seller-status-meta"><span>Submitted</span><b id="sellerSubmittedAt">—</b><span>Approved</span><b id="sellerApprovedAt">—</b></div>
       </div>
       <div class="seller-registration-summary panel" id="sellerRegistrationSummary"></div>
+      <form id="sellerVerificationDocumentsForm" class="panel" hidden>
+        <div class="section-title"><span>PRIVATE VERIFICATION DOCUMENTS</span><h3>Business documents for Admin review</h3><p>These files are private. Customers cannot see them.</p></div>
+        <div class="form-grid">
+          <label class="wide">Business ID / identification document <small>Required. Informal sellers may upload the owner's ID card.</small><input id="dashboardBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+          <label>Business licence <small>Optional</small><input id="dashboardBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+          <label>CR12 / Registration Certificate <small>Optional</small><input id="dashboardRegistrationCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+          <label class="wide">Other related permits <small>Optional, up to 4 files</small><input id="dashboardOtherPermits" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple></label>
+        </div>
+        <button type="submit">Save Verification Documents</button>
+        <p id="sellerVerificationDocumentsStatus" class="status"></p>
+      </form>
     </section>
 
     <form id="sellerRegistrationForm" class="panel seller-registration" hidden>
@@ -181,5 +192,5 @@
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="partner.js?v=seller-v7" defer></script>
+<script src="partner.js?v=seller-v8" defer></script>
 </body></html>
