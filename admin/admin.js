@@ -27,6 +27,7 @@
     walletSettings: null,
     premiumPlans: [],
     premiumCustomers: [],
+    premiumProfiles: [],
     audit: [],
     dashboard: null,
     dashboardRange: 'today',
@@ -147,7 +148,7 @@
 
   const loadAll = async () => {
     const loaders = [loadDashboard, loadApprovals, loadCustomers, loadBusinessSettings,
-      loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumCustomers, loadPremiumPlans,
+      loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumCustomers, loadPremiumProfiles, loadPremiumPlans,
       loadAccommodationSummary, loadAuditLog];
     const results = await Promise.allSettled(loaders.map((load) => load()));
     const failed = results.find((result) => result.status === 'rejected');
@@ -676,6 +677,24 @@
     await premiumCustomerMediaPreview(customer);
   };
 
+  const loadPremiumProfiles = async () => {
+    const { data, error } = await db.from('premium_profiles')
+      .select('user_id,display_name,gender,general_location,application_status,submitted_at,approved_at,created_at')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    state.premiumProfiles = data || [];
+    const body = $('#premiumProfileTableBody');
+    if (!body) return;
+    body.innerHTML = state.premiumProfiles.length ? state.premiumProfiles.map((profile) => `<tr class="premium-profile-row">
+      <td data-label="Profile"><strong>${escapeHtml(profile.display_name || 'Premium Profile')}</strong><small>${escapeHtml(profile.user_id)}</small></td>
+      <td data-label="Gender">${escapeHtml(profile.gender || '—')}</td>
+      <td data-label="Location">${escapeHtml(profile.general_location || '—')}</td>
+      <td data-label="Status"><span class="status-chip">${escapeHtml(profile.application_status || '—')}</span></td>
+      <td data-label="Submitted">${formatDate(profile.submitted_at || profile.created_at, true)}</td>
+      <td data-label="Approved">${formatDate(profile.approved_at, true)}</td>
+    </tr>`).join('') : '<tr><td colspan="6">No Premium Profiles have been registered yet.</td></tr>';
+  };
+
   const loadPremiumPlans = async () => {
     const { data, error } = await db.from('premium_plans').select('*').order('duration_hours');
     if (error) throw error;
@@ -793,6 +812,12 @@
     closeSidebar();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+  const changePremiumAdminTab = (tab = 'profiles') => {
+    const resolved = ['profiles','subscriptions'].includes(tab) ? tab : 'profiles';
+    $('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.classList.toggle('active', button.dataset.premiumAdminTab === resolved));
+    $('[data-premium-admin-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.premiumAdminContent === resolved));
+  };
+
   const changeSettingsTab = (tab) => {
     $$('#settingsTabs [data-settings-panel]').forEach((button) => button.classList.toggle('active', button.dataset.settingsPanel === tab));
     $$('[data-settings-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.settingsContent === tab));
@@ -818,7 +843,7 @@
     $('#openSidebar').addEventListener('click', () => { $('#adminSidebar').classList.add('open'); $('#sidebarScrim').classList.add('open'); });
     $('#closeSidebar').addEventListener('click', closeSidebar);
     $('#sidebarScrim').addEventListener('click', closeSidebar);
-    $$('[data-admin-view]').forEach((button) => button.addEventListener('click', () => { changeView(button.dataset.adminView, button.dataset.settingsTab || ''); if(button.dataset.filterTarget){state.approvalFilter=button.dataset.filterTarget;$$('#approvalFilters [data-approval-filter]').forEach(item=>item.classList.toggle('active',item.dataset.approvalFilter===state.approvalFilter));renderApprovals();} }));
+    $('[data-admin-view]').forEach((button) => button.addEventListener('click', () => { changeView(button.dataset.adminView, button.dataset.settingsTab || ''); if(button.dataset.premiumTarget) changePremiumAdminTab(button.dataset.premiumTarget); if(button.dataset.filterTarget){state.approvalFilter=button.dataset.filterTarget;$('#approvalFilters [data-approval-filter]').forEach(item=>item.classList.toggle('active',item.dataset.approvalFilter===state.approvalFilter));renderApprovals();} }));
     $$('[data-nav-group]').forEach((button) => button.addEventListener('click', () => { const children=$(`[data-nav-children="${button.dataset.navGroup}"]`); if(children) children.classList.toggle('open'); }));
     $$('[data-open-view]').forEach((button) => button.addEventListener('click', () => {
       changeView(button.dataset.openView);
