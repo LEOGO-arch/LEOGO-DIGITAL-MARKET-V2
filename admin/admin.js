@@ -46,6 +46,7 @@
     settings: 'System Settings', audit: 'Audit Log'
   };
   const kindLabels = {
+    seller_application: 'Seller Registration',
     premium_customer: 'Premium Customer', premium_profile: 'Verified Premium Profile',
     premium_payment: 'Premium Payment', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
@@ -214,7 +215,7 @@
     $$('[data-dashboard-review]', compact).forEach((button) => button.addEventListener('click', () => openApproval(button.dataset.dashboardKind, button.dataset.dashboardReview)));
   };
 
-  const approvalGroup = (kind) => kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalGroup = (kind) => kind === 'seller_application' ? 'sellers' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
   const approvalIsFinancial = (item) => item.kind === 'premium_payment' || item.kind.startsWith('wallet');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
@@ -243,6 +244,7 @@
   const renderApprovalSummary = () => {
     const financial = state.approvals.filter(approvalIsFinancial).length;
     const wallet = state.approvals.filter((item) => approvalGroup(item.kind) === 'wallet').length;
+    const sellers = state.approvals.filter((item) => approvalGroup(item.kind) === 'sellers').length;
     const premium = state.approvals.filter((item) => approvalGroup(item.kind) === 'premium').length;
     const accommodation = state.approvals.filter((item) => approvalGroup(item.kind) === 'accommodation').length;
     const oldest = [...state.approvals].filter((item) => item.submitted_at).sort((a,b) => new Date(a.submitted_at) - new Date(b.submitted_at))[0];
@@ -251,7 +253,7 @@
     $('#approvalPremiumCount').textContent = premium;
     $('#approvalAccommodationCount').textContent = accommodation;
     $('#approvalOldestWaiting').textContent = oldest ? waitingAge(oldest.submitted_at) : '—';
-    const counts = { all: state.approvals.length, financial, wallet, premium, accommodation };
+    const counts = { all: state.approvals.length, financial, wallet, sellers, premium, accommodation };
     Object.entries(counts).forEach(([key, count]) => {
       const target = $(`#approvalFilters [data-approval-filter="${key}"] b`);
       if (target) target.textContent = count;
@@ -358,7 +360,7 @@
     const requestChanges = $('[data-review-action="changes_requested"]');
     const approve = $('[data-review-action="approve"]');
     underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind);
-    requestChanges.hidden = !['premium_customer', 'premium_profile'].includes(kind);
+    requestChanges.hidden = !['seller_application','premium_customer', 'premium_profile'].includes(kind);
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
     approve.textContent = kind === 'wallet_withdrawal' && item.status === 'pending_call' ? 'Mark Customer Called' : 'Approve';
     approve.dataset.reviewAction = kind === 'wallet_withdrawal' && item.status === 'pending_call' ? 'contacted' : 'approve';
@@ -375,9 +377,11 @@
       setFormStatus($('#reviewStatus'), decision === 'changes_requested' ? 'Explain what the applicant needs to correct before resubmitting.' : 'Add a clear rejection reason before rejecting.', 'error'); return;
     }
     await withButtonLock(button, 'Saving…', async () => {
-      const { error } = await db.rpc('admin_review_approval', {
-        p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null
-      });
+      const rpcName = item.kind === 'seller_application' ? 'admin_review_seller_application' : 'admin_review_approval';
+      const rpcArgs = item.kind === 'seller_application'
+        ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
+        : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
+      const { error } = await db.rpc(rpcName, rpcArgs);
       if (error) { setFormStatus($('#reviewStatus'), friendlyError(error), 'error'); return; }
       closeModals();
       globalStatus(
