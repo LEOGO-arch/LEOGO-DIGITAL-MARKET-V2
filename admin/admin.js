@@ -268,15 +268,15 @@
     $('#approvalQueue').innerHTML = visible.length ? visible.map((item) => {
       const key = approvalKey(item);
       const detail = item.amount_kes == null ? (item.subtitle || '—') : formatMoney(item.amount_kes);
-      return `<tr>
-        <td><input type="checkbox" data-approval-select="${escapeHtml(key)}" ${state.selectedApprovals.has(key) ? 'checked' : ''} aria-label="Select approval"></td>
-        <td><strong>${escapeHtml(kindLabels[item.kind] || item.kind)}</strong><small>${escapeHtml(approvalGroup(item.kind))}</small></td>
-        <td><strong>${escapeHtml(item.applicant_name || 'Customer')}</strong><small>${escapeHtml(item.applicant_email || 'No email')}</small></td>
-        <td><strong>${escapeHtml(item.title || 'Review request')}</strong><small>${escapeHtml(item.subtitle || '')}</small></td>
-        <td>${escapeHtml(detail)}</td>
-        <td>${formatDate(item.submitted_at, true)}</td>
-        <td><span class="status-chip">${escapeHtml(item.status)}</span></td>
-        <td><button class="approval-review-button" type="button" data-review-id="${escapeHtml(item.record_id)}" data-review-kind="${escapeHtml(item.kind)}">Review →</button></td>
+      return `<tr class="approval-row">
+        <td class="approval-select-cell" data-label="Select"><input type="checkbox" data-approval-select="${escapeHtml(key)}" ${state.selectedApprovals.has(key) ? 'checked' : ''} aria-label="Select approval"></td>
+        <td data-label="Type"><strong>${escapeHtml(kindLabels[item.kind] || item.kind)}</strong><small>${escapeHtml(approvalGroup(item.kind))}</small>${approvalIsFinancial(item) ? '<span class="financial-verification-badge">Financial verification</span>' : ''}</td>
+        <td data-label="Applicant / Customer"><strong>${escapeHtml(item.applicant_name || 'Customer')}</strong><small>${escapeHtml(item.applicant_email || 'No email')}</small></td>
+        <td data-label="Request"><strong>${escapeHtml(item.title || 'Review request')}</strong><small>${escapeHtml(item.subtitle || '')}</small></td>
+        <td data-label="Amount / Details">${escapeHtml(detail)}</td>
+        <td data-label="Submitted">${formatDate(item.submitted_at, true)}</td>
+        <td data-label="Status"><span class="status-chip">${escapeHtml(item.status)}</span></td>
+        <td class="approval-action-cell" data-label="Action"><button class="approval-review-button" type="button" data-review-id="${escapeHtml(item.record_id)}" data-review-kind="${escapeHtml(item.kind)}">Review →</button></td>
       </tr>`;
     }).join('') : '<tr><td colspan="8">No pending requests match this queue.</td></tr>';
     $$('[data-review-id]', $('#approvalQueue')).forEach((button) => button.addEventListener('click', () => openApproval(button.dataset.reviewKind, button.dataset.reviewId)));
