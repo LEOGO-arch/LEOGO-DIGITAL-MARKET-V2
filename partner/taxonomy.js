@@ -1,5 +1,5 @@
 window.LEOGO_PRODUCT_TAXONOMY = {
-  version: '2026-09-19.4',
+  version: '2026-09-19.5',
   categories: [
     {id:'184a9f5f-8870-4112-87e4-d9c8d4c63a5e',code:'food_drinks',name:'FOOD & DRINKS',display_order:10,is_active:true,is_assignable:true,restricted_category:false},
     {id:'b6de14f5-0c81-4da3-95b3-92a5f913fe3d',code:'groceries',name:'GROCERIES',display_order:20,is_active:true,is_assignable:true,restricted_category:false},
@@ -11,7 +11,7 @@ window.LEOGO_PRODUCT_TAXONOMY = {
     {id:'f5c1bf6d-3b41-46f2-aa01-e9bb0eab71f3',code:'garments_clothes_footwear',name:'GARMENTS, CLOTHES,FOOTWARES',display_order:90,is_active:true,is_assignable:true,restricted_category:false},
     {id:'0a9d03d1-a2ca-41da-aaae-d9e0553536cf',code:'jewelry',name:'JEWELRIES',display_order:100,is_active:true,is_assignable:true,restricted_category:false},
     {id:'f72097df-7436-4558-a8ac-b9eacfabf11d',code:'alcoholic_leogo_bar',name:'ALCOHOLIC (LEOGO DIGITAL BAR)',display_order:110,is_active:true,is_assignable:true,restricted_category:true},
-    {id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'vehicles',name:'VEHICLE',display_order:120,is_active:true,is_assignable:true,restricted_category:false},
+    {id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'vehicles',name:'VEHICLES AND SPARE PARTS',display_order:120,is_active:true,is_assignable:true,restricted_category:false},
     {id:'4b64eec5-cd2b-4302-a244-f100852ccc23',code:'other',name:'OTHER (SPECIFY)',display_order:130,is_active:true,is_assignable:true,restricted_category:false}
   ],
   subcategories: [
@@ -95,7 +95,9 @@ window.LEOGO_PRODUCT_TAXONOMY = {
     {id:'d1778735-d66f-411e-a83d-74a1216001c0',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'vans_cars',name:'Van/Cars',display_order:20,is_active:true},
     {id:'d120e9d9-b301-47ed-bbc1-44251534689e',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'pickups',name:'Pickups',display_order:30,is_active:true},
     {id:'f07db86b-bbfc-467c-8823-02f278af5e98',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'lorries_canters',name:'Lorries/Canters',display_order:40,is_active:true},
-    {id:'5f6e5657-4829-4071-bc97-c6589fcffe63',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'others',name:'Other (specify)',display_order:50,is_active:true},
+    {id:'5f6e5657-4829-4071-bc97-c6589fcffe63',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'others',name:'Other (specify)',display_order:70,is_active:true},
+    {id:'00000000-0000-0000-0000-000000000501',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'vehicle_spare_parts',name:'Vehicle spare parts',display_order:50,is_active:true},
+    {id:'00000000-0000-0000-0000-000000000502',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'motorcycle_spare_parts',name:'Motorcycle spare parts',display_order:60,is_active:true},
 
     {id:'4af478d2-c14d-483c-8a46-055901b26bb1',category_id:'4b64eec5-cd2b-4302-a244-f100852ccc23',code:'others',name:'Other (specify)',display_order:10,is_active:true}
   ]
