@@ -812,14 +812,22 @@
     }
   });
 
-  makeCheckoutOrder?.addEventListener('click', () => {
+  makeCheckoutOrder?.addEventListener('click', async () => {
     paymentStepStatus.textContent = '';
     if (!testCart.length) {
-      paymentStepStatus.textContent = 'Your cart is empty. Add a sample product before making an order.';
+      paymentStepStatus.textContent = 'Your cart is empty. Add a Seller product before making an order.';
+      return;
+    }
+    if (!window.leogoAuth?.isAuthenticated?.()) {
+      window.leogoAuth?.requireLogin?.('Please sign in before placing your order.');
       return;
     }
     if (!selectedCheckoutPayment) {
       paymentStepStatus.textContent = 'Select a payment method before making the order.';
+      return;
+    }
+    if (!['till','paybill','cod'].includes(selectedCheckoutPayment)) {
+      paymentStepStatus.textContent = 'This payment method is not yet connected to Seller marketplace order creation. Use Till, Paybill or Cash on Delivery.';
       return;
     }
     if (!mpesaPaymentMessage.value.trim()) {
@@ -834,12 +842,50 @@
       markPaymentPaid.focus();
       return;
     }
-    previewOrderReference = 'LEOGO-' + Date.now().toString().slice(-8);
-    createdOrderReference.textContent = previewOrderReference;
-    selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod' ? 'Transport & Parcel Delivery paid — balance on delivery' : 'Marked paid — awaiting verification';
-    orderCreatedPanel.hidden = false;
-    paymentStepStatus.textContent = 'Order created in this visual preview.';
-    orderCreatedPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const unsupported = testCart.find(item => !item.productId || !item.sellerId);
+    if (unsupported) {
+      paymentStepStatus.textContent = 'Your cart contains an old preview item. Remove it and add the current Seller product again.';
+      return;
+    }
+
+    const button = makeCheckoutOrder;
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Creating Order…';
+    paymentStepStatus.textContent = 'Creating your order and sending it to the Seller…';
+    try {
+      const pickupStation = checkoutDeliveryZone?.value === 'pickup' ? selectedPickupStation() : null;
+      const { data, error } = await window.leogoAuth.client.rpc('customer_create_marketplace_order', {
+        p_items: testCart.map(item => ({ product_id: item.productId, quantity: item.quantity })),
+        p_receiver_name: document.getElementById('checkoutReceiverName')?.value.trim(),
+        p_contact_number: document.getElementById('checkoutContactNumber')?.value.trim(),
+        p_delivery_zone: checkoutDeliveryZone?.value,
+        p_county: checkoutCounty?.value || null,
+        p_sub_county: checkoutSubCounty?.value || null,
+        p_estate: document.getElementById('checkoutEstate')?.value.trim() || null,
+        p_landmark: document.getElementById('checkoutLandmark')?.value.trim() || null,
+        p_location_link: document.getElementById('checkoutLocationLink')?.value.trim() || null,
+        p_pickup_station_id: pickupStation?.id || null,
+        p_payment_method: selectedCheckoutPayment,
+        p_payment_message: mpesaPaymentMessage.value.trim()
+      });
+      if (error) throw error;
+      previewOrderReference = data?.order_reference || '';
+      createdOrderReference.textContent = previewOrderReference;
+      selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod' ? 'COD — payment due on delivery' : 'Payment submitted — awaiting Admin verification';
+      orderCreatedPanel.hidden = false;
+      paymentStepStatus.textContent = 'Order created successfully and sent to the Seller.';
+      testCart = [];
+      saveTestCart();
+      renderTestCart();
+      await loadCustomerMarketplaceOrders();
+      orderCreatedPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (error) {
+      paymentStepStatus.textContent = error?.message || 'Order could not be created. Please try again.';
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
   });
 
   const receiptEscape = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -1018,7 +1064,7 @@
     window.open('https://wa.me/254700192545?text=' + encodeURIComponent(message), '_blank', 'noopener');
   });
 
-  const testCartStorageKey = 'leogo_phase1_test_cart';
+  const testCartStorageKey = 'leogo_marketplace_cart_v1';
   const headerCartCount = document.getElementById('headerCartCount');
   const cartShellCount = document.getElementById('cartShellCount');
   const cartShellItems = document.getElementById('cartShellItems');
@@ -1031,13 +1077,6 @@
     testCart = [];
   }
 
-  const sampleSellerDeposits = { 'samsung-smartphone': 5000, 'modern-office-chair': 2000, 'two-in-one-blender': 1000 };
-  const sampleSellerPeriods = { 'samsung-smartphone': 90, 'modern-office-chair': 60, 'two-in-one-blender': 30 };
-  testCart = testCart.map((item) => ({
-    ...item,
-    deposit: Number(item.deposit || sampleSellerDeposits[item.id] || 0),
-    lppDays: Number(item.lppDays || sampleSellerPeriods[item.id] || 0)
-  }));
   const money = (value) => 'KSh ' + Number(value || 0).toLocaleString();
   const testCartCount = () => testCart.reduce((total, item) => total + item.quantity, 0);
   const testCartSubtotal = () => testCart.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -1076,27 +1115,54 @@
     if (paymentOrderTotal) paymentOrderTotal.textContent = checkoutTotalText();
   };
 
-  document.querySelectorAll('[data-test-add-cart]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const id = button.dataset.productId;
-      const existing = testCart.find((item) => item.id === id);
-      if (existing) existing.quantity += 1;
-      else testCart.push({
-        id,
-        name: button.dataset.productName,
-        price: Number(button.dataset.productPrice),
-        deposit: Number(button.dataset.productDeposit || 0),
-        lppDays: Number(button.dataset.productLppDays || 0),
-        icon: button.dataset.productIcon,
-        quantity: 1
-      });
-      saveTestCart();
-      renderTestCart();
-      if (testCartFeedback) testCartFeedback.textContent = button.dataset.productName + ' added to cart. Cart now has ' + testCartCount() + ' item(s).';
-      button.textContent = '✓ Added';
-      window.setTimeout(() => { button.textContent = '＋ Cart'; }, 1000);
+  const sellerMarketplaceList = document.getElementById('sellerMarketplaceList');
+  let marketplaceProducts = [];
+
+  const loadMarketplaceProducts = async () => {
+    const client = window.leogoAuth?.client;
+    if (!client || !sellerMarketplaceList) return;
+    const { data, error } = await client.rpc('customer_marketplace_products');
+    if (error) {
+      sellerMarketplaceList.innerHTML = '<div class="customer-empty-state compact"><span>⚠️</span><h4>Seller products could not load</h4><p>'+receiptEscape(error.message)+'</p></div>';
+      return;
+    }
+    marketplaceProducts = data || [];
+    sellerMarketplaceList.innerHTML = marketplaceProducts.length ? marketplaceProducts.map(product => {
+      const available = product.availability_status === 'available' && Number(product.quantity_available || 0) > 0;
+      return '<div class="clip-row test-product-row"><span class="clip-icon">🛍️</span><div><b>'+receiptEscape(product.product_name)+'</b><small>'+receiptEscape(product.seller_name || 'LEOGO Seller')+' · '+Number(product.quantity_available || 0)+' '+receiptEscape(product.measurement_unit || 'item')+'</small></div><span class="clip-price">'+money(product.price_kes)+'</span><button type="button" data-live-add-cart data-product-id="'+receiptEscape(product.id)+'" '+(available?'':'disabled')+'>'+(available?'＋ Cart':'Out of stock')+'</button></div>';
+    }).join('') + '<p class="test-cart-feedback" id="testCartFeedback" aria-live="polite"></p>'
+      : '<div class="customer-empty-state compact"><span>🛍️</span><h4>No Seller products available yet</h4><p>Approved Seller products will appear here automatically.</p></div>';
+  };
+
+  sellerMarketplaceList?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-live-add-cart]');
+    if (!button || button.disabled) return;
+    const product = marketplaceProducts.find(item => item.id === button.dataset.productId);
+    if (!product) return;
+    const existing = testCart.find(item => item.productId === product.id);
+    if (existing) existing.quantity += 1;
+    else testCart.push({
+      id: product.id,
+      productId: product.id,
+      sellerId: product.seller_id,
+      sellerName: product.seller_name,
+      name: product.product_name,
+      price: Number(product.price_kes),
+      deposit: Number(product.lipa_pole_pole_first_deposit_kes || 0),
+      lppDays: Number(product.lipa_pole_pole_max_days || 0),
+      icon: '🛍️',
+      quantity: 1
     });
+    saveTestCart();
+    renderTestCart();
+    const feedback = document.getElementById('testCartFeedback');
+    if (feedback) feedback.textContent = product.product_name + ' added to cart.';
+    button.textContent = '✓ Added';
+    window.setTimeout(() => { button.textContent = '＋ Cart'; }, 900);
   });
+
+  document.addEventListener('leogo:authchange', () => loadMarketplaceProducts());
+  window.setTimeout(loadMarketplaceProducts, 500);
 
   cartShellItems?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-cart-action]');
@@ -1335,6 +1401,57 @@
   renderLppAccounts();
 
 
+  let customerMarketplaceOrders = [];
+  let customerActivityFilter = 'all';
+  const customerOrderStatusText = (status) => ({
+    placed:'Order placed',processing:'Seller preparing order',with_rider:'Handed to rider',delivered:'Delivered',cancelled:'Cancelled'
+  }[status] || String(status || '').replaceAll('_',' '));
+  const customerPaymentText = (status) => ({
+    submitted:'Payment submitted — verifying',verified_paid:'Paid',cod_due:'COD — due on delivery',cod_paid:'Paid on delivery',rejected:'Payment rejected'
+  }[status] || String(status || '').replaceAll('_',' '));
+  const renderCustomerMarketplaceOrders = () => {
+    const container = document.getElementById('customerMarketplaceOrders');
+    const empty = document.getElementById('customerActivityEmpty');
+    if (!container) return;
+    let rows = customerMarketplaceOrders;
+    if (customerActivityFilter === 'active') rows = rows.filter(o => !['delivered','cancelled'].includes(o.order_status));
+    if (customerActivityFilter === 'completed') rows = rows.filter(o => o.order_status === 'delivered');
+    if (customerActivityFilter === 'cancelled') rows = rows.filter(o => o.order_status === 'cancelled');
+    if (['services','transport'].includes(customerActivityFilter)) rows = [];
+    if (customerActivityFilter === 'products') rows = customerMarketplaceOrders;
+    container.innerHTML = rows.map(order => {
+      const items=(order.items||[]).map(i=>'<li>'+receiptEscape(i.product_name)+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
+      const sellers=(order.seller_fulfilments||[]).map(s=>'<span>'+receiptEscape(s.seller_name)+' — <b>'+receiptEscape(String(s.fulfilment_status).replaceAll('_',' '))+'</b></span>').join('');
+      const canConfirm=order.order_status==='with_rider';
+      return '<article class="customer-order-card"><header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+formatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header><ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div><div class="customer-order-total"><span>Total</span><strong>'+money(order.grand_total_kes)+'</strong></div>'+(canConfirm?'<button type="button" data-confirm-delivery="'+receiptEscape(order.id)+'">Confirm Order Delivered to Me</button>':'')+'</article>';
+    }).join('');
+    if (empty) empty.hidden = rows.length > 0;
+    const active = customerMarketplaceOrders.filter(o=>!['delivered','cancelled'].includes(o.order_status)).length;
+    const ac=document.getElementById('customerActiveOrderCount'); if(ac) ac.textContent=active;
+    const at=document.getElementById('customerActiveOrderText'); if(at) at.textContent=active?active+' order(s) in progress':'No active orders';
+    const pc=document.getElementById('customerProductOrderCount'); if(pc) pc.textContent=customerMarketplaceOrders.length;
+    container.querySelectorAll('[data-confirm-delivery]').forEach(button=>button.addEventListener('click',async()=>{
+      if(!window.confirm('Confirm that you have physically received this order?')) return;
+      button.disabled=true;button.textContent='Confirming…';
+      const {error}=await window.leogoAuth.client.rpc('customer_confirm_order_delivered',{p_order_id:button.dataset.confirmDelivery});
+      if(error){alert(error.message);button.disabled=false;button.textContent='Confirm Order Delivered to Me';return;}
+      await loadCustomerMarketplaceOrders();
+    }));
+  };
+  async function loadCustomerMarketplaceOrders(){
+    if(!window.leogoAuth?.isAuthenticated?.()){
+      customerMarketplaceOrders=[];renderCustomerMarketplaceOrders();return;
+    }
+    const {data,error}=await window.leogoAuth.client.rpc('customer_list_marketplace_orders');
+    if(error){console.error(error);return;}
+    customerMarketplaceOrders=data||[];
+    renderCustomerMarketplaceOrders();
+  }
+  document.addEventListener('leogo:authchange',()=>loadCustomerMarketplaceOrders());
+  document.addEventListener('click',(event)=>{
+    if(event.target.closest?.('[data-customer-view="orders"],[data-open-customer-view="orders"]')) window.setTimeout(loadCustomerMarketplaceOrders,0);
+  });
+
   const activityFilterButtons = customerShellModal?.querySelectorAll('[data-activity-filter]');
   const activityEmptyIcon = document.getElementById('activityEmptyIcon');
   const activityEmptyTitle = document.getElementById('activityEmptyTitle');
@@ -1355,10 +1472,12 @@
         item.classList.toggle('active', selected);
         item.setAttribute('aria-pressed', String(selected));
       });
-      const message = activityEmptyMessages[button.dataset.activityFilter] || activityEmptyMessages.all;
+      customerActivityFilter = button.dataset.activityFilter;
+      const message = activityEmptyMessages[customerActivityFilter] || activityEmptyMessages.all;
       activityEmptyIcon.textContent = message[0];
       activityEmptyTitle.textContent = message[1];
       activityEmptyText.textContent = message[2];
+      renderCustomerMarketplaceOrders();
     });
   });
 
