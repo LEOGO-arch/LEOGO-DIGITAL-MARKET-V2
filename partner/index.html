@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=seller-v7">
+  <link rel="stylesheet" href="partner.css?v=seller-v16">
 </head>
 <body>
 <header class="partner-header">
@@ -108,6 +108,7 @@
           <button data-seller-view="settlements" type="button"><span>₿</span>Settlements</button>
           <button data-seller-view="notifications" type="button"><span>🔔</span>Notifications <b id="sellerNotificationBadge" hidden>0</b></button>
           <button data-seller-view="profile" type="button"><span>♙</span>My Profile</button>
+          <button data-seller-view="data" type="button"><span>⇩</span>Data &amp; Privacy</button>
         </nav>
         <div class="seller-sidebar-footer">
           <button id="backToPartnerships" class="secondary" type="button">← Partnerships</button>
@@ -296,6 +297,39 @@
                 <p id="sellerVerificationDocumentsStatus" class="status"></p>
               </form>
             </section>
+
+
+          <section class="seller-view" data-seller-content="data">
+            <section class="panel seller-data-panel">
+              <div class="section-title"><span>MY DATA</span><h3>Download Your Seller Data</h3><p>Download a copy of your Seller registration, products, orders, notifications, settlement accounts, requests and settlement history.</p></div>
+              <div class="seller-data-actions">
+                <button id="downloadSellerData" type="button">Download My Data (.json)</button>
+                <small>The export contains your LEOGO Seller records and stored file references. Private document files remain securely stored in LEOGO.</small>
+              </div>
+              <p id="sellerDataExportStatus" class="status"></p>
+            </section>
+
+            <section class="panel seller-data-panel">
+              <div class="section-title"><span>SELECTED DATA</span><h3>Delete Selected Data</h3><p>Select products or Seller notifications you no longer need. Orders, payments, settlements, registration/approval history and other financial records are protected and cannot be deleted here.</p></div>
+
+              <div class="seller-data-group">
+                <div class="seller-data-group-head"><div><strong>Products</strong><small>Products already used in an order are archived instead of permanently deleted so historical orders remain accurate.</small></div><label><input id="selectAllSellerProducts" type="checkbox"> Select all</label></div>
+                <div id="sellerDataProductList" class="seller-data-selection-list"></div>
+              </div>
+
+              <div class="seller-data-group">
+                <div class="seller-data-group-head"><div><strong>Notifications</strong><small>Only your Seller notifications can be removed.</small></div><label><input id="selectAllSellerNotifications" type="checkbox"> Select all</label></div>
+                <div id="sellerDataNotificationList" class="seller-data-selection-list"></div>
+              </div>
+
+              <div class="seller-data-delete-bar">
+                <strong id="sellerDataSelectedCount">0 selected</strong>
+                <button id="clearSellerDataSelection" class="secondary" type="button">Clear</button>
+                <button id="deleteSelectedSellerData" class="danger-data-button" type="button" disabled>Delete Selected</button>
+              </div>
+              <p id="sellerDataDeleteStatus" class="status"></p>
+            </section>
+          </section>
           </section>
         </section>
       </div>
@@ -304,5 +338,5 @@
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="partner.js?v=seller-v15" defer></script>
+<script src="partner.js?v=seller-v16" defer></script>
 </body></html>
