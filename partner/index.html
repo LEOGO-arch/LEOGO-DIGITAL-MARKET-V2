@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=seller-v1">
+  <link rel="stylesheet" href="partner.css?v=seller-v2">
 </head>
 <body>
 <header class="partner-header">
@@ -20,12 +20,15 @@
     <p>This portal is the common entry point for Seller, Transporter, Cyber Services, Premium Profile and Accommodation Provider accounts. Sign in once, then open the partner account you registered.</p>
   </section>
 
-  <section class="role-grid" id="partnerRoleGrid">
-    <button class="active" data-role-target="seller"><span>🏪</span><strong>Seller</strong><small>Register shop & manage products</small></button>
-    <button data-role-target="transport" disabled><span>🚚</span><strong>Transporter</strong><small>Registration module comes next</small></button>
-    <button data-role-target="cyber" disabled><span>🖥️</span><strong>Cyber Services</strong><small>Registration module comes next</small></button>
-    <button data-role-target="premium" disabled><span>🔞</span><strong>Premium Profile</strong><small>Existing Premium registration will be linked here</small></button>
-    <button data-role-target="accommodation" disabled><span>🏨</span><strong>Accommodation Provider</strong><small>Existing provider registration will be linked here</small></button>
+  <section class="partnership-picker" id="partnerRolePicker" hidden>
+    <div class="section-title"><span>CHOOSE PARTNERSHIP</span><h2>What would you like to do with LEOGO?</h2><p>Your LEOGO login can hold more than one approved partner role.</p></div>
+    <div class="role-grid" id="partnerRoleGrid">
+      <button data-role-target="seller"><span>🏪</span><strong>Seller</strong><small>Sell products & manage your shop</small></button>
+      <button data-role-target="transport" disabled><span>🚚</span><strong>Transporter</strong><small>Registration module comes next</small></button>
+      <button data-role-target="cyber" disabled><span>🖥️</span><strong>Cyber Services</strong><small>Registration module comes next</small></button>
+      <button data-role-target="premium" disabled><span>🔞</span><strong>Premium Profile</strong><small>Existing Premium registration will be linked here</small></button>
+      <button data-role-target="accommodation" disabled><span>🏨</span><strong>Accommodation Provider</strong><small>Existing provider registration will be linked here</small></button>
+    </div>
   </section>
 
   <section class="auth-shell" id="partnerAuthShell">
@@ -49,10 +52,24 @@
   </section>
 
   <section class="seller-shell" id="sellerShell" hidden>
-    <div class="account-head">
-      <div><span>SELLER ACCOUNT</span><h2 id="sellerWelcome">Seller Dashboard</h2><p id="sellerAccountStatus">Loading seller account…</p></div>
-      <button id="showSellerRegistration" type="button">Seller Registration</button>
-    </div>
+    <button id="backToPartnerships" class="back-link" type="button">← Partnerships</button>
+
+    <section id="sellerOnboarding" class="panel seller-onboarding" hidden>
+      <div class="seller-onboarding-icon">🏪</div>
+      <div><span>BECOME A SELLER</span><h2>Sell on LEOGO DIGITAL MARKET</h2><p>Register your shop or business. After submission, you will be taken to your Seller Dashboard where you can follow the approval status.</p></div>
+      <button id="showSellerRegistration" type="button">Become a Seller</button>
+    </section>
+
+    <section id="sellerDashboard" hidden>
+      <div class="account-head">
+        <div><span>SELLER DASHBOARD</span><h2 id="sellerWelcome">Seller Dashboard</h2><p>Manage your Seller account and follow your registration status.</p></div>
+      </div>
+      <div class="seller-status-card" id="sellerStatusCard">
+        <div><small>REGISTRATION STATUS</small><strong id="sellerStatusValue">Loading…</strong><p id="sellerStatusMessage"></p></div>
+        <div class="seller-status-meta"><span>Submitted</span><b id="sellerSubmittedAt">—</b><span>Approved</span><b id="sellerApprovedAt">—</b></div>
+      </div>
+      <div class="seller-registration-summary panel" id="sellerRegistrationSummary"></div>
+    </section>
 
     <form id="sellerRegistrationForm" class="panel seller-registration" hidden>
       <div class="section-title"><span>SELLER REGISTRATION</span><h3>Business & owner details</h3><p>All registration data remains available to authorized LEOGO Admin after approval.</p></div>
@@ -135,5 +152,5 @@
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="partner.js?v=seller-v1" defer></script>
+<script src="partner.js?v=seller-v2" defer></script>
 </body></html>
