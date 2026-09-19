@@ -786,9 +786,13 @@
     $('#adminSettlementTotal').textContent = formatMoney(state.sellerSettlements.filter((item) => item.status === 'paid').reduce((sum, item) => sum + Number(item.amount_kes || 0), 0));
     $('#sidebarSettlementCount').textContent = pending;
 
-    const approvedSellers = state.sellers.filter((seller) => seller.application_status === 'approved');
+    const approvedSellerIds = [...new Set(state.sellerSettlementAccounts.filter((account) => account.status === 'approved').map((account) => account.seller_id))];
     const currentSeller = $('#adminSettlementSeller')?.value || '';
-    $('#adminSettlementSeller').innerHTML = '<option value="">Choose approved Seller…</option>' + approvedSellers.map((seller) => `<option value="${escapeHtml(seller.user_id)}" ${seller.user_id === currentSeller ? 'selected' : ''}>${escapeHtml(seller.business_name)} — ${escapeHtml(seller.owner_name)}</option>`).join('');
+    $('#adminSettlementSeller').innerHTML = '<option value="">Choose approved Seller…</option>' + approvedSellerIds.map((sellerId) => {
+      const account = state.sellerSettlementAccounts.find((item) => item.seller_id === sellerId);
+      const seller = state.sellers.find((item) => item.user_id === sellerId);
+      return `<option value="${escapeHtml(sellerId)}" ${sellerId === currentSeller ? 'selected' : ''}>${escapeHtml(seller?.business_name || account?.seller_name || 'Seller')} — ${escapeHtml(seller?.owner_name || account?.seller_email || '')}</option>`;
+    }).join('');
     renderSellerSettlementAccountOptions();
 
     $('#sellerSettlementAccountTableBody').innerHTML = state.sellerSettlementAccounts.length ? state.sellerSettlementAccounts.map((account) => {
