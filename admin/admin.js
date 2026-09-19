@@ -33,6 +33,9 @@
     sellerSettlementAccounts: [],
     sellerSettlementRequests: [],
     sellerSettlements: [],
+    riders: [],
+    deliveryJobs: [],
+    deliverySellerStates: [],
     serviceCounties: [],
     serviceSubcounties: [],
     audit: [],
@@ -155,7 +158,7 @@
   };
 
   const loadAll = async () => {
-    const loaders = [loadDashboard, loadApprovals, loadMarketplaceOrders, loadCustomers, loadSellers, loadSellerSettlements, loadServiceLocations, loadBusinessSettings,
+    const loaders = [loadDashboard, loadApprovals, loadMarketplaceOrders, loadCustomers, loadSellers, loadSellerSettlements, loadDeliveryOps, loadServiceLocations, loadBusinessSettings,
       loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumCustomers, loadPremiumProfiles, loadPremiumPlans,
       loadAccommodationSummary, loadAuditLog];
     const results = await Promise.allSettled(loaders.map((load) => load()));
@@ -666,6 +669,77 @@
     if (error) { globalStatus(friendlyError(error), 'error'); await loadPaymentSettings(); return; }
     globalStatus(`${functionLabels[select.dataset.assignmentCode]} payment destination updated.`);
     await Promise.all([loadPaymentSettings(), loadAuditLog()]);
+  };
+
+  const loadDeliveryOps = async () => {
+    const [ridersResult,jobsResult,sellerStatesResult]=await Promise.all([
+      db.rpc('admin_list_riders'),
+      db.rpc('admin_list_delivery_jobs'),
+      db.from('marketplace_seller_orders').select('order_id,fulfilment_status')
+    ]);
+    if(ridersResult.error) throw ridersResult.error;
+    if(jobsResult.error) throw jobsResult.error;
+    if(sellerStatesResult.error) throw sellerStatesResult.error;
+    state.riders=ridersResult.data||[];
+    state.deliveryJobs=jobsResult.data||[];
+    state.deliverySellerStates=sellerStatesResult.data||[];
+    renderDeliveryOps();
+  };
+  const renderDeliveryOps = () => {
+    const activeRiders=state.riders.filter(r=>r.status==='active');
+    $('#adminRiderCount').textContent=activeRiders.length;
+    $('#adminDeliveryAwaiting').textContent=state.deliveryJobs.filter(j=>j.status==='awaiting_assignment').length;
+    $('#adminDeliveryActive').textContent=state.deliveryJobs.filter(j=>['assigned','picked_up','on_the_way'].includes(j.status)).length;
+    $('#adminDeliveryDone').textContent=state.deliveryJobs.filter(j=>j.status==='delivered').length;
+
+    $('#adminRiderList').innerHTML=state.riders.length?state.riders.map(r=>`<article class="station-card">
+      <header><div><h3>${escapeHtml(r.display_name)}</h3><span class="status-chip">${escapeHtml(r.status)}</span></div><strong>Rider</strong></header>
+      <p>${escapeHtml(r.email||'')}<br>${escapeHtml(r.phone||'No phone')}${r.vehicle_type?'<br>'+escapeHtml(r.vehicle_type)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):''):''}</p>
+    </article>`).join(''):'<div class="loading-card">No LEOGO riders authorized yet.</div>';
+
+    $('#adminDeliveryJobBody').innerHTML=state.deliveryJobs.length?state.deliveryJobs.map(job=>{
+      const states=state.deliverySellerStates.filter(s=>s.order_id===job.order_id).map(s=>s.fulfilment_status);
+      const readiness=states.length&&states.every(s=>['packed_ready','handed_to_rider','delivered'].includes(s))?'Ready for rider':states.length?states.map(s=>String(s).replaceAll('_',' ')).join(', '):'Waiting for Seller';
+      const riderOptions='<option value="">Choose rider…</option>'+activeRiders.map(r=>'<option value="'+escapeHtml(r.user_id)+'" '+(r.user_id===job.rider_id?'selected':'')+'>'+escapeHtml(r.display_name)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):'')+'</option>').join('');
+      const destination=[job.estate,job.landmark,job.sub_county,job.county].filter(Boolean).join(', ')||job.delivery_zone;
+      const assignable=!['picked_up','on_the_way','delivered','cancelled'].includes(job.status);
+      return `<tr>
+        <td><strong>${escapeHtml(job.order_reference)}</strong><small>${formatDate(job.created_at,true)}</small></td>
+        <td><strong>${escapeHtml(job.customer_name)}</strong><small>${escapeHtml(job.customer_phone||'')} · ${escapeHtml(destination||'')}</small></td>
+        <td><span class="status-chip">${escapeHtml(readiness)}</span></td>
+        <td><strong>${escapeHtml(job.rider_name||'Not assigned')}</strong><small>${escapeHtml(job.rider_phone||'')}</small></td>
+        <td><span class="status-chip">${escapeHtml(String(job.status).replaceAll('_',' '))}</span></td>
+        <td>${assignable?'<div class="delivery-assign"><select data-delivery-rider="'+escapeHtml(job.order_id)+'">'+riderOptions+'</select><button data-assign-delivery="'+escapeHtml(job.order_id)+'">Assign</button></div>':'—'}</td>
+      </tr>`;
+    }).join(''):'<tr><td colspan="6">No delivery jobs yet.</td></tr>';
+
+    $('[data-assign-delivery]').forEach(button=>button.addEventListener('click',async()=>{
+      const select=$('[data-delivery-rider="'+button.dataset.assignDelivery+'"]');
+      if(!select?.value){globalStatus('Choose an active LEOGO rider first.','error');return;}
+      await withButtonLock(button,'Assigning…',async()=>{
+        const {error}=await db.rpc('admin_assign_rider_to_order',{p_order_id:button.dataset.assignDelivery,p_rider_id:select.value});
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        globalStatus('Order assigned to LEOGO rider. Customer and Seller were notified.');
+        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders(),loadAuditLog()]);
+      });
+    }));
+  };
+  const addRider = async (event) => {
+    event.preventDefault();
+    const button=event.submitter;
+    await withButtonLock(button,'Authorizing…',async()=>{
+      const {error}=await db.rpc('admin_add_rider',{
+        p_email:$('#adminRiderEmail').value.trim(),
+        p_display_name:$('#adminRiderName').value.trim(),
+        p_phone:$('#adminRiderPhone').value.trim()||null,
+        p_vehicle_type:$('#adminRiderVehicle').value.trim()||null,
+        p_vehicle_registration:$('#adminRiderPlate').value.trim()||null
+      });
+      if(error){setFormStatus($('#adminRiderStatus'),friendlyError(error),'error');return;}
+      event.currentTarget.reset();
+      setFormStatus($('#adminRiderStatus'),'Rider account authorized successfully.','success');
+      await Promise.all([loadDeliveryOps(),loadDashboard(),loadAuditLog()]);
+    });
   };
 
   const loadPickupStations = async () => {
@@ -1264,6 +1338,8 @@
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
     $('#refreshMarketplaceOrders').addEventListener('click', () => withButtonLock($('#refreshMarketplaceOrders'), 'Refreshing…', loadMarketplaceOrders));
+    $('#refreshDeliveryOps').addEventListener('click', () => withButtonLock($('#refreshDeliveryOps'), 'Refreshing…', loadDeliveryOps));
+    $('#adminAddRiderForm').addEventListener('submit', addRider);
     $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
     document.querySelectorAll('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.addEventListener('click', () => {
       changePremiumAdminTab(button.dataset.premiumAdminTab);
