@@ -344,8 +344,8 @@ $('#sellerSettlementAccountForm').addEventListener('submit',async e=>{
   status($('#sellerSettlementStatus'),'Sending account to LEOGO Admin for verification…');
   const {error}=await client.rpc('seller_submit_settlement_account',payload);
   if(error){status($('#sellerSettlementStatus'),error.message,'error');return;}
-  status($('#sellerSettlementStatus'),'Settlement account submitted. Admin approval is required before it can receive money.','success');
   resetSettlementForm();
+  status($('#sellerSettlementStatus'),'Settlement account submitted. Admin approval is required before it can receive money.','success');
   await Promise.all([loadSellerSettlementData(),loadPartnerNotifications()]);
 });
 toggleSettlementFields();
