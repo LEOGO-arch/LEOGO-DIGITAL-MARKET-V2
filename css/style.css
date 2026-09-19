@@ -406,3 +406,6 @@ body.accommodation-modal-open{overflow:hidden}
 .customer-order-total{display:flex;justify-content:space-between;align-items:center;padding-top:12px;font-size:14px}.customer-order-total strong{font-size:18px}
 .customer-order-card>button{width:100%;margin-top:12px;border:0;border-radius:10px;background:#ff7200;color:#fff;padding:11px;font-weight:900;cursor:pointer}
 @media(max-width:560px){.customer-order-card header{flex-direction:column}}
+
+
+.customer-order-delivery{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px;padding:10px;border-radius:10px;background:#eef4fb}.customer-order-delivery span{display:block}.customer-order-delivery small{display:block;color:#6d788a;font-size:9px}.customer-order-delivery strong{display:block;margin-top:4px;font-size:11px;text-transform:capitalize}@media(max-width:560px){.customer-order-delivery{grid-template-columns:1fr}}
