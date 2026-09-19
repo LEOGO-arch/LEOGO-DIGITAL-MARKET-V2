@@ -16,6 +16,8 @@
     user: null,
     approvals: [],
     approvalFilter: 'all',
+    approvalSearch: '',
+    selectedApprovals: new Set(),
     activeApproval: null,
     customers: [],
     business: null,
@@ -211,15 +213,78 @@
   };
 
   const approvalGroup = (kind) => kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalIsFinancial = (item) => item.kind === 'premium_payment' || item.kind.startsWith('wallet');
+  const approvalKey = (item) => `${item.kind}::${item.record_id}`;
+  const approvalMatchesFilter = (item) => {
+    if (state.approvalFilter === 'all') return true;
+    if (state.approvalFilter === 'financial') return approvalIsFinancial(item);
+    return approvalGroup(item.kind) === state.approvalFilter;
+  };
+  const approvalMatchesSearch = (item) => {
+    const term = state.approvalSearch.trim().toLowerCase();
+    if (!term) return true;
+    const payload = item.payload && typeof item.payload === 'object' ? JSON.stringify(item.payload) : '';
+    return [kindLabels[item.kind], item.kind, item.title, item.applicant_name, item.applicant_email, item.subtitle, item.status, item.record_id, payload]
+      .some((value) => String(value || '').toLowerCase().includes(term));
+  };
+  const visibleApprovals = () => state.approvals.filter((item) => approvalMatchesFilter(item) && approvalMatchesSearch(item));
+  const waitingAge = (value) => {
+    if (!value) return '—';
+    const diff = Math.max(0, Date.now() - new Date(value).getTime());
+    if (!Number.isFinite(diff)) return '—';
+    const hours = Math.floor(diff / 3600000);
+    if (hours < 1) return '<1 hr';
+    if (hours < 24) return `${hours} hr`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days === 1 ? '' : 's'}`;
+  };
+  const renderApprovalSummary = () => {
+    const financial = state.approvals.filter(approvalIsFinancial).length;
+    const wallet = state.approvals.filter((item) => approvalGroup(item.kind) === 'wallet').length;
+    const premium = state.approvals.filter((item) => approvalGroup(item.kind) === 'premium').length;
+    const accommodation = state.approvals.filter((item) => approvalGroup(item.kind) === 'accommodation').length;
+    const oldest = [...state.approvals].filter((item) => item.submitted_at).sort((a,b) => new Date(a.submitted_at) - new Date(b.submitted_at))[0];
+    $('#approvalTotalCount').textContent = state.approvals.length;
+    $('#approvalFinancialCount').textContent = financial;
+    $('#approvalPremiumCount').textContent = premium;
+    $('#approvalAccommodationCount').textContent = accommodation;
+    $('#approvalOldestWaiting').textContent = oldest ? waitingAge(oldest.submitted_at) : '—';
+    const counts = { all: state.approvals.length, financial, wallet, premium, accommodation };
+    Object.entries(counts).forEach(([key, count]) => {
+      const target = $(`#approvalFilters [data-approval-filter="${key}"] b`);
+      if (target) target.textContent = count;
+    });
+  };
+  const updateApprovalSelection = (visible = visibleApprovals()) => {
+    const count = state.selectedApprovals.size;
+    $('#approvalSelectedCount').textContent = `${count} selected`;
+    $('#exportSelectedApprovals').disabled = count === 0;
+    $('#clearApprovalSelection').disabled = count === 0;
+    $('#selectAllApprovals').checked = visible.length > 0 && visible.every((item) => state.selectedApprovals.has(approvalKey(item)));
+  };
   const renderApprovals = () => {
-    const visible = state.approvalFilter === 'all' ? state.approvals : state.approvals.filter((item) => approvalGroup(item.kind) === state.approvalFilter);
-    $('#approvalFilters [data-approval-filter="all"] b').textContent = state.approvals.length;
-    $('#approvalQueue').innerHTML = visible.length ? visible.map((item) => `<article class="approval-card">
-      <header><div><span class="eyebrow">${escapeHtml(kindLabels[item.kind] || item.kind)}</span><h3>${escapeHtml(item.title)}</h3></div><span class="status-chip">${escapeHtml(item.status)}</span></header>
-      <div class="applicant"><b>${escapeHtml(item.applicant_name || 'Customer')}</b><p>${escapeHtml(item.applicant_email || 'No email')}<br>${escapeHtml(item.subtitle || '')}</p></div>
-      <footer><strong>${item.amount_kes == null ? '' : formatMoney(item.amount_kes)}</strong><button type="button" data-review-id="${escapeHtml(item.record_id)}" data-review-kind="${escapeHtml(item.kind)}">Review →</button></footer>
-    </article>`).join('') : '<div class="loading-card">No pending requests in this queue.</div>';
+    const visible = visibleApprovals();
+    renderApprovalSummary();
+    $('#approvalQueue').innerHTML = visible.length ? visible.map((item) => {
+      const key = approvalKey(item);
+      const detail = item.amount_kes == null ? (item.subtitle || '—') : formatMoney(item.amount_kes);
+      return `<tr>
+        <td><input type="checkbox" data-approval-select="${escapeHtml(key)}" ${state.selectedApprovals.has(key) ? 'checked' : ''} aria-label="Select approval"></td>
+        <td><strong>${escapeHtml(kindLabels[item.kind] || item.kind)}</strong><small>${escapeHtml(approvalGroup(item.kind))}</small></td>
+        <td><strong>${escapeHtml(item.applicant_name || 'Customer')}</strong><small>${escapeHtml(item.applicant_email || 'No email')}</small></td>
+        <td><strong>${escapeHtml(item.title || 'Review request')}</strong><small>${escapeHtml(item.subtitle || '')}</small></td>
+        <td>${escapeHtml(detail)}</td>
+        <td>${formatDate(item.submitted_at, true)}</td>
+        <td><span class="status-chip">${escapeHtml(item.status)}</span></td>
+        <td><button class="approval-review-button" type="button" data-review-id="${escapeHtml(item.record_id)}" data-review-kind="${escapeHtml(item.kind)}">Review →</button></td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="8">No pending requests match this queue.</td></tr>';
     $$('[data-review-id]', $('#approvalQueue')).forEach((button) => button.addEventListener('click', () => openApproval(button.dataset.reviewKind, button.dataset.reviewId)));
+    $$('[data-approval-select]', $('#approvalQueue')).forEach((input) => input.addEventListener('change', () => {
+      input.checked ? state.selectedApprovals.add(input.dataset.approvalSelect) : state.selectedApprovals.delete(input.dataset.approvalSelect);
+      updateApprovalSelection(visible);
+    }));
+    updateApprovalSelection(visible);
   };
 
   const openApproval = (kind, id) => {
@@ -555,6 +620,17 @@
     await exportRows('dashboard','dashboard',format,rows,{range:dashboardLabel(),from:d.range.from,to:d.range.to});
     globalStatus(`Dashboard ${format.toUpperCase()} report downloaded and audited.`);
   };
+  const exportApprovals = async (format='xlsx') => {
+    const source = state.approvals.filter((item) => state.selectedApprovals.has(approvalKey(item)));
+    if (!source.length) { globalStatus('Select at least one approval record to export.', 'error'); return; }
+    const rows = [['Type','Applicant','Email','Request','Amount','Submitted','Status','Reference'], ...source.map((item) => [
+      kindLabels[item.kind] || item.kind, item.applicant_name || 'Customer', item.applicant_email || '',
+      item.title || '', item.amount_kes == null ? '' : item.amount_kes, formatDate(item.submitted_at, true),
+      item.status || '', item.record_id
+    ])];
+    await exportRows('approval-center','selected',format,rows,{filter:state.approvalFilter,search:state.approvalSearch});
+    globalStatus(`${source.length} approval record(s) exported and audited.`);
+  };
   const exportCustomers = async (scope,format='xlsx') => { const source=scope==='selected'?state.customers.filter(r=>state.selectedCustomers.has(r.user_id)):filteredCustomers(); const rows=[['Name','Email','Phone','County','Sub-County','Estate','Registered'],...source.map(r=>[r.full_name,r.email,r.phone,r.county,r.sub_county,r.estate,formatDate(r.created_at)])]; if(!source.length){globalStatus('Select at least one customer to export.','error');return;} await exportRows('customers',scope,format,rows,{search:$('#customerSearch').value}); globalStatus(`${source.length} customer record(s) exported and audited.`); };
   const exportData = async (scope,format='xlsx') => { const type=$('#dataTypeFilter').value, source=scope==='selected'?dataRows().filter(r=>state.selectedData.has(dataRecordId(r))):dataRows(); if(!source.length){globalStatus('Select at least one record to export.','error');return;} const rows=[['Record ID','Record Data'],...source.map(r=>[dataRecordId(r),JSON.stringify(r)])]; await exportRows(type,scope,format,rows,{status:$('#dataStatusFilter').value,from:$('#dataFromFilter').value,to:$('#dataToFilter').value}); globalStatus(`${source.length} ${type.replaceAll('_',' ')} record(s) exported and audited.`); };
 
@@ -608,6 +684,16 @@
       $$('#approvalFilters [data-approval-filter]').forEach((item) => item.classList.toggle('active', item === button));
       renderApprovals();
     }));
+    $('#approvalSearch').addEventListener('input', (event) => { state.approvalSearch = event.target.value; renderApprovals(); });
+    $('#selectAllApprovals').addEventListener('change', (event) => {
+      visibleApprovals().forEach((item) => event.target.checked ? state.selectedApprovals.add(approvalKey(item)) : state.selectedApprovals.delete(approvalKey(item)));
+      renderApprovals();
+    });
+    $('#clearApprovalSelection').addEventListener('click', () => { state.selectedApprovals.clear(); renderApprovals(); });
+    $('#exportSelectedApprovals').addEventListener('click', async () => {
+      const format = (window.prompt('Export format: xlsx or pdf', 'xlsx') || '').toLowerCase();
+      if (['xlsx','pdf'].includes(format)) await exportApprovals(format);
+    });
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
     $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
