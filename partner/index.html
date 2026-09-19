@@ -180,12 +180,15 @@
   <option value="b134ae00-e5f1-4903-803b-4093deb83980">BOOKSHOP</option>
   <option value="15774c65-7253-42e6-97fd-8fa46af43d4c">HARDWARE</option>
   <option value="a7674f9c-0579-42f0-90a5-1ee51fc9727e">SECOND HAND MARKET</option>
-  <option value="f5c1bf6d-3b41-46f2-aa01-e9bb0eab71f3">GARMENTS, CLOTHES &amp; FOOTWEARS</option>
+  <option value="f5c1bf6d-3b41-46f2-aa01-e9bb0eab71f3">GARMENTS, CLOTHES,FOOTWARES</option>
   <option value="0a9d03d1-a2ca-41da-aaae-d9e0553536cf">JEWELRIES</option>
   <option value="f72097df-7436-4558-a8ac-b9eacfabf11d">ALCOHOLIC (LEOGO DIGITAL BAR)</option>
-  <option value="393e3e96-93ee-47ed-a637-b4f2fc412100">VEHICLES</option>
+  <option value="393e3e96-93ee-47ed-a637-b4f2fc412100">VEHICLE</option>
+  <option value="4b64eec5-cd2b-4302-a244-f100852ccc23">OTHER (SPECIFY)</option>
 </select></label>
-                <label>Sub-category<select id="productSubcategory"><option value="">Optional</option></select></label>
+                <label>Sub-category<select id="productSubcategory"><option value="">Choose sub-category (optional)</option></select></label>
+                <label id="productCustomCategoryWrap" hidden>Specify category<input id="productCustomCategory" type="text" maxlength="120" placeholder="Type the category name"></label>
+                <label id="productCustomSubcategoryWrap" hidden>Specify sub-category<input id="productCustomSubcategory" type="text" maxlength="120" placeholder="Type the sub-category name"></label>
                 <label>Group / collection (optional)<input id="productGroup" type="text" maxlength="100" placeholder="e.g. Breakfast, Ladies Wear"></label>
                 <label>Listing status<select id="productListingStatus"><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option></select></label>
                 <label class="wide">Product details<textarea id="productDetails" rows="4" maxlength="3000" placeholder="Size, what is included, condition, specifications..." required></textarea></label>
@@ -351,6 +354,6 @@
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="taxonomy.js?v=taxonomy-3" defer></script>
-<script src="partner.js?v=seller-v19" defer></script>
+<script src="taxonomy.js?v=taxonomy-4" defer></script>
+<script src="partner.js?v=seller-v20" defer></script>
 </body></html>
