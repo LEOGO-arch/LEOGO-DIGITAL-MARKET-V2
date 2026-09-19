@@ -44,6 +44,7 @@
         <button data-admin-view="customers"><i>♙</i><span>Customers</span></button>
         <button data-admin-view="products"><i>□</i><span>Products &amp; Categories</span></button>
         <button data-admin-view="sellers"><i>▣</i><span>Sellers</span></button>
+        <button data-admin-view="settlements"><i>₿</i><span>Seller Settlements</span><em id="sidebarSettlementCount">0</em></button>
         <button data-admin-view="providers"><i>⚒</i><span>Service Providers</span></button>
         <button data-admin-view="transport" data-nav-group="transport"><i>🚚</i><span>Transport &amp; Delivery</span><b>⌄</b></button><div class="nav-children" data-nav-children="transport"><button data-admin-view="transport">Transport/Parcel Providers</button><button data-admin-view="transport">Delivery Jobs</button><button data-admin-view="transport">Delivery Zones</button><button data-admin-view="transport">Pickup Stations</button></div>
         <button data-admin-view="wallet" data-nav-group="wallet"><i>💰</i><span>Wallet &amp; SACCO</span><b>⌄</b></button><div class="nav-children" data-nav-children="wallet"><button data-admin-view="wallet">Overview</button><button data-admin-view="approvals" data-filter-target="wallet">Deposits &amp; Withdrawals</button><button data-admin-view="wallet">Savings Challenges</button><button data-admin-view="approvals" data-filter-target="wallet">Loans</button><button data-admin-view="wallet">Transactions</button></div>
@@ -157,6 +158,39 @@
         <div class="seller-admin-toolbar"><input id="adminSellerSearch" type="search" placeholder="Search business, owner, ID, phone, email or town…"><select id="adminSellerStatusFilter"><option value="all">All statuses</option><option value="approved">Approved</option><option value="submitted">Submitted</option><option value="under_review">Under Review</option><option value="changes_requested">Changes Requested</option><option value="rejected">Rejected</option><option value="suspended">Suspended</option></select></div>
         <div class="table-card seller-admin-table-card"><div class="responsive-table"><table class="seller-admin-table"><thead><tr><th>Business</th><th>Owner</th><th>ID / Phone</th><th>Location</th><th>Status</th><th>Products</th><th>Flash Sale</th><th>Action</th></tr></thead><tbody id="adminSellerTableBody"><tr><td colspan="8">Loading sellers…</td></tr></tbody></table></div></div>
       </section>
+      <section class="admin-panel" data-admin-panel="settlements">
+        <div class="section-head"><div><span>SELLER FINANCE</span><h2>Seller Settlement Accounts</h2><p>Verify Seller payout destinations, approve edits, and record money settled to approved accounts.</p></div><button id="refreshSellerSettlements" class="primary-button" type="button">↻ Refresh</button></div>
+        <div class="seller-admin-summary">
+          <article><span>Pending Verification</span><strong id="adminSettlementPending">0</strong><small>Needs Admin review</small></article>
+          <article><span>Approved Accounts</span><strong id="adminSettlementApproved">0</strong><small>Available for payout</small></article>
+          <article><span>Settlements</span><strong id="adminSettlementCount">0</strong><small>Recorded payments</small></article>
+          <article><span>Total Settled</span><strong id="adminSettlementTotal">KSh 0</strong><small>Historical total</small></article>
+        </div>
+
+        <section class="content-card seller-settlement-admin-card">
+          <div class="card-head"><div><span>RECORD SETTLEMENT</span><h3>Settle an approved Seller account</h3></div></div>
+          <form id="adminSellerSettlementForm" class="admin-settlement-form">
+            <label>Seller<select id="adminSettlementSeller" required><option value="">Choose approved Seller…</option></select></label>
+            <label>Approved settlement account<select id="adminSettlementAccount" required><option value="">Choose Seller first…</option></select></label>
+            <label>Amount (KSh)<input id="adminSettlementAmount" type="number" min="1" step="0.01" required></label>
+            <label>Payment / transaction reference<input id="adminSettlementReference" type="text" maxlength="160" required></label>
+            <label class="wide">Notes<textarea id="adminSettlementNotes" rows="2" maxlength="500" placeholder="Optional internal settlement note"></textarea></label>
+            <div class="wide"><button class="primary-button" type="submit">Record as Settled</button><div class="form-status" id="adminSettlementStatus"></div></div>
+          </form>
+          <div class="locked-front-note">Only Admin-approved settlement accounts can be selected. Recording a settlement creates a permanent historical record and notifies the Seller.</div>
+        </section>
+
+        <section class="content-card">
+          <div class="card-head"><div><span>ACCOUNT VERIFICATION</span><h3>Seller Settlement Accounts</h3></div></div>
+          <div class="responsive-table"><table><thead><tr><th>Seller</th><th>Destination</th><th>Status</th><th>Submitted</th><th>Admin Note</th><th>Action</th></tr></thead><tbody id="sellerSettlementAccountTableBody"><tr><td colspan="6">Loading settlement accounts…</td></tr></tbody></table></div>
+        </section>
+
+        <section class="content-card">
+          <div class="card-head"><div><span>SETTLEMENT HISTORY</span><h3>Recorded Seller Payments</h3></div></div>
+          <div class="responsive-table"><table><thead><tr><th>Date</th><th>Seller</th><th>Amount</th><th>Reference</th><th>Status</th></tr></thead><tbody id="sellerSettlementHistoryBody"><tr><td colspan="5">Loading settlements…</td></tr></tbody></table></div>
+        </section>
+      </section>
+
       <section class="admin-panel" data-admin-panel="providers"><div class="section-head"><div><span>SERVICE NETWORK</span><h2>Service Providers</h2><p>Provider approval, assignment and service quality controls.</p></div></div><div class="reserved-module"><span>⚒</span><h3>Provider administration reserved</h3><p>This is ready to connect when service-provider registration is built.</p></div></section>
 
       <section class="admin-panel" data-admin-panel="transport">
