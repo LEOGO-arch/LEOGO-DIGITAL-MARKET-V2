@@ -11,7 +11,7 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const status=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className='status'+(type?' '+type:'');};
 const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const uid=()=>currentUser?.id||'';
-let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],partnerNotifications=[];
+let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],partnerNotifications=[];
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -80,7 +80,23 @@ resetUpdateForm.addEventListener('submit',async e=>{
   history.replaceState({},document.title,PARTNER_URL);
 });
 
-$('#partnerLoginForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Signing in…');const {error}=await client.auth.signInWithPassword({email:$('#partnerLoginEmail').value.trim(),password:$('#partnerLoginPassword').value});if(error)status($('#partnerAuthStatus'),error.message,'error');});
+$('#partnerLoginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const button=e.submitter||$('#partnerLoginForm button[type="submit"]');
+  const original=button?.textContent||'Sign In';
+  if(button){button.disabled=true;button.textContent='Signing in…';}
+  status($('#partnerAuthStatus'),'Signing in…');
+  try{
+    const {data,error}=await client.auth.signInWithPassword({email:$('#partnerLoginEmail').value.trim(),password:$('#partnerLoginPassword').value});
+    if(error){status($('#partnerAuthStatus'),error.message,'error');return;}
+    status($('#partnerAuthStatus'),'Signed in successfully.','success');
+    await handleSession(data.session);
+  }catch(error){
+    status($('#partnerAuthStatus'),error?.message||'Sign in failed. Please try again.','error');
+  }finally{
+    if(button){button.disabled=false;button.textContent=original;}
+  }
+});
 $('#partnerRegisterForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Creating account…');const {data,error}=await client.auth.signUp({email:$('#partnerRegisterEmail').value.trim(),password:$('#partnerRegisterPassword').value,options:{data:{full_name:$('#partnerRegisterName').value.trim()}}});if(error){status($('#partnerAuthStatus'),error.message,'error');return;}status($('#partnerAuthStatus'),data.session?'Account created. Choose the partnership you want to register for.':'Account created. Sign in to continue to partnership selection.','success');});
 logout.addEventListener('click',()=>client.auth.signOut());
 $('#backToPartnerships').addEventListener('click',()=>showRolePicker());
@@ -288,14 +304,17 @@ $('#cancelSettlementEdit').addEventListener('click',resetSettlementForm);
 
 async function loadSellerSettlementData(){
   if(!currentUser)return;
-  const [accountsResult,settlementsResult]=await Promise.all([
+  const [accountsResult,settlementsResult,requestsResult]=await Promise.all([
     client.from('seller_settlement_accounts').select('*').order('created_at',{ascending:false}),
-    client.from('seller_settlements').select('*').order('paid_at',{ascending:false})
+    client.from('seller_settlements').select('*').order('paid_at',{ascending:false}),
+    client.from('seller_settlement_requests').select('*').order('submitted_at',{ascending:false})
   ]);
   if(accountsResult.error){status($('#sellerSettlementStatus'),accountsResult.error.message,'error');return;}
   if(settlementsResult.error){status($('#sellerSettlementStatus'),settlementsResult.error.message,'error');return;}
+  if(requestsResult.error){status($('#sellerSettlementRequestStatus'),requestsResult.error.message,'error');return;}
   settlementAccounts=accountsResult.data||[];
   sellerSettlements=settlementsResult.data||[];
+  settlementRequests=requestsResult.data||[];
   renderSellerSettlementData();
 }
 function renderSellerSettlementData(){
@@ -307,6 +326,13 @@ function renderSellerSettlementData(){
       ${['approved','pending_review','rejected'].includes(a.status)?'<button class="secondary" type="button" data-edit-settlement="'+escapeHtml(a.id)+'">Edit</button>':''}
     </article>`).join(''):'<div class="empty-card">No settlement account added yet.</div>';
   $('[data-edit-settlement]').forEach(button=>button.addEventListener('click',()=>editSettlementAccount(button.dataset.editSettlement)));
+  const approved=settlementAccounts.filter(a=>a.status==='approved');
+  $('#sellerSettlementRequestAccount').innerHTML=approved.length
+    ? '<option value="">Choose approved settlement account…</option>'+approved.map(a=>'<option value="'+escapeHtml(a.id)+'">'+escapeHtml(a.account_name)+' — '+escapeHtml(settlementDestination(a))+(a.is_primary?' (Primary)':'')+'</option>').join('')
+    : '<option value="">No approved settlement account yet</option>';
+  $('#sellerSettlementRequestButton').disabled=!approved.length;
+  $('#sellerSettlementRequestList').innerHTML=settlementRequests.length?settlementRequests.map(r=>`
+    <article class="settlement-history-row"><div><strong>${money(r.requested_amount_kes)}</strong><small>${formatDate(r.submitted_at)} · ${escapeHtml(r.status.replaceAll('_',' ').toUpperCase())}${r.admin_notes?' · Admin: '+escapeHtml(r.admin_notes):''}</small></div><span>${escapeHtml(r.status.toUpperCase())}</span></article>`).join(''):'<div class="empty-card">No settlement requests yet.</div>';
   $('#sellerSettlementHistory').innerHTML=sellerSettlements.length?sellerSettlements.map(s=>`
     <article class="settlement-history-row"><div><strong>${money(s.amount_kes)}</strong><small>${escapeHtml(s.settlement_reference)} · ${formatDate(s.paid_at)}</small></div><span>${escapeHtml(s.status.toUpperCase())}</span></article>`).join(''):'<div class="empty-card">No Seller settlement has been recorded yet.</div>';
 }
@@ -349,6 +375,26 @@ $('#sellerSettlementAccountForm').addEventListener('submit',async e=>{
   await Promise.all([loadSellerSettlementData(),loadPartnerNotifications()]);
 });
 toggleSettlementFields();
+
+$('#sellerSettlementRequestForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const accountId=$('#sellerSettlementRequestAccount').value;
+  const amount=Number($('#sellerSettlementRequestAmount').value);
+  const note=$('#sellerSettlementRequestNote').value.trim();
+  if(!accountId){status($('#sellerSettlementRequestStatus'),'Choose an approved settlement account.','error');return;}
+  if(!amount||amount<=0){status($('#sellerSettlementRequestStatus'),'Enter the amount you want to request.','error');return;}
+  const button=$('#sellerSettlementRequestButton');
+  const original=button.textContent;button.disabled=true;button.textContent='Submitting…';
+  status($('#sellerSettlementRequestStatus'),'Sending settlement request to LEOGO Admin…');
+  try{
+    const {error}=await client.rpc('seller_request_settlement',{p_account_id:accountId,p_amount_kes:amount,p_note:note||null});
+    if(error)throw error;
+    e.target.reset();
+    status($('#sellerSettlementRequestStatus'),'Settlement request submitted to Admin for review.','success');
+    await Promise.all([loadSellerSettlementData(),loadPartnerNotifications()]);
+  }catch(error){status($('#sellerSettlementRequestStatus'),error.message||'Settlement request could not be submitted.','error');}
+  finally{button.disabled=false;button.textContent=original;}
+});
 
 $('#showSellerRegistration').addEventListener('click',()=>{sellerOnboarding.hidden=true;sellerReg.hidden=false;sellerReg.scrollIntoView({behavior:'smooth'});});
 
@@ -549,7 +595,7 @@ client.auth.onAuthStateChange((event,s)=>{
     status($('#partnerAuthStatus'),'Create a new password for your LEOGO account.','success');
     return;
   }
-  handleSession(s);
+  setTimeout(()=>{handleSession(s).catch(console.error);},0);
 });
 client.auth.getSession().then(({data})=>{
   if(new URLSearchParams(location.search).get('mode')==='reset-password'){
