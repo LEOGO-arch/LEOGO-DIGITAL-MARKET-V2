@@ -659,7 +659,17 @@
     state.sellers=data||[];
     renderSellers();
   };
-  const openSellerRecord = (userId) => {
+  const sellerDocumentCard = async (label,path) => {
+    if(!path) return '<article class="review-media-card"><div class="review-media-card-head"><strong>'+escapeHtml(label)+'</strong><span>Not provided</span></div></article>';
+    try{
+      const {data,error}=await db.storage.from('seller-verification').createSignedUrl(String(path),900);
+      if(error)throw error;
+      const url=data?.signedUrl||'';
+      const isPdf=/\.pdf(?:\?|$)/i.test(path);
+      return '<article class="review-media-card"><div class="review-media-card-head"><strong>'+escapeHtml(label)+'</strong><span>Private document</span></div>'+(isPdf?'':'<a class="review-media-image-link" href="'+escapeHtml(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escapeHtml(url)+'" alt="'+escapeHtml(label)+'"></a>')+'<div class="review-media-actions"><a href="'+escapeHtml(url)+'" target="_blank" rel="noopener noreferrer">View document ↗</a></div></article>';
+    }catch(error){return '<article class="review-media-card"><div class="review-media-card-head"><strong>'+escapeHtml(label)+'</strong><span>Preview unavailable</span></div><div class="review-media-error">'+escapeHtml(friendlyError(error))+'</div></article>';}
+  };
+  const openSellerRecord = async (userId) => {
     const s=state.sellers.find((item)=>item.user_id===userId);
     if(!s)return;
     $('#sellerRecordTitle').textContent=s.business_name||'Seller';
@@ -671,6 +681,9 @@
       ['Flash Sale requests',s.flash_sale_request_count],['Account created',formatDate(s.created_at,true)]
     ];
     $('#sellerRecordGrid').innerHTML=rows.map(([label,value])=>`<div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value==null||value===''?'—':value)}</strong></div>`).join('');
+    const docs=[['Business ID / Identification',s.business_id_document_path],['Business Licence',s.business_licence_path],['CR12 / Registration Certificate',s.registration_certificate_path],...((s.other_permit_paths||[]).map((path,index)=>['Other Permit '+(index+1),path]))];
+    const docHtml=await Promise.all(docs.map(([label,path])=>sellerDocumentCard(label,path)));
+    $('#sellerRecordGrid').insertAdjacentHTML('afterend','<section class="review-media seller-admin-docs"><div class="review-media-heading"><span>PRIVATE VERIFICATION DOCUMENTS</span><strong>Business Documents</strong><small>Visible only to authorized LEOGO Admin users.</small></div><div class="review-media-grid">'+docHtml.join('')+'</div></section>');
     $('#sellerRecordModal').hidden=false;
   };
 
