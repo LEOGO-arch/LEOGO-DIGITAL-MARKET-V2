@@ -381,3 +381,16 @@ body.accommodation-modal-open{overflow:hidden}
 .customer-notification-scrim{position:fixed;inset:0;background:rgba(2,11,28,.48);z-index:119;opacity:0;transition:opacity .18s ease}
 .customer-notification-scrim.open{opacity:1}
 @media(max-width:600px){.customer-notification-panel{width:100vw}.customer-notification-head{padding-top:24px}}
+
+
+/* Admin-configured customer payment destination */
+.checkout-admin-payment{margin:11px 0;padding:12px;border:1px solid #dce2ec;border-radius:12px;background:#f7faff;display:grid;gap:9px}
+.checkout-admin-payment>div:first-child{display:grid;gap:3px}
+.checkout-admin-payment>div:first-child>span{color:#ff7200;font-size:8px;font-weight:900;letter-spacing:.08em}
+.checkout-admin-payment>div:first-child>strong{color:#07152f;font-size:11px}
+.checkout-admin-payment>div:first-child>small{color:#6b778b;font-size:8px}
+.checkout-admin-payment-number{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:9px;background:#fff;border:1px solid #e2e7ef}
+.checkout-admin-payment-number b{color:#07152f;font-size:13px;overflow-wrap:anywhere}
+.checkout-admin-payment-number button{border:0;border-radius:8px;background:#07152f;color:#fff;padding:7px 10px;font-size:8px;font-weight:900;cursor:pointer}
+.checkout-admin-payment-number button:disabled{opacity:.45;cursor:not-allowed}
+.checkout-admin-payment p{margin:0;color:#68758a;font-size:8px;line-height:1.45}
