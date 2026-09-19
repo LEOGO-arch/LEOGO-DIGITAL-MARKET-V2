@@ -11,7 +11,7 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const status=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className='status'+(type?' '+type:'');};
 const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const uid=()=>currentUser?.id||'';
-let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],partnerNotifications=[];
+let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],partnerNotifications=[],sellerOrders=[],sellerOrderFilter='all';
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -164,7 +164,7 @@ async function loadSeller(){
   seller=data||null;
   renderSeller();
   if(seller) await loadPartnerNotifications();
-  if(seller?.application_status==='approved')await Promise.all([loadTaxonomy(),loadProducts(),loadSellerSettlementData()]);
+  if(seller?.application_status==='approved')await Promise.all([loadTaxonomy(),loadProducts(),loadSellerSettlementData(),loadSellerOrders()]);
 }
 
 function formatDate(value){
@@ -212,6 +212,7 @@ function sellerViewDescription(view){
   return {
     overview:'Overview of your Seller account.',
     products:'Manage products, stock, pricing and variants.',
+    orders:'Receive and fulfil customer orders.',
     flashsale:'Choose an existing product and submit it to Flash Sale.',
     settlements:'Manage approved payout accounts and settlement requests.',
     notifications:'All important Seller and Admin events.',
@@ -224,7 +225,7 @@ function closeSellerSidebar(){
 }
 function openSellerView(view='overview'){
   const allowed=seller?.application_status==='approved'
-    ? ['overview','products','flashsale','settlements','notifications','profile']
+    ? ['overview','products','orders','flashsale','settlements','notifications','profile']
     : ['overview','notifications','profile'];
   const resolved=allowed.includes(view)?view:'overview';
   $$('[data-seller-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.sellerContent===resolved));
@@ -251,7 +252,7 @@ function renderSeller(){
   sellerPendingArea.hidden=!hasSeller || state==='approved';
   sellerDocsForm.hidden=!hasSeller || !['changes_requested','rejected'].includes(state);
   $('#sellerProfileButton').hidden=!hasSeller;
-  $$('[data-seller-view="products"],[data-seller-view="flashsale"],[data-seller-view="settlements"]').forEach(button=>button.hidden=state!=='approved');
+  $('[data-seller-view="products"],[data-seller-view="orders"],[data-seller-view="flashsale"],[data-seller-view="settlements"]').forEach(button=>button.hidden=state!=='approved');
 
   if(seller){
     $('#sellerSidebarBusiness').textContent=seller.business_name||'Seller Account';
@@ -502,6 +503,57 @@ sellerDocsForm.addEventListener('submit',async e=>{
     await loadSeller();
   }catch(error){status($('#sellerVerificationDocumentsStatus'),error.message||'Documents could not be saved.','error');}
 });
+
+async function loadSellerOrders(){
+  if(!currentUser||seller?.application_status!=='approved')return;
+  const {data,error}=await client.rpc('seller_list_marketplace_orders');
+  if(error){console.error(error);return;}
+  sellerOrders=data||[];
+  renderSellerOrders();
+}
+function orderPaymentLabel(status){
+  return {
+    submitted:'PAYMENT SUBMITTED — VERIFYING',
+    verified_paid:'PAID',
+    cod_due:'COD — PAYMENT DUE',
+    cod_paid:'PAID ON DELIVERY',
+    rejected:'PAYMENT REJECTED'
+  }[status]||String(status||'').replaceAll('_',' ').toUpperCase();
+}
+function sellerOrderAddress(order){
+  if(order.delivery_zone==='pickup')return 'Pickup station';
+  return [order.estate,order.landmark,order.sub_county,order.county].filter(Boolean).join(', ')||'Delivery address unavailable';
+}
+function renderSellerOrders(){
+  const rows=sellerOrderFilter==='all'?sellerOrders:sellerOrders.filter(o=>o.fulfilment_status===sellerOrderFilter);
+  const newCount=sellerOrders.filter(o=>o.fulfilment_status==='new').length;
+  $('#sellerOrderBadge').hidden=!newCount;
+  $('#sellerOrderBadge').textContent=newCount;
+  $('#sellerOrderCount').textContent=sellerOrders.filter(o=>!['delivered','cancelled'].includes(o.fulfilment_status)).length;
+  $('#sellerOrderList').innerHTML=rows.length?rows.map(o=>{
+    const items=(o.items||[]).map(i=>'<li>'+escapeHtml(i.product_name)+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
+    const next=o.fulfilment_status==='new'
+      ? '<button data-order-next="received" data-seller-order-id="'+escapeHtml(o.seller_order_id)+'">Mark Received</button>'
+      : o.fulfilment_status==='received'
+        ? '<button data-order-next="packed_ready" data-seller-order-id="'+escapeHtml(o.seller_order_id)+'">Packed & Ready for Pickup</button>'
+        : o.fulfilment_status==='packed_ready'
+          ? '<button data-order-next="handed_to_rider" data-seller-order-id="'+escapeHtml(o.seller_order_id)+'">Handed Over to Rider</button>'
+          : '';
+    return '<article class="seller-order-card"><header><div><span>'+escapeHtml(o.order_reference)+'</span><h4>'+escapeHtml(o.receiver_name)+'</h4><small>'+formatDate(o.created_at)+'</small></div><div><b class="order-status '+escapeHtml(o.fulfilment_status)+'">'+escapeHtml(o.fulfilment_status.replaceAll('_',' ').toUpperCase())+'</b><b class="payment-status">'+escapeHtml(orderPaymentLabel(o.payment_status))+'</b></div></header><div class="seller-order-body"><ul>'+items+'</ul><div class="seller-order-meta"><span><small>Seller subtotal</small><strong>'+money(o.seller_subtotal_kes)+'</strong></span><span><small>Customer phone</small><strong>'+escapeHtml(o.contact_number)+'</strong></span><span><small>Delivery</small><strong>'+escapeHtml(sellerOrderAddress(o))+'</strong></span><span><small>Order status</small><strong>'+escapeHtml((o.order_status||'').replaceAll('_',' ').toUpperCase())+'</strong></span></div></div><footer>'+next+(o.fulfilment_status==='delivered'?'<strong class="delivered-confirmation">✓ Delivered to customer</strong>':'')+'</footer></article>';
+  }).join(''):'<div class="empty-card">No orders match this filter.</div>';
+  $('[data-order-next]').forEach(button=>button.addEventListener('click',async()=>{
+    const label=button.textContent;button.disabled=true;button.textContent='Updating…';
+    const {error}=await client.rpc('seller_update_order_status',{p_seller_order_id:button.dataset.sellerOrderId,p_status:button.dataset.orderNext});
+    if(error){alert(error.message);button.disabled=false;button.textContent=label;return;}
+    await Promise.all([loadSellerOrders(),loadPartnerNotifications()]);
+  }));
+}
+$('[data-seller-order-filter]').forEach(button=>button.addEventListener('click',()=>{
+  sellerOrderFilter=button.dataset.sellerOrderFilter;
+  $('[data-seller-order-filter]').forEach(b=>b.classList.toggle('active',b===button));
+  renderSellerOrders();
+}));
+$('#refreshSellerOrders').addEventListener('click',async()=>{const b=$('#refreshSellerOrders');b.disabled=true;await loadSellerOrders();b.disabled=false;});
 
 async function loadTaxonomy(){
   const [c,s]=await Promise.all([
