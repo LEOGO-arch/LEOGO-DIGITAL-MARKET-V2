@@ -298,52 +298,107 @@
   const approvalMediaFields = {
     profile_picture_path: { label: 'Profile Picture', bucket: 'premium-profile-media' },
     passport_photo_path: { label: 'Passport-size Photo', bucket: 'premium-verification' },
-    id_document_path: { label: 'Identity Document', bucket: 'premium-verification' }
+    id_document_path: { label: 'Identity Document', bucket: 'premium-verification' },
+
+    business_id_document_path: { label: 'Business ID / Identification', bucket: 'seller-verification' },
+    business_licence_path: { label: 'Business Licence', bucket: 'seller-verification' },
+    registration_certificate_path: { label: 'CR12 / Registration Certificate', bucket: 'seller-verification' },
+    other_permit_paths: { label: 'Other Related Permit', bucket: 'seller-verification', multiple: true },
+
+    main_image_path: { label: 'Product Main Image', bucket: 'seller-product-media' },
+    gallery_image_paths: { label: 'Product Gallery Image', bucket: 'seller-product-media', multiple: true },
+
+    cover_image_url: { label: 'Property Cover Image', directUrl: true },
+    gallery_image_urls: { label: 'Property Gallery Image', directUrl: true, multiple: true }
+  };
+
+  const adminMediaEntries = (payload = {}) => {
+    const entries = [];
+    Object.entries(approvalMediaFields).forEach(([key, config]) => {
+      const raw = payload?.[key];
+      const values = config.multiple ? (Array.isArray(raw) ? raw : []) : (raw ? [raw] : []);
+      values.filter(Boolean).forEach((value, index) => {
+        entries.push({
+          key,
+          config,
+          value: String(value),
+          label: config.multiple ? `${config.label} ${index + 1}` : config.label
+        });
+      });
+    });
+    return entries;
+  };
+
+  const isPdfMedia = (value = '') => /\.pdf(?:$|\?)/i.test(String(value));
+  const isImageMedia = (value = '') => /\.(?:jpe?g|png|webp|gif|avif)(?:$|\?)/i.test(String(value));
+
+  const secureAdminMediaUrl = async (entry) => {
+    if (entry.config.directUrl) return entry.value;
+    const { data, error } = await db.storage.from(entry.config.bucket).createSignedUrl(entry.value, 900);
+    if (error) throw error;
+    const url = data?.signedUrl || '';
+    if (!url) throw new Error('No secure file URL was returned.');
+    return url;
+  };
+
+  const renderAdminMediaCard = async (entry) => {
+    const card = document.createElement('article');
+    card.className = 'review-media-card';
+    card.innerHTML = `<div class="review-media-card-head"><strong>${escapeHtml(entry.label)}</strong><span>Loading…</span></div><div class="review-media-loading">Preparing secure preview…</div>`;
+
+    try {
+      const url = await secureAdminMediaUrl(entry);
+      const pdf = isPdfMedia(entry.value);
+      const image = isImageMedia(entry.value) || (!pdf && entry.config.directUrl);
+
+      if (image) {
+        card.innerHTML = `
+          <div class="review-media-card-head"><strong>${escapeHtml(entry.label)}</strong><span>Image</span></div>
+          <a class="review-media-image-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${escapeHtml(entry.label)}">
+            <img src="${escapeHtml(url)}" alt="${escapeHtml(entry.label)} submitted for Admin review">
+          </a>
+          <div class="review-media-actions"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View full image ↗</a></div>
+        `;
+        const img = $('img', card);
+        img?.addEventListener('error', () => {
+          const link = $('.review-media-image-link', card);
+          if (link) link.innerHTML = '<div class="review-media-file-preview"><b>Image preview unavailable</b><small>Open the submitted file to review it.</small></div>';
+        }, { once: true });
+      } else {
+        card.innerHTML = `
+          <div class="review-media-card-head"><strong>${escapeHtml(entry.label)}</strong><span>${pdf ? 'PDF document' : 'Submitted file'}</span></div>
+          <a class="review-media-file-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
+            <div class="review-media-file-preview"><b>${pdf ? 'PDF' : 'FILE'}</b><small>Open document for Admin review</small></div>
+          </a>
+          <div class="review-media-actions"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View document ↗</a></div>
+        `;
+      }
+    } catch (error) {
+      card.innerHTML = `
+        <div class="review-media-card-head"><strong>${escapeHtml(entry.label)}</strong><span>Preview unavailable</span></div>
+        <div class="review-media-error">${escapeHtml(friendlyError(error))}</div>
+      `;
+    }
+    return card;
   };
 
   const approvalMediaPreview = async (payload = {}) => {
     const media = $('#reviewMedia');
     if (!media) return;
-    const entries = Object.entries(approvalMediaFields).filter(([key]) => payload?.[key]);
+
+    const entries = adminMediaEntries(payload);
     if (!entries.length) {
       media.hidden = true;
       media.innerHTML = '';
       return;
     }
+
     media.hidden = false;
-    media.innerHTML = '<div class="review-media-heading"><span>UPLOADED FILES</span><strong>Verification Images</strong><small>Review the submitted images before making a decision.</small></div><div class="review-media-grid" id="reviewMediaGrid"></div>';
+    media.innerHTML = '<div class="review-media-heading"><span>UPLOADED FILES</span><strong>Images & Verification Documents</strong><small>Review the actual submitted files before making an Admin decision.</small></div><div class="review-media-grid" id="reviewMediaGrid"></div>';
     const grid = $('#reviewMediaGrid');
-    for (const [key, config] of entries) {
-      const path = String(payload[key] || '');
-      const card = document.createElement('article');
-      card.className = 'review-media-card';
-      card.innerHTML = `<div class="review-media-card-head"><strong>${escapeHtml(config.label)}</strong><span>Secure file</span></div><div class="review-media-loading">Loading image…</div><small class="review-media-path">${escapeHtml(path)}</small>`;
-      grid.appendChild(card);
-      try {
-        const { data, error } = await db.storage.from(config.bucket).createSignedUrl(path, 900);
-        if (error) throw error;
-        const url = data?.signedUrl || '';
-        if (!url) throw new Error('No secure image URL was returned.');
-        card.innerHTML = `
-          <div class="review-media-card-head"><strong>${escapeHtml(config.label)}</strong><span>Secure preview</span></div>
-          <a class="review-media-image-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open full ${escapeHtml(config.label)}">
-            <img src="${escapeHtml(url)}" alt="${escapeHtml(config.label)} submitted for approval">
-          </a>
-          <div class="review-media-actions"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View full image ↗</a></div>
-          <small class="review-media-path">${escapeHtml(path)}</small>
-        `;
-        const image = $('img', card);
-        image.addEventListener('error', () => {
-          const link = $('.review-media-image-link', card);
-          if (link) link.innerHTML = '<div class="review-media-error">Image preview could not load. Use “View full image” or retry.</div>';
-        }, { once: true });
-      } catch (error) {
-        card.innerHTML = `
-          <div class="review-media-card-head"><strong>${escapeHtml(config.label)}</strong><span>Preview unavailable</span></div>
-          <div class="review-media-error">${escapeHtml(friendlyError(error))}</div>
-          <small class="review-media-path">${escapeHtml(path)}</small>
-        `;
-      }
+
+    for (const entry of entries) {
+      grid.appendChild(await renderAdminMediaCard(entry));
     }
   };
 
