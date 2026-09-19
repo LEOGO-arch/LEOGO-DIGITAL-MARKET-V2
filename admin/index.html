@@ -138,7 +138,16 @@
         <div class="approval-safety-note">Financial requests are reviewed one at a time. Approving a queue item updates its existing source workflow and is recorded in the Admin Audit Log.</div>
       </section>
 
-      <section class="admin-panel" data-admin-panel="orders"><div class="section-head"><div><span>ORDERS</span><h2>Order Management</h2><p>Orders are correctly positioned immediately after Approval Center.</p></div></div><div class="reserved-module"><span>▤</span><h3>Order ledger connection reserved</h3><p>The Customer Front currently creates preview orders only. This screen will connect when the production order table and seller fulfilment workflow are approved—no duplicate order system has been created.</p></div></section>
+      <section class="admin-panel" data-admin-panel="orders">
+        <div class="section-head"><div><span>ORDERS</span><h2>Order Management</h2><p>Production customer orders, Seller fulfilment and payment verification.</p></div><button id="refreshMarketplaceOrders" class="primary-button" type="button">↻ Refresh Orders</button></div>
+        <div class="seller-admin-summary">
+          <article><span>Total Orders</span><strong id="adminOrderTotal">0</strong><small>All marketplace orders</small></article>
+          <article><span>Payment Review</span><strong id="adminOrderPaymentPending">0</strong><small>Submitted payments</small></article>
+          <article><span>With Rider</span><strong id="adminOrderWithRider">0</strong><small>Awaiting delivery</small></article>
+          <article><span>Delivered</span><strong id="adminOrderDelivered">0</strong><small>Completed delivery</small></article>
+        </div>
+        <div class="table-card"><div class="responsive-table"><table><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Payment</th><th>Fulfilment</th><th>Payment Proof</th><th>Action</th></tr></thead><tbody id="adminMarketplaceOrderBody"><tr><td colspan="7">Loading orders…</td></tr></tbody></table></div></div>
+      </section>
 
       <section class="admin-panel" data-admin-panel="customers">
         <div class="section-head"><div><span>CUSTOMER MANAGEMENT</span><h2>Customers</h2><p>Authenticated customer accounts and saved profile information.</p></div><input class="table-search" id="customerSearch" type="search" placeholder="Search customer…"></div>
@@ -351,6 +360,6 @@
   <div class="modal" id="pickupStationModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="pickupStationForm"><header><div><span>DELIVERY SETTINGS</span><h2 id="pickupModalTitle">Add Pickup Station</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label class="wide"><span>Station name</span><input name="station_name" required></label><label><span>County</span><input name="county" required></label><label><span>Sub-County</span><input name="sub_county" required></label><label><span>Town</span><input name="town" required></label><label><span>Door number</span><input name="door_number"></label><label class="wide"><span>Address</span><input name="address_line" required></label><label><span>Landmark</span><input name="landmark"></label><label><span>Contact phone</span><input name="contact_phone"></label><label class="wide"><span>Operating information</span><input name="operating_hours" placeholder="e.g. Monday–Saturday, 8:00 AM–6:00 PM"></label><label><span>Pickup service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.001" required></label><label><span>Display order</span><input name="display_order" type="number" min="0" max="999" value="0"></label><label class="switch-label"><input name="is_active" type="checkbox" checked><span>Station is active</span></label></div><div class="form-status" id="pickupStationStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Pickup Station</button></footer></form></div>
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
-  <script src="admin.js?v=admin-v1-18" defer></script>
+  <script src="admin.js?v=admin-v1-19" defer></script>
 </body>
 </html>
