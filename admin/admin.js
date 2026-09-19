@@ -30,6 +30,7 @@
     premiumProfiles: [],
     sellers: [],
     sellerSettlementAccounts: [],
+    sellerSettlementRequests: [],
     sellerSettlements: [],
     serviceCounties: [],
     serviceSubcounties: [],
@@ -760,13 +761,16 @@
     return (account.bank_name || 'Bank') + ' · ' + (account.account_number || '—') + (account.bank_branch ? ' · ' + account.bank_branch : '');
   };
   const loadSellerSettlements = async () => {
-    const [accountsResult, settlementsResult] = await Promise.all([
+    const [accountsResult, requestsResult, settlementsResult] = await Promise.all([
       db.rpc('admin_list_seller_settlement_accounts'),
+      db.rpc('admin_list_seller_settlement_requests'),
       db.rpc('admin_list_seller_settlements')
     ]);
     if (accountsResult.error) throw accountsResult.error;
+    if (requestsResult.error) throw requestsResult.error;
     if (settlementsResult.error) throw settlementsResult.error;
     state.sellerSettlementAccounts = accountsResult.data || [];
+    state.sellerSettlementRequests = requestsResult.data || [];
     state.sellerSettlements = settlementsResult.data || [];
     renderSellerSettlements();
   };
@@ -780,11 +784,12 @@
   const renderSellerSettlements = () => {
     const pending = state.sellerSettlementAccounts.filter((account) => account.status === 'pending_review').length;
     const approved = state.sellerSettlementAccounts.filter((account) => account.status === 'approved').length;
-    $('#adminSettlementPending').textContent = pending;
+    const pendingRequests = state.sellerSettlementRequests.filter((request) => ['pending','under_review'].includes(request.status)).length;
+    $('#adminSettlementPending').textContent = pending + pendingRequests;
     $('#adminSettlementApproved').textContent = approved;
     $('#adminSettlementCount').textContent = state.sellerSettlements.length;
     $('#adminSettlementTotal').textContent = formatMoney(state.sellerSettlements.filter((item) => item.status === 'paid').reduce((sum, item) => sum + Number(item.amount_kes || 0), 0));
-    $('#sidebarSettlementCount').textContent = pending;
+    $('#sidebarSettlementCount').textContent = pending + pendingRequests;
 
     const approvedSellerIds = [...new Set(state.sellerSettlementAccounts.filter((account) => account.status === 'approved').map((account) => account.seller_id))];
     const currentSeller = $('#adminSettlementSeller')?.value || '';
@@ -794,6 +799,21 @@
       return `<option value="${escapeHtml(sellerId)}" ${sellerId === currentSeller ? 'selected' : ''}>${escapeHtml(seller?.business_name || account?.seller_name || 'Seller')} — ${escapeHtml(seller?.owner_name || account?.seller_email || '')}</option>`;
     }).join('');
     renderSellerSettlementAccountOptions();
+
+    $('#sellerSettlementRequestTableBody').innerHTML = state.sellerSettlementRequests.length ? state.sellerSettlementRequests.map((request) => {
+      const account=state.sellerSettlementAccounts.find((item)=>item.id===request.settlement_account_id);
+      const open=['pending','under_review'].includes(request.status);
+      return `<tr>
+        <td><strong>${escapeHtml(request.seller_name||'Seller')}</strong><small>${escapeHtml(request.seller_email||'')}</small></td>
+        <td><strong>${formatMoney(request.requested_amount_kes)}</strong><small>${formatDate(request.submitted_at,true)}</small></td>
+        <td>${account?'<strong>'+escapeHtml(account.account_name)+'</strong><small>'+escapeHtml(settlementDestination(account))+'</small>':'—'}</td>
+        <td>${escapeHtml(request.seller_note||'—')}</td>
+        <td><span class="status-chip">${escapeHtml(request.status.replaceAll('_',' '))}</span>${request.admin_notes?'<small>'+escapeHtml(request.admin_notes)+'</small>':''}</td>
+        <td class="settlement-admin-actions">
+          ${open?'<button data-request-review="under_review" data-request-id="'+escapeHtml(request.id)+'">Under Review</button><button class="danger" data-request-review="reject" data-request-id="'+escapeHtml(request.id)+'">Reject</button><button data-request-pay="'+escapeHtml(request.id)+'">Pay & Record</button>':''}
+        </td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="6">No Seller settlement requests yet.</td></tr>';
 
     $('#sellerSettlementAccountTableBody').innerHTML = state.sellerSettlementAccounts.length ? state.sellerSettlementAccounts.map((account) => {
       const canReview = account.status === 'pending_review';
