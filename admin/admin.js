@@ -29,6 +29,8 @@
     premiumCustomers: [],
     premiumProfiles: [],
     sellers: [],
+    sellerSettlementAccounts: [],
+    sellerSettlements: [],
     serviceCounties: [],
     serviceSubcounties: [],
     audit: [],
@@ -43,7 +45,7 @@
 
   const viewTitles = {
     dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', customers: 'Customers',
-    products: 'Products & Categories', sellers: 'Sellers', providers: 'Service Providers',
+    products: 'Products & Categories', sellers: 'Sellers', settlements: 'Seller Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
     accommodation: 'Accommodation', loyalty: 'Loyalty & Rewards', reports: 'Reports',
     settings: 'System Settings', audit: 'Audit Log'
@@ -151,7 +153,7 @@
   };
 
   const loadAll = async () => {
-    const loaders = [loadDashboard, loadApprovals, loadCustomers, loadSellers, loadServiceLocations, loadBusinessSettings,
+    const loaders = [loadDashboard, loadApprovals, loadCustomers, loadSellers, loadSellerSettlements, loadServiceLocations, loadBusinessSettings,
       loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumCustomers, loadPremiumProfiles, loadPremiumPlans,
       loadAccommodationSummary, loadAuditLog];
     const results = await Promise.allSettled(loaders.map((load) => load()));
@@ -750,6 +752,117 @@
     $('#sellerRecordModal').hidden=false;
   };
 
+
+  const settlementDestination = (account) => {
+    if (account.account_type === 'mpesa_mobile') return account.phone_number || '—';
+    if (account.account_type === 'mpesa_till') return 'Till ' + (account.till_number || '—');
+    if (account.account_type === 'mpesa_paybill') return 'Paybill ' + (account.paybill_number || '—') + ' · A/C ' + (account.account_number || '—');
+    return (account.bank_name || 'Bank') + ' · ' + (account.account_number || '—') + (account.bank_branch ? ' · ' + account.bank_branch : '');
+  };
+  const loadSellerSettlements = async () => {
+    const [accountsResult, settlementsResult] = await Promise.all([
+      db.rpc('admin_list_seller_settlement_accounts'),
+      db.rpc('admin_list_seller_settlements')
+    ]);
+    if (accountsResult.error) throw accountsResult.error;
+    if (settlementsResult.error) throw settlementsResult.error;
+    state.sellerSettlementAccounts = accountsResult.data || [];
+    state.sellerSettlements = settlementsResult.data || [];
+    renderSellerSettlements();
+  };
+  const renderSellerSettlementAccountOptions = () => {
+    const sellerId = $('#adminSettlementSeller')?.value || '';
+    const approved = state.sellerSettlementAccounts.filter((account) => account.seller_id === sellerId && account.status === 'approved');
+    $('#adminSettlementAccount').innerHTML = approved.length
+      ? '<option value="">Choose approved account…</option>' + approved.map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.account_name)} — ${escapeHtml(settlementDestination(account))}${account.is_primary ? ' (Primary)' : ''}</option>`).join('')
+      : '<option value="">No approved settlement account</option>';
+  };
+  const renderSellerSettlements = () => {
+    const pending = state.sellerSettlementAccounts.filter((account) => account.status === 'pending_review').length;
+    const approved = state.sellerSettlementAccounts.filter((account) => account.status === 'approved').length;
+    $('#adminSettlementPending').textContent = pending;
+    $('#adminSettlementApproved').textContent = approved;
+    $('#adminSettlementCount').textContent = state.sellerSettlements.length;
+    $('#adminSettlementTotal').textContent = formatMoney(state.sellerSettlements.filter((item) => item.status === 'paid').reduce((sum, item) => sum + Number(item.amount_kes || 0), 0));
+    $('#sidebarSettlementCount').textContent = pending;
+
+    const approvedSellers = state.sellers.filter((seller) => seller.application_status === 'approved');
+    const currentSeller = $('#adminSettlementSeller')?.value || '';
+    $('#adminSettlementSeller').innerHTML = '<option value="">Choose approved Seller…</option>' + approvedSellers.map((seller) => `<option value="${escapeHtml(seller.user_id)}" ${seller.user_id === currentSeller ? 'selected' : ''}>${escapeHtml(seller.business_name)} — ${escapeHtml(seller.owner_name)}</option>`).join('');
+    renderSellerSettlementAccountOptions();
+
+    $('#sellerSettlementAccountTableBody').innerHTML = state.sellerSettlementAccounts.length ? state.sellerSettlementAccounts.map((account) => {
+      const canReview = account.status === 'pending_review';
+      const canDisable = account.status === 'approved';
+      return `<tr>
+        <td><strong>${escapeHtml(account.seller_name || 'Seller')}</strong><small>${escapeHtml(account.seller_email || '')}</small></td>
+        <td><strong>${escapeHtml(account.account_name)}</strong><small>${escapeHtml(account.account_type.replaceAll('_',' '))} · ${escapeHtml(settlementDestination(account))}${account.is_primary ? ' · PRIMARY' : ''}</small></td>
+        <td><span class="status-chip">${escapeHtml(account.status.replaceAll('_',' '))}</span></td>
+        <td>${formatDate(account.submitted_at, true)}</td>
+        <td>${escapeHtml(account.admin_notes || '—')}</td>
+        <td class="settlement-admin-actions">
+          ${canReview ? '<button data-settlement-review="approve" data-settlement-account="'+escapeHtml(account.id)+'">Approve</button><button class="danger" data-settlement-review="reject" data-settlement-account="'+escapeHtml(account.id)+'">Reject</button>' : ''}
+          ${canDisable ? '<button class="danger" data-settlement-review="disable" data-settlement-account="'+escapeHtml(account.id)+'">Disable</button><button data-settle-seller="'+escapeHtml(account.seller_id)+'" data-settle-account="'+escapeHtml(account.id)+'">Settle</button>' : ''}
+        </td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="6">No Seller settlement accounts yet.</td></tr>';
+
+    $('#sellerSettlementHistoryBody').innerHTML = state.sellerSettlements.length ? state.sellerSettlements.map((item) => `<tr>
+      <td>${formatDate(item.paid_at, true)}</td><td><strong>${escapeHtml(item.seller_name || 'Seller')}</strong><small>${escapeHtml(item.seller_email || '')}</small></td>
+      <td><strong>${formatMoney(item.amount_kes)}</strong></td><td>${escapeHtml(item.settlement_reference)}</td><td><span class="status-chip">${escapeHtml(item.status)}</span></td>
+    </tr>`).join('') : '<tr><td colspan="5">No Seller settlements recorded yet.</td></tr>';
+
+    $('[data-settlement-review]').forEach((button) => button.addEventListener('click', async () => {
+      const decision = button.dataset.settlementReview;
+      let notes = '';
+      if (decision === 'reject') {
+        notes = window.prompt('Reason for rejecting this settlement account:','') || '';
+        if (notes.trim().length < 3) { globalStatus('A clear rejection reason is required.','error'); return; }
+      } else if (decision === 'disable') {
+        notes = window.prompt('Reason for disabling this settlement account (optional):','') || '';
+        if (!window.confirm('Disable this approved settlement account? It will no longer be available for new Seller payouts.')) return;
+      }
+      await withButtonLock(button,'Saving…',async()=>{
+        const {error}=await db.rpc('admin_review_seller_settlement_account',{p_account_id:button.dataset.settlementAccount,p_decision:decision,p_notes:notes||null});
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        await Promise.all([loadSellerSettlements(),loadAuditLog()]);
+        globalStatus(decision==='approve'?'Settlement account approved.':decision==='reject'?'Settlement account rejected.':'Settlement account disabled.');
+      });
+    }));
+    $('[data-settle-seller]').forEach((button) => button.addEventListener('click', () => {
+      changeView('settlements');
+      $('#adminSettlementSeller').value = button.dataset.settleSeller;
+      renderSellerSettlementAccountOptions();
+      $('#adminSettlementAccount').value = button.dataset.settleAccount;
+      $('#adminSettlementAmount').focus();
+      $('#adminSellerSettlementForm').scrollIntoView({behavior:'smooth',block:'center'});
+    }));
+  };
+  const recordSellerSettlement = async (event) => {
+    event.preventDefault();
+    const sellerId = $('#adminSettlementSeller').value;
+    const accountId = $('#adminSettlementAccount').value;
+    const amount = Number($('#adminSettlementAmount').value);
+    const reference = $('#adminSettlementReference').value.trim();
+    if (!sellerId || !accountId || !amount || amount <= 0 || reference.length < 3) {
+      setFormStatus($('#adminSettlementStatus'),'Choose a Seller, approved settlement account, amount and payment reference.','error');
+      return;
+    }
+    if (!window.confirm(`Confirm that KSh ${amount.toLocaleString('en-KE')} has been sent to this approved Seller settlement account?`)) return;
+    const button = $('#adminSellerSettlementForm button[type="submit"]');
+    await withButtonLock(button,'Recording…',async()=>{
+      const {error}=await db.rpc('admin_record_seller_settlement',{
+        p_seller_id:sellerId,p_account_id:accountId,p_amount_kes:amount,p_reference:reference,
+        p_notes:$('#adminSettlementNotes').value.trim()||null
+      });
+      if(error){setFormStatus($('#adminSettlementStatus'),friendlyError(error),'error');return;}
+      event.target.reset();
+      setFormStatus($('#adminSettlementStatus'),'Settlement recorded successfully and the Seller has been notified.','success');
+      await Promise.all([loadSellerSettlements(),loadAuditLog()]);
+      globalStatus('Seller settlement recorded.');
+    });
+  };
+
   const effectivePremiumStatus = (customer) => customer.effective_subscription_status || customer.membership_status || 'none';
   const filteredPremiumCustomers = () => {
     const term = ($('#premiumCustomerSearch')?.value || '').trim().toLowerCase();
@@ -1059,6 +1172,9 @@
     }));
     $('#adminSellerSearch').addEventListener('input', renderSellers);
     $('#adminSellerStatusFilter').addEventListener('change', renderSellers);
+    $('#refreshSellerSettlements').addEventListener('click', () => withButtonLock($('#refreshSellerSettlements'), 'Refreshing…', loadSellerSettlements));
+    $('#adminSettlementSeller').addEventListener('change', renderSellerSettlementAccountOptions);
+    $('#adminSellerSettlementForm').addEventListener('submit', recordSellerSettlement);
     $('#addServiceCountyForm').addEventListener('submit', async (event) => {
       event.preventDefault();
       const name = $('#newServiceCountyName').value.trim();
