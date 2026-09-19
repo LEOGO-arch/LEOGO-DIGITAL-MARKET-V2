@@ -676,13 +676,21 @@ $$('[data-seller-order-filter]').forEach(button=>button.addEventListener('click'
 $('#refreshSellerOrders').addEventListener('click',async()=>{const b=$('#refreshSellerOrders');b.disabled=true;await loadSellerOrders();b.disabled=false;});
 
 async function loadTaxonomy(){
-  const [c,s]=await Promise.all([
-    client.from('product_categories').select('*').eq('is_active',true).order('display_order'),
-    client.from('product_subcategories').select('*').eq('is_active',true).order('display_order')
-  ]);
-  if(c.error||s.error){status($('#productFormStatus'),(c.error||s.error).message,'error');return;}
-  categories=c.data||[];subcategories=s.data||[];
-  $('#productCategory').innerHTML='<option value="">Choose category</option>'+categories.filter(x=>x.is_assignable).map(x=>'<option value="'+x.id+'">'+escapeHtml(x.name)+'</option>').join('');
+  const select=$('#productCategory');
+  if(select)select.innerHTML='<option value="">Loading categories…</option>';
+  const {data,error}=await client.rpc('seller_product_taxonomy');
+  if(error){
+    if(select)select.innerHTML='<option value="">Categories failed to load — tap Refresh</option>';
+    status($('#productFormStatus'),'Categories could not load: '+error.message,'error');
+    return;
+  }
+  categories=Array.isArray(data?.categories)?data.categories:[];
+  subcategories=Array.isArray(data?.subcategories)?data.subcategories:[];
+  if(select){
+    const assignable=categories.filter(x=>x.is_assignable);
+    select.innerHTML='<option value="">Choose category</option>'+assignable.map(x=>'<option value="'+x.id+'">'+escapeHtml(x.name)+'</option>').join('');
+    if(!assignable.length)select.innerHTML='<option value="">No active categories configured</option>';
+  }
   renderSubcategories();
 }
 function escapeHtml(v=''){return String(v).replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));}
