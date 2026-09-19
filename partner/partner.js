@@ -11,7 +11,7 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const status=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className='status'+(type?' '+type:'');};
 const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const uid=()=>currentUser?.id||'';
-let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null;
+let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[];
 
 const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),logout=$('#partnerLogout');
 const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
@@ -79,6 +79,32 @@ $$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
 
 const normalisePhone=v=>{const d=String(v||'').replace(/\D/g,'');if(/^0[17]\d{8}$/.test(d))return '+254'+d.slice(1);if(/^254[17]\d{8}$/.test(d))return '+'+d;if(/^[17]\d{8}$/.test(d))return '+254'+d;return String(v||'').trim();};
 
+async function loadKenyaLocations(){
+  if(kenyaCounties.length && kenyaSubcounties.length)return;
+  const [countyResult,subcountyResult]=await Promise.all([
+    client.from('kenya_counties').select('code,name').eq('is_active',true).order('name'),
+    client.from('kenya_subcounties').select('code,county_code,name').eq('is_active',true).order('name')
+  ]);
+  if(countyResult.error||subcountyResult.error){
+    status($('#sellerRegistrationStatus'),(countyResult.error||subcountyResult.error).message,'error');
+    return;
+  }
+  kenyaCounties=countyResult.data||[];
+  kenyaSubcounties=subcountyResult.data||[];
+  $('#sellerCounty').innerHTML='<option value="">Select county</option>'+kenyaCounties.map((county)=>'<option value="'+escapeHtml(county.code)+'">'+escapeHtml(county.name)+'</option>').join('');
+  renderSellerSubcounties();
+}
+function renderSellerSubcounties(preferredCode=''){
+  const countyCode=$('#sellerCounty').value;
+  const options=kenyaSubcounties.filter((item)=>item.county_code===countyCode);
+  $('#sellerSubCounty').disabled=!countyCode;
+  $('#sellerSubCounty').innerHTML=countyCode
+    ? '<option value="">Select sub-county</option>'+options.map((item)=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.name)+'</option>').join('')
+    : '<option value="">Choose a county first</option>';
+  if(preferredCode && options.some((item)=>item.code===preferredCode))$('#sellerSubCounty').value=preferredCode;
+}
+$('#sellerCounty').addEventListener('change',()=>renderSellerSubcounties());
+
 async function loadSeller(){
   if(!currentUser)return;
   const {data,error}=await client.from('seller_accounts').select('*').eq('user_id',currentUser.id).maybeSingle();
@@ -103,6 +129,7 @@ async function openSellerRole(){
   activeRole='seller';
   rolePicker.hidden=true;
   sellerShell.hidden=false;
+  await loadKenyaLocations();
   await loadSeller();
 }
 function sellerStatusCopy(state){
@@ -143,8 +170,8 @@ function renderSeller(){
     $('#sellerOwnerName').value=seller.owner_name||'';
     $('#sellerIdNumber').value=seller.id_number||'';
     $('#sellerPhone').value=seller.phone||'';
-    $('#sellerCounty').value=seller.county||'';
-    $('#sellerSubCounty').value=seller.sub_county||'';
+    $('#sellerCounty').value=seller.county_code||'';
+    renderSellerSubcounties(seller.sub_county_code||'');
     $('#sellerTown').value=seller.town||'';
     $('#sellerLocation').value=seller.location_details||'';
     $('#sellerDescription').value=seller.business_description||'';
@@ -167,9 +194,11 @@ sellerReg.addEventListener('submit',async e=>{
   status($('#sellerRegistrationStatus'),'Submitting seller application…');
   const {error}=await client.rpc('submit_seller_application',{
     p_business_name:$('#sellerBusinessName').value.trim(),p_owner_name:$('#sellerOwnerName').value.trim(),
-    p_id_number:$('#sellerIdNumber').value.trim(),p_phone:phone,p_county:$('#sellerCounty').value.trim(),
-    p_sub_county:$('#sellerSubCounty').value.trim(),p_town:$('#sellerTown').value.trim(),
-    p_location_details:$('#sellerLocation').value.trim(),p_business_description:$('#sellerDescription').value.trim()||null
+    p_id_number:$('#sellerIdNumber').value.trim(),p_phone:phone,
+    p_county:$('#sellerCounty').selectedOptions[0]?.textContent||'',p_sub_county:$('#sellerSubCounty').selectedOptions[0]?.textContent||'',
+    p_town:$('#sellerTown').value.trim(),p_location_details:$('#sellerLocation').value.trim(),
+    p_business_description:$('#sellerDescription').value.trim()||null,
+    p_county_code:$('#sellerCounty').value,p_sub_county_code:$('#sellerSubCounty').value
   });
   if(error){status($('#sellerRegistrationStatus'),error.message,'error');return;}
   status($('#sellerRegistrationStatus'),'Seller application submitted to LEOGO Admin for approval.','success');
