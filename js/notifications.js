@@ -28,6 +28,7 @@
   let currentUser = null;
   let notifications = [];
   let realtimeChannel = null;
+  let authSignalVersion = 0;
 
   const escapeHtml = (value = '') => String(value ?? '').replace(/[&<>'"]/g, (c) => ({
     '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'
@@ -142,9 +143,21 @@
     render();
   };
 
+  const resolveCanonicalUser = async () => {
+    const sharedUser = window.leogoAuth?.getUser?.();
+    if (sharedUser) return sharedUser;
+    const { data } = await client.auth.getSession();
+    return data.session?.user || null;
+  };
+
   const openPanel = async () => {
     if (!panel || !scrim) return;
-    await loadNotifications();
+    const canonicalUser = await resolveCanonicalUser();
+    if ((canonicalUser?.id || null) !== (currentUser?.id || null)) {
+      await setUser(canonicalUser);
+    } else {
+      await loadNotifications();
+    }
     panel.hidden = false;
     scrim.hidden = false;
     requestAnimationFrame(() => {
@@ -199,17 +212,23 @@
   // leogo:authchange. Notifications follow that same session instead of maintaining
   // a separate view of login state.
   document.addEventListener('leogo:authchange', (event) => {
+    authSignalVersion += 1;
     setUser(event.detail?.user || null);
   });
 
   const initializeNotificationSession = async () => {
+    const startVersion = authSignalVersion;
     const sharedUser = window.leogoAuth?.getUser?.();
     if (sharedUser) {
       await setUser(sharedUser);
       return;
     }
     const { data } = await client.auth.getSession();
-    await setUser(data.session?.user || null);
+    // Do not allow an older initialization result to overwrite a newer
+    // leogo:authchange event that already supplied the signed-in user.
+    if (authSignalVersion !== startVersion) return;
+    const latestSharedUser = window.leogoAuth?.getUser?.();
+    await setUser(latestSharedUser || data.session?.user || null);
   };
   initializeNotificationSession();
 
