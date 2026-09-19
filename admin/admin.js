@@ -26,6 +26,7 @@
     pickupStations: [],
     walletSettings: null,
     premiumPlans: [],
+    premiumCustomers: [],
     audit: [],
     dashboard: null,
     dashboardRange: 'today',
@@ -146,7 +147,7 @@
 
   const loadAll = async () => {
     const loaders = [loadDashboard, loadApprovals, loadCustomers, loadBusinessSettings,
-      loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumPlans,
+      loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumCustomers, loadPremiumPlans,
       loadAccommodationSummary, loadAuditLog];
     const results = await Promise.allSettled(loaders.map((load) => load()));
     const failed = results.find((result) => result.status === 'rejected');
@@ -580,6 +581,101 @@
     });
   };
 
+  const effectivePremiumStatus = (customer) => customer.effective_subscription_status || customer.membership_status || 'none';
+  const filteredPremiumCustomers = () => {
+    const term = ($('#premiumCustomerSearch')?.value || '').trim().toLowerCase();
+    const application = $('#premiumCustomerStatusFilter')?.value || 'all';
+    const subscription = $('#premiumSubscriptionFilter')?.value || 'all';
+    return state.premiumCustomers.filter((customer) => {
+      const haystack = [customer.real_name, customer.email, customer.phone, customer.id_number, customer.location, customer.sex, customer.plan_name].map((value) => String(value || '').toLowerCase());
+      return (!term || haystack.some((value) => value.includes(term)))
+        && (application === 'all' || customer.application_status === application)
+        && (subscription === 'all' || effectivePremiumStatus(customer) === subscription);
+    });
+  };
+  const renderPremiumCustomerSummary = () => {
+    $('#premiumCustomerTotal').textContent = state.premiumCustomers.length;
+    $('#premiumCustomerApproved').textContent = state.premiumCustomers.filter((item) => item.application_status === 'approved').length;
+    $('#premiumSubscriptionActive').textContent = state.premiumCustomers.filter((item) => effectivePremiumStatus(item) === 'active').length;
+    $('#premiumSubscriptionInactive').textContent = state.premiumCustomers.filter((item) => ['expired','none','inactive'].includes(effectivePremiumStatus(item))).length;
+  };
+  const renderPremiumCustomers = () => {
+    renderPremiumCustomerSummary();
+    const rows = filteredPremiumCustomers();
+    $('#premiumCustomerTableBody').innerHTML = rows.length ? rows.map((customer) => {
+      const subscription = effectivePremiumStatus(customer);
+      const plan = customer.plan_name || 'No active plan';
+      return `<tr class="premium-customer-row">
+        <td data-label="Customer"><strong>${escapeHtml(customer.real_name || 'Premium Customer')}</strong><small>${escapeHtml(customer.email || '')}</small></td>
+        <td data-label="Contact"><strong>${escapeHtml(customer.phone || '—')}</strong><small>${escapeHtml(customer.location || '—')}</small></td>
+        <td data-label="Application"><span class="status-chip">${escapeHtml(customer.application_status || '—')}</span><small>${customer.approved_at ? 'Approved ' + formatDate(customer.approved_at) : 'Submitted ' + formatDate(customer.submitted_at)}</small></td>
+        <td data-label="Subscription"><span class="status-chip premium-subscription-${escapeHtml(subscription)}">${escapeHtml(subscription)}</span></td>
+        <td data-label="Plan"><strong>${escapeHtml(plan)}</strong><small>${customer.plan_amount_kes ? formatMoney(customer.plan_amount_kes) : ''}</small></td>
+        <td data-label="Expires">${customer.membership_ends_at ? formatDate(customer.membership_ends_at, true) : '—'}</td>
+        <td data-label="Payments"><strong>${Number(customer.payment_count || 0)}</strong><small>Confirmed: ${formatMoney(customer.confirmed_payment_total_kes || 0)}</small></td>
+        <td data-label="Action"><button class="premium-customer-view-button" type="button" data-premium-customer-view="${customer.user_id}">View Record →</button></td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="8">No Premium customers match the current filters.</td></tr>';
+    $('[data-premium-customer-view]').forEach((button) => button.addEventListener('click', () => openPremiumCustomerRecord(button.dataset.premiumCustomerView)));
+  };
+  const loadPremiumCustomers = async () => {
+    const { data, error } = await db.rpc('admin_list_premium_customers');
+    if (error) throw error;
+    state.premiumCustomers = data || [];
+    renderPremiumCustomers();
+  };
+  const premiumCustomerMediaPreview = async (customer) => {
+    const media = $('#premiumCustomerMedia');
+    const fields = [
+      ['Profile Picture','premium-profile-media',customer.profile_picture_path],
+      ['Passport-size Photo','premium-verification',customer.passport_photo_path],
+      ['Identity Document','premium-verification',customer.id_document_path]
+    ].filter(([, , path]) => path);
+    if (!media || !fields.length) { if (media) { media.hidden = true; media.innerHTML = ''; } return; }
+    media.hidden = false;
+    media.innerHTML = '<div class="review-media-heading"><span>RETAINED VERIFICATION FILES</span><strong>Customer Images &amp; Documents</strong><small>Visible only to authorized Admin users.</small></div><div class="review-media-grid" id="premiumCustomerMediaGrid"></div>';
+    const grid = $('#premiumCustomerMediaGrid');
+    for (const [label,bucket,path] of fields) {
+      const card = document.createElement('article');
+      card.className = 'review-media-card';
+      card.innerHTML = `<div class="review-media-card-head"><strong>${escapeHtml(label)}</strong><span>Secure file</span></div><div class="review-media-loading">Loading image…</div>`;
+      grid.appendChild(card);
+      try {
+        const { data, error } = await db.storage.from(bucket).createSignedUrl(String(path), 900);
+        if (error) throw error;
+        const url = data?.signedUrl || '';
+        if (!url) throw new Error('No secure image URL was returned.');
+        card.innerHTML = `<div class="review-media-card-head"><strong>${escapeHtml(label)}</strong><span>Secure preview</span></div><a class="review-media-image-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(url)}" alt="${escapeHtml(label)}"></a><div class="review-media-actions"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View full image ↗</a></div>`;
+      } catch (error) {
+        card.innerHTML = `<div class="review-media-card-head"><strong>${escapeHtml(label)}</strong><span>Preview unavailable</span></div><div class="review-media-error">${escapeHtml(friendlyError(error))}</div>`;
+      }
+    }
+  };
+  const openPremiumCustomerRecord = async (userId) => {
+    const customer = state.premiumCustomers.find((item) => item.user_id === userId);
+    if (!customer) return;
+    $('#premiumCustomerModalTitle').textContent = customer.real_name || customer.email || 'Premium Customer';
+    const subscription = effectivePremiumStatus(customer);
+    $('#premiumCustomerDetailSummary').innerHTML = `<div><span>Application</span><strong>${escapeHtml(customer.application_status || '—')}</strong></div><div><span>Subscription</span><strong>${escapeHtml(subscription)}</strong></div><div><span>Current Plan</span><strong>${escapeHtml(customer.plan_name || 'No active plan')}</strong></div><div><span>Confirmed Payments</span><strong>${formatMoney(customer.confirmed_payment_total_kes || 0)}</strong></div>`;
+    const detailRows = [
+      ['Real name',customer.real_name],['Email',customer.email],['Phone',customer.phone],['ID number',customer.id_number],
+      ['Sex',customer.sex],['Age',customer.age],['Location',customer.location],['Application status',customer.application_status],
+      ['Submitted',formatDate(customer.submitted_at,true)],['Approved',formatDate(customer.approved_at,true)],
+      ['Age consent',customer.age_consent ? 'Yes':'No'],['Responsibility consent',customer.responsibility_consent ? 'Yes':'No'],
+      ['Privacy consent',customer.privacy_consent ? 'Yes':'No'],['Membership status',customer.membership_status || 'None'],
+      ['Effective subscription',subscription],['Plan',customer.plan_name || 'None'],['Plan price',customer.plan_amount_kes ? formatMoney(customer.plan_amount_kes):'—'],
+      ['Duration',customer.duration_hours ? customer.duration_hours + ' hours':'—'],['Starts',formatDate(customer.membership_starts_at,true)],['Expires',formatDate(customer.membership_ends_at,true)],
+      ['Last payment status',customer.last_payment_status || 'None'],['Last payment reference',customer.last_payment_reference || '—'],
+      ['Last payment amount',customer.last_payment_amount_kes ? formatMoney(customer.last_payment_amount_kes):'—'],['Last payment submitted',formatDate(customer.last_payment_submitted_at,true)],
+      ['Last payment reviewed',formatDate(customer.last_payment_reviewed_at,true)],['Admin payment notes',customer.last_payment_admin_notes || '—']
+    ];
+    $('#premiumCustomerDetailGrid').innerHTML = detailRows.map(([label,value]) => `<div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value == null || value === '' ? '—' : value)}</strong></div>`).join('');
+    const history = Array.isArray(customer.payment_history) ? customer.payment_history : [];
+    $('#premiumCustomerPaymentHistory').innerHTML = history.length ? history.map((payment) => `<article class="premium-payment-history-row"><div><strong>${escapeHtml(payment.plan_name || 'Premium payment')}</strong><small>${escapeHtml(payment.payment_reference || '')}</small></div><div><strong>${formatMoney(payment.amount_kes || 0)}</strong><small>${formatDate(payment.submitted_at,true)}</small></div><div><span class="status-chip">${escapeHtml(payment.payment_status || '—')}</span><small>${escapeHtml(payment.admin_notes || '')}</small></div></article>`).join('') : '<div class="empty-mini">No Premium payment history recorded.</div>';
+    $('#premiumCustomerModal').hidden = false;
+    await premiumCustomerMediaPreview(customer);
+  };
+
   const loadPremiumPlans = async () => {
     const { data, error } = await db.from('premium_plans').select('*').order('duration_hours');
     if (error) throw error;
@@ -751,6 +847,14 @@
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
     $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
+    $('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.addEventListener('click', () => {
+      const tab = button.dataset.premiumAdminTab;
+      $('#premiumAdminTabs [data-premium-admin-tab]').forEach((item) => item.classList.toggle('active', item === button));
+      $('[data-premium-admin-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.premiumAdminContent === tab));
+    }));
+    $('#premiumCustomerSearch').addEventListener('input', renderPremiumCustomers);
+    $('#premiumCustomerStatusFilter').addEventListener('change', renderPremiumCustomers);
+    $('#premiumSubscriptionFilter').addEventListener('change', renderPremiumCustomers);
     $('#customerSearch').addEventListener('input', renderCustomers);
     $('#selectAllCustomers').addEventListener('change', (event) => { filteredCustomers().forEach(r=>event.target.checked?state.selectedCustomers.add(r.user_id):state.selectedCustomers.delete(r.user_id)); renderCustomers(); });
     $('#selectFilteredCustomers').addEventListener('click',()=>{filteredCustomers().forEach(r=>state.selectedCustomers.add(r.user_id));renderCustomers();});
