@@ -836,6 +836,35 @@
       <td><strong>${formatMoney(item.amount_kes)}</strong></td><td>${escapeHtml(item.settlement_reference)}</td><td><span class="status-chip">${escapeHtml(item.status)}</span></td>
     </tr>`).join('') : '<tr><td colspan="5">No Seller settlements recorded yet.</td></tr>';
 
+    $('[data-request-review]').forEach((button)=>button.addEventListener('click',async()=>{
+      const decision=button.dataset.requestReview;
+      let notes='';
+      if(decision==='reject'){
+        notes=window.prompt('Reason for rejecting this settlement request:','')||'';
+        if(notes.trim().length<3){globalStatus('A clear rejection reason is required.','error');return;}
+      }
+      await withButtonLock(button,'Saving…',async()=>{
+        const {error}=await db.rpc('admin_review_seller_settlement_request',{p_request_id:button.dataset.requestId,p_decision:decision,p_notes:notes||null});
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        await Promise.all([loadSellerSettlements(),loadAuditLog()]);
+        globalStatus(decision==='reject'?'Settlement request rejected.':'Settlement request marked under review.');
+      });
+    }));
+    $('[data-request-pay]').forEach((button)=>button.addEventListener('click',async()=>{
+      const request=state.sellerSettlementRequests.find((item)=>item.id===button.dataset.requestPay);
+      if(!request)return;
+      const reference=window.prompt('Enter the actual M-Pesa / bank transaction reference after sending '+formatMoney(request.requested_amount_kes)+':','')||'';
+      if(reference.trim().length<3){globalStatus('A payment reference is required before marking the request paid.','error');return;}
+      const notes=window.prompt('Settlement note (optional):','')||'';
+      if(!window.confirm('Confirm the money has already been sent to the approved Seller settlement account?'))return;
+      await withButtonLock(button,'Recording…',async()=>{
+        const {error}=await db.rpc('admin_pay_seller_settlement_request',{p_request_id:request.id,p_reference:reference.trim(),p_notes:notes||null});
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        await Promise.all([loadSellerSettlements(),loadAuditLog()]);
+        globalStatus('Settlement request paid and recorded.');
+      });
+    }));
+
     $('[data-settlement-review]').forEach((button) => button.addEventListener('click', async () => {
       const decision = button.dataset.settlementReview;
       let notes = '';
@@ -853,7 +882,7 @@
         globalStatus(decision==='approve'?'Settlement account approved.':decision==='reject'?'Settlement account rejected.':'Settlement account disabled.');
       });
     }));
-    $('[data-settle-seller]').forEach((button) => button.addEventListener('click', () => {
+    $$('[data-settle-seller]').forEach((button) => button.addEventListener('click', () => {
       changeView('settlements');
       $('#adminSettlementSeller').value = button.dataset.settleSeller;
       renderSellerSettlementAccountOptions();
