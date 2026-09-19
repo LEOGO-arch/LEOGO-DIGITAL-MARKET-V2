@@ -15,6 +15,7 @@
     admin: null,
     user: null,
     approvals: [],
+    marketplaceOrders: [],
     approvalFilter: 'all',
     approvalSearch: '',
     selectedApprovals: new Set(),
@@ -154,7 +155,7 @@
   };
 
   const loadAll = async () => {
-    const loaders = [loadDashboard, loadApprovals, loadCustomers, loadSellers, loadSellerSettlements, loadServiceLocations, loadBusinessSettings,
+    const loaders = [loadDashboard, loadApprovals, loadMarketplaceOrders, loadCustomers, loadSellers, loadSellerSettlements, loadServiceLocations, loadBusinessSettings,
       loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumCustomers, loadPremiumProfiles, loadPremiumPlans,
       loadAccommodationSummary, loadAuditLog];
     const results = await Promise.allSettled(loaders.map((load) => load()));
@@ -461,6 +462,49 @@
       );
       await Promise.all([loadApprovals(), loadDashboard(), loadAuditLog(), loadSellers(), loadPremiumCustomers(), loadPremiumProfiles()]);
     });
+  };
+
+  const loadMarketplaceOrders = async () => {
+    const {data,error}=await db.rpc('admin_list_marketplace_orders');
+    if(error) throw error;
+    state.marketplaceOrders=data||[];
+    renderMarketplaceOrders();
+  };
+  const paymentStatusLabel=(status)=>({
+    submitted:'Submitted — verify',verified_paid:'Paid',cod_due:'COD due',cod_paid:'Paid on delivery',rejected:'Rejected'
+  }[status]||String(status||'').replaceAll('_',' '));
+  const renderMarketplaceOrders=()=>{
+    const orders=state.marketplaceOrders;
+    $('#adminOrderTotal').textContent=orders.length;
+    $('#adminOrderPaymentPending').textContent=orders.filter(o=>o.payment_status==='submitted').length;
+    $('#adminOrderWithRider').textContent=orders.filter(o=>o.order_status==='with_rider').length;
+    $('#adminOrderDelivered').textContent=orders.filter(o=>o.order_status==='delivered').length;
+    $('#adminMarketplaceOrderBody').innerHTML=orders.length?orders.map(o=>`<tr>
+      <td><strong>${escapeHtml(o.order_reference)}</strong><small>${formatDate(o.created_at,true)}</small></td>
+      <td><strong>${escapeHtml(o.receiver_name)}</strong><small>${escapeHtml(o.customer_email||o.contact_number||'')}</small></td>
+      <td><strong>${formatMoney(o.grand_total_kes)}</strong><small>${Number(o.seller_count||0)} Seller(s)</small></td>
+      <td><span class="status-chip">${escapeHtml(paymentStatusLabel(o.payment_status))}</span><small>${escapeHtml(o.payment_method||'')}</small></td>
+      <td><span class="status-chip">${escapeHtml(String(o.order_status||'').replaceAll('_',' '))}</span></td>
+      <td><small class="order-payment-proof">${escapeHtml(o.payment_message||'No message')}</small></td>
+      <td class="settlement-admin-actions">
+        ${o.payment_status==='submitted'?'<button data-order-payment="paid" data-order-id="'+escapeHtml(o.id)+'">Verify Paid</button><button class="danger" data-order-payment="reject" data-order-id="'+escapeHtml(o.id)+'">Reject Payment</button>':''}
+      </td>
+    </tr>`).join(''):'<tr><td colspan="7">No marketplace orders yet.</td></tr>';
+    $('[data-order-payment]').forEach(button=>button.addEventListener('click',async()=>{
+      const paid=button.dataset.orderPayment==='paid';
+      let notes='';
+      if(!paid){
+        notes=window.prompt('Reason the payment could not be verified:','')||'';
+        if(notes.trim().length<3){globalStatus('Enter a clear payment rejection reason.','error');return;}
+      }
+      if(paid && !window.confirm('Confirm that this customer payment has been verified in the LEOGO receiving account?'))return;
+      await withButtonLock(button,paid?'Verifying…':'Rejecting…',async()=>{
+        const {error}=await db.rpc('admin_verify_marketplace_order_payment',{p_order_id:button.dataset.orderId,p_paid:paid,p_notes:notes||null});
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        await Promise.all([loadMarketplaceOrders(),loadAuditLog()]);
+        globalStatus(paid?'Order payment verified.':'Order payment rejected.');
+      });
+    }));
   };
 
   const loadCustomers = async () => {
@@ -1219,6 +1263,7 @@
     });
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
+    $('#refreshMarketplaceOrders').addEventListener('click', () => withButtonLock($('#refreshMarketplaceOrders'), 'Refreshing…', loadMarketplaceOrders));
     $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
     document.querySelectorAll('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.addEventListener('click', () => {
       changePremiumAdminTab(button.dataset.premiumAdminTab);
