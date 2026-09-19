@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07152f">
+  <title>LEOGO Partner Portal</title>
+  <link rel="stylesheet" href="partner.css?v=seller-v1">
+</head>
+<body>
+<header class="partner-header">
+  <a href="../" class="brand"><img src="../assets/images/leogo-official-logo.jpg" alt="LEOGO"><span><b>LEOGO DIGITAL MARKET</b><small>Partner Portal</small></span></a>
+  <button id="partnerLogout" type="button" hidden>Sign Out</button>
+</header>
+
+<main>
+  <section class="hero">
+    <span>ONE PARTNER URL</span>
+    <h1>Join and manage your LEOGO partner account</h1>
+    <p>This portal is the common entry point for Seller, Transporter, Cyber Services, Premium Profile and Accommodation Provider accounts. Sign in once, then open the partner account you registered.</p>
+  </section>
+
+  <section class="role-grid" id="partnerRoleGrid">
+    <button class="active" data-role-target="seller"><span>🏪</span><strong>Seller</strong><small>Register shop & manage products</small></button>
+    <button data-role-target="transport" disabled><span>🚚</span><strong>Transporter</strong><small>Registration module comes next</small></button>
+    <button data-role-target="cyber" disabled><span>🖥️</span><strong>Cyber Services</strong><small>Registration module comes next</small></button>
+    <button data-role-target="premium" disabled><span>🔞</span><strong>Premium Profile</strong><small>Existing Premium registration will be linked here</small></button>
+    <button data-role-target="accommodation" disabled><span>🏨</span><strong>Accommodation Provider</strong><small>Existing provider registration will be linked here</small></button>
+  </section>
+
+  <section class="auth-shell" id="partnerAuthShell">
+    <div>
+      <span>PARTNER SIGN IN</span><h2>Use your LEOGO account</h2>
+      <p>If you already use LEOGO as a customer, use the same email and password. You do not need a second login.</p>
+    </div>
+    <div class="auth-tabs"><button class="active" data-auth-tab="login">Sign In</button><button data-auth-tab="register">Create Account</button></div>
+    <form id="partnerLoginForm" class="auth-form active" data-auth-form="login">
+      <label>Email<input id="partnerLoginEmail" type="email" autocomplete="email" required></label>
+      <label>Password<input id="partnerLoginPassword" type="password" autocomplete="current-password" minlength="8" required></label>
+      <button type="submit">Sign In</button>
+    </form>
+    <form id="partnerRegisterForm" class="auth-form" data-auth-form="register">
+      <label>Full name<input id="partnerRegisterName" type="text" autocomplete="name" minlength="2" required></label>
+      <label>Email<input id="partnerRegisterEmail" type="email" autocomplete="email" required></label>
+      <label>Password<input id="partnerRegisterPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+      <button type="submit">Create LEOGO Account</button>
+    </form>
+    <p id="partnerAuthStatus" class="status"></p>
+  </section>
+
+  <section class="seller-shell" id="sellerShell" hidden>
+    <div class="account-head">
+      <div><span>SELLER ACCOUNT</span><h2 id="sellerWelcome">Seller Dashboard</h2><p id="sellerAccountStatus">Loading seller account…</p></div>
+      <button id="showSellerRegistration" type="button">Seller Registration</button>
+    </div>
+
+    <form id="sellerRegistrationForm" class="panel seller-registration" hidden>
+      <div class="section-title"><span>SELLER REGISTRATION</span><h3>Business & owner details</h3><p>All registration data remains available to authorized LEOGO Admin after approval.</p></div>
+      <div class="form-grid">
+        <label>Business / shop name<input id="sellerBusinessName" type="text" maxlength="120" required></label>
+        <label>Owner full name<input id="sellerOwnerName" type="text" maxlength="120" required></label>
+        <label>National ID / identification number<input id="sellerIdNumber" type="text" maxlength="30" required></label>
+        <label>Phone number<input id="sellerPhone" type="tel" placeholder="+2547XXXXXXXX" required></label>
+        <label>County<input id="sellerCounty" type="text" maxlength="60" required></label>
+        <label>Sub-County<input id="sellerSubCounty" type="text" maxlength="80"></label>
+        <label>Town<input id="sellerTown" type="text" maxlength="80" required></label>
+        <label>Business location / landmark<input id="sellerLocation" type="text" maxlength="180" required></label>
+        <label class="wide">Business description<textarea id="sellerDescription" rows="3" maxlength="1000" placeholder="What do you sell?"></textarea></label>
+      </div>
+      <button type="submit">Submit Seller Application</button>
+      <p id="sellerRegistrationStatus" class="status"></p>
+    </form>
+
+    <section id="sellerApprovedArea" hidden>
+      <div class="seller-metrics">
+        <article><span>Products</span><strong id="sellerProductCount">0</strong></article>
+        <article><span>Available</span><strong id="sellerAvailableCount">0</strong></article>
+        <article><span>Flash Sale Requests</span><strong id="sellerFlashCount">0</strong></article>
+      </div>
+
+      <form id="sellerProductForm" class="panel product-form">
+        <input id="sellerProductId" type="hidden">
+        <div class="section-title"><span>PRODUCT MANAGEMENT</span><h3 id="productFormTitle">Add Product / Item</h3><p>Products saved as active can be shown to customers. Restricted categories remain hidden until LEOGO compliance controls are connected.</p></div>
+        <div class="form-grid">
+          <label>Product / item name<input id="productName" type="text" maxlength="160" required></label>
+          <label>Selling price (KSh)<input id="productPrice" type="number" min="0" step="0.01" required></label>
+          <label>Availability<select id="productAvailability" required><option value="available">Available</option><option value="out_of_stock">Out of Stock</option><option value="unavailable">Unavailable</option></select></label>
+          <label>Quantity available<input id="productQuantity" type="number" min="0" step="0.001" required></label>
+          <label>Measurement unit<select id="productUnit" required>
+            <option value="piece">Piece</option><option value="pcs">Pcs</option><option value="number">Numbers</option><option value="kg">Kg</option><option value="g">Grams</option><option value="litre">Litres</option><option value="ml">Ml</option><option value="crate">Crates</option><option value="pack">Pack</option><option value="box">Box</option><option value="bag">Bag</option><option value="bunch">Bunch</option><option value="dozen">Dozen</option><option value="pair">Pair</option><option value="set">Set</option><option value="other">Other</option>
+          </select></label>
+          <label id="productOtherUnitWrap" hidden>Other measurement unit<input id="productOtherUnit" type="text" maxlength="40"></label>
+          <label>Category<select id="productCategory" required><option value="">Loading categories…</option></select></label>
+          <label>Sub-category<select id="productSubcategory"><option value="">Optional</option></select></label>
+          <label>Group / collection (optional)<input id="productGroup" type="text" maxlength="100" placeholder="e.g. Breakfast, Ladies Wear"></label>
+          <label>Listing status<select id="productListingStatus"><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option></select></label>
+          <label class="wide">Product details<textarea id="productDetails" rows="4" maxlength="3000" placeholder="Size, what is included, condition, specifications..." required></textarea></label>
+
+          <label>Main product picture<input id="productMainImage" type="file" accept="image/jpeg,image/png,image/webp"></label>
+          <label>Optional gallery — up to 3 pictures<input id="productGallery" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+        </div>
+
+        <div class="toggle-card"><label><input id="productHasVariants" type="checkbox"><span><strong>Product has variants</strong><small>Examples: size, pack size, flavour or colour.</small></span></label></div>
+        <div id="variantSection" class="variant-section" hidden>
+          <div class="section-title compact"><span>VARIANTS</span><h4>Add variants</h4></div>
+          <div id="variantRows"></div>
+          <button id="addVariantRow" type="button" class="secondary">+ Add Variant</button>
+        </div>
+
+        <div class="toggle-card"><label><input id="productLpp" type="checkbox"><span><strong>Accept Lipa Pole Pole</strong><small>Set the required first deposit and maximum payment period.</small></span></label></div>
+        <div id="lppFields" class="mini-grid" hidden>
+          <label>First deposit (KSh)<input id="productLppDeposit" type="number" min="1" step="0.01"></label>
+          <label>Maximum period (days)<input id="productLppDays" type="number" min="1" max="365"></label>
+        </div>
+
+        <div class="toggle-card"><label><input id="productFlashSale" type="checkbox"><span><strong>Send item to Flash Sale</strong><small>Set flash price, start/end time and quantity reserved for Flash Sale.</small></span></label></div>
+        <div id="flashFields" class="form-grid" hidden>
+          <label>Flash Sale price (KSh)<input id="flashPrice" type="number" min="0" step="0.01"></label>
+          <label>Flash quantity<input id="flashQuantity" type="number" min="0.001" step="0.001"></label>
+          <label>Starts<input id="flashStart" type="datetime-local"></label>
+          <label>Ends<input id="flashEnd" type="datetime-local"></label>
+        </div>
+
+        <div id="restrictedCategoryNotice" class="restricted-notice" hidden>⚠️ This is a restricted category. The product can be saved to your seller account, but it will not be publicly displayed until LEOGO activates the required compliance controls.</div>
+        <div class="product-actions"><button id="cancelProductEdit" type="button" class="secondary" hidden>Cancel Edit</button><button type="submit">Save Product</button></div>
+        <p id="productFormStatus" class="status"></p>
+      </form>
+
+      <section class="panel">
+        <div class="section-title"><span>MY PRODUCTS</span><h3>Products you can edit anytime</h3></div>
+        <div id="sellerProductList" class="product-list"></div>
+      </section>
+    </section>
+  </section>
+</main>
+
+<script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
+<script src="partner.js?v=seller-v1" defer></script>
+</body></html>
