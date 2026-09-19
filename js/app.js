@@ -1422,21 +1422,15 @@
     container.innerHTML = rows.map(order => {
       const items=(order.items||[]).map(i=>'<li>'+receiptEscape(i.product_name)+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
       const sellers=(order.seller_fulfilments||[]).map(s=>'<span>'+receiptEscape(s.seller_name)+' — <b>'+receiptEscape(String(s.fulfilment_status).replaceAll('_',' '))+'</b></span>').join('');
-      const canConfirm=order.order_status==='with_rider';
-      return '<article class="customer-order-card"><header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+formatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header><ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div><div class="customer-order-total"><span>Total</span><strong>'+money(order.grand_total_kes)+'</strong></div>'+(canConfirm?'<button type="button" data-confirm-delivery="'+receiptEscape(order.id)+'">Confirm Order Delivered to Me</button>':'')+'</article>';
+      const rider = order.rider_name ? '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>'+receiptEscape(order.rider_name)+'</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(String(order.delivery_status||'awaiting_assignment').replaceAll('_',' '))+'</strong></span></div>' : '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>Awaiting assignment</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(String(order.delivery_status||'awaiting_assignment').replaceAll('_',' '))+'</strong></span></div>';
+      return '<article class="customer-order-card"><header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+formatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header><ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+'<div class="customer-order-total"><span>Total</span><strong>'+money(order.grand_total_kes)+'</strong></div></article>';
     }).join('');
     if (empty) empty.hidden = rows.length > 0;
     const active = customerMarketplaceOrders.filter(o=>!['delivered','cancelled'].includes(o.order_status)).length;
     const ac=document.getElementById('customerActiveOrderCount'); if(ac) ac.textContent=active;
     const at=document.getElementById('customerActiveOrderText'); if(at) at.textContent=active?active+' order(s) in progress':'No active orders';
     const pc=document.getElementById('customerProductOrderCount'); if(pc) pc.textContent=customerMarketplaceOrders.length;
-    container.querySelectorAll('[data-confirm-delivery]').forEach(button=>button.addEventListener('click',async()=>{
-      if(!window.confirm('Confirm that you have physically received this order?')) return;
-      button.disabled=true;button.textContent='Confirming…';
-      const {error}=await window.leogoAuth.client.rpc('customer_confirm_order_delivered',{p_order_id:button.dataset.confirmDelivery});
-      if(error){alert(error.message);button.disabled=false;button.textContent='Confirm Order Delivered to Me';return;}
-      await loadCustomerMarketplaceOrders();
-    }));
+
   };
   async function loadCustomerMarketplaceOrders(){
     if(!window.leogoAuth?.isAuthenticated?.()){
