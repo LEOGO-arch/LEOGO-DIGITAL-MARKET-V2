@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=seller-v2">
+  <link rel="stylesheet" href="partner.css?v=seller-v3">
 </head>
 <body>
 <header class="partner-header">
@@ -41,6 +41,18 @@
       <label>Email<input id="partnerLoginEmail" type="email" autocomplete="email" required></label>
       <label>Password<input id="partnerLoginPassword" type="password" autocomplete="current-password" minlength="8" required></label>
       <button type="submit">Sign In</button>
+      <button id="showPartnerResetPassword" class="link-button" type="button">Forgot password?</button>
+    </form>
+    <form id="partnerResetRequestForm" class="auth-form" hidden>
+      <div class="reset-heading"><strong>Reset your password</strong><small>Enter the email you used to create your LEOGO account. We will send a secure reset link.</small></div>
+      <label>Email<input id="partnerResetEmail" type="email" autocomplete="email" required></label>
+      <div class="reset-actions"><button id="cancelPartnerReset" class="secondary" type="button">Back to Sign In</button><button type="submit">Send Reset Link</button></div>
+    </form>
+    <form id="partnerResetUpdateForm" class="auth-form" hidden>
+      <div class="reset-heading"><strong>Create a new password</strong><small>Use at least 8 characters.</small></div>
+      <label>New password<input id="partnerRecoveryPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label>Confirm new password<input id="partnerRecoveryPasswordConfirm" type="password" autocomplete="new-password" minlength="8" required></label>
+      <button type="submit">Update Password</button>
     </form>
     <form id="partnerRegisterForm" class="auth-form" data-auth-form="register">
       <label>Full name<input id="partnerRegisterName" type="text" autocomplete="name" minlength="2" required></label>
@@ -152,5 +164,5 @@
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="partner.js?v=seller-v2" defer></script>
+<script src="partner.js?v=seller-v3" defer></script>
 </body></html>
