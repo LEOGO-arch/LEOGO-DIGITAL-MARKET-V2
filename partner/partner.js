@@ -275,7 +275,7 @@ async function loadPartnerNotifications(){
       <div><strong>${escapeHtml(n.title)}</strong><p>${escapeHtml(n.message)}</p><small>${formatDate(n.created_at)}</small></div>
       ${n.read_at?'':'<button class="secondary" type="button" data-mark-notification="'+escapeHtml(n.id)+'">Mark read</button>'}
     </article>`).join(''):'<div class="empty-card">No Seller notifications yet.</div>';
-  $('[data-mark-notification]').forEach(button=>button.addEventListener('click',async()=>{
+  $$('[data-mark-notification]').forEach(button=>button.addEventListener('click',async()=>{
     const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markNotification});
     if(!error)await loadPartnerNotifications();
   }));
@@ -289,7 +289,7 @@ function settlementDestination(account){
 }
 function toggleSettlementFields(){
   const type=$('#sellerSettlementType').value;
-  $('[data-settlement-field]').forEach(label=>{label.hidden=!label.dataset.settlementField.split(' ').includes(type);});
+  $$('[data-settlement-field]').forEach(label=>{label.hidden=!label.dataset.settlementField.split(' ').includes(type);});
 }
 $('#sellerSettlementType').addEventListener('change',toggleSettlementFields);
 function resetSettlementForm(){
@@ -325,7 +325,7 @@ function renderSellerSettlementData(){
       <p>${a.admin_notes?'Admin note: '+escapeHtml(a.admin_notes):'Every change requires Admin verification.'}</p>
       ${['approved','pending_review','rejected'].includes(a.status)?'<button class="secondary" type="button" data-edit-settlement="'+escapeHtml(a.id)+'">Edit</button>':''}
     </article>`).join(''):'<div class="empty-card">No settlement account added yet.</div>';
-  $('[data-edit-settlement]').forEach(button=>button.addEventListener('click',()=>editSettlementAccount(button.dataset.editSettlement)));
+  $$('[data-edit-settlement]').forEach(button=>button.addEventListener('click',()=>editSettlementAccount(button.dataset.editSettlement)));
   const approved=settlementAccounts.filter(a=>a.status==='approved');
   $('#sellerSettlementRequestAccount').innerHTML=approved.length
     ? '<option value="">Choose approved settlement account…</option>'+approved.map(a=>'<option value="'+escapeHtml(a.id)+'">'+escapeHtml(a.account_name)+' — '+escapeHtml(settlementDestination(a))+(a.is_primary?' (Primary)':'')+'</option>').join('')
