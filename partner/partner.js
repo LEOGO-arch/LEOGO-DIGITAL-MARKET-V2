@@ -13,20 +13,15 @@ const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits
 const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[];
 const INITIAL_SERVICE_AREAS=[
-  {code:'KE041',name:'Siaya',subs:[['KE041234','Alego Usonga'],['KE041236','Bondo'],['KE041235','Gem'],['KE041237','Rarieda'],['KE041238','Ugenya'],['KE041239','Ugunja']]},
-  {code:'KE042',name:'Kisumu',subs:[['KE042240','Kisumu Central'],['KE042241','Kisumu East'],['KE042242','Kisumu West'],['KE042244','Muhoroni'],['KE042246','Nyakach'],['KE042245','Nyando'],['KE042243','Seme']]},
-  {code:'KE047',name:'Nairobi',subs:[['KE047286','Dagoretti'],['KE047289','Embakasi Central'],['KE047287','Embakasi East'],['KE047288','Embakasi North'],['KE047290','Embakasi South'],['KE047291','Embakasi West'],['KE047282','Kamukunji'],['KE047279','Kasarani'],['KE047284','Kibra'],['KE047278','Kilimani'],['KE047285','Langata'],['KE047283','Makadara'],['KE047281','Mathare'],['KE047276','Roysambu'],['KE047277','Ruaraka'],['KE047280','Starehe'],['KE047275','Westlands']]},
-  {code:'KE040',name:'Busia',subs:[['KE040231','Budalangi'],['KE040229','Butula'],['KE040232','Funyula'],['KE040230','Matayos'],['KE040228','Nambale'],['KE040227','Teso North'],['KE040226','Teso South']]},
-  {code:'KE043',name:'Homa Bay',subs:[['KE043247','Homa Bay'],['KE043249','Kabondo Kasipul'],['KE043248','Karachuonyo'],['KE043250','Kasipul'],['KE043252','Ndhiwa'],['KE043251','Rangwe'],['KE043253','Suba North'],['KE043246','Suba South']]},
-  {code:'KE044',name:'Migori',subs:[['KE044254','Awendo'],['KE044258','Kuria East'],['KE044257','Kuria West'],['KE044260','Nyatike'],['KE044255','Rongo'],['KE044256','Suna East'],['KE044259','Suna West'],['KE044253','Uriri']]},
-  {code:'KE037',name:'Kakamega',subs:[['KE037204','Butere'],['KE037202','Ikolomani'],['KE037203','Khwisero'],['KE037208','Likuyani'],['KE037207','Lugari'],['KE037201','Lurambi'],['KE037210','Malava'],['KE037206','Matungu'],['KE037205','Mumias East'],['KE037209','Mumias West'],['KE037211','Navakholo'],['KE037200','Shinyalu']]},
-  {code:'KE039',name:'Bungoma',subs:[['KE039219','Bumula'],['KE039218','Kabuchai'],['KE039217','Kanduyi'],['KE039222','Kimilili'],['KE039224','Mt. Elgon'],['KE039221','Sirisia'],['KE039220','Tongaren'],['KE039223','Webuye East'],['KE039216','Webuye West']]},
-  {code:'KE026',name:'Trans Nzoia',display:'Trans Nzoia (Kitale)',subs:[['KE026140','Cherangany'],['KE026141','Endebess'],['KE026142','Kiminini'],['KE026143','Kwanza'],['KE026139','Saboti']]},
-  {code:'KE027',name:'Uasin Gishu',display:'Uasin Gishu (Eldoret)',subs:[['KE027144','Ainabkoi'],['KE027145','Kapseret'],['KE027146','Kesses'],['KE027147','Moiben'],['KE027148','Soy'],['KE027149','Turbo']]}
+  {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
+  {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
+  {code:'KE037',name:'Kakamega'},{code:'KE039',name:'Bungoma'},
+  {code:'KE026',name:'Trans Nzoia',display:'Trans Nzoia (Kitale)'},
+  {code:'KE027',name:'Uasin Gishu',display:'Uasin Gishu (Eldoret)'}
 ];
 const applyInitialServiceAreas=()=>{
   kenyaCounties=INITIAL_SERVICE_AREAS.map(({code,name,display})=>({code,name,display_name:display||name}));
-  kenyaSubcounties=INITIAL_SERVICE_AREAS.flatMap((area)=>area.subs.map(([code,name])=>({code,county_code:area.code,name})));
+  kenyaSubcounties=[];
 };
 
 const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),logout=$('#partnerLogout');
@@ -112,13 +107,26 @@ async function loadKenyaLocations(){
   $('#sellerCounty').innerHTML='<option value="">Select county</option>'+kenyaCounties.map((county)=>'<option value="'+escapeHtml(county.code)+'">'+escapeHtml(county.display_name||county.name)+'</option>').join('');
   renderSellerSubcounties();
 }
-function renderSellerSubcounties(preferredCode=''){
+async function renderSellerSubcounties(preferredCode=''){
   const countyCode=$('#sellerCounty').value;
-  const options=kenyaSubcounties.filter((item)=>item.county_code===countyCode);
   $('#sellerSubCounty').disabled=!countyCode;
-  $('#sellerSubCounty').innerHTML=countyCode
+  if(!countyCode){
+    $('#sellerSubCounty').innerHTML='<option value="">Choose a county first</option>';
+    return;
+  }
+  let options=kenyaSubcounties.filter((item)=>item.county_code===countyCode);
+  if(!options.length){
+    $('#sellerSubCounty').innerHTML='<option value="">Loading sub-counties…</option>';
+    const {data,error}=await client.from('kenya_subcounties').select('code,county_code,name').eq('is_active',true).eq('county_code',countyCode).order('name');
+    if(!error && data?.length){
+      kenyaSubcounties=[...kenyaSubcounties.filter((item)=>item.county_code!==countyCode),...data];
+      options=data;
+    }
+  }
+  $('#sellerSubCounty').innerHTML=options.length
     ? '<option value="">Select sub-county</option>'+options.map((item)=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.name)+'</option>').join('')
-    : '<option value="">Choose a county first</option>';
+    : '<option value="">No active sub-counties configured</option>';
+  $('#sellerSubCounty').disabled=!options.length;
   if(preferredCode && options.some((item)=>item.code===preferredCode))$('#sellerSubCounty').value=preferredCode;
 }
 $('#sellerCounty').addEventListener('change',()=>renderSellerSubcounties());
