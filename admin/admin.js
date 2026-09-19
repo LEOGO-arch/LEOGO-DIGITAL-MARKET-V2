@@ -617,7 +617,7 @@
         <td data-label="Action"><button class="premium-customer-view-button" type="button" data-premium-customer-view="${customer.user_id}">View Record →</button></td>
       </tr>`;
     }).join('') : '<tr><td colspan="8">No Premium customers match the current filters.</td></tr>';
-    $('[data-premium-customer-view]').forEach((button) => button.addEventListener('click', () => openPremiumCustomerRecord(button.dataset.premiumCustomerView)));
+    $$('[data-premium-customer-view]').forEach((button) => button.addEventListener('click', () => openPremiumCustomerRecord(button.dataset.premiumCustomerView)));
   };
   const loadPremiumCustomers = async () => {
     const { data, error } = await db.rpc('admin_list_premium_customers');
@@ -843,7 +843,7 @@
     $('#openSidebar').addEventListener('click', () => { $('#adminSidebar').classList.add('open'); $('#sidebarScrim').classList.add('open'); });
     $('#closeSidebar').addEventListener('click', closeSidebar);
     $('#sidebarScrim').addEventListener('click', closeSidebar);
-    $('[data-admin-view]').forEach((button) => button.addEventListener('click', () => { changeView(button.dataset.adminView, button.dataset.settingsTab || ''); if(button.dataset.premiumTarget) changePremiumAdminTab(button.dataset.premiumTarget); if(button.dataset.filterTarget){state.approvalFilter=button.dataset.filterTarget;$('#approvalFilters [data-approval-filter]').forEach(item=>item.classList.toggle('active',item.dataset.approvalFilter===state.approvalFilter));renderApprovals();} }));
+    $$('[data-admin-view]').forEach((button) => button.addEventListener('click', () => { changeView(button.dataset.adminView, button.dataset.settingsTab || ''); if(button.dataset.premiumTarget) changePremiumAdminTab(button.dataset.premiumTarget); if(button.dataset.filterTarget){state.approvalFilter=button.dataset.filterTarget;$$('#approvalFilters [data-approval-filter]').forEach(item=>item.classList.toggle('active',item.dataset.approvalFilter===state.approvalFilter));renderApprovals();} }));
     $$('[data-nav-group]').forEach((button) => button.addEventListener('click', () => { const children=$(`[data-nav-children="${button.dataset.navGroup}"]`); if(children) children.classList.toggle('open'); }));
     $$('[data-open-view]').forEach((button) => button.addEventListener('click', () => {
       changeView(button.dataset.openView);
