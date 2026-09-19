@@ -216,7 +216,8 @@ function sellerViewDescription(view){
     flashsale:'Choose an existing product and submit it to Flash Sale.',
     settlements:'Manage approved payout accounts and settlement requests.',
     notifications:'All important Seller and Admin events.',
-    profile:'Your registered Seller information and verification details.'
+    profile:'Your registered Seller information and verification details.',
+    data:'Download your Seller data and remove selected non-protected records.'
   }[view]||'Seller Portal';
 }
 function closeSellerSidebar(){
@@ -225,8 +226,8 @@ function closeSellerSidebar(){
 }
 function openSellerView(view='overview'){
   const allowed=seller?.application_status==='approved'
-    ? ['overview','products','orders','flashsale','settlements','notifications','profile']
-    : ['overview','notifications','profile'];
+    ? ['overview','products','orders','flashsale','settlements','notifications','profile','data']
+    : ['overview','notifications','profile','data'];
   const resolved=allowed.includes(view)?view:'overview';
   $$('[data-seller-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.sellerContent===resolved));
   $$('[data-seller-view]').forEach(button=>button.classList.toggle('active',button.dataset.sellerView===resolved));
@@ -318,7 +319,128 @@ async function loadPartnerNotifications(){
     const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markNotification});
     if(!error)await loadPartnerNotifications();
   }));
+  renderSellerDataSelection();
 }
+
+function safeDownloadFilename(value='seller'){
+  return String(value||'seller').trim().replace(/[^a-z0-9-_]+/gi,'-').replace(/^-+|-+$/g,'').toLowerCase()||'seller';
+}
+function downloadJsonFile(filename,data){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;link.download=filename;document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+async function downloadSellerData(){
+  if(!currentUser||!seller)return;
+  const button=$('#downloadSellerData');
+  const original=button.textContent;button.disabled=true;button.textContent='Preparing…';
+  status($('#sellerDataExportStatus'),'Preparing your Seller data…');
+  try{
+    await Promise.all([loadProducts(),loadPartnerNotifications(),loadSellerOrders(),loadSellerSettlementData()]);
+    const exportData={
+      export_type:'LEOGO Seller Data',
+      generated_at:new Date().toISOString(),
+      seller_account:seller,
+      products,
+      seller_orders:sellerOrders,
+      notifications:partnerNotifications,
+      settlement_accounts:settlementAccounts,
+      settlement_requests:settlementRequests,
+      settlements:sellerSettlements,
+      protected_records_note:'Orders, payments, settlements and registration/approval history are retained by LEOGO for transaction and audit integrity.'
+    };
+    const date=new Date().toISOString().slice(0,10);
+    downloadJsonFile('leogo-seller-'+safeDownloadFilename(seller.business_name)+'-'+date+'.json',exportData);
+    status($('#sellerDataExportStatus'),'Your Seller data download has been created.','success');
+  }catch(error){
+    status($('#sellerDataExportStatus'),error.message||'Your data could not be downloaded.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+}
+
+function updateSellerDataSelectionCount(){
+  const total=selectedSellerProducts.size+selectedSellerNotifications.size;
+  $('#sellerDataSelectedCount').textContent=total+' selected';
+  $('#deleteSelectedSellerData').disabled=!total;
+  const productIds=products.map(p=>p.id);
+  const notificationIds=partnerNotifications.map(n=>n.id);
+  $('#selectAllSellerProducts').checked=Boolean(productIds.length)&&productIds.every(id=>selectedSellerProducts.has(id));
+  $('#selectAllSellerNotifications').checked=Boolean(notificationIds.length)&&notificationIds.every(id=>selectedSellerNotifications.has(id));
+}
+function renderSellerDataSelection(){
+  const productBox=$('#sellerDataProductList');
+  const notificationBox=$('#sellerDataNotificationList');
+  if(!productBox||!notificationBox)return;
+
+  for(const id of [...selectedSellerProducts]) if(!products.some(p=>p.id===id)) selectedSellerProducts.delete(id);
+  for(const id of [...selectedSellerNotifications]) if(!partnerNotifications.some(n=>n.id===id)) selectedSellerNotifications.delete(id);
+
+  productBox.innerHTML=products.length?products.map(p=>`
+    <label class="seller-data-select-row">
+      <input type="checkbox" data-delete-seller-product="${escapeHtml(p.id)}" ${selectedSellerProducts.has(p.id)?'checked':''}>
+      <span><strong>${escapeHtml(p.product_name)}</strong><small>${money(p.price_kes)} · ${escapeHtml(p.listing_status)} · ${Number(p.quantity_available)} ${escapeHtml(p.measurement_unit)}</small></span>
+    </label>`).join(''):'<div class="empty-card">No products available for selection.</div>';
+
+  notificationBox.innerHTML=partnerNotifications.length?partnerNotifications.map(n=>`
+    <label class="seller-data-select-row">
+      <input type="checkbox" data-delete-seller-notification="${escapeHtml(n.id)}" ${selectedSellerNotifications.has(n.id)?'checked':''}>
+      <span><strong>${escapeHtml(n.title)}</strong><small>${formatDate(n.created_at)} · ${escapeHtml(n.event_type||'notification')}</small></span>
+    </label>`).join(''):'<div class="empty-card">No notifications available for selection.</div>';
+
+  $$('[data-delete-seller-product]').forEach(input=>input.addEventListener('change',()=>{
+    input.checked?selectedSellerProducts.add(input.dataset.deleteSellerProduct):selectedSellerProducts.delete(input.dataset.deleteSellerProduct);
+    updateSellerDataSelectionCount();
+  }));
+  $$('[data-delete-seller-notification]').forEach(input=>input.addEventListener('change',()=>{
+    input.checked?selectedSellerNotifications.add(input.dataset.deleteSellerNotification):selectedSellerNotifications.delete(input.dataset.deleteSellerNotification);
+    updateSellerDataSelectionCount();
+  }));
+  updateSellerDataSelectionCount();
+}
+function clearSellerDataSelection(){
+  selectedSellerProducts.clear();selectedSellerNotifications.clear();renderSellerDataSelection();
+}
+$('#downloadSellerData').addEventListener('click',downloadSellerData);
+$('#selectAllSellerProducts').addEventListener('change',event=>{
+  selectedSellerProducts.clear();
+  if(event.target.checked)products.forEach(p=>selectedSellerProducts.add(p.id));
+  renderSellerDataSelection();
+});
+$('#selectAllSellerNotifications').addEventListener('change',event=>{
+  selectedSellerNotifications.clear();
+  if(event.target.checked)partnerNotifications.forEach(n=>selectedSellerNotifications.add(n.id));
+  renderSellerDataSelection();
+});
+$('#clearSellerDataSelection').addEventListener('click',clearSellerDataSelection);
+$('#deleteSelectedSellerData').addEventListener('click',async()=>{
+  const productIds=[...selectedSellerProducts];
+  const notificationIds=[...selectedSellerNotifications];
+  const total=productIds.length+notificationIds.length;
+  if(!total)return;
+  if(!window.confirm('Delete '+total+' selected record(s)? Products already used in customer orders will be archived instead of permanently deleted. Orders, payments, settlements and registration history will not be deleted.'))return;
+  const button=$('#deleteSelectedSellerData');
+  button.disabled=true;button.textContent='Deleting…';
+  status($('#sellerDataDeleteStatus'),'Processing selected records…');
+  try{
+    const {data,error}=await client.rpc('seller_delete_selected_data',{p_product_ids:productIds,p_notification_ids:notificationIds});
+    if(error)throw error;
+    const result=data||{};
+    const mediaPaths=Array.isArray(result.deleted_product_media_paths)?result.deleted_product_media_paths:[];
+    if(mediaPaths.length){
+      const {error:storageError}=await client.storage.from('seller-product-media').remove(mediaPaths);
+      if(storageError)console.warn('Some deleted product media could not be removed:',storageError.message);
+    }
+    selectedSellerProducts.clear();selectedSellerNotifications.clear();
+    await Promise.all([loadProducts(),loadPartnerNotifications()]);
+    const message=Number(result.deleted_products||0)+' product(s) deleted · '+Number(result.archived_products||0)+' ordered product(s) archived · '+Number(result.deleted_notifications||0)+' notification(s) deleted';
+    status($('#sellerDataDeleteStatus'),message,'success');
+  }catch(error){
+    status($('#sellerDataDeleteStatus'),error.message||'Selected data could not be deleted.','error');
+  }finally{
+    button.disabled=false;button.textContent='Delete Selected';renderSellerDataSelection();
+  }
+});
 
 function settlementDestination(account){
   if(account.account_type==='mpesa_mobile')return account.phone_number||'—';
@@ -619,6 +741,7 @@ function renderProducts(){
   box.innerHTML=products.map(p=>'<article class="product-card"><img src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt=""><div><h4>'+escapeHtml(p.product_name)+'</h4><p>'+money(p.price_kes)+' · '+p.quantity_available+' '+escapeHtml(p.measurement_unit)+'</p><span class="badge">'+escapeHtml(p.availability_status.replaceAll('_',' '))+'</span>'+(p.flash_sale_requested?'<span class="badge flash">Flash Sale '+escapeHtml(p.flash_sale_status||'requested')+'</span>':'')+'<small>'+escapeHtml(p.product_details.slice(0,140))+'</small></div><button data-edit-product="'+p.id+'" type="button">Edit</button></article>').join('');
   $$('[data-edit-product]').forEach(b=>b.addEventListener('click',()=>editProduct(b.dataset.editProduct)));
   renderFlashSaleProducts();
+  renderSellerDataSelection();
 }
 $('#flashSaleProduct').addEventListener('change',()=>{
   const p=products.find(item=>item.id===$('#flashSaleProduct').value);
