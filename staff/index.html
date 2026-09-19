@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07152f">
+  <title>LEOGO Staff Rider Portal</title>
+  <link rel="stylesheet" href="staff.css?v=rider-1">
+</head>
+<body>
+<header class="staff-header">
+  <a href="../"><img src="../assets/images/leogo-official-logo.jpg" alt="LEOGO"><span><b>LEOGO DIGITAL MARKET</b><small>Staff Rider Portal</small></span></a>
+  <button id="staffLogout" type="button" hidden>Sign Out</button>
+</header>
+<main>
+  <section class="staff-login" id="staffLogin">
+    <span>LEOGO STAFF</span>
+    <h1>Rider Sign In</h1>
+    <p>This portal is for authorized LEOGO staff riders only. Use your existing LEOGO account.</p>
+    <form id="staffLoginForm">
+      <label>Email<input id="staffEmail" type="email" autocomplete="email" required></label>
+      <label>Password<input id="staffPassword" type="password" autocomplete="current-password" minlength="8" required></label>
+      <button type="submit">Sign In</button>
+    </form>
+    <p id="staffLoginStatus" class="status"></p>
+  </section>
+
+  <section id="staffAccessDenied" class="staff-denied" hidden>
+    <span>⛔</span><h2>Rider access not enabled</h2>
+    <p>This LEOGO account is not currently registered as an active staff rider. Ask LEOGO Admin to add or reactivate the account.</p>
+    <button id="deniedSignOut" type="button">Sign Out</button>
+  </section>
+
+  <section id="riderApp" class="rider-app" hidden>
+    <header class="rider-welcome">
+      <div><span>DELIVERY OPERATIONS</span><h1 id="riderName">Rider Dashboard</h1><p>Only orders assigned to you are shown here.</p></div>
+      <button id="refreshRiderJobs" type="button">↻ Refresh</button>
+    </header>
+    <div class="rider-stats">
+      <article><span>Assigned</span><strong id="riderAssignedCount">0</strong></article>
+      <article><span>Picked Up</span><strong id="riderPickedCount">0</strong></article>
+      <article><span>On the Way</span><strong id="riderTransitCount">0</strong></article>
+      <article><span>Delivered</span><strong id="riderDeliveredCount">0</strong></article>
+    </div>
+    <div class="rider-filters">
+      <button class="active" data-rider-filter="active" type="button">Active Jobs</button>
+      <button data-rider-filter="delivered" type="button">Delivered</button>
+      <button data-rider-filter="all" type="button">All</button>
+    </div>
+    <div id="riderJobList" class="rider-job-list"><div class="empty">No delivery jobs assigned.</div></div>
+    <p id="riderStatus" class="status"></p>
+  </section>
+</main>
+<script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
+<script src="staff.js?v=rider-1" defer></script>
+</body>
+</html>
