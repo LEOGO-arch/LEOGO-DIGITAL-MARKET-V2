@@ -18,7 +18,7 @@ const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partner
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard');
 let activeRole='';
 
-$('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>{$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$('[data-auth-form]').forEach(f=>f.classList.toggle('active',f.dataset.authForm===b.dataset.authTab));}));
+$$('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('[data-auth-form]').forEach(f=>f.classList.toggle('active',f.dataset.authForm===b.dataset.authTab));}));
 
 function showLoginForm(){
   $('#partnerLoginForm').hidden=false;
@@ -27,7 +27,7 @@ function showLoginForm(){
   $('#partnerRegisterForm').classList.remove('active');
   resetRequestForm.hidden=true;
   resetUpdateForm.hidden=true;
-  $('[data-auth-tab]').forEach((button)=>button.classList.toggle('active',button.dataset.authTab==='login'));
+  $$('[data-auth-tab]').forEach((button)=>button.classList.toggle('active',button.dataset.authTab==='login'));
 }
 $('#showPartnerResetPassword').addEventListener('click',()=>{
   $('#partnerLoginForm').hidden=true;
@@ -72,7 +72,7 @@ $('#partnerLoginForm').addEventListener('submit',async e=>{e.preventDefault();st
 $('#partnerRegisterForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Creating account…');const {data,error}=await client.auth.signUp({email:$('#partnerRegisterEmail').value.trim(),password:$('#partnerRegisterPassword').value,options:{data:{full_name:$('#partnerRegisterName').value.trim()}}});if(error){status($('#partnerAuthStatus'),error.message,'error');return;}status($('#partnerAuthStatus'),data.session?'Account created. Choose the partnership you want to register for.':'Account created. Sign in to continue to partnership selection.','success');});
 logout.addEventListener('click',()=>client.auth.signOut());
 $('#backToPartnerships').addEventListener('click',()=>showRolePicker());
-$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
+$$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   if(button.disabled)return;
   if(button.dataset.roleTarget==='seller')openSellerRole();
 }));
