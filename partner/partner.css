@@ -20,3 +20,12 @@
 .seller-correction-button{margin-top:12px}
 @media(max-width:750px){.seller-onboarding{grid-template-columns:1fr}.seller-onboarding button{width:100%}.seller-status-card{grid-template-columns:1fr}.summary-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.summary-grid{grid-template-columns:1fr}}
+
+
+/* Partner password reset V3 */
+.link-button{background:transparent!important;color:var(--navy)!important;padding:7px 0!important;text-align:left;font-weight:800!important}
+.link-button:hover{text-decoration:underline}
+.reset-heading{display:grid;gap:4px;margin-bottom:4px}
+.reset-heading strong{font-size:18px}.reset-heading small{color:var(--muted);line-height:1.45}
+.reset-actions{display:flex;gap:8px;justify-content:flex-end}
+@media(max-width:560px){.reset-actions{flex-direction:column}.reset-actions button{width:100%}}
