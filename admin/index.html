@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-v1-2">
+  <link rel="stylesheet" href="admin.css?v=admin-v1-3">
 </head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
@@ -95,9 +95,44 @@
       </section>
 
       <section class="admin-panel" data-admin-panel="approvals">
-        <div class="section-head"><div><span>STAGE 2</span><h2>Approval Center</h2><p>One queue for customer, payment, wallet, Premium and accommodation reviews.</p></div><button class="primary-button" id="refreshApprovals" type="button">↻ Refresh Queue</button></div>
-        <div class="approval-filter" id="approvalFilters"><button class="active" data-approval-filter="all">All <b>0</b></button><button data-approval-filter="premium">Premium</button><button data-approval-filter="wallet">Wallet &amp; SACCO</button><button data-approval-filter="accommodation">Accommodation</button></div>
-        <div class="approval-grid" id="approvalQueue"><div class="loading-card">Loading secured approval queue…</div></div>
+        <div class="section-head"><div><span>STAGE 2</span><h2>Approval Center</h2><p>One secure decision queue over the existing LEOGO records. No duplicate approval records are created.</p></div><button class="primary-button" id="refreshApprovals" type="button">↻ Refresh Queue</button></div>
+
+        <div class="approval-summary-grid" id="approvalSummary">
+          <article><span>Total Pending</span><strong id="approvalTotalCount">0</strong><small>All live review items</small></article>
+          <article><span>Financial</span><strong id="approvalFinancialCount">0</strong><small>Wallet &amp; payment verification</small></article>
+          <article><span>Premium</span><strong id="approvalPremiumCount">0</strong><small>Customers, profiles &amp; payments</small></article>
+          <article><span>Accommodation</span><strong id="approvalAccommodationCount">0</strong><small>Hosts &amp; properties</small></article>
+          <article><span>Oldest Waiting</span><strong id="approvalOldestWaiting">—</strong><small>Age of oldest pending request</small></article>
+        </div>
+
+        <div class="approval-workbar">
+          <div class="approval-filter" id="approvalFilters">
+            <button class="active" data-approval-filter="all">All <b>0</b></button>
+            <button data-approval-filter="financial">Financial <b>0</b></button>
+            <button data-approval-filter="wallet">Wallet &amp; SACCO <b>0</b></button>
+            <button data-approval-filter="premium">Premium <b>0</b></button>
+            <button data-approval-filter="accommodation">Accommodation <b>0</b></button>
+          </div>
+          <label class="approval-search"><span>Search queue</span><input id="approvalSearch" type="search" placeholder="Name, email, type, reference…"></label>
+        </div>
+
+        <div class="approval-selection-toolbar">
+          <label><input id="selectAllApprovals" type="checkbox"> Select all visible</label>
+          <span id="approvalSelectedCount">0 selected</span>
+          <button id="exportSelectedApprovals" type="button">Export Selected</button>
+          <button id="clearApprovalSelection" type="button">Clear</button>
+          <small>Approval decisions remain individual for payment and financial safety.</small>
+        </div>
+
+        <div class="approval-table-card">
+          <div class="responsive-table">
+            <table class="approval-table">
+              <thead><tr><th></th><th>Type</th><th>Applicant / Customer</th><th>Request</th><th>Amount / Details</th><th>Submitted</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="approvalQueue"><tr><td colspan="8">Loading secured approval queue…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="approval-safety-note">Financial requests are reviewed one at a time. Approving a queue item updates its existing source workflow and is recorded in the Admin Audit Log.</div>
       </section>
 
       <section class="admin-panel" data-admin-panel="orders"><div class="section-head"><div><span>ORDERS</span><h2>Order Management</h2><p>Orders are correctly positioned immediately after Approval Center.</p></div></div><div class="reserved-module"><span>▤</span><h3>Order ledger connection reserved</h3><p>The Customer Front currently creates preview orders only. This screen will connect when the production order table and seller fulfilment workflow are approved—no duplicate order system has been created.</p></div></section>
@@ -188,6 +223,6 @@
   <div class="modal" id="pickupStationModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="pickupStationForm"><header><div><span>DELIVERY SETTINGS</span><h2 id="pickupModalTitle">Add Pickup Station</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label class="wide"><span>Station name</span><input name="station_name" required></label><label><span>County</span><input name="county" required></label><label><span>Sub-County</span><input name="sub_county" required></label><label><span>Town</span><input name="town" required></label><label><span>Door number</span><input name="door_number"></label><label class="wide"><span>Address</span><input name="address_line" required></label><label><span>Landmark</span><input name="landmark"></label><label><span>Contact phone</span><input name="contact_phone"></label><label class="wide"><span>Operating information</span><input name="operating_hours" placeholder="e.g. Monday–Saturday, 8:00 AM–6:00 PM"></label><label><span>Pickup service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.001" required></label><label><span>Display order</span><input name="display_order" type="number" min="0" max="999" value="0"></label><label class="switch-label"><input name="is_active" type="checkbox" checked><span>Station is active</span></label></div><div class="form-status" id="pickupStationStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Pickup Station</button></footer></form></div>
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
-  <script src="admin.js?v=admin-v1-2" defer></script>
+  <script src="admin.js?v=admin-v1-3" defer></script>
 </body>
 </html>
