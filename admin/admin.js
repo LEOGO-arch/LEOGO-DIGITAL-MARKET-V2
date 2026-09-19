@@ -287,13 +287,66 @@
     updateApprovalSelection(visible);
   };
 
-  const openApproval = (kind, id) => {
+  const approvalMediaFields = {
+    profile_picture_path: { label: 'Profile Picture', bucket: 'premium-profile-media' },
+    passport_photo_path: { label: 'Passport-size Photo', bucket: 'premium-verification' },
+    id_document_path: { label: 'Identity Document', bucket: 'premium-verification' }
+  };
+
+  const approvalMediaPreview = async (payload = {}) => {
+    const media = $('#reviewMedia');
+    if (!media) return;
+    const entries = Object.entries(approvalMediaFields).filter(([key]) => payload?.[key]);
+    if (!entries.length) {
+      media.hidden = true;
+      media.innerHTML = '';
+      return;
+    }
+    media.hidden = false;
+    media.innerHTML = '<div class="review-media-heading"><span>UPLOADED FILES</span><strong>Verification Images</strong><small>Review the submitted images before making a decision.</small></div><div class="review-media-grid" id="reviewMediaGrid"></div>';
+    const grid = $('#reviewMediaGrid');
+    for (const [key, config] of entries) {
+      const path = String(payload[key] || '');
+      const card = document.createElement('article');
+      card.className = 'review-media-card';
+      card.innerHTML = `<div class="review-media-card-head"><strong>${escapeHtml(config.label)}</strong><span>Secure file</span></div><div class="review-media-loading">Loading image…</div><small class="review-media-path">${escapeHtml(path)}</small>`;
+      grid.appendChild(card);
+      try {
+        const { data, error } = await db.storage.from(config.bucket).createSignedUrl(path, 900);
+        if (error) throw error;
+        const url = data?.signedUrl || '';
+        if (!url) throw new Error('No secure image URL was returned.');
+        card.innerHTML = `
+          <div class="review-media-card-head"><strong>${escapeHtml(config.label)}</strong><span>Secure preview</span></div>
+          <a class="review-media-image-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open full ${escapeHtml(config.label)}">
+            <img src="${escapeHtml(url)}" alt="${escapeHtml(config.label)} submitted for approval">
+          </a>
+          <div class="review-media-actions"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View full image ↗</a></div>
+          <small class="review-media-path">${escapeHtml(path)}</small>
+        `;
+        const image = $('img', card);
+        image.addEventListener('error', () => {
+          const link = $('.review-media-image-link', card);
+          if (link) link.innerHTML = '<div class="review-media-error">Image preview could not load. Use “View full image” or retry.</div>';
+        }, { once: true });
+      } catch (error) {
+        card.innerHTML = `
+          <div class="review-media-card-head"><strong>${escapeHtml(config.label)}</strong><span>Preview unavailable</span></div>
+          <div class="review-media-error">${escapeHtml(friendlyError(error))}</div>
+          <small class="review-media-path">${escapeHtml(path)}</small>
+        `;
+      }
+    }
+  };
+
+  const openApproval = async (kind, id) => {
     const item = state.approvals.find((entry) => entry.kind === kind && entry.record_id === id);
     if (!item) return;
     state.activeApproval = item;
     $('#reviewModalTitle').textContent = item.title;
     $('#reviewApplicant').innerHTML = `<strong>${escapeHtml(item.applicant_name || 'Customer')}</strong><p>${escapeHtml(item.applicant_email || '')}<br>${escapeHtml(item.subtitle || '')}${item.amount_kes == null ? '' : `<br><b>${formatMoney(item.amount_kes)}</b>`}</p>`;
-    const hiddenKeys = new Set(['id', 'user_id', 'withdrawal_pin_hash']);
+    const mediaKeys = new Set(Object.keys(approvalMediaFields));
+    const hiddenKeys = new Set(['id', 'user_id', 'withdrawal_pin_hash', ...mediaKeys]);
     const detailRows = Object.entries(item.payload || {}).filter(([key, value]) => !hiddenKeys.has(key) && value !== null && value !== '' && typeof value !== 'object').slice(0, 14);
     $('#reviewDetails').innerHTML = detailRows.map(([key, value]) => `<div><small>${escapeHtml(key.replaceAll('_', ' '))}</small><b>${escapeHtml(typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value)}</b></div>`).join('');
     $('#reviewNotes').value = '';
@@ -304,6 +357,7 @@
     approve.textContent = kind === 'wallet_withdrawal' && item.status === 'pending_call' ? 'Mark Customer Called' : 'Approve';
     approve.dataset.reviewAction = kind === 'wallet_withdrawal' && item.status === 'pending_call' ? 'contacted' : 'approve';
     $('#approvalReviewModal').hidden = false;
+    await approvalMediaPreview(item.payload || {});
   };
 
   const reviewApproval = async (button) => {
