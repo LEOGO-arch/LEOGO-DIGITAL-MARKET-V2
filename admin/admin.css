@@ -97,3 +97,51 @@
   .review-media-image-link{min-height:220px;max-height:390px}
   .review-media-image-link img{min-height:220px;max-height:390px}
 }
+
+
+/* Premium retained customer records V1 */
+.premium-admin-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:17px}
+.premium-admin-summary article{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:4px}
+.premium-admin-summary span{font-size:.7rem;color:var(--muted);font-weight:850}
+.premium-admin-summary strong{font-size:1.35rem}
+.premium-admin-summary small{font-size:.65rem;color:#8a95a7}
+.premium-admin-tabs{display:flex;gap:8px;margin-bottom:14px;overflow:auto}
+.premium-admin-tabs button{border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:9px;padding:10px 14px;font-weight:850;white-space:nowrap}
+.premium-admin-tabs button.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.premium-admin-content{display:none}.premium-admin-content.active{display:block}
+.premium-customer-toolbar{display:grid;grid-template-columns:1.3fr .8fr .8fr;gap:10px;margin-bottom:12px}
+.premium-customer-toolbar input,.premium-customer-toolbar select{width:100%;border:1px solid #cbd5e3;background:#fff;border-radius:9px;padding:10px 11px}
+.premium-customer-table{min-width:1050px}
+.premium-customer-table td{vertical-align:middle}
+.premium-customer-view-button{border:0;background:var(--navy);color:#fff;border-radius:8px;padding:9px 11px;font-weight:850;white-space:nowrap}
+.premium-subscription-active{background:#e6f7ef!important;color:#137441!important}
+.premium-subscription-expired,.premium-subscription-none,.premium-subscription-inactive{background:#eef2f7!important;color:#66738a!important}
+.premium-subscription-suspended{background:#fdebed!important;color:#a12d39!important}
+.premium-customer-detail-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-bottom:18px}
+.premium-customer-detail-summary>div{background:#f5f8fc;border:1px solid var(--line);border-radius:10px;padding:11px}
+.premium-customer-detail-summary span{display:block;color:var(--muted);font-size:.64rem;font-weight:800;margin-bottom:4px}
+.premium-customer-detail-summary strong{font-size:.82rem;overflow-wrap:anywhere}
+.premium-customer-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:17px 0}
+.premium-customer-detail-grid>div{border:1px solid var(--line);border-radius:9px;padding:10px;overflow-wrap:anywhere}
+.premium-customer-detail-grid small{display:block;color:var(--muted);font-size:.64rem;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+.premium-customer-detail-grid strong{font-size:.78rem}
+.premium-payment-history{margin-top:20px}
+.premium-payment-history-row{display:grid;grid-template-columns:1.3fr .7fr .8fr;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #edf0f5}
+.premium-payment-history-row small{display:block;color:var(--muted);font-size:.65rem;margin-top:3px;overflow-wrap:anywhere}
+@media(max-width:900px){.premium-admin-summary{grid-template-columns:repeat(2,1fr)}.premium-customer-toolbar{grid-template-columns:1fr}}
+@media(max-width:650px){
+  .premium-customer-table-card{background:transparent;border:0;overflow:visible}
+  .premium-customer-table-card .responsive-table{overflow:visible}
+  .premium-customer-table{min-width:0;border-collapse:separate;width:100%}
+  .premium-customer-table thead{display:none}
+  .premium-customer-table tbody{display:grid;gap:12px}
+  .premium-customer-row{display:grid;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .premium-customer-row td{display:grid;grid-template-columns:105px minmax(0,1fr);gap:9px;align-items:start;width:auto!important;padding:10px 13px;border-bottom:1px solid #edf0f5;overflow-wrap:anywhere}
+  .premium-customer-row td::before{content:attr(data-label);font-size:.6rem;color:#778397;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+  .premium-customer-row td:last-child{grid-template-columns:1fr;background:#f8fafd;border-bottom:0}
+  .premium-customer-row td:last-child::before{display:none}
+  .premium-customer-view-button{width:100%;background:var(--orange);min-height:40px}
+  .premium-customer-detail-summary{grid-template-columns:1fr 1fr}
+  .premium-customer-detail-grid{grid-template-columns:1fr}
+  .premium-payment-history-row{grid-template-columns:1fr}
+}
