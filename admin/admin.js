@@ -814,8 +814,8 @@
   };
   const changePremiumAdminTab = (tab = 'profiles') => {
     const resolved = ['profiles','subscriptions'].includes(tab) ? tab : 'profiles';
-    $('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.classList.toggle('active', button.dataset.premiumAdminTab === resolved));
-    $('[data-premium-admin-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.premiumAdminContent === resolved));
+    document.querySelectorAll('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.classList.toggle('active', button.dataset.premiumAdminTab === resolved));
+    document.querySelectorAll('[data-premium-admin-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.premiumAdminContent === resolved));
   };
 
   const changeSettingsTab = (tab) => {
@@ -872,10 +872,8 @@
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
     $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
-    $('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.addEventListener('click', () => {
-      const tab = button.dataset.premiumAdminTab;
-      $('#premiumAdminTabs [data-premium-admin-tab]').forEach((item) => item.classList.toggle('active', item === button));
-      $('[data-premium-admin-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.premiumAdminContent === tab));
+    document.querySelectorAll('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.addEventListener('click', () => {
+      changePremiumAdminTab(button.dataset.premiumAdminTab);
     }));
     $('#premiumCustomerSearch').addEventListener('input', renderPremiumCustomers);
     $('#premiumCustomerStatusFilter').addEventListener('change', renderPremiumCustomers);
