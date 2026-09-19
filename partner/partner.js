@@ -24,10 +24,10 @@ const applyInitialServiceAreas=()=>{
   kenyaSubcounties=[];
 };
 
-const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),logout=$('#partnerLogout');
+const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),logout=$('#partnerLogout'),hero=$('.hero');
 const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
-const sellerProfilePanel=$('#sellerProfilePanel'),sellerNotificationPanel=$('#sellerNotificationPanel'),sellerSettlementPanel=$('#sellerSettlementPanel');
+const sellerProfilePanel=$('#sellerProfilePanel'),sellerNotificationPanel=$('#sellerNotificationPanel'),sellerSettlementPanel=$('#sellerSettlementPanel'),sellerPendingArea=$('#sellerPendingArea'),sellerSidebar=$('#sellerSidebar');
 let activeRole='';
 
 $$('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('[data-auth-form]').forEach(f=>f.classList.toggle('active',f.dataset.authForm===b.dataset.authTab));}));
@@ -177,11 +177,13 @@ function showRolePicker(){
   rolePicker.hidden=false;
   sellerShell.hidden=true;
   authShell.hidden=true;
+  if(hero)hero.hidden=false;
 }
 async function openSellerRole(){
   activeRole='seller';
   rolePicker.hidden=true;
   sellerShell.hidden=false;
+  if(hero)hero.hidden=true;
   await loadKenyaLocations();
   await loadSeller();
 }
@@ -206,26 +208,63 @@ function renderSellerSummary(){
     $('#sellerRegistrationSummary').insertAdjacentHTML('beforeend','<div class="restricted-notice">Business ID / identification document is still required before Admin can approve this Seller account.</div>');
   }
 }
+function sellerViewDescription(view){
+  return {
+    overview:'Overview of your Seller account.',
+    products:'Manage products, stock, pricing and variants.',
+    flashsale:'Choose an existing product and submit it to Flash Sale.',
+    settlements:'Manage approved payout accounts and settlement requests.',
+    notifications:'All important Seller and Admin events.',
+    profile:'Your registered Seller information and verification details.'
+  }[view]||'Seller Portal';
+}
+function closeSellerSidebar(){
+  sellerSidebar?.classList.remove('open');
+  $('#sellerSidebarScrim')?.classList.remove('open');
+}
+function openSellerView(view='overview'){
+  const allowed=seller?.application_status==='approved'
+    ? ['overview','products','flashsale','settlements','notifications','profile']
+    : ['overview','notifications','profile'];
+  const resolved=allowed.includes(view)?view:'overview';
+  $$('[data-seller-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.sellerContent===resolved));
+  $$('[data-seller-view]').forEach(button=>button.classList.toggle('active',button.dataset.sellerView===resolved));
+  $('#sellerViewDescription').textContent=sellerViewDescription(resolved);
+  closeSellerSidebar();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+$$('[data-seller-view]').forEach(button=>button.addEventListener('click',()=>openSellerView(button.dataset.sellerView)));
+$$('[data-open-seller-view]').forEach(button=>button.addEventListener('click',()=>openSellerView(button.dataset.openSellerView)));
+$('#sellerSidebarToggle').addEventListener('click',()=>{sellerSidebar.classList.add('open');$('#sellerSidebarScrim').classList.add('open');});
+$('#sellerSidebarScrim').addEventListener('click',closeSellerSidebar);
+
 function renderSeller(){
   const name=currentUser?.user_metadata?.full_name||currentUser?.email||'Partner';
   const state=seller?.application_status||'not_registered';
+  const hasSeller=Boolean(seller);
   $('#sellerWelcome').textContent=seller?.business_name||name;
-  sellerOnboarding.hidden=Boolean(seller);
-  sellerDashboard.hidden=!seller;
+  sellerShell.classList.toggle('seller-has-account',hasSeller);
+  sellerOnboarding.hidden=hasSeller;
+  sellerDashboard.hidden=!hasSeller;
   sellerReg.hidden=true;
   approvedArea.hidden=state!=='approved';
-  sellerDocsForm.hidden=!seller || state==='approved';
-  sellerProfilePanel.hidden=state==='approved';
-  $('#sellerProfileButton').hidden=!seller;
+  sellerPendingArea.hidden=!hasSeller || state==='approved';
+  sellerDocsForm.hidden=!hasSeller || !['changes_requested','rejected'].includes(state);
+  $('#sellerProfileButton').hidden=!hasSeller;
+  $$('[data-seller-view="products"],[data-seller-view="flashsale"],[data-seller-view="settlements"]').forEach(button=>button.hidden=state!=='approved');
 
   if(seller){
+    $('#sellerSidebarBusiness').textContent=seller.business_name||'Seller Account';
+    $('#sellerSidebarStatus').textContent=state.replaceAll('_',' ').toUpperCase();
+    $('#sellerOverviewBusiness').textContent=seller.business_name||'Your Seller account';
+    $('#sellerOverviewStatus').textContent=state.replaceAll('_',' ').toUpperCase();
+    $('#sellerOverviewStatusNote').textContent=state==='approved'?'Ready to sell':sellerStatusCopy(state);
     $('#sellerStatusValue').textContent=state.replaceAll('_',' ').toUpperCase();
     $('#sellerStatusValue').dataset.status=state;
     $('#sellerStatusMessage').textContent=sellerStatusCopy(state);
     $('#sellerSubmittedAt').textContent=formatDate(seller.submitted_at);
     $('#sellerApprovedAt').textContent=formatDate(seller.approved_at);
     renderSellerSummary();
-    if(state==='approved') $('#sellerRegistrationSummary').closest('#sellerProfilePanel').hidden=true;
     $('#sellerBusinessName').value=seller.business_name||'';
     $('#sellerOwnerName').value=seller.owner_name||'';
     $('#sellerIdNumber').value=seller.id_number||'';
@@ -238,24 +277,23 @@ function renderSeller(){
 
     if(['changes_requested','rejected'].includes(state)){
       const editButton=document.createElement('button');
-      editButton.type='button'; editButton.className='secondary seller-correction-button'; editButton.textContent='Update & Resubmit Registration';
-      editButton.addEventListener('click',()=>{sellerReg.hidden=false;sellerReg.scrollIntoView({behavior:'smooth'});});
+      editButton.type='button';
+      editButton.className='secondary seller-correction-button';
+      editButton.textContent='Correct & Resubmit Registration';
+      editButton.addEventListener('click',()=>{
+        sellerReg.hidden=false;
+        openSellerView('profile');
+        sellerReg.scrollIntoView({behavior:'smooth',block:'start'});
+      });
       $('#sellerRegistrationSummary').append(editButton);
     }
+    openSellerView('overview');
   }else if(currentUser){
     $('#sellerOwnerName').value=currentUser.user_metadata?.full_name||'';
   }
 }
-
-$('#sellerProfileButton').addEventListener('click',()=>{
-  if(!seller)return;
-  sellerProfilePanel.hidden=!sellerProfilePanel.hidden;
-  if(!sellerProfilePanel.hidden)sellerProfilePanel.scrollIntoView({behavior:'smooth',block:'start'});
-});
-$('#sellerNotificationsButton').addEventListener('click',()=>{
-  sellerNotificationPanel.hidden=!sellerNotificationPanel.hidden;
-  if(!sellerNotificationPanel.hidden)sellerNotificationPanel.scrollIntoView({behavior:'smooth',block:'start'});
-});
+$('#sellerProfileButton').addEventListener('click',()=>{if(seller)openSellerView('profile');});
+$('#sellerNotificationsButton').addEventListener('click',()=>{if(seller)openSellerView('notifications');});
 $('#markAllSellerNotificationsRead').addEventListener('click',async()=>{
   const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'seller'});
   if(error){status($('#sellerRegistrationStatus'),error.message,'error');return;}
@@ -485,7 +523,6 @@ $('#productCategory').addEventListener('change',renderSubcategories);
 $('#productUnit').addEventListener('change',()=>{$('#productOtherUnitWrap').hidden=$('#productUnit').value!=='other';});
 $('#productHasVariants').addEventListener('change',()=>{$('#variantSection').hidden=!$('#productHasVariants').checked;if($('#productHasVariants').checked&&!$('#variantRows').children.length)addVariantRow();});
 $('#productLpp').addEventListener('change',()=>{$('#lppFields').hidden=!$('#productLpp').checked;});
-$('#productFlashSale').addEventListener('change',()=>{$('#flashFields').hidden=!$('#productFlashSale').checked;});
 $('#addVariantRow').addEventListener('click',addVariantRow);
 function addVariantRow(v={}){
   const row=document.createElement('div');row.className='variant-row';
@@ -508,19 +545,78 @@ async function loadProducts(){
   if(error){status($('#productFormStatus'),error.message,'error');return;}
   products=data||[];renderProducts();
 }
+function renderFlashSaleProducts(){
+  const select=$('#flashSaleProduct');
+  if(!select)return;
+  const eligible=products.filter(p=>p.listing_status!=='suspended');
+  const current=select.value;
+  select.innerHTML='<option value="">Choose product…</option>'+eligible.map(p=>'<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.product_name)+' — '+money(p.price_kes)+'</option>').join('');
+  if(eligible.some(p=>p.id===current))select.value=current;
+  const selected=products.find(p=>p.id===select.value);
+  $('#flashSaleNormalPrice').value=selected?money(selected.price_kes):'';
+  const flashItems=products.filter(p=>p.flash_sale_requested || ['requested','approved'].includes(p.flash_sale_status));
+  $('#sellerFlashSaleList').innerHTML=flashItems.length?flashItems.map(p=>'<article class="product-card"><img src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt=""><div><h4>'+escapeHtml(p.product_name)+'</h4><p>Normal '+money(p.price_kes)+' · Flash '+money(p.flash_sale_price_kes)+'</p><span class="badge flash">'+escapeHtml((p.flash_sale_status||'requested').replaceAll('_',' '))+'</span><small>Qty '+Number(p.flash_sale_quantity||0)+' · '+formatDate(p.flash_sale_starts_at)+' → '+formatDate(p.flash_sale_ends_at)+'</small></div></article>').join(''):'<div class="empty-card">No products have been sent to Flash Sale yet.</div>';
+}
 function renderProducts(){
   $('#sellerProductCount').textContent=products.length;
   $('#sellerAvailableCount').textContent=products.filter(p=>p.availability_status==='available'&&p.listing_status==='active').length;
-  $('#sellerFlashCount').textContent=products.filter(p=>p.flash_sale_requested).length;
+  $('#sellerFlashCount').textContent=products.filter(p=>p.flash_sale_requested || ['requested','approved'].includes(p.flash_sale_status)).length;
+  $('#sellerOrderCount').textContent='0';
   const box=$('#sellerProductList');
-  if(!products.length){box.innerHTML='<p>No products yet. Add your first item above.</p>';return;}
-  box.innerHTML=products.map(p=>'<article class="product-card"><img src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt=""><div><h4>'+escapeHtml(p.product_name)+'</h4><p>'+money(p.price_kes)+' · '+p.quantity_available+' '+escapeHtml(p.measurement_unit)+'</p><span class="badge">'+escapeHtml(p.availability_status.replaceAll('_',' '))+'</span>'+(p.flash_sale_requested?'<span class="badge flash">Flash Sale requested</span>':'')+'<small>'+escapeHtml(p.product_details.slice(0,140))+'</small></div><button data-edit-product="'+p.id+'" type="button">Edit</button></article>').join('');
+  if(!products.length){box.innerHTML='<div class="empty-card">No products yet. Use “Add Product” to create your first item.</div>';renderFlashSaleProducts();return;}
+  box.innerHTML=products.map(p=>'<article class="product-card"><img src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt=""><div><h4>'+escapeHtml(p.product_name)+'</h4><p>'+money(p.price_kes)+' · '+p.quantity_available+' '+escapeHtml(p.measurement_unit)+'</p><span class="badge">'+escapeHtml(p.availability_status.replaceAll('_',' '))+'</span>'+(p.flash_sale_requested?'<span class="badge flash">Flash Sale '+escapeHtml(p.flash_sale_status||'requested')+'</span>':'')+'<small>'+escapeHtml(p.product_details.slice(0,140))+'</small></div><button data-edit-product="'+p.id+'" type="button">Edit</button></article>').join('');
   $$('[data-edit-product]').forEach(b=>b.addEventListener('click',()=>editProduct(b.dataset.editProduct)));
+  renderFlashSaleProducts();
 }
-function resetProductForm(){
-  editingProduct=null;$('#sellerProductForm').reset();$('#sellerProductId').value='';$('#productFormTitle').textContent='Add Product / Item';$('#cancelProductEdit').hidden=true;$('#variantRows').innerHTML='';$('#variantSection').hidden=true;$('#lppFields').hidden=true;$('#flashFields').hidden=true;$('#productOtherUnitWrap').hidden=true;renderSubcategories();status($('#productFormStatus'));
+$('#flashSaleProduct').addEventListener('change',()=>{
+  const p=products.find(item=>item.id===$('#flashSaleProduct').value);
+  $('#flashSaleNormalPrice').value=p?money(p.price_kes):'';
+  if(p){
+    $('#flashSalePrice').value=p.flash_sale_price_kes||'';
+    $('#flashSaleQuantity').value=p.flash_sale_quantity||'';
+    $('#flashSaleStart').value=localInput(p.flash_sale_starts_at);
+    $('#flashSaleEnd').value=localInput(p.flash_sale_ends_at);
+  }
+});
+$('#sellerFlashSaleForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const product=products.find(item=>item.id===$('#flashSaleProduct').value);
+  if(!product){status($('#flashSaleStatus'),'Choose one of your existing products.','error');return;}
+  const flashPrice=Number($('#flashSalePrice').value);
+  const quantity=Number($('#flashSaleQuantity').value);
+  const startValue=$('#flashSaleStart').value;
+  const endValue=$('#flashSaleEnd').value;
+  if(!flashPrice||flashPrice<=0){status($('#flashSaleStatus'),'Enter a valid Flash Sale price.','error');return;}
+  if(flashPrice>=Number(product.price_kes)){status($('#flashSaleStatus'),'Flash Sale price should be lower than the normal selling price.','error');return;}
+  if(!quantity||quantity<=0||quantity>Number(product.quantity_available)){status($('#flashSaleStatus'),'Flash quantity must be greater than zero and cannot exceed available stock.','error');return;}
+  if(!startValue||!endValue||new Date(endValue)<=new Date(startValue)){status($('#flashSaleStatus'),'Choose a valid Flash Sale start and end time.','error');return;}
+  const button=e.submitter||$('#sellerFlashSaleForm button[type="submit"]');
+  const original=button.textContent;button.disabled=true;button.textContent='Sending…';
+  status($('#flashSaleStatus'),'Sending Flash Sale request…');
+  try{
+    const {error}=await client.from('seller_products').update({
+      flash_sale_requested:true,
+      flash_sale_price_kes:flashPrice,
+      flash_sale_quantity:quantity,
+      flash_sale_starts_at:new Date(startValue).toISOString(),
+      flash_sale_ends_at:new Date(endValue).toISOString(),
+      flash_sale_status:'requested',
+      updated_at:new Date().toISOString()
+    }).eq('id',product.id).eq('seller_id',currentUser.id);
+    if(error)throw error;
+    status($('#flashSaleStatus'),'Flash Sale request sent successfully.','success');
+    e.target.reset();$('#flashSaleNormalPrice').value='';
+    await loadProducts();
+  }catch(error){status($('#flashSaleStatus'),error.message||'Flash Sale request could not be sent.','error');}
+  finally{button.disabled=false;button.textContent=original;}
+});
+
+function resetProductForm(hide=true){
+  editingProduct=null;$('#sellerProductForm').reset();$('#sellerProductId').value='';$('#productFormTitle').textContent='Add Product / Item';$('#cancelProductEdit').hidden=true;$('#variantRows').innerHTML='';$('#variantSection').hidden=true;$('#lppFields').hidden=true;$('#productOtherUnitWrap').hidden=true;renderSubcategories();status($('#productFormStatus'));
+  if(hide)$('#sellerProductForm').hidden=true;
 }
-$('#cancelProductEdit').addEventListener('click',resetProductForm);
+$('#cancelProductEdit').addEventListener('click',()=>resetProductForm(true));
+$('#showSellerProductForm').addEventListener('click',()=>{resetProductForm(false);$('#sellerProductForm').hidden=false;$('#sellerProductForm').scrollIntoView({behavior:'smooth',block:'start'});});
 
 function localInput(iso){if(!iso)return'';const d=new Date(iso);const off=d.getTimezoneOffset();return new Date(d.getTime()-off*60000).toISOString().slice(0,16);}
 function editProduct(id){
@@ -528,8 +624,7 @@ function editProduct(id){
   $('#sellerProductId').value=p.id;$('#productFormTitle').textContent='Edit Product / Item';$('#productName').value=p.product_name;$('#productPrice').value=p.price_kes;$('#productAvailability').value=p.availability_status;$('#productQuantity').value=p.quantity_available;$('#productUnit').value=p.measurement_unit;$('#productOtherUnit').value=p.measurement_unit_other||'';$('#productOtherUnitWrap').hidden=p.measurement_unit!=='other';$('#productCategory').value=p.category_id;renderSubcategories();$('#productSubcategory').value=p.subcategory_id||'';$('#productGroup').value=p.group_name||'';$('#productListingStatus').value=p.listing_status;$('#productDetails').value=p.product_details;
   $('#productHasVariants').checked=p.has_variants;$('#variantSection').hidden=!p.has_variants;$('#variantRows').innerHTML='';(p.seller_product_variants||[]).forEach(addVariantRow);
   $('#productLpp').checked=p.accepts_lipa_pole_pole;$('#lppFields').hidden=!p.accepts_lipa_pole_pole;$('#productLppDeposit').value=p.lipa_pole_pole_first_deposit_kes||'';$('#productLppDays').value=p.lipa_pole_pole_max_days||'';
-  $('#productFlashSale').checked=p.flash_sale_requested;$('#flashFields').hidden=!p.flash_sale_requested;$('#flashPrice').value=p.flash_sale_price_kes||'';$('#flashQuantity').value=p.flash_sale_quantity||'';$('#flashStart').value=localInput(p.flash_sale_starts_at);$('#flashEnd').value=localInput(p.flash_sale_ends_at);
-  $('#cancelProductEdit').hidden=false;$('#sellerProductForm').scrollIntoView({behavior:'smooth'});
+  $('#cancelProductEdit').hidden=false;$('#sellerProductForm').hidden=false;openSellerView('products');$('#sellerProductForm').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 $('#sellerProductForm').addEventListener('submit',async e=>{
@@ -541,7 +636,7 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
     let mainPath=editingProduct?.main_image_path||null;if($('#productMainImage').files[0])mainPath=await uploadImage($('#productMainImage').files[0],'main');
     if(!mainPath)throw new Error('Add a main product picture.');
     let galleryPaths=editingProduct?.gallery_image_paths||[];if(galleryFiles.length)galleryPaths=await Promise.all(galleryFiles.map((f,i)=>uploadImage(f,'gallery-'+i)));
-    const hasVariants=$('#productHasVariants').checked,lpp=$('#productLpp').checked,flash=$('#productFlashSale').checked;
+    const hasVariants=$('#productHasVariants').checked,lpp=$('#productLpp').checked;
     const payload={
       seller_id:currentUser.id,product_name:$('#productName').value.trim(),price_kes:Number($('#productPrice').value),
       availability_status:$('#productAvailability').value,quantity_available:Number($('#productQuantity').value),
@@ -549,9 +644,7 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
       accepts_lipa_pole_pole:lpp,lipa_pole_pole_first_deposit_kes:lpp?Number($('#productLppDeposit').value):null,lipa_pole_pole_max_days:lpp?Number($('#productLppDays').value):null,
       has_variants:hasVariants,product_details:$('#productDetails').value.trim(),main_image_path:mainPath,gallery_image_paths:galleryPaths,
       category_id:$('#productCategory').value,subcategory_id:$('#productSubcategory').value||null,group_name:$('#productGroup').value.trim()||null,
-      listing_status:$('#productListingStatus').value,flash_sale_requested:flash,flash_sale_price_kes:flash?Number($('#flashPrice').value):null,
-      flash_sale_starts_at:flash?new Date($('#flashStart').value).toISOString():null,flash_sale_ends_at:flash?new Date($('#flashEnd').value).toISOString():null,
-      flash_sale_quantity:flash?Number($('#flashQuantity').value):null,flash_sale_status:flash?'requested':'none',updated_at:new Date().toISOString()
+      listing_status:$('#productListingStatus').value,updated_at:new Date().toISOString()
     };
     let productId=editingProduct?.id;
     if(productId){const {error}=await client.from('seller_products').update(payload).eq('id',productId).eq('seller_id',currentUser.id);if(error)throw error;}
@@ -562,7 +655,7 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
       if(!variants.length)throw new Error('Add at least one variant or switch off variants.');
       const {error}=await client.from('seller_product_variants').insert(variants);if(error)throw error;
     }
-    status($('#productFormStatus'),'Product saved successfully.','success');resetProductForm();await loadProducts();
+    status($('#productFormStatus'),'Product saved successfully. Flash Sale can be requested separately from the Flash Sale menu.','success');await loadProducts();setTimeout(()=>resetProductForm(true),700);
   }catch(err){status($('#productFormStatus'),err.message||'Product could not be saved.','error');}
 });
 
@@ -571,12 +664,13 @@ async function handleSession(session){
   logout.hidden=!currentUser;
   if(!currentUser){
     seller=null;products=[];activeRole='';
-    authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;
+    authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;if(hero)hero.hidden=false;
     return;
   }
   authShell.hidden=true;
   sellerShell.hidden=true;
   rolePicker.hidden=false;
+  if(hero)hero.hidden=false;
   if(activeRole==='seller')await openSellerRole();
 }
 client.auth.onAuthStateChange((event,s)=>{
