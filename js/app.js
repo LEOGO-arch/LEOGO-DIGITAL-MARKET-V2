@@ -592,11 +592,99 @@
   const createdOrderReference = document.getElementById('createdOrderReference');
   const downloadOrderReceipt = document.getElementById('downloadOrderReceipt');
   const sendOrderWhatsApp = document.getElementById('sendOrderWhatsApp');
+  const checkoutTillNumber = customerShellModal?.querySelector('[data-admin-managed="mpesa-till-number"]');
+  const checkoutPaybillNumber = customerShellModal?.querySelector('[data-admin-managed="mpesa-paybill-number"]');
+  const checkoutTillButton = customerShellModal?.querySelector('[data-payment-method="till"]');
+  const checkoutPaybillButton = customerShellModal?.querySelector('[data-payment-method="paybill"]');
+  const checkoutPaymentDestination = document.getElementById('checkoutAdminPaymentDestination');
+  const checkoutPaymentDestinationTitle = document.getElementById('checkoutPaymentDestinationTitle');
+  const checkoutPaymentDestinationName = document.getElementById('checkoutPaymentDestinationName');
+  const checkoutPaymentDestinationNumber = document.getElementById('checkoutPaymentDestinationNumber');
+  const checkoutPaymentDestinationInstructions = document.getElementById('checkoutPaymentDestinationInstructions');
+  const copyCheckoutPaymentDestination = document.getElementById('copyCheckoutPaymentDestination');
   let selectedCheckoutPayment = '';
   let previewOrderReference = '';
+  let marketplacePaymentDestination = null;
 
   const checkoutTotalText = () => checkoutGrandTotalValue?.textContent || 'KSh 0';
   const checkoutSubtotal = () => Number(checkoutShell?.dataset.checkoutSubtotal || 0);
+
+  const clearUnavailableMarketplaceSelection = () => {
+    if (!['till','paybill'].includes(selectedCheckoutPayment)) return;
+    const requiredType = selectedCheckoutPayment === 'till' ? 'mpesa_till' : 'mpesa_paybill';
+    if (marketplacePaymentDestination?.account_type === requiredType) return;
+    selectedCheckoutPayment = '';
+    paymentMethodButtons?.forEach((item) => item.classList.remove('active'));
+    if (selectedPaymentLabel) selectedPaymentLabel.textContent = 'Not selected';
+    if (selectedPaymentStatus) selectedPaymentStatus.textContent = 'Waiting';
+  };
+
+  const renderMarketplacePaymentDestination = (destination, error = null) => {
+    marketplacePaymentDestination = destination || null;
+    const accountType = destination?.account_type || '';
+    const number = window.leogoPayments?.paymentNumber(destination) || '';
+    const name = window.leogoPayments?.destinationName(destination) || '';
+    const typeLabel = window.leogoPayments?.typeLabel(destination) || 'Order Payment Account';
+
+    const tillAvailable = accountType === 'mpesa_till' && Boolean(destination?.till_number);
+    const paybillAvailable = accountType === 'mpesa_paybill' && Boolean(destination?.paybill_number);
+
+    if (checkoutTillNumber) checkoutTillNumber.textContent = tillAvailable ? destination.till_number : 'Not assigned';
+    if (checkoutPaybillNumber) checkoutPaybillNumber.textContent = paybillAvailable ? destination.paybill_number : 'Not assigned';
+
+    if (checkoutTillButton) {
+      checkoutTillButton.classList.toggle('is-disabled', !tillAvailable);
+      checkoutTillButton.setAttribute('aria-disabled', String(!tillAvailable));
+      checkoutTillButton.dataset.paymentUnavailableMessage = tillAvailable ? '' : 'M-Pesa Till is not the active Admin-assigned account for Order Payments.';
+    }
+    if (checkoutPaybillButton) {
+      checkoutPaybillButton.classList.toggle('is-disabled', !paybillAvailable);
+      checkoutPaybillButton.setAttribute('aria-disabled', String(!paybillAvailable));
+      checkoutPaybillButton.dataset.paymentUnavailableMessage = paybillAvailable ? '' : 'M-Pesa Paybill is not the active Admin-assigned account for Order Payments.';
+    }
+
+    if (checkoutPaymentDestinationTitle) {
+      checkoutPaymentDestinationTitle.textContent = destination
+        ? `${typeLabel} — ${destination.display_name || 'LEOGO Payment'}`
+        : 'Order payment account unavailable';
+    }
+    if (checkoutPaymentDestinationName) {
+      checkoutPaymentDestinationName.textContent = destination ? name : '';
+    }
+    if (checkoutPaymentDestinationNumber) {
+      if (accountType === 'bank') {
+        checkoutPaymentDestinationNumber.textContent = [destination.bank_name, destination.account_number].filter(Boolean).join(' · ') || 'Bank details configured';
+      } else {
+        checkoutPaymentDestinationNumber.textContent = number || '—';
+      }
+    }
+    if (checkoutPaymentDestinationInstructions) {
+      checkoutPaymentDestinationInstructions.textContent = error
+        ? 'The Admin payment account could not be loaded. Refresh and try again before paying.'
+        : destination
+          ? (destination.instructions || 'Use this Admin-assigned account for this order payment.')
+          : 'Admin has not assigned an active account to Order Payments. Do not send payment until one is assigned.';
+    }
+    if (copyCheckoutPaymentDestination) copyCheckoutPaymentDestination.disabled = !number;
+
+    clearUnavailableMarketplaceSelection();
+  };
+
+  const loadMarketplacePaymentDestination = async (force = false) => {
+    if (!window.leogoAuth?.isAuthenticated?.()) {
+      renderMarketplacePaymentDestination(null);
+      return null;
+    }
+    if (!window.leogoPayments) {
+      renderMarketplacePaymentDestination(null, new Error('Payment routing is not ready.'));
+      return null;
+    }
+    if (checkoutPaymentDestinationTitle) checkoutPaymentDestinationTitle.textContent = 'Loading Admin payment account…';
+    const { data, error } = await window.leogoPayments.getDestination('marketplace_orders', { force });
+    renderMarketplacePaymentDestination(data, error);
+    return data;
+  };
+
   const updateCashOnDeliveryAvailability = () => {
     const limit = Number(checkoutShell?.dataset.codLimit || 10000);
     const codButton = customerShellModal?.querySelector('[data-payment-method="cod"]');
@@ -666,19 +754,20 @@
     field?.addEventListener('change', updateCheckoutReadiness);
   });
 
-  continueToPayment?.addEventListener('click', () => {
+  continueToPayment?.addEventListener('click', async () => {
     if (!testCart.length) {
       openCustomerShell('cart');
       return;
     }
     showCheckoutStep('payment');
+    await loadMarketplacePaymentDestination(true);
   });
   backToCheckoutDetails?.addEventListener('click', () => showCheckoutStep('details'));
 
   paymentMethodButtons?.forEach((button) => {
     button.addEventListener('click', () => {
       if (button.getAttribute('aria-disabled') === 'true') {
-        paymentStepStatus.textContent = 'Cash on Delivery is only available for orders below KSh 10,000.';
+        paymentStepStatus.textContent = button.dataset.paymentUnavailableMessage || 'This payment method is not currently available.';
         return;
       }
       selectedCheckoutPayment = button.dataset.paymentMethod;
@@ -702,10 +791,25 @@
         paymentProofLabel.textContent = 'Paste M-Pesa message for the Transport & Parcel Delivery fee';
         markPaymentPaidLabel.textContent = 'I confirm that I paid the Transport & Parcel Delivery fee first. I will pay the order balance in cash on delivery.';
       } else {
-        paymentProofLabel.textContent = 'Paste M-Pesa payment message';
-        markPaymentPaidLabel.textContent = 'I confirm that I prepaid this order and want to mark the payment as paid.';
+        const destinationNumber = window.leogoPayments?.paymentNumber(marketplacePaymentDestination) || '';
+        paymentProofLabel.textContent = destinationNumber
+          ? `Paste M-Pesa payment message after paying ${destinationNumber}`
+          : 'Paste M-Pesa payment message';
+        markPaymentPaidLabel.textContent = 'I confirm that I prepaid this order to the Admin-assigned payment account and want to mark the payment as paid.';
       }
     });
+  });
+
+  copyCheckoutPaymentDestination?.addEventListener('click', async () => {
+    const number = window.leogoPayments?.paymentNumber(marketplacePaymentDestination) || '';
+    if (!number) return;
+    try {
+      await navigator.clipboard.writeText(number);
+      copyCheckoutPaymentDestination.textContent = 'Copied';
+      window.setTimeout(() => { copyCheckoutPaymentDestination.textContent = 'Copy'; }, 1400);
+    } catch {
+      if (paymentStepStatus) paymentStepStatus.textContent = `Payment number: ${number}. Press and hold the number to copy it.`;
+    }
   });
 
   makeCheckoutOrder?.addEventListener('click', () => {
