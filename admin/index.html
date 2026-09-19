@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-v1-12">
+  <link rel="stylesheet" href="admin.css?v=admin-v1-13">
 </head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
@@ -229,7 +229,7 @@
 
       <section class="admin-panel" data-admin-panel="settings">
         <div class="section-head"><div><span>ADMINISTRATION</span><h2>System Settings</h2><p>Official business information, payment destinations, fees and reserved system modules.</p></div></div>
-        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="data">Data Management</button><button data-settings-panel="reserved">More Settings</button></div>
+        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="data">Data Management</button><button data-settings-panel="reserved">More Settings</button></div>
 
         <div class="settings-panel active" data-settings-content="business">
           <form class="settings-form" id="businessSettingsForm">
@@ -250,6 +250,24 @@
             </div><div class="form-status" id="businessSettingsStatus"></div>
             <div class="locked-front-note">Customer Front is locked. These settings are now the official Admin source and will be connected to customer pages only through an approved integration change.</div>
           </form>
+        </div>
+
+        <div class="settings-panel" data-settings-content="locations">
+          <div class="form-section-head"><div><span>L</span><div><h3>Service Counties &amp; Sub-Counties</h3><p>Shared location list used by Seller registration, Customer profiles and future local partner matching.</p></div></div></div>
+          <div class="location-admin-grid">
+            <form id="addServiceCountyForm" class="location-admin-form">
+              <label><span>Add / activate county</span><input id="newServiceCountyName" placeholder="County name" required></label>
+              <button type="submit">Add County</button>
+            </form>
+            <form id="addServiceSubcountyForm" class="location-admin-form">
+              <label><span>County</span><select id="serviceSubcountyCounty" required><option value="">Choose county</option></select></label>
+              <label><span>Add / activate sub-county</span><input id="newServiceSubcountyName" placeholder="Sub-county name" required></label>
+              <button type="submit">Add Sub-County</button>
+            </form>
+          </div>
+          <div class="form-status" id="serviceLocationStatus"></div>
+          <div id="serviceLocationList" class="location-admin-list"><div class="loading-card">Loading service locations…</div></div>
+          <div class="locked-front-note">Active locations automatically become available to Seller registration and Customer profiles. Deactivating a county removes it from new selections but does not erase historical customer or partner records.</div>
         </div>
 
         <div class="settings-panel" data-settings-content="payments">
@@ -294,6 +312,6 @@
   <div class="modal" id="pickupStationModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="pickupStationForm"><header><div><span>DELIVERY SETTINGS</span><h2 id="pickupModalTitle">Add Pickup Station</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label class="wide"><span>Station name</span><input name="station_name" required></label><label><span>County</span><input name="county" required></label><label><span>Sub-County</span><input name="sub_county" required></label><label><span>Town</span><input name="town" required></label><label><span>Door number</span><input name="door_number"></label><label class="wide"><span>Address</span><input name="address_line" required></label><label><span>Landmark</span><input name="landmark"></label><label><span>Contact phone</span><input name="contact_phone"></label><label class="wide"><span>Operating information</span><input name="operating_hours" placeholder="e.g. Monday–Saturday, 8:00 AM–6:00 PM"></label><label><span>Pickup service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.001" required></label><label><span>Display order</span><input name="display_order" type="number" min="0" max="999" value="0"></label><label class="switch-label"><input name="is_active" type="checkbox" checked><span>Station is active</span></label></div><div class="form-status" id="pickupStationStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Pickup Station</button></footer></form></div>
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
-  <script src="admin.js?v=admin-v1-12" defer></script>
+  <script src="admin.js?v=admin-v1-13" defer></script>
 </body>
 </html>
