@@ -96,8 +96,8 @@ window.LEOGO_PRODUCT_TAXONOMY = {
     {id:'d120e9d9-b301-47ed-bbc1-44251534689e',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'pickups',name:'Pickups',display_order:30,is_active:true},
     {id:'f07db86b-bbfc-467c-8823-02f278af5e98',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'lorries_canters',name:'Lorries/Canters',display_order:40,is_active:true},
     {id:'5f6e5657-4829-4071-bc97-c6589fcffe63',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'others',name:'Other (specify)',display_order:70,is_active:true},
-    {id:'00000000-0000-0000-0000-000000000501',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'vehicle_spare_parts',name:'Vehicle spare parts',display_order:50,is_active:true},
-    {id:'00000000-0000-0000-0000-000000000502',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'motorcycle_spare_parts',name:'Motorcycle spare parts',display_order:60,is_active:true},
+    {id:'d0e2aaf2-34bd-40c4-a818-1aa6eb54f222',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'vehicle_spare_parts',name:'Vehicle spare parts',display_order:50,is_active:true},
+    {id:'d64090dd-e0d9-4407-a8f9-24961d579a98',category_id:'393e3e96-93ee-47ed-a637-b4f2fc412100',code:'motorcycle_spare_parts',name:'Motorcycle spare parts',display_order:60,is_active:true},
 
     {id:'4af478d2-c14d-483c-8a46-055901b26bb1',category_id:'4b64eec5-cd2b-4302-a244-f100852ccc23',code:'others',name:'Other (specify)',display_order:10,is_active:true}
   ]
