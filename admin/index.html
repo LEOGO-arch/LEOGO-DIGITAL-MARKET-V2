@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-v1-11">
+  <link rel="stylesheet" href="admin.css?v=admin-v1-12">
 </head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
@@ -146,7 +146,17 @@
       </section>
 
       <section class="admin-panel" data-admin-panel="products"><div class="section-head"><div><span>CATALOGUE</span><h2>Products &amp; Categories</h2><p>Product and Explore LEOGO administration foundation.</p></div></div><div class="reserved-module"><span>□</span><h3>Catalogue connection reserved</h3><p>The customer catalogue is locked. Product, category and seller tables will be connected here when their production workflow is approved.</p></div></section>
-      <section class="admin-panel" data-admin-panel="sellers"><div class="section-head"><div><span>MARKETPLACE PARTNERS</span><h2>Sellers</h2><p>Seller onboarding, verification and performance will be managed here.</p></div></div><div class="reserved-module"><span>▣</span><h3>Seller administration reserved</h3><p>No duplicate seller records were created because the seller-side production schema is not built yet.</p></div></section>
+      <section class="admin-panel" data-admin-panel="sellers">
+        <div class="section-head"><div><span>MARKETPLACE PARTNERS</span><h2>Sellers</h2><p>All Seller registration records remain here after approval, together with product and Flash Sale activity.</p></div><button data-open-view="approvals" data-filter-target="sellers" class="primary-button">Open Seller Approvals</button></div>
+        <div class="seller-admin-summary">
+          <article><span>Total Sellers</span><strong id="adminSellerTotal">0</strong><small>All retained registrations</small></article>
+          <article><span>Approved</span><strong id="adminSellerApproved">0</strong><small>Active seller accounts</small></article>
+          <article><span>Pending Review</span><strong id="adminSellerPending">0</strong><small>Submitted / under review</small></article>
+          <article><span>Products</span><strong id="adminSellerProducts">0</strong><small>Seller-created items</small></article>
+        </div>
+        <div class="seller-admin-toolbar"><input id="adminSellerSearch" type="search" placeholder="Search business, owner, ID, phone, email or town…"><select id="adminSellerStatusFilter"><option value="all">All statuses</option><option value="approved">Approved</option><option value="submitted">Submitted</option><option value="under_review">Under Review</option><option value="changes_requested">Changes Requested</option><option value="rejected">Rejected</option><option value="suspended">Suspended</option></select></div>
+        <div class="table-card seller-admin-table-card"><div class="responsive-table"><table class="seller-admin-table"><thead><tr><th>Business</th><th>Owner</th><th>ID / Phone</th><th>Location</th><th>Status</th><th>Products</th><th>Flash Sale</th><th>Action</th></tr></thead><tbody id="adminSellerTableBody"><tr><td colspan="8">Loading sellers…</td></tr></tbody></table></div></div>
+      </section>
       <section class="admin-panel" data-admin-panel="providers"><div class="section-head"><div><span>SERVICE NETWORK</span><h2>Service Providers</h2><p>Provider approval, assignment and service quality controls.</p></div></div><div class="reserved-module"><span>⚒</span><h3>Provider administration reserved</h3><p>This is ready to connect when service-provider registration is built.</p></div></section>
 
       <section class="admin-panel" data-admin-panel="transport">
@@ -270,6 +280,8 @@
 
   <div class="modal" id="approvalReviewModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><section class="modal-card"><header><div><span>SECURE REVIEW</span><h2 id="reviewModalTitle">Review request</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><div class="review-applicant" id="reviewApplicant"></div><div class="review-media" id="reviewMedia" hidden></div><div class="review-details" id="reviewDetails"></div><label><span id="reviewNotesLabel">Admin notes / reason</span><textarea id="reviewNotes" rows="4" placeholder="Add internal review notes. A reason is required when rejecting or requesting corrections."></textarea></label><div class="form-status" id="reviewStatus"></div></div><footer id="reviewActions"><button class="secondary" data-review-action="under_review" type="button">Mark Under Review</button><button class="warning" data-review-action="changes_requested" type="button" hidden>Request Correction</button><button class="danger" data-review-action="reject" type="button">Reject</button><button class="primary" data-review-action="approve" type="button">Approve</button></footer></section></div>
 
+  <div class="modal" id="sellerRecordModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><section class="modal-card wide-modal"><header><div><span>SELLER RECORD</span><h2 id="sellerRecordTitle">Seller</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><div class="seller-record-grid" id="sellerRecordGrid"></div></div><footer><button class="secondary" data-close-modal type="button">Close</button></footer></section></div>
+
   <div class="modal" id="premiumCustomerModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><section class="modal-card wide-modal premium-customer-modal-card"><header><div><span>PREMIUM CUSTOMER RECORD</span><h2 id="premiumCustomerModalTitle">Customer record</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body">
     <div class="premium-customer-detail-summary" id="premiumCustomerDetailSummary"></div>
     <div class="review-media" id="premiumCustomerMedia" hidden></div>
@@ -282,6 +294,6 @@
   <div class="modal" id="pickupStationModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="pickupStationForm"><header><div><span>DELIVERY SETTINGS</span><h2 id="pickupModalTitle">Add Pickup Station</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label class="wide"><span>Station name</span><input name="station_name" required></label><label><span>County</span><input name="county" required></label><label><span>Sub-County</span><input name="sub_county" required></label><label><span>Town</span><input name="town" required></label><label><span>Door number</span><input name="door_number"></label><label class="wide"><span>Address</span><input name="address_line" required></label><label><span>Landmark</span><input name="landmark"></label><label><span>Contact phone</span><input name="contact_phone"></label><label class="wide"><span>Operating information</span><input name="operating_hours" placeholder="e.g. Monday–Saturday, 8:00 AM–6:00 PM"></label><label><span>Pickup service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.001" required></label><label><span>Display order</span><input name="display_order" type="number" min="0" max="999" value="0"></label><label class="switch-label"><input name="is_active" type="checkbox" checked><span>Station is active</span></label></div><div class="form-status" id="pickupStationStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Pickup Station</button></footer></form></div>
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
-  <script src="admin.js?v=admin-v1-11" defer></script>
+  <script src="admin.js?v=admin-v1-12" defer></script>
 </body>
 </html>
