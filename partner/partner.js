@@ -88,6 +88,15 @@ $$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   if(button.dataset.roleTarget==='seller')openSellerRole();
 }));
 
+async function uploadSellerVerification(file,prefix){
+  if(!file)return null;
+  if(file.size>8388608)throw new Error('Each business document must be 8 MB or smaller.');
+  const ext=(file.name.split('.').pop()||'pdf').toLowerCase();
+  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('seller-verification').upload(path,file,{upsert:false});
+  if(error)throw error;
+  return path;
+}
 const normalisePhone=v=>{const d=String(v||'').replace(/\D/g,'');if(/^0[17]\d{8}$/.test(d))return '+254'+d.slice(1);if(/^254[17]\d{8}$/.test(d))return '+'+d;if(/^[17]\d{8}$/.test(d))return '+254'+d;return String(v||'').trim();};
 
 async function loadKenyaLocations(){
@@ -172,7 +181,7 @@ function renderSellerSummary(){
   const fields=[
     ['Business',seller.business_name],['Owner',seller.owner_name],['ID Number',seller.id_number],['Phone',seller.phone],
     ['County',seller.county],['Sub-County',seller.sub_county||'—'],['Town',seller.town],['Location',seller.location_details],
-    ['Business Description',seller.business_description||'—']
+    ['Business Description',seller.business_description||'—'],['Business ID Document',seller.business_id_document_path?'Uploaded':'Missing'],['Business Licence',seller.business_licence_path?'Uploaded':'Not provided'],['CR12 / Registration Certificate',seller.registration_certificate_path?'Uploaded':'Not provided'],['Other Permits',(seller.other_permit_paths||[]).length+' file(s)']
   ];
   $('#sellerRegistrationSummary').innerHTML='<div class="section-title compact"><span>REGISTRATION DETAILS</span><h3>Your submitted Seller information</h3></div><div class="summary-grid">'+fields.map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('')+'</div>';
 }
@@ -217,16 +226,33 @@ $('#showSellerRegistration').addEventListener('click',()=>{sellerOnboarding.hidd
 sellerReg.addEventListener('submit',async e=>{
   e.preventDefault();const phone=normalisePhone($('#sellerPhone').value);
   if(!/^\+254[17]\d{8}$/.test(phone)){status($('#sellerRegistrationStatus'),'Enter a valid Kenyan phone number.','error');return;}
-  status($('#sellerRegistrationStatus'),'Submitting seller application…');
-  const {error}=await client.rpc('submit_seller_application',{
+  status($('#sellerRegistrationStatus'),'Uploading business documents…');
+  try{
+    const businessIdFile=$('#sellerBusinessIdDocument').files[0];
+    if(!businessIdFile)throw new Error('Business ID / identification document is required.');
+    const otherFiles=[...$('#sellerOtherPermits').files];
+    if(otherFiles.length>4)throw new Error('Choose a maximum of 4 other permit files.');
+    const [businessIdPath,businessLicencePath,registrationCertificatePath,otherPermitPaths]=await Promise.all([
+      uploadSellerVerification(businessIdFile,'business-id'),
+      uploadSellerVerification($('#sellerBusinessLicence').files[0],'business-licence'),
+      uploadSellerVerification($('#sellerRegistrationCertificate').files[0],'registration-certificate'),
+      Promise.all(otherFiles.map((file,index)=>uploadSellerVerification(file,'permit-'+index)))
+    ]);
+    status($('#sellerRegistrationStatus'),'Submitting seller application…');
+    const {error}=await client.rpc('submit_seller_application',{
     p_business_name:$('#sellerBusinessName').value.trim(),p_owner_name:$('#sellerOwnerName').value.trim(),
     p_id_number:$('#sellerIdNumber').value.trim(),p_phone:phone,
     p_county:$('#sellerCounty').selectedOptions[0]?.textContent||'',p_sub_county:$('#sellerSubCounty').selectedOptions[0]?.textContent||'',
     p_town:$('#sellerTown').value.trim(),p_location_details:$('#sellerLocation').value.trim(),
     p_business_description:$('#sellerDescription').value.trim()||null,
-    p_county_code:$('#sellerCounty').value,p_sub_county_code:$('#sellerSubCounty').value
+    p_county_code:$('#sellerCounty').value,p_sub_county_code:$('#sellerSubCounty').value,
+    p_business_id_document_path:businessIdPath,
+    p_business_licence_path:businessLicencePath,
+    p_registration_certificate_path:registrationCertificatePath,
+    p_other_permit_paths:otherPermitPaths
   });
-  if(error){status($('#sellerRegistrationStatus'),error.message,'error');return;}
+    if(error)throw error;
+  }catch(error){status($('#sellerRegistrationStatus'),error.message||'Seller application could not be submitted.','error');return;}
   status($('#sellerRegistrationStatus'),'Seller application submitted to LEOGO Admin for approval.','success');
   await loadSeller();
   sellerReg.hidden=true;
