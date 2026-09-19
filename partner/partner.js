@@ -2,6 +2,7 @@
 'use strict';
 const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
 const PUBLISHABLE_KEY='sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
+const PARTNER_URL='https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/partner/';
 const client=window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 if(!client)return;
 
@@ -13,10 +14,59 @@ const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=[],subcategories=[],products=[],editingProduct=null;
 
 const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),logout=$('#partnerLogout');
+const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard');
 let activeRole='';
 
-$$('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('[data-auth-form]').forEach(f=>f.classList.toggle('active',f.dataset.authForm===b.dataset.authTab));}));
+$('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>{$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$('[data-auth-form]').forEach(f=>f.classList.toggle('active',f.dataset.authForm===b.dataset.authTab));}));
+
+function showLoginForm(){
+  $('#partnerLoginForm').hidden=false;
+  $('#partnerLoginForm').classList.add('active');
+  $('#partnerRegisterForm').hidden=true;
+  $('#partnerRegisterForm').classList.remove('active');
+  resetRequestForm.hidden=true;
+  resetUpdateForm.hidden=true;
+  $('[data-auth-tab]').forEach((button)=>button.classList.toggle('active',button.dataset.authTab==='login'));
+}
+$('#showPartnerResetPassword').addEventListener('click',()=>{
+  $('#partnerLoginForm').hidden=true;
+  $('#partnerLoginForm').classList.remove('active');
+  $('#partnerRegisterForm').hidden=true;
+  $('#partnerRegisterForm').classList.remove('active');
+  resetUpdateForm.hidden=true;
+  resetRequestForm.hidden=false;
+  resetRequestForm.classList.add('active');
+  $('#partnerResetEmail').value=$('#partnerLoginEmail').value.trim();
+  $('#partnerResetEmail').focus();
+  status($('#partnerAuthStatus'),'');
+});
+$('#cancelPartnerReset').addEventListener('click',()=>{resetRequestForm.classList.remove('active');showLoginForm();status($('#partnerAuthStatus'),'');});
+
+resetRequestForm.addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!resetRequestForm.reportValidity())return;
+  const email=$('#partnerResetEmail').value.trim().toLowerCase();
+  status($('#partnerAuthStatus'),'Sending password reset link…');
+  const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:PARTNER_URL+'?mode=reset-password'});
+  if(error){status($('#partnerAuthStatus'),error.message,'error');return;}
+  status($('#partnerAuthStatus'),'Password reset link sent. Check your email and open the link to create a new password.','success');
+});
+
+resetUpdateForm.addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!resetUpdateForm.reportValidity())return;
+  const password=$('#partnerRecoveryPassword').value;
+  const confirm=$('#partnerRecoveryPasswordConfirm').value;
+  if(password.length<8){status($('#partnerAuthStatus'),'Use at least 8 characters.','error');return;}
+  if(password!==confirm){status($('#partnerAuthStatus'),'The two passwords do not match.','error');return;}
+  status($('#partnerAuthStatus'),'Updating password…');
+  const {error}=await client.auth.updateUser({password});
+  if(error){status($('#partnerAuthStatus'),error.message,'error');return;}
+  resetUpdateForm.reset();
+  status($('#partnerAuthStatus'),'Password updated successfully. Continue to your Partnership Selection.','success');
+  history.replaceState({},document.title,PARTNER_URL);
+});
 
 $('#partnerLoginForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Signing in…');const {error}=await client.auth.signInWithPassword({email:$('#partnerLoginEmail').value.trim(),password:$('#partnerLoginPassword').value});if(error)status($('#partnerAuthStatus'),error.message,'error');});
 $('#partnerRegisterForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Creating account…');const {data,error}=await client.auth.signUp({email:$('#partnerRegisterEmail').value.trim(),password:$('#partnerRegisterPassword').value,options:{data:{full_name:$('#partnerRegisterName').value.trim()}}});if(error){status($('#partnerAuthStatus'),error.message,'error');return;}status($('#partnerAuthStatus'),data.session?'Account created. Choose the partnership you want to register for.':'Account created. Sign in to continue to partnership selection.','success');});
@@ -243,6 +293,34 @@ async function handleSession(session){
   rolePicker.hidden=false;
   if(activeRole==='seller')await openSellerRole();
 }
-client.auth.onAuthStateChange((_e,s)=>handleSession(s));
-client.auth.getSession().then(({data})=>handleSession(data.session));
+client.auth.onAuthStateChange((event,s)=>{
+  if(event==='PASSWORD_RECOVERY'){
+    currentUser=s?.user||null;
+    authShell.hidden=false;
+    rolePicker.hidden=true;
+    sellerShell.hidden=true;
+    $('#partnerLoginForm').hidden=true;
+    $('#partnerLoginForm').classList.remove('active');
+    $('#partnerRegisterForm').hidden=true;
+    $('#partnerRegisterForm').classList.remove('active');
+    resetRequestForm.hidden=true;
+    resetUpdateForm.hidden=false;
+    resetUpdateForm.classList.add('active');
+    status($('#partnerAuthStatus'),'Create a new password for your LEOGO account.','success');
+    return;
+  }
+  handleSession(s);
+});
+client.auth.getSession().then(({data})=>{
+  if(new URLSearchParams(location.search).get('mode')==='reset-password'){
+    currentUser=data.session?.user||null;
+    authShell.hidden=false; rolePicker.hidden=true; sellerShell.hidden=true; logout.hidden=true;
+    $('#partnerLoginForm').hidden=true; $('#partnerLoginForm').classList.remove('active');
+    $('#partnerRegisterForm').hidden=true; $('#partnerRegisterForm').classList.remove('active');
+    resetRequestForm.hidden=true; resetUpdateForm.hidden=false; resetUpdateForm.classList.add('active');
+    status($('#partnerAuthStatus'),'Create a new password for your LEOGO account.','success');
+    return;
+  }
+  handleSession(data.session);
+});
 })();
