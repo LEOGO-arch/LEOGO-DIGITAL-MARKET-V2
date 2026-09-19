@@ -429,7 +429,7 @@
       const subs = state.serviceSubcounties.filter((sub) => sub.county_code === county.code);
       return '<article class="location-admin-card"><header><div><strong>' + escapeHtml(county.name) + '</strong><small>' + subs.length + ' active sub-counties</small></div><button type="button" data-service-county-toggle="' + escapeHtml(county.code) + '" data-next-active="false">Deactivate</button></header><div class="location-subcounty-chips">' + (subs.length ? subs.map((sub) => '<span>' + escapeHtml(sub.name) + '</span>').join('') : '<small>No active sub-counties.</small>') + '</div></article>';
     }).join('') : '<div class="loading-card">No active service counties.</div>';
-    $('[data-service-county-toggle]').forEach((button) => button.addEventListener('click', async () => {
+    $$('[data-service-county-toggle]').forEach((button) => button.addEventListener('click', async () => {
       if (!window.confirm('Deactivate this county for new customer and partner selections? Existing records will remain.')) return;
       const { error } = await db.rpc('admin_set_service_county_active', { p_code: button.dataset.serviceCountyToggle, p_active: false });
       if (error) { setFormStatus($('#serviceLocationStatus'), friendlyError(error), 'error'); return; }
@@ -651,7 +651,7 @@
       <td data-label="Flash Sale"><strong>${Number(s.flash_sale_request_count||0)}</strong></td>
       <td data-label="Action"><button type="button" class="seller-record-button" data-seller-record="${s.user_id}">View Record →</button></td>
     </tr>`).join('') : '<tr><td colspan="8">No sellers match the current filters.</td></tr>';
-    $('[data-seller-record]').forEach((button)=>button.addEventListener('click',()=>openSellerRecord(button.dataset.sellerRecord)));
+    $$('[data-seller-record]').forEach((button)=>button.addEventListener('click',()=>openSellerRecord(button.dataset.sellerRecord)));
   };
   const loadSellers = async () => {
     const {data,error}=await db.rpc('admin_list_sellers');
