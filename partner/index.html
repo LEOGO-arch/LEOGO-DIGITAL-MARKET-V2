@@ -107,7 +107,12 @@
         <label>Town<input id="sellerTown" type="text" maxlength="80" required></label>
         <label>Business location / landmark<input id="sellerLocation" type="text" maxlength="180" required></label>
         <label class="wide">Business description<textarea id="sellerDescription" rows="3" maxlength="1000" placeholder="What do you sell?"></textarea></label>
+        <label class="wide">Business ID / identification document <small>(Required — formal businesses can upload business ID/registration ID; informal sellers such as mama mboga may upload the owner's ID card.)</small><input id="sellerBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+        <label>Business licence <small>(Optional)</small><input id="sellerBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label>CR12 / Registration Certificate <small>(Optional)</small><input id="sellerRegistrationCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label class="wide">Other related permits <small>(Optional, up to 4 files)</small><input id="sellerOtherPermits" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple></label>
       </div>
+      <div class="private-doc-note">🔒 Business verification documents are private and available only to the Seller and authorized LEOGO Admin users. They are never shown to customers.</div>
       <button type="submit">Submit Seller Application</button>
       <p id="sellerRegistrationStatus" class="status"></p>
     </form>
@@ -176,5 +181,5 @@
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="partner.js?v=seller-v6" defer></script>
+<script src="partner.js?v=seller-v7" defer></script>
 </body></html>
