@@ -29,3 +29,30 @@
 .reset-heading strong{font-size:18px}.reset-heading small{color:var(--muted);line-height:1.45}
 .reset-actions{display:flex;gap:8px;justify-content:flex-end}
 @media(max-width:560px){.reset-actions{flex-direction:column}.reset-actions button{width:100%}}
+
+
+/* Seller profile, notifications and settlement accounts */
+.seller-head-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.seller-icon-button{position:relative;min-width:48px}
+.seller-icon-button b{position:absolute;right:-6px;top:-7px;background:#d72667;color:#fff;border-radius:999px;min-width:20px;height:20px;padding:0 5px;display:grid;place-items:center;font-size:11px}
+.seller-notification-panel{margin:14px 0}
+.notification-toolbar{display:flex;justify-content:flex-end;margin-bottom:10px}
+.seller-notification-list{display:grid;gap:10px}
+.seller-notification-item{display:flex;justify-content:space-between;gap:12px;border:1px solid #d9e1ec;border-radius:14px;padding:12px;background:#fff}
+.seller-notification-item.unread{border-color:#ff7baa;box-shadow:0 0 0 2px rgba(255,123,170,.08)}
+.seller-notification-item p{margin:5px 0;color:#526176}
+.seller-notification-item small{color:#748196}
+.seller-settlement-panel{margin:16px 0}
+.settlement-account-list,.settlement-history{display:grid;gap:10px;margin-top:10px}
+.settlement-account-card,.settlement-history-row{border:1px solid #d9e1ec;border-radius:14px;padding:12px;background:#fff}
+.settlement-account-card>div,.settlement-history-row{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.settlement-account-card small{display:block;color:#6b778b;margin-top:4px}
+.settlement-account-card p{margin:8px 0;color:#59677b}
+.settlement-account-card b{font-size:11px;color:#0a6f47}
+.settlement-status{font-size:11px;font-weight:800;border-radius:999px;padding:5px 8px;background:#edf1f6}
+.settlement-status.approved{background:#ddf7e8;color:#087344}
+.settlement-status.pending_review{background:#fff3d6;color:#8a5a00}
+.settlement-status.rejected,.settlement-status.disabled{background:#ffe2e7;color:#a21835}
+.settlement-history-row small{display:block;color:#6b778b;margin-top:4px}
+.empty-card{padding:14px;border:1px dashed #cdd6e2;border-radius:12px;color:#657388;background:#f8fafc}
+@media(max-width:640px){.seller-notification-item,.settlement-account-card>div,.settlement-history-row{align-items:flex-start;flex-direction:column}.seller-head-actions{width:100%;justify-content:flex-start}}
