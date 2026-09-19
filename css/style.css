@@ -394,3 +394,15 @@ body.accommodation-modal-open{overflow:hidden}
 .checkout-admin-payment-number button{border:0;border-radius:8px;background:#07152f;color:#fff;padding:7px 10px;font-size:8px;font-weight:900;cursor:pointer}
 .checkout-admin-payment-number button:disabled{opacity:.45;cursor:not-allowed}
 .checkout-admin-payment p{margin:0;color:#68758a;font-size:8px;line-height:1.45}
+
+
+/* Production marketplace orders */
+.customer-marketplace-orders{display:grid;gap:12px;margin-top:14px}
+.customer-order-card{border:1px solid #dfe5ee;border-radius:16px;background:#fff;padding:15px;box-shadow:0 6px 18px rgba(7,21,47,.05)}
+.customer-order-card header{display:flex;justify-content:space-between;gap:14px;padding-bottom:12px;border-bottom:1px solid #edf0f4}
+.customer-order-card header>div{display:grid;gap:4px}.customer-order-card header small{color:#6d788a;font-size:10px}.customer-order-card header b{font-size:11px}
+.customer-order-card ul{margin:13px 0;padding-left:18px}.customer-order-card li{margin:6px 0;font-size:12px}.customer-order-card li strong{float:right}
+.customer-order-sellers{display:grid;gap:5px;padding:10px;border-radius:10px;background:#f5f8fc;font-size:11px}
+.customer-order-total{display:flex;justify-content:space-between;align-items:center;padding-top:12px;font-size:14px}.customer-order-total strong{font-size:18px}
+.customer-order-card>button{width:100%;margin-top:12px;border:0;border-radius:10px;background:#ff7200;color:#fff;padding:11px;font-weight:900;cursor:pointer}
+@media(max-width:560px){.customer-order-card header{flex-direction:column}}
