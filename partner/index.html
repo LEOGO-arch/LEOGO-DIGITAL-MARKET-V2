@@ -90,7 +90,19 @@
         <label>Owner full name<input id="sellerOwnerName" type="text" maxlength="120" required></label>
         <label>National ID / identification number<input id="sellerIdNumber" type="text" maxlength="30" required></label>
         <label>Phone number<input id="sellerPhone" type="tel" placeholder="+2547XXXXXXXX" required></label>
-        <label>County<select id="sellerCounty" required><option value="">Select county</option></select></label>
+        <label>County<select id="sellerCounty" required>
+          <option value="">Select county</option>
+          <option value="KE041">Siaya</option>
+          <option value="KE042">Kisumu</option>
+          <option value="KE047">Nairobi</option>
+          <option value="KE040">Busia</option>
+          <option value="KE043">Homa Bay</option>
+          <option value="KE044">Migori</option>
+          <option value="KE037">Kakamega</option>
+          <option value="KE039">Bungoma</option>
+          <option value="KE026">Trans Nzoia (Kitale)</option>
+          <option value="KE027">Uasin Gishu (Eldoret)</option>
+        </select></label>
         <label>Sub-County<select id="sellerSubCounty" required disabled><option value="">Choose a county first</option></select></label>
         <label>Town<input id="sellerTown" type="text" maxlength="80" required></label>
         <label>Business location / landmark<input id="sellerLocation" type="text" maxlength="180" required></label>
@@ -164,5 +176,5 @@
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="partner.js?v=seller-v5" defer></script>
+<script src="partner.js?v=seller-v6" defer></script>
 </body></html>
