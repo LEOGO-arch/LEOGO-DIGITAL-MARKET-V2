@@ -171,7 +171,20 @@
                   <option value="piece">Piece</option><option value="pcs">Pcs</option><option value="number">Numbers</option><option value="kg">Kg</option><option value="g">Grams</option><option value="litre">Litres</option><option value="ml">Ml</option><option value="crate">Crates</option><option value="pack">Pack</option><option value="box">Box</option><option value="bag">Bag</option><option value="bunch">Bunch</option><option value="dozen">Dozen</option><option value="pair">Pair</option><option value="set">Set</option><option value="other">Other</option>
                 </select></label>
                 <label id="productOtherUnitWrap" hidden>Other measurement unit<input id="productOtherUnit" type="text" maxlength="40"></label>
-                <label>Category<select id="productCategory" required><option value="">Loading categories…</option></select></label>
+                <label>Category<select id="productCategory" required>
+  <option value="">Choose category</option>
+  <option value="184a9f5f-8870-4112-87e4-d9c8d4c63a5e">FOOD &amp; DRINKS</option>
+  <option value="b6de14f5-0c81-4da3-95b3-92a5f913fe3d">GROCERIES</option>
+  <option value="09f6b9b3-32ce-47bf-8b74-1c300d5d405c">PHARMACY</option>
+  <option value="3a035dd7-3760-4a6a-b5e4-230ee40bc179">DRY GOODS</option>
+  <option value="b134ae00-e5f1-4903-803b-4093deb83980">BOOKSHOP</option>
+  <option value="15774c65-7253-42e6-97fd-8fa46af43d4c">HARDWARE</option>
+  <option value="a7674f9c-0579-42f0-90a5-1ee51fc9727e">SECOND HAND MARKET</option>
+  <option value="f5c1bf6d-3b41-46f2-aa01-e9bb0eab71f3">GARMENTS, CLOTHES &amp; FOOTWEARS</option>
+  <option value="0a9d03d1-a2ca-41da-aaae-d9e0553536cf">JEWELRIES</option>
+  <option value="f72097df-7436-4558-a8ac-b9eacfabf11d">ALCOHOLIC (LEOGO DIGITAL BAR)</option>
+  <option value="393e3e96-93ee-47ed-a637-b4f2fc412100">VEHICLES</option>
+</select></label>
                 <label>Sub-category<select id="productSubcategory"><option value="">Optional</option></select></label>
                 <label>Group / collection (optional)<input id="productGroup" type="text" maxlength="100" placeholder="e.g. Breakfast, Ladies Wear"></label>
                 <label>Listing status<select id="productListingStatus"><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option></select></label>
@@ -338,5 +351,6 @@
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="partner.js?v=seller-v18" defer></script>
+<script src="taxonomy.js?v=taxonomy-2" defer></script>
+<script src="partner.js?v=seller-v19" defer></script>
 </body></html>
