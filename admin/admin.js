@@ -29,6 +29,8 @@
     premiumCustomers: [],
     premiumProfiles: [],
     sellers: [],
+    serviceCounties: [],
+    serviceSubcounties: [],
     audit: [],
     dashboard: null,
     dashboardRange: 'today',
@@ -149,7 +151,7 @@
   };
 
   const loadAll = async () => {
-    const loaders = [loadDashboard, loadApprovals, loadCustomers, loadSellers, loadBusinessSettings,
+    const loaders = [loadDashboard, loadApprovals, loadCustomers, loadSellers, loadServiceLocations, loadBusinessSettings,
       loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumCustomers, loadPremiumProfiles, loadPremiumPlans,
       loadAccommodationSummary, loadAuditLog];
     const results = await Promise.allSettled(loaders.map((load) => load()));
@@ -416,6 +418,34 @@
   const updateCustomerSelection = (rows = filteredCustomers()) => {
     $('#customerSelectedCount').textContent = `${state.selectedCustomers.size} selected`;
     $('#selectAllCustomers').checked = rows.length > 0 && rows.every((item) => state.selectedCustomers.has(item.user_id));
+  };
+
+  const renderServiceLocations = () => {
+    const countySelect = $('#serviceSubcountyCounty');
+    if (countySelect) countySelect.innerHTML = '<option value="">Choose county</option>' + state.serviceCounties.map((county) => '<option value="' + escapeHtml(county.code) + '">' + escapeHtml(county.name) + '</option>').join('');
+    const list = $('#serviceLocationList');
+    if (!list) return;
+    list.innerHTML = state.serviceCounties.length ? state.serviceCounties.map((county) => {
+      const subs = state.serviceSubcounties.filter((sub) => sub.county_code === county.code);
+      return '<article class="location-admin-card"><header><div><strong>' + escapeHtml(county.name) + '</strong><small>' + subs.length + ' active sub-counties</small></div><button type="button" data-service-county-toggle="' + escapeHtml(county.code) + '" data-next-active="false">Deactivate</button></header><div class="location-subcounty-chips">' + (subs.length ? subs.map((sub) => '<span>' + escapeHtml(sub.name) + '</span>').join('') : '<small>No active sub-counties.</small>') + '</div></article>';
+    }).join('') : '<div class="loading-card">No active service counties.</div>';
+    $('[data-service-county-toggle]').forEach((button) => button.addEventListener('click', async () => {
+      if (!window.confirm('Deactivate this county for new customer and partner selections? Existing records will remain.')) return;
+      const { error } = await db.rpc('admin_set_service_county_active', { p_code: button.dataset.serviceCountyToggle, p_active: false });
+      if (error) { setFormStatus($('#serviceLocationStatus'), friendlyError(error), 'error'); return; }
+      setFormStatus($('#serviceLocationStatus'), 'County deactivated. Existing records were preserved.', 'success');
+      await loadServiceLocations();
+    }));
+  };
+  const loadServiceLocations = async () => {
+    const [countyResult, subcountyResult] = await Promise.all([
+      db.from('kenya_counties').select('code,name').eq('is_active', true).order('name'),
+      db.from('kenya_subcounties').select('code,county_code,name').eq('is_active', true).order('name')
+    ]);
+    if (countyResult.error || subcountyResult.error) throw countyResult.error || subcountyResult.error;
+    state.serviceCounties = countyResult.data || [];
+    state.serviceSubcounties = subcountyResult.data || [];
+    renderServiceLocations();
   };
 
   const loadBusinessSettings = async () => {
@@ -953,6 +983,29 @@
     }));
     $('#adminSellerSearch').addEventListener('input', renderSellers);
     $('#adminSellerStatusFilter').addEventListener('change', renderSellers);
+    $('#addServiceCountyForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const name = $('#newServiceCountyName').value.trim();
+      if (!name) return;
+      setFormStatus($('#serviceLocationStatus'), 'Adding county…');
+      const { error } = await db.rpc('admin_add_service_county', { p_name: name });
+      if (error) { setFormStatus($('#serviceLocationStatus'), friendlyError(error), 'error'); return; }
+      event.target.reset();
+      setFormStatus($('#serviceLocationStatus'), 'County added to the shared LEOGO location list.', 'success');
+      await loadServiceLocations();
+    });
+    $('#addServiceSubcountyForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const countyCode = $('#serviceSubcountyCounty').value;
+      const name = $('#newServiceSubcountyName').value.trim();
+      if (!countyCode || !name) return;
+      setFormStatus($('#serviceLocationStatus'), 'Adding sub-county…');
+      const { error } = await db.rpc('admin_add_service_subcounty', { p_county_code: countyCode, p_name: name });
+      if (error) { setFormStatus($('#serviceLocationStatus'), friendlyError(error), 'error'); return; }
+      $('#newServiceSubcountyName').value = '';
+      setFormStatus($('#serviceLocationStatus'), 'Sub-county added to the shared LEOGO location list.', 'success');
+      await loadServiceLocations();
+    });
         $('#premiumCustomerSearch').addEventListener('input', renderPremiumCustomers);
     $('#premiumCustomerStatusFilter').addEventListener('change', renderPremiumCustomers);
     $('#premiumSubscriptionFilter').addEventListener('change', renderPremiumCustomers);
