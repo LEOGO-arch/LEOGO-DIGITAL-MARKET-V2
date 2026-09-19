@@ -208,9 +208,37 @@
       <section class="admin-panel" data-admin-panel="providers"><div class="section-head"><div><span>SERVICE NETWORK</span><h2>Service Providers</h2><p>Provider approval, assignment and service quality controls.</p></div></div><div class="reserved-module"><span>⚒</span><h3>Provider administration reserved</h3><p>This is ready to connect when service-provider registration is built.</p></div></section>
 
       <section class="admin-panel" data-admin-panel="transport">
-        <div class="section-head"><div><span>LOGISTICS</span><h2>Transport &amp; Parcel Delivery</h2><p>Providers, delivery jobs, zones and customer pickup stations.</p></div><button class="primary-button" id="addPickupStation" type="button">＋ Add Pickup Station</button></div>
-        <div class="subnav"><button>Transport/Parcel Providers</button><button>Delivery Jobs</button><button>Delivery Zones</button><button class="active">Pickup Stations</button></div>
-        <div class="station-grid" id="pickupStationList"><div class="loading-card">Loading pickup stations…</div></div>
+        <div class="section-head"><div><span>LOGISTICS</span><h2>LEOGO Delivery Operations</h2><p>Order delivery is handled by authorized LEOGO staff riders. External Transport/Parcel Providers remain a separate future service network.</p></div><button class="primary-button" id="refreshDeliveryOps" type="button">↻ Refresh Delivery</button></div>
+
+        <div class="module-summary-grid">
+          <article><span>Active Riders</span><strong id="adminRiderCount">0</strong><small>LEOGO staff riders</small></article>
+          <article><span>Awaiting Assignment</span><strong id="adminDeliveryAwaiting">0</strong><small>Needs a rider</small></article>
+          <article><span>In Delivery</span><strong id="adminDeliveryActive">0</strong><small>Assigned / picked up / on the way</small></article>
+          <article><span>Delivered</span><strong id="adminDeliveryDone">0</strong><small>Completed jobs</small></article>
+        </div>
+
+        <section class="content-card">
+          <div class="card-head"><div><span>LEOGO STAFF RIDERS</span><h3>Authorize a Rider Account</h3><p>The rider must already have a normal LEOGO account. Admin authorizes that account as staff.</p></div><a class="primary-button" href="../staff/" target="_blank" rel="noopener">Open Rider Portal ↗</a></div>
+          <form id="adminAddRiderForm" class="admin-settlement-form">
+            <label>LEOGO account email<input id="adminRiderEmail" type="email" required></label>
+            <label>Rider full name<input id="adminRiderName" type="text" maxlength="120" required></label>
+            <label>Phone<input id="adminRiderPhone" type="tel"></label>
+            <label>Vehicle type<input id="adminRiderVehicle" type="text" placeholder="Motorcycle, van..."></label>
+            <label>Registration / plate<input id="adminRiderPlate" type="text"></label>
+            <div class="wide"><button class="primary-button" type="submit">Authorize Staff Rider</button><div class="form-status" id="adminRiderStatus"></div></div>
+          </form>
+          <div id="adminRiderList" class="station-grid"></div>
+        </section>
+
+        <section class="content-card">
+          <div class="card-head"><div><span>DELIVERY JOBS</span><h3>Assign Orders to LEOGO Riders</h3><p>Seller prepares the order; Admin assigns the rider; the rider controls Picked Up → On the Way → Delivered.</p></div></div>
+          <div class="responsive-table"><table><thead><tr><th>Order</th><th>Customer / Destination</th><th>Seller Readiness</th><th>Rider</th><th>Delivery Status</th><th>Action</th></tr></thead><tbody id="adminDeliveryJobBody"><tr><td colspan="6">Loading delivery jobs…</td></tr></tbody></table></div>
+        </section>
+
+        <section class="content-card">
+          <div class="card-head"><div><span>PICKUP STATIONS</span><h3>Customer Pickup Locations</h3></div><button class="primary-button" id="addPickupStation" type="button">＋ Add Pickup Station</button></div>
+          <div class="station-grid" id="pickupStationList"><div class="loading-card">Loading pickup stations…</div></div>
+        </section>
       </section>
 
       <section class="admin-panel" data-admin-panel="wallet">
@@ -360,6 +388,6 @@
   <div class="modal" id="pickupStationModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="pickupStationForm"><header><div><span>DELIVERY SETTINGS</span><h2 id="pickupModalTitle">Add Pickup Station</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label class="wide"><span>Station name</span><input name="station_name" required></label><label><span>County</span><input name="county" required></label><label><span>Sub-County</span><input name="sub_county" required></label><label><span>Town</span><input name="town" required></label><label><span>Door number</span><input name="door_number"></label><label class="wide"><span>Address</span><input name="address_line" required></label><label><span>Landmark</span><input name="landmark"></label><label><span>Contact phone</span><input name="contact_phone"></label><label class="wide"><span>Operating information</span><input name="operating_hours" placeholder="e.g. Monday–Saturday, 8:00 AM–6:00 PM"></label><label><span>Pickup service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.001" required></label><label><span>Display order</span><input name="display_order" type="number" min="0" max="999" value="0"></label><label class="switch-label"><input name="is_active" type="checkbox" checked><span>Station is active</span></label></div><div class="form-status" id="pickupStationStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Pickup Station</button></footer></form></div>
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
-  <script src="admin.js?v=admin-v1-19" defer></script>
+  <script src="admin.js?v=admin-v1-20" defer></script>
 </body>
 </html>
