@@ -171,3 +171,14 @@
 #reviewActions .warning{background:#fff4df;color:#9a5a00;border:1px solid #f0ca86}
 #reviewActions .warning:hover{background:#ffeac0}
 .approval-selection-toolbar #exportFilteredApprovals{background:#fff}
+
+
+/* Seller Admin V1 */
+.seller-admin-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:15px}
+.seller-admin-summary article{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px;display:grid;gap:4px}
+.seller-admin-summary span{font-size:.68rem;color:var(--muted);font-weight:850}.seller-admin-summary strong{font-size:1.3rem}.seller-admin-summary small{font-size:.64rem;color:#8792a4}
+.seller-admin-toolbar{display:grid;grid-template-columns:1fr 240px;gap:10px;margin-bottom:12px}.seller-admin-toolbar input,.seller-admin-toolbar select{border:1px solid #cbd5e3;border-radius:9px;padding:10px;background:#fff}
+.seller-admin-table{min-width:1050px}.seller-record-button{border:0;background:var(--navy);color:#fff;border-radius:8px;padding:9px 11px;font-weight:850;white-space:nowrap}
+.seller-record-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.seller-record-grid>div{border:1px solid var(--line);border-radius:9px;padding:10px;overflow-wrap:anywhere}.seller-record-grid small{display:block;color:var(--muted);font-size:.64rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}.seller-record-grid strong{font-size:.78rem}
+@media(max-width:800px){.seller-admin-summary{grid-template-columns:1fr 1fr}.seller-admin-toolbar{grid-template-columns:1fr}}
+@media(max-width:650px){.seller-admin-table-card{background:transparent;border:0;overflow:visible}.seller-admin-table-card .responsive-table{overflow:visible}.seller-admin-table{min-width:0;width:100%}.seller-admin-table thead{display:none}.seller-admin-table tbody{display:grid;gap:12px}.seller-admin-row{display:grid;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}.seller-admin-row td{display:grid;grid-template-columns:95px minmax(0,1fr);gap:9px;padding:10px 13px;border-bottom:1px solid #edf0f5;overflow-wrap:anywhere}.seller-admin-row td::before{content:attr(data-label);font-size:.6rem;color:#778397;font-weight:900;text-transform:uppercase;letter-spacing:.05em}.seller-admin-row td:last-child{grid-template-columns:1fr;border-bottom:0;background:#f8fafd}.seller-admin-row td:last-child::before{display:none}.seller-record-button{width:100%;background:var(--orange)}.seller-record-grid{grid-template-columns:1fr}}
