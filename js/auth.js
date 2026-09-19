@@ -38,6 +38,8 @@
   let authReady = false;
   let profileLoadedFor = '';
   let savedProfile = null;
+  let kenyaCounties = [];
+  let kenyaSubcounties = [];
 
   const setStatus = (message = '', type = '') => {
     if (!statusBox) return;
@@ -199,10 +201,11 @@
     if (profileFields.phone) profileFields.phone.value = profile?.phone || metadata.phone || '';
     if (profileFields.email) profileFields.email.value = user.email || '';
     if (profileFields.county) {
-      profileFields.county.value = profile?.county || '';
-      profileFields.county.dispatchEvent(new Event('change'));
+      const countyCode = profile?.county_code || kenyaCounties.find((item) => item.name === profile?.county)?.code || '';
+      profileFields.county.value = countyCode;
+      renderCustomerSubcounties(profile?.sub_county_code || kenyaSubcounties.find((item) => item.county_code === countyCode && item.name === profile?.sub_county)?.code || '');
     }
-    if (profileFields.subCounty) profileFields.subCounty.value = profile?.sub_county || '';
+    if (profileFields.subCounty && !profile?.county && !profile?.county_code) profileFields.subCounty.value = '';
     if (profileFields.estate) profileFields.estate.value = profile?.estate || '';
     if (profileFields.nearestLandmark) profileFields.nearestLandmark.value = profile?.nearest_landmark || '';
     updateProfileCompletion();
@@ -213,11 +216,12 @@
     if (!user || !profileForm) return;
     if (!force && profileLoadedFor === user.id) return;
     profileLoadedFor = user.id;
+    await loadKenyaLocations();
     applyProfileValues(user);
     setProfileStatus('Loading your saved profile…');
     const { data, error } = await authClient
       .from('customer_profiles')
-      .select('full_name, phone, county, sub_county, estate, nearest_landmark')
+      .select('full_name, phone, county, sub_county, county_code, sub_county_code, estate, nearest_landmark')
       .eq('user_id', user.id)
       .maybeSingle();
     if (currentSession?.user?.id !== user.id) return;
@@ -248,6 +252,41 @@
       flowType: 'implicit'
     }
   });
+
+  const renderCustomerSubcounties = (preferredCode = '') => {
+    if (!profileFields.subCounty) return;
+    const countyCode = profileFields.county?.value || '';
+    const options = kenyaSubcounties.filter((item) => item.county_code === countyCode);
+    profileFields.subCounty.disabled = !countyCode;
+    profileFields.subCounty.innerHTML = countyCode
+      ? '<option value="">Select sub-county</option>' + options.map((item) => '<option value="' + item.code + '">' + item.name + '</option>').join('')
+      : '<option value="">Choose a county first</option>';
+    if (preferredCode && options.some((item) => item.code === preferredCode)) profileFields.subCounty.value = preferredCode;
+    updateProfileCompletion();
+  };
+
+  const loadKenyaLocations = async () => {
+    if (kenyaCounties.length && kenyaSubcounties.length) return;
+    const [countyResult, subcountyResult] = await Promise.all([
+      authClient.from('kenya_counties').select('code,name').eq('is_active', true).order('name'),
+      authClient.from('kenya_subcounties').select('code,county_code,name').eq('is_active', true).order('name')
+    ]);
+    if (countyResult.error || subcountyResult.error) {
+      setProfileStatus('Kenya county list could not load. Refresh and try again.', 'error');
+      return;
+    }
+    kenyaCounties = countyResult.data || [];
+    kenyaSubcounties = subcountyResult.data || [];
+    if (profileFields.county) {
+      const current = profileFields.county.value;
+      profileFields.county.innerHTML = '<option value="">Select county</option>' + kenyaCounties.map((item) => '<option value="' + item.code + '">' + item.name + '</option>').join('');
+      if (current && kenyaCounties.some((item) => item.code === current)) profileFields.county.value = current;
+    }
+    renderCustomerSubcounties();
+  };
+
+  profileFields.county?.addEventListener('change', () => renderCustomerSubcounties());
+  loadKenyaLocations();
 
   window.leogoAuth = {
     isReady: () => authReady,
@@ -396,8 +435,10 @@
         user_id: currentSession.user.id,
         full_name: fullName,
         phone,
-        county: profileFields.county.value,
-        sub_county: profileFields.subCounty.value,
+        county: profileFields.county.selectedOptions[0]?.textContent || '',
+        sub_county: profileFields.subCounty.selectedOptions[0]?.textContent || '',
+        county_code: profileFields.county.value,
+        sub_county_code: profileFields.subCounty.value,
         estate: profileFields.estate.value.trim(),
         nearest_landmark: profileFields.nearestLandmark.value.trim() || null,
         updated_at: new Date().toISOString()
