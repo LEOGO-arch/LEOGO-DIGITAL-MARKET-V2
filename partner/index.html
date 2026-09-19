@@ -171,6 +171,21 @@
         </form>
         <div class="section-title compact"><span>MY SETTLEMENT ACCOUNTS</span><h4>Verification status</h4></div>
         <div id="sellerSettlementAccountList" class="settlement-account-list"></div>
+
+        <form id="sellerSettlementRequestForm" class="seller-settlement-request-form">
+          <div class="section-title compact"><span>REQUEST SETTLEMENT</span><h4>Request payment from LEOGO</h4><p>You can request settlement only to an Admin-approved settlement account. LEOGO Admin will review the request before payment.</p></div>
+          <div class="form-grid">
+            <label>Approved settlement account<select id="sellerSettlementRequestAccount" required><option value="">No approved settlement account yet</option></select></label>
+            <label>Amount requested (KSh)<input id="sellerSettlementRequestAmount" type="number" min="1" step="0.01" required></label>
+            <label class="wide">Note to Admin <small>Optional</small><textarea id="sellerSettlementRequestNote" rows="2" maxlength="500" placeholder="Add any useful settlement note"></textarea></label>
+          </div>
+          <button id="sellerSettlementRequestButton" type="submit">Request Settlement</button>
+          <p id="sellerSettlementRequestStatus" class="status"></p>
+        </form>
+
+        <div class="section-title compact"><span>MY SETTLEMENT REQUESTS</span><h4>Request status</h4></div>
+        <div id="sellerSettlementRequestList" class="settlement-history"></div>
+
         <div class="section-title compact"><span>SETTLEMENT HISTORY</span><h4>Money recorded as sent by LEOGO</h4></div>
         <div id="sellerSettlementHistory" class="settlement-history"></div>
       </section>
@@ -232,5 +247,5 @@
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="partner.js?v=seller-v10" defer></script>
+<script src="partner.js?v=seller-v11" defer></script>
 </body></html>
