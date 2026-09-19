@@ -7,7 +7,10 @@
   const factory = window.supabase?.createClient;
   if (!factory) return;
 
-  const client = factory(PROJECT_URL, PUBLISHABLE_KEY, {
+  // Reuse the exact customer auth client/session created by auth.js.
+  // Creating a second GoTrue client can drift from the visible customer session.
+  const sharedAuth = window.leogoAuth || null;
+  const client = sharedAuth?.client || factory(PROJECT_URL, PUBLISHABLE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
   });
 
@@ -192,6 +195,26 @@
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && panel?.classList.contains('open')) closePanel(); });
   window.addEventListener('focus', loadNotifications);
 
-  client.auth.getSession().then(({ data }) => setUser(data.session?.user || null));
-  client.auth.onAuthStateChange((_event, session) => setUser(session?.user || null));
+  // The customer authentication module publishes the canonical session through
+  // leogo:authchange. Notifications follow that same session instead of maintaining
+  // a separate view of login state.
+  document.addEventListener('leogo:authchange', (event) => {
+    setUser(event.detail?.user || null);
+  });
+
+  const initializeNotificationSession = async () => {
+    const sharedUser = window.leogoAuth?.getUser?.();
+    if (sharedUser) {
+      await setUser(sharedUser);
+      return;
+    }
+    const { data } = await client.auth.getSession();
+    await setUser(data.session?.user || null);
+  };
+  initializeNotificationSession();
+
+  // Fallback only when notifications loaded without the main customer auth module.
+  if (!sharedAuth) {
+    client.auth.onAuthStateChange((_event, session) => setUser(session?.user || null));
+  }
 })();
