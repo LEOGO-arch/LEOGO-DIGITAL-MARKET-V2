@@ -865,7 +865,7 @@
       });
     }));
 
-    $('[data-settlement-review]').forEach((button) => button.addEventListener('click', async () => {
+    $$('[data-settlement-review]').forEach((button) => button.addEventListener('click', async () => {
       const decision = button.dataset.settlementReview;
       let notes = '';
       if (decision === 'reject') {
