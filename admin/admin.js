@@ -28,6 +28,7 @@
     premiumPlans: [],
     premiumCustomers: [],
     premiumProfiles: [],
+    sellers: [],
     audit: [],
     dashboard: null,
     dashboardRange: 'today',
@@ -148,7 +149,7 @@
   };
 
   const loadAll = async () => {
-    const loaders = [loadDashboard, loadApprovals, loadCustomers, loadBusinessSettings,
+    const loaders = [loadDashboard, loadApprovals, loadCustomers, loadSellers, loadBusinessSettings,
       loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumCustomers, loadPremiumProfiles, loadPremiumPlans,
       loadAccommodationSummary, loadAuditLog];
     const results = await Promise.allSettled(loaders.map((load) => load()));
@@ -596,6 +597,53 @@
     });
   };
 
+  const filteredSellers = () => {
+    const term = ($('#adminSellerSearch')?.value || '').trim().toLowerCase();
+    const statusFilter = $('#adminSellerStatusFilter')?.value || 'all';
+    return state.sellers.filter((seller) => {
+      const values = [seller.business_name,seller.owner_name,seller.id_number,seller.phone,seller.email,seller.town,seller.county].map((v)=>String(v||'').toLowerCase());
+      return (!term || values.some((v)=>v.includes(term))) && (statusFilter==='all' || seller.application_status===statusFilter);
+    });
+  };
+  const renderSellers = () => {
+    $('#adminSellerTotal').textContent = state.sellers.length;
+    $('#adminSellerApproved').textContent = state.sellers.filter((s)=>s.application_status==='approved').length;
+    $('#adminSellerPending').textContent = state.sellers.filter((s)=>['submitted','under_review'].includes(s.application_status)).length;
+    $('#adminSellerProducts').textContent = state.sellers.reduce((sum,s)=>sum+Number(s.product_count||0),0);
+    const rows=filteredSellers();
+    $('#adminSellerTableBody').innerHTML = rows.length ? rows.map((s)=>`<tr class="seller-admin-row">
+      <td data-label="Business"><strong>${escapeHtml(s.business_name)}</strong><small>${escapeHtml(s.email||'')}</small></td>
+      <td data-label="Owner"><strong>${escapeHtml(s.owner_name)}</strong></td>
+      <td data-label="ID / Phone"><strong>${escapeHtml(s.id_number)}</strong><small>${escapeHtml(s.phone)}</small></td>
+      <td data-label="Location"><strong>${escapeHtml(s.town||'—')}</strong><small>${escapeHtml([s.sub_county,s.county].filter(Boolean).join(', '))}</small></td>
+      <td data-label="Status"><span class="status-chip">${escapeHtml(s.application_status)}</span></td>
+      <td data-label="Products"><strong>${Number(s.product_count||0)}</strong><small>${Number(s.active_product_count||0)} active</small></td>
+      <td data-label="Flash Sale"><strong>${Number(s.flash_sale_request_count||0)}</strong></td>
+      <td data-label="Action"><button type="button" class="seller-record-button" data-seller-record="${s.user_id}">View Record →</button></td>
+    </tr>`).join('') : '<tr><td colspan="8">No sellers match the current filters.</td></tr>';
+    $('[data-seller-record]').forEach((button)=>button.addEventListener('click',()=>openSellerRecord(button.dataset.sellerRecord)));
+  };
+  const loadSellers = async () => {
+    const {data,error}=await db.rpc('admin_list_sellers');
+    if(error) throw error;
+    state.sellers=data||[];
+    renderSellers();
+  };
+  const openSellerRecord = (userId) => {
+    const s=state.sellers.find((item)=>item.user_id===userId);
+    if(!s)return;
+    $('#sellerRecordTitle').textContent=s.business_name||'Seller';
+    const rows=[
+      ['Business name',s.business_name],['Owner name',s.owner_name],['Email',s.email],['ID number',s.id_number],['Phone',s.phone],
+      ['County',s.county],['Sub-County',s.sub_county],['Town',s.town],['Location / landmark',s.location_details],
+      ['Business description',s.business_description],['Application status',s.application_status],['Submitted',formatDate(s.submitted_at,true)],
+      ['Approved',formatDate(s.approved_at,true)],['Admin notes',s.admin_notes],['Products',s.product_count],['Active products',s.active_product_count],
+      ['Flash Sale requests',s.flash_sale_request_count],['Account created',formatDate(s.created_at,true)]
+    ];
+    $('#sellerRecordGrid').innerHTML=rows.map(([label,value])=>`<div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value==null||value===''?'—':value)}</strong></div>`).join('');
+    $('#sellerRecordModal').hidden=false;
+  };
+
   const effectivePremiumStatus = (customer) => customer.effective_subscription_status || customer.membership_status || 'none';
   const filteredPremiumCustomers = () => {
     const term = ($('#premiumCustomerSearch')?.value || '').trim().toLowerCase();
@@ -903,7 +951,9 @@
     document.querySelectorAll('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.addEventListener('click', () => {
       changePremiumAdminTab(button.dataset.premiumAdminTab);
     }));
-    $('#premiumCustomerSearch').addEventListener('input', renderPremiumCustomers);
+    $('#adminSellerSearch').addEventListener('input', renderSellers);
+    $('#adminSellerStatusFilter').addEventListener('change', renderSellers);
+        $('#premiumCustomerSearch').addEventListener('input', renderPremiumCustomers);
     $('#premiumCustomerStatusFilter').addEventListener('change', renderPremiumCustomers);
     $('#premiumSubscriptionFilter').addEventListener('change', renderPremiumCustomers);
     $('#customerSearch').addEventListener('input', renderCustomers);
