@@ -252,7 +252,7 @@ function renderSeller(){
   sellerPendingArea.hidden=!hasSeller || state==='approved';
   sellerDocsForm.hidden=!hasSeller || !['changes_requested','rejected'].includes(state);
   $('#sellerProfileButton').hidden=!hasSeller;
-  $('[data-seller-view="products"],[data-seller-view="orders"],[data-seller-view="flashsale"],[data-seller-view="settlements"]').forEach(button=>button.hidden=state!=='approved');
+  $$('[data-seller-view="products"],[data-seller-view="orders"],[data-seller-view="flashsale"],[data-seller-view="settlements"]').forEach(button=>button.hidden=state!=='approved');
 
   if(seller){
     $('#sellerSidebarBusiness').textContent=seller.business_name||'Seller Account';
@@ -541,16 +541,16 @@ function renderSellerOrders(){
           : '';
     return '<article class="seller-order-card"><header><div><span>'+escapeHtml(o.order_reference)+'</span><h4>'+escapeHtml(o.receiver_name)+'</h4><small>'+formatDate(o.created_at)+'</small></div><div><b class="order-status '+escapeHtml(o.fulfilment_status)+'">'+escapeHtml(o.fulfilment_status.replaceAll('_',' ').toUpperCase())+'</b><b class="payment-status">'+escapeHtml(orderPaymentLabel(o.payment_status))+'</b></div></header><div class="seller-order-body"><ul>'+items+'</ul><div class="seller-order-meta"><span><small>Seller subtotal</small><strong>'+money(o.seller_subtotal_kes)+'</strong></span><span><small>Customer phone</small><strong>'+escapeHtml(o.contact_number)+'</strong></span><span><small>Delivery</small><strong>'+escapeHtml(sellerOrderAddress(o))+'</strong></span><span><small>Order status</small><strong>'+escapeHtml((o.order_status||'').replaceAll('_',' ').toUpperCase())+'</strong></span></div></div><footer>'+next+(o.fulfilment_status==='delivered'?'<strong class="delivered-confirmation">✓ Delivered to customer</strong>':'')+'</footer></article>';
   }).join(''):'<div class="empty-card">No orders match this filter.</div>';
-  $('[data-order-next]').forEach(button=>button.addEventListener('click',async()=>{
+  $$('[data-order-next]').forEach(button=>button.addEventListener('click',async()=>{
     const label=button.textContent;button.disabled=true;button.textContent='Updating…';
     const {error}=await client.rpc('seller_update_order_status',{p_seller_order_id:button.dataset.sellerOrderId,p_status:button.dataset.orderNext});
     if(error){alert(error.message);button.disabled=false;button.textContent=label;return;}
     await Promise.all([loadSellerOrders(),loadPartnerNotifications()]);
   }));
 }
-$('[data-seller-order-filter]').forEach(button=>button.addEventListener('click',()=>{
+$$('[data-seller-order-filter]').forEach(button=>button.addEventListener('click',()=>{
   sellerOrderFilter=button.dataset.sellerOrderFilter;
-  $('[data-seller-order-filter]').forEach(b=>b.classList.toggle('active',b===button));
+  $$('[data-seller-order-filter]').forEach(b=>b.classList.toggle('active',b===button));
   renderSellerOrders();
 }));
 $('#refreshSellerOrders').addEventListener('click',async()=>{const b=$('#refreshSellerOrders');b.disabled=true;await loadSellerOrders();b.disabled=false;});
