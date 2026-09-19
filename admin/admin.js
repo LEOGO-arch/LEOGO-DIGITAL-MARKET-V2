@@ -361,12 +361,19 @@
     setFormStatus($('#reviewStatus'));
     const underReview = $('[data-review-action="under_review"]');
     const requestChanges = $('[data-review-action="changes_requested"]');
+    const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
-    underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind);
-    requestChanges.hidden = !['seller_application','premium_customer', 'premium_profile'].includes(kind);
+    const awaitingCorrection = kind === 'seller_application' && item.status === 'changes_requested';
+    underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection;
+    requestChanges.hidden = !['seller_application','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection;
+    reject.hidden = awaitingCorrection;
+    approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
     approve.textContent = kind === 'wallet_withdrawal' && item.status === 'pending_call' ? 'Mark Customer Called' : 'Approve';
     approve.dataset.reviewAction = kind === 'wallet_withdrawal' && item.status === 'pending_call' ? 'contacted' : 'approve';
+    if (awaitingCorrection) {
+      setFormStatus($('#reviewStatus'), 'Waiting for the Seller to correct and resubmit this application. It remains in Approval Center for tracking.', 'info');
+    }
     $('#approvalReviewModal').hidden = false;
     await approvalMediaPreview(item.payload || {});
   };
@@ -391,10 +398,10 @@
         decision === 'contacted'
           ? 'Customer call recorded. The withdrawal can now be approved.'
           : decision === 'changes_requested'
-            ? 'Correction request saved and audited. The application is no longer in the pending queue until it is resubmitted.'
+            ? 'Correction request saved and audited. The application remains in Approval Center with status CHANGES REQUESTED until the Seller resubmits.'
             : 'Approval decision saved and audited.'
       );
-      await Promise.all([loadApprovals(), loadDashboard(), loadAuditLog(), loadPremiumCustomers(), loadPremiumProfiles()]);
+      await Promise.all([loadApprovals(), loadDashboard(), loadAuditLog(), loadSellers(), loadPremiumCustomers(), loadPremiumProfiles()]);
     });
   };
 
