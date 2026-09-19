@@ -165,3 +165,9 @@
   .premium-profile-row td{display:grid;grid-template-columns:95px minmax(0,1fr);gap:9px;padding:10px 13px;border-bottom:1px solid #edf0f5;overflow-wrap:anywhere}
   .premium-profile-row td::before{content:attr(data-label);font-size:.6rem;color:#778397;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
 }
+
+
+/* Approval Center completion V1.10 */
+#reviewActions .warning{background:#fff4df;color:#9a5a00;border:1px solid #f0ca86}
+#reviewActions .warning:hover{background:#ffeac0}
+.approval-selection-toolbar #exportFilteredApprovals{background:#fff}
