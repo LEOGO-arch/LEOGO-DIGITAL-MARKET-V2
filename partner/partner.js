@@ -790,9 +790,58 @@ async function uploadImage(file,prefix){
 const publicUrl=path=>path?client.storage.from('seller-product-media').getPublicUrl(path).data.publicUrl:'';
 
 async function loadProducts(){
-  const {data,error}=await client.from('seller_products').select('*,seller_product_variants(*)').eq('seller_id',currentUser.id).order('updated_at',{ascending:false});
-  if(error){status($('#productFormStatus'),error.message,'error');return;}
-  products=data||[];renderProducts();
+  if(!currentUser){
+    products=[];
+    renderProducts();
+    return;
+  }
+
+  // Load the Seller's product rows first. Do not make the whole list depend on
+  // the nested variants relationship: if variant expansion fails, products
+  // must still appear in "My Products".
+  const {data,error}=await client
+    .from('seller_products')
+    .select('*')
+    .eq('seller_id',currentUser.id)
+    .order('updated_at',{ascending:false});
+
+  if(error){
+    console.error('Seller products load failed:',error);
+    products=[];
+    const box=$('#sellerProductList');
+    if(box)box.innerHTML='<div class="empty-card">Products could not load: '+escapeHtml(error.message||'Unknown error')+'</div>';
+    status($('#productFormStatus'),error.message||'Products could not load.','error');
+    return;
+  }
+
+  products=(data||[]).map(product=>({...product,seller_product_variants:[]}));
+
+  // Variants are loaded separately so a variants/RLS/relationship problem
+  // can never hide successfully saved parent products.
+  if(products.length){
+    const ids=products.map(product=>product.id);
+    const {data:variantData,error:variantError}=await client
+      .from('seller_product_variants')
+      .select('*')
+      .in('product_id',ids)
+      .order('display_order',{ascending:true});
+
+    if(variantError){
+      console.warn('Seller product variants could not load:',variantError);
+    }else{
+      const variantsByProduct=new Map();
+      (variantData||[]).forEach(variant=>{
+        if(!variantsByProduct.has(variant.product_id))variantsByProduct.set(variant.product_id,[]);
+        variantsByProduct.get(variant.product_id).push(variant);
+      });
+      products=products.map(product=>({
+        ...product,
+        seller_product_variants:variantsByProduct.get(product.id)||[]
+      }));
+    }
+  }
+
+  renderProducts();
 }
 function renderFlashSaleProducts(){
   const select=$('#flashSaleProduct');
@@ -813,7 +862,7 @@ function renderProducts(){
   $('#sellerOrderCount').textContent='0';
   const box=$('#sellerProductList');
   if(!products.length){box.innerHTML='<div class="empty-card">No products yet. Use “Add Product” to create your first item.</div>';renderFlashSaleProducts();return;}
-  box.innerHTML=products.map(p=>'<article class="product-card"><img src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt=""><div><h4>'+escapeHtml(p.product_name)+'</h4><p>'+money(p.price_kes)+' · '+p.quantity_available+' '+escapeHtml(p.measurement_unit)+'</p><span class="badge">'+escapeHtml(p.availability_status.replaceAll('_',' '))+'</span>'+(p.flash_sale_requested?'<span class="badge flash">Flash Sale '+escapeHtml(p.flash_sale_status||'requested')+'</span>':'')+'<small>'+escapeHtml(p.product_details.slice(0,140))+'</small></div><button data-edit-product="'+p.id+'" type="button">Edit</button></article>').join('');
+  box.innerHTML=products.map(p=>'<article class="product-card"><img src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt=""><div><h4>'+escapeHtml(p.product_name)+'</h4><p>'+money(p.price_kes)+' · '+p.quantity_available+' '+escapeHtml(p.measurement_unit)+'</p><span class="badge">'+escapeHtml(p.availability_status.replaceAll('_',' '))+'</span>'+(p.flash_sale_requested?'<span class="badge flash">Flash Sale '+escapeHtml(p.flash_sale_status||'requested')+'</span>':'')+'<small>'+escapeHtml(String(p.product_details||'').slice(0,140))+'</small></div><button data-edit-product="'+p.id+'" type="button">Edit</button></article>').join('');
   $$('[data-edit-product]').forEach(b=>b.addEventListener('click',()=>editProduct(b.dataset.editProduct)));
   renderFlashSaleProducts();
   renderSellerDataSelection();
