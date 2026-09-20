@@ -879,7 +879,7 @@ function sellerMediaMarkup(path,alt='',variant=false){
 }
 function installSellerMediaFallback(root){
   if(!root)return;
-  $('[data-seller-media-image]',root).forEach(img=>img.addEventListener('error',()=>{
+  Array.from(root.querySelectorAll('[data-seller-media-image]')).forEach(img=>img.addEventListener('error',()=>{
     const variant=Boolean(img.closest('.saved-variant-chip'));
     const fallback=document.createElement('div');
     fallback.className=variant?'saved-variant-image-placeholder':'product-main-thumb-placeholder';
@@ -1037,7 +1037,7 @@ function renderProducts(){
   }).join('');
 
   installSellerMediaFallback(box);
-  $('[data-edit-product]',box).forEach(button=>{
+  Array.from(box.querySelectorAll('[data-edit-product]')).forEach(button=>{
     button.addEventListener('click',async event=>{
       event.preventDefault();
       event.stopPropagation();
