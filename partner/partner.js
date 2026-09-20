@@ -887,10 +887,28 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
     if(selectedCategory?.code==='other'&&$('#productCustomCategory').value.trim().length<2)throw new Error('Specify the category name.');
     if(selectedSubcategory?.code==='others'&&$('#productCustomSubcategory').value.trim().length<2)throw new Error('Specify the sub-category name.');
     const galleryFiles=[...$('#productGallery').files];if(galleryFiles.length>3)throw new Error('Choose a maximum of 3 gallery pictures.');
+    const hasVariants=$('#productHasVariants').checked,lpp=$('#productLpp').checked;
+
+    // Validate the visible variant cards BEFORE creating/updating the product.
+    // This prevents a failed variant validation from leaving an incomplete product behind.
+    const variantRows=hasVariants?$('#variantRows .variant-row'):[];
+    if(hasVariants&&!variantRows.length)throw new Error('Add at least one variant or switch off variants.');
+    for(let i=0;i<variantRows.length;i++){
+      const row=variantRows[i];
+      const name=$('[data-variant-name]',row)?.value.trim()||'';
+      const price=Number($('[data-variant-price]',row)?.value);
+      const qty=Number($('[data-variant-qty]',row)?.value);
+      const file=$('[data-variant-image]',row)?.files?.[0];
+      const existingImage=row.dataset.existingImage||'';
+      if(name.length<1)throw new Error('Enter a name for variant '+(i+1)+'.');
+      if(!Number.isFinite(price)||price<0)throw new Error('Enter a valid Amount (KSh) for variant "'+name+'".');
+      if(!Number.isFinite(qty)||qty<0)throw new Error('Enter a valid quantity for variant "'+name+'".');
+      if(!file&&!existingImage)throw new Error('Add a profile picture for variant "'+name+'".');
+    }
+
     let mainPath=editingProduct?.main_image_path||null;if($('#productMainImage').files[0])mainPath=await uploadImage($('#productMainImage').files[0],'main');
     if(!mainPath)throw new Error('Add a main product picture.');
     let galleryPaths=editingProduct?.gallery_image_paths||[];if(galleryFiles.length)galleryPaths=await Promise.all(galleryFiles.map((f,i)=>uploadImage(f,'gallery-'+i)));
-    const hasVariants=$('#productHasVariants').checked,lpp=$('#productLpp').checked;
     const payload={
       seller_id:currentUser.id,product_name:$('#productName').value.trim(),price_kes:Number($('#productPrice').value),
       availability_status:$('#productAvailability').value,quantity_available:Number($('#productQuantity').value),
@@ -908,17 +926,14 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
     else{const {data,error}=await client.from('seller_products').insert(payload).select('id').single();if(error)throw error;productId=data.id;}
     let variants=[];
     if(hasVariants){
-      const rows=$('.variant-row');
-      if(!rows.length)throw new Error('Add at least one variant or switch off variants.');
-      for(let i=0;i<rows.length;i++){
-        const row=rows[i];
+      for(let i=0;i<variantRows.length;i++){
+        const row=variantRows[i];
         const name=$('[data-variant-name]',row).value.trim();
         const price=Number($('[data-variant-price]',row).value);
         const qty=Number($('[data-variant-qty]',row).value);
         const file=$('[data-variant-image]',row).files[0];
         let imagePath=row.dataset.existingImage||null;
         if(file)imagePath=await uploadImage(file,'variant-'+i);
-        if(!imagePath)throw new Error('Add a profile picture for variant "'+(name||String(i+1))+'".');
         variants.push({
           product_id:productId,
           variant_name:name,
