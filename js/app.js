@@ -1123,9 +1123,11 @@
   const liveCatalogueStatus = document.getElementById('liveCatalogueStatus');
   const showAllLiveProducts = document.getElementById('showAllLiveProducts');
   const viewAllProductCategories = document.getElementById('viewAllProductCategories');
+  const personalSalesSeeMore = document.getElementById('personalSalesSeeMore');
 
   let marketplaceProducts = [];
   let marketplaceCategories = [];
+  let personalSaleListings = [];
   let selectedMarketplaceCategory = 'all';
 
   const categoryIcon = (code) => ({
@@ -1156,6 +1158,12 @@
     return client.storage.from('seller-product-media').getPublicUrl(String(path)).data?.publicUrl || '';
   };
 
+  const personalSaleMediaUrl = (path) => {
+    const client = window.leogoAuth?.client;
+    if (!client || !path) return '';
+    return client.storage.from('customer-sale-media').getPublicUrl(String(path)).data?.publicUrl || '';
+  };
+
   const filteredMarketplaceProducts = () => {
     if (selectedMarketplaceCategory === 'all' || selectedMarketplaceCategory === 'marketplace') {
       return marketplaceProducts;
@@ -1182,10 +1190,57 @@
       if (strong) strong.textContent = categoryDisplayName(category.name);
       card.dataset.categoryId = category.id;
 
-      if (category.code !== 'alcoholic_leogo_bar') {
-        card.href = '#live-product-catalogue';
-      }
+      if (category.code !== 'alcoholic_leogo_bar') card.href = '#live-product-catalogue';
     });
+  };
+
+  const renderSellerProductCard = (product) => {
+    const available = product.availability_status === 'available' && Number(product.quantity_available || 0) > 0;
+    const imageUrl = sellerProductMediaUrl(product.main_image_path);
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    const variantMarkup = variants.length
+      ? '<div class="live-product-variants">'+variants.map((variant) =>
+          '<span><b>'+receiptEscape(variant.variant_name)+'</b><small>'+money(variant.price_kes)+' · Qty '+Number(variant.quantity_available || 0)+'</small></span>'
+        ).join('')+'</div>'
+      : '';
+
+    return '<article class="live-product-card" data-live-product-card="'+receiptEscape(product.id)+'">'+
+      '<div class="live-product-image">'+
+        (imageUrl
+          ? '<img src="'+receiptEscape(imageUrl)+'" alt="'+receiptEscape(product.product_name)+'">'
+          : '<span>'+categoryIcon(product.category_code)+'</span>')+
+      '</div>'+
+      '<div class="live-product-body">'+
+        '<div class="live-product-category">'+receiptEscape(categoryDisplayName(product.category_name || product.category_code || 'Marketplace'))+
+          (product.subcategory_name ? ' · '+receiptEscape(product.subcategory_name) : '')+
+        '</div>'+
+        '<h3>'+receiptEscape(product.product_name)+'</h3>'+
+        '<p class="live-product-seller">'+receiptEscape(product.seller_name || 'LEOGO Seller')+'</p>'+
+        '<div class="live-product-price-row"><strong>'+money(product.price_kes)+'</strong><span>Qty '+Number(product.quantity_available || 0)+' '+receiptEscape(product.measurement_unit || 'item')+'</span></div>'+
+        '<p class="live-product-description">'+receiptEscape(String(product.product_details || '').slice(0,180))+'</p>'+
+        variantMarkup+
+        '<button type="button" data-live-add-cart data-product-id="'+receiptEscape(product.id)+'" '+(available ? '' : 'disabled')+'>'+
+          (available ? '＋ Add to Cart' : 'Out of Stock')+
+        '</button>'+
+      '</div>'+
+    '</article>';
+  };
+
+  const renderPersonalSaleCard = (listing) => {
+    const imageUrl = personalSaleMediaUrl(listing.item_image_path);
+    return '<article class="live-product-card personal-sale-market-card" data-personal-sale-card="'+receiptEscape(listing.id)+'">'+
+      '<div class="live-product-image">'+
+        (imageUrl ? '<img src="'+receiptEscape(imageUrl)+'" alt="'+receiptEscape(listing.item_name)+'">' : '<span>🏷️</span>')+
+      '</div>'+
+      '<div class="live-product-body">'+
+        '<div class="live-product-category">PERSONAL MARKETPLACE LISTING</div>'+
+        '<h3>'+receiptEscape(listing.public_title || ((listing.public_name || 'Customer')+' is Selling '+listing.item_name))+'</h3>'+
+        '<p class="live-product-seller">Admin-approved one-off customer sale</p>'+
+        '<div class="live-product-price-row"><strong>'+money(listing.marked_price_kes)+'</strong><span>1 item</span></div>'+
+        '<p class="live-product-description">This is a personal item listing from a LEOGO customer, not a registered Seller business.</p>'+
+        '<div class="personal-sale-public-badge">✓ Approved by LEOGO Admin</div>'+
+      '</div>'+
+    '</article>';
   };
 
   const renderLiveCatalogue = () => {
@@ -1193,7 +1248,7 @@
 
     const category = marketplaceCategories.find((item) => item.code === selectedMarketplaceCategory);
     const allProducts = selectedMarketplaceCategory === 'all' || selectedMarketplaceCategory === 'marketplace';
-    const products = filteredMarketplaceProducts();
+    const sellerProducts = filteredMarketplaceProducts();
 
     if (liveCatalogueTitle) {
       liveCatalogueTitle.textContent = allProducts
@@ -1202,76 +1257,59 @@
     }
     if (liveCatalogueSubtitle) {
       liveCatalogueSubtitle.textContent = allProducts
-        ? 'All Admin-approved Seller products available on LEOGO.'
-        : 'Admin-approved products in '+categoryDisplayName(category?.name || selectedMarketplaceCategory.replaceAll('_',' '))+'.';
+        ? 'All Admin-approved Seller products and approved personal customer listings available on LEOGO.'
+        : 'Admin-approved Seller products in '+categoryDisplayName(category?.name || selectedMarketplaceCategory.replaceAll('_',' '))+'.';
     }
 
-    if (!products.length) {
+    const combined = allProducts
+      ? [
+          ...sellerProducts.map((item) => ({ type:'seller', item })),
+          ...personalSaleListings.map((item) => ({ type:'personal', item }))
+        ].sort(() => Math.random() - 0.5)
+      : sellerProducts.map((item) => ({ type:'seller', item }));
+
+    if (!combined.length) {
       liveCatalogueStatus.textContent = allProducts
-        ? 'No approved Seller products are available yet.'
+        ? 'No approved products or personal listings are available yet.'
         : 'No approved Seller products are available in this category yet.';
-      liveProductGrid.innerHTML = '<div class="customer-empty-state live-catalogue-empty"><span>'+categoryIcon(selectedMarketplaceCategory)+'</span><h4>No approved products yet</h4><p>Seller products appear here only after LEOGO Admin approves them.</p></div>';
+      liveProductGrid.innerHTML = '<div class="customer-empty-state live-catalogue-empty"><span>'+categoryIcon(selectedMarketplaceCategory)+'</span><h4>No approved listings yet</h4><p>Listings appear here only after LEOGO Admin approves them.</p></div>';
       return;
     }
 
-    liveCatalogueStatus.textContent = products.length+' approved product'+(products.length === 1 ? '' : 's')+' found.';
-
-    liveProductGrid.innerHTML = products.map((product) => {
-      const available = product.availability_status === 'available' && Number(product.quantity_available || 0) > 0;
-      const imageUrl = sellerProductMediaUrl(product.main_image_path);
-      const variants = Array.isArray(product.variants) ? product.variants : [];
-      const variantMarkup = variants.length
-        ? '<div class="live-product-variants">'+variants.map((variant) =>
-            '<span><b>'+receiptEscape(variant.variant_name)+'</b><small>'+money(variant.price_kes)+' · Qty '+Number(variant.quantity_available || 0)+'</small></span>'
-          ).join('')+'</div>'
-        : '';
-
-      return '<article class="live-product-card" data-live-product-card="'+receiptEscape(product.id)+'">'+
-        '<div class="live-product-image">'+
-          (imageUrl
-            ? '<img src="'+receiptEscape(imageUrl)+'" alt="'+receiptEscape(product.product_name)+'">'
-            : '<span>'+categoryIcon(product.category_code)+'</span>')+
-        '</div>'+
-        '<div class="live-product-body">'+
-          '<div class="live-product-category">'+receiptEscape(categoryDisplayName(product.category_name || product.category_code || 'Marketplace'))+
-            (product.subcategory_name ? ' · '+receiptEscape(product.subcategory_name) : '')+
-          '</div>'+
-          '<h3>'+receiptEscape(product.product_name)+'</h3>'+
-          '<p class="live-product-seller">'+receiptEscape(product.seller_name || 'LEOGO Seller')+'</p>'+
-          '<div class="live-product-price-row"><strong>'+money(product.price_kes)+'</strong><span>Qty '+Number(product.quantity_available || 0)+' '+receiptEscape(product.measurement_unit || 'item')+'</span></div>'+
-          '<p class="live-product-description">'+receiptEscape(String(product.product_details || '').slice(0,180))+'</p>'+
-          variantMarkup+
-          '<button type="button" data-live-add-cart data-product-id="'+receiptEscape(product.id)+'" '+(available ? '' : 'disabled')+'>'+
-            (available ? '＋ Add to Cart' : 'Out of Stock')+
-          '</button>'+
-        '</div>'+
-      '</article>';
-    }).join('');
+    liveCatalogueStatus.textContent = combined.length+' approved listing'+(combined.length === 1 ? '' : 's')+' found.';
+    liveProductGrid.innerHTML = combined.map((entry) =>
+      entry.type === 'personal' ? renderPersonalSaleCard(entry.item) : renderSellerProductCard(entry.item)
+    ).join('');
   };
 
   const renderMarketplacePreview = () => {
     if (!sellerMarketplaceList) return;
-    const preview = marketplaceProducts.slice(0, 8);
-    sellerMarketplaceList.innerHTML = preview.length ? preview.map((product) => {
-      const available = product.availability_status === 'available' && Number(product.quantity_available || 0) > 0;
-      return '<div class="clip-row test-product-row"><span class="clip-icon">'+categoryIcon(product.category_code)+'</span><div><b>'+
-        receiptEscape(product.product_name)+'</b><small>'+receiptEscape(product.seller_name || 'LEOGO Seller')+' · '+
-        receiptEscape(categoryDisplayName(product.category_name || product.category_code || 'Marketplace'))+'</small></div><span class="clip-price">'+
-        money(product.price_kes)+'</span><button type="button" data-live-add-cart data-product-id="'+receiptEscape(product.id)+'" '+(available?'':'disabled')+'>'+
-        (available?'＋ Cart':'Out of stock')+'</button></div>';
-    }).join('') + '<p class="test-cart-feedback" id="testCartFeedback" aria-live="polite"></p>'
-      : '<div class="customer-empty-state compact"><span>🛍️</span><h4>No approved Seller products yet</h4><p>Products will appear here after Admin approval.</p></div>';
+    const preview = personalSaleListings.slice(0, 8);
+
+    sellerMarketplaceList.innerHTML = preview.length ? preview.map((listing) => {
+      const imageUrl = personalSaleMediaUrl(listing.item_image_path);
+      return '<div class="clip-row personal-sale-preview-row">'+
+        '<span class="personal-sale-preview-image">'+
+          (imageUrl ? '<img src="'+receiptEscape(imageUrl)+'" alt="'+receiptEscape(listing.item_name)+'">' : '🏷️')+
+        '</span>'+
+        '<div><b>'+receiptEscape(listing.public_title || ((listing.public_name || 'Customer')+' is Selling '+listing.item_name))+'</b>'+
+          '<small>Personal item · Admin approved</small></div>'+
+        '<span class="clip-price">'+money(listing.marked_price_kes)+'</span>'+
+      '</div>';
+    }).join('')
+      : '<div class="customer-empty-state compact"><span>🏷️</span><h4>No approved personal items yet</h4><p>Customer one-off items will appear here after Admin approval.</p></div>';
   };
 
   const loadMarketplaceProducts = async () => {
     const client = window.leogoAuth?.client;
     if (!client) return;
 
-    if (liveCatalogueStatus) liveCatalogueStatus.textContent = 'Loading approved Seller products…';
+    if (liveCatalogueStatus) liveCatalogueStatus.textContent = 'Loading approved marketplace listings…';
 
-    const [categoryResult, productResult] = await Promise.all([
+    const [categoryResult,productResult,personalSaleResult] = await Promise.all([
       client.rpc('customer_product_categories'),
-      client.rpc('customer_marketplace_catalogue')
+      client.rpc('customer_marketplace_catalogue'),
+      client.rpc('customer_public_personal_sales')
     ]);
 
     if (categoryResult.error) {
@@ -1282,14 +1320,21 @@
     }
 
     if (productResult.error) {
-      if (sellerMarketplaceList) {
-        sellerMarketplaceList.innerHTML = '<div class="customer-empty-state compact"><span>⚠️</span><h4>Seller products could not load</h4><p>'+receiptEscape(productResult.error.message)+'</p></div>';
-      }
       if (liveCatalogueStatus) liveCatalogueStatus.textContent = 'Seller products could not load: '+productResult.error.message;
-      return;
+      marketplaceProducts = [];
+    } else {
+      marketplaceProducts = Array.isArray(productResult.data) ? productResult.data : [];
     }
 
-    marketplaceProducts = Array.isArray(productResult.data) ? productResult.data : [];
+    if (personalSaleResult.error) {
+      if (sellerMarketplaceList) {
+        sellerMarketplaceList.innerHTML = '<div class="customer-empty-state compact"><span>⚠️</span><h4>Personal listings could not load</h4><p>'+receiptEscape(personalSaleResult.error.message)+'</p></div>';
+      }
+      personalSaleListings = [];
+    } else {
+      personalSaleListings = Array.isArray(personalSaleResult.data) ? personalSaleResult.data : [];
+    }
+
     renderMarketplacePreview();
     renderLiveCatalogue();
   };
@@ -1324,9 +1369,6 @@
     window.setTimeout(() => { if (button.isConnected) button.textContent = original; }, 900);
   };
 
-  sellerMarketplaceList?.addEventListener('click', (event) => {
-    addLiveProductToCart(event.target.closest('[data-live-add-cart]'));
-  });
   liveProductGrid?.addEventListener('click', (event) => {
     addLiveProductToCart(event.target.closest('[data-live-add-cart]'));
   });
@@ -1335,8 +1377,6 @@
     const card = event.target.closest('[data-product-category-code]');
     if (!card) return;
     const code = card.dataset.productCategoryCode;
-
-    // Alcohol keeps the existing adult-gated LEOGO BAR flow.
     if (code === 'alcoholic_leogo_bar') return;
 
     event.preventDefault();
@@ -1345,16 +1385,16 @@
     document.getElementById('live-product-catalogue')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
-  showAllLiveProducts?.addEventListener('click', () => {
-    selectedMarketplaceCategory = 'all';
-    renderLiveCatalogue();
-  });
-  viewAllProductCategories?.addEventListener('click', (event) => {
-    event.preventDefault();
+  const openGeneralMarketplace = (event) => {
+    event?.preventDefault?.();
     selectedMarketplaceCategory = 'all';
     renderLiveCatalogue();
     document.getElementById('live-product-catalogue')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+  };
+
+  showAllLiveProducts?.addEventListener('click', openGeneralMarketplace);
+  viewAllProductCategories?.addEventListener('click', openGeneralMarketplace);
+  personalSalesSeeMore?.addEventListener('click', openGeneralMarketplace);
 
   document.addEventListener('leogo:authchange', () => loadMarketplaceProducts());
   window.setTimeout(loadMarketplaceProducts, 500);
