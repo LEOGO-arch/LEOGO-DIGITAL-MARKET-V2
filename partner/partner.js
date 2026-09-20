@@ -985,6 +985,16 @@ function resetProductForm(hide=true){
 }
 $('#cancelProductEdit').addEventListener('click',()=>resetProductForm(true));
 $('#showSellerProductForm').addEventListener('click',()=>{resetProductForm(false);$('#sellerProductForm').hidden=false;$('#sellerProductForm').scrollIntoView({behavior:'smooth',block:'start'});});
+$('#refreshSellerProducts').addEventListener('click',async()=>{
+  const button=$('#refreshSellerProducts');
+  const original=button.textContent;
+  button.disabled=true;button.textContent='Refreshing…';
+  try{
+    await loadProducts();
+  }finally{
+    button.disabled=false;button.textContent=original;
+  }
+});
 
 function localInput(iso){if(!iso)return'';const d=new Date(iso);const off=d.getTimezoneOffset();return new Date(d.getTime()-off*60000).toISOString().slice(0,16);}
 function editProduct(id){
