@@ -16,6 +16,8 @@
     user: null,
     approvals: [],
     marketplaceOrders: [],
+    catalogueProducts: [],
+    catalogueCategories: [],
     approvalFilter: 'all',
     approvalSearch: '',
     selectedApprovals: new Set(),
@@ -158,7 +160,7 @@
   };
 
   const loadAll = async () => {
-    const loaders = [loadDashboard, loadApprovals, loadMarketplaceOrders, loadCustomers, loadSellers, loadSellerSettlements, loadDeliveryOps, loadServiceLocations, loadBusinessSettings,
+    const loaders = [loadDashboard, loadApprovals, loadMarketplaceOrders, loadCatalogue, loadCustomers, loadSellers, loadSellerSettlements, loadDeliveryOps, loadServiceLocations, loadBusinessSettings,
       loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumCustomers, loadPremiumProfiles, loadPremiumPlans,
       loadAccommodationSummary, loadAuditLog];
     const results = await Promise.allSettled(loaders.map((load) => load()));
@@ -509,6 +511,189 @@
       });
     }));
   };
+
+  const catalogueMediaUrl = (path) => {
+    if (!path) return '';
+    return db.storage.from('seller-product-media').getPublicUrl(String(path)).data?.publicUrl || '';
+  };
+
+  const filteredCatalogueProducts = () => {
+    const term = ($('#adminCatalogueSearch')?.value || '').trim().toLowerCase();
+    const statusFilter = $('#adminCatalogueStatusFilter')?.value || 'all';
+    const sellerFilter = $('#adminCatalogueSellerFilter')?.value || 'all';
+    const categoryFilter = $('#adminCatalogueCategoryFilter')?.value || 'all';
+
+    return state.catalogueProducts.filter((product) => {
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      const searchable = [
+        product.product_name, product.seller_name, product.seller_owner,
+        product.category_name, product.subcategory_name, product.product_details,
+        ...variants.map((variant) => variant.variant_name)
+      ].map((value) => String(value || '').toLowerCase());
+
+      return (!term || searchable.some((value) => value.includes(term)))
+        && (statusFilter === 'all' || product.listing_status === statusFilter)
+        && (sellerFilter === 'all' || product.seller_id === sellerFilter)
+        && (categoryFilter === 'all' || product.category_id === categoryFilter);
+    });
+  };
+
+  const renderCatalogueCategories = () => {
+    const box = $('#adminCatalogueCategoryList');
+    if (!box) return;
+
+    box.innerHTML = state.catalogueCategories.length
+      ? state.catalogueCategories.map((category) => {
+          const subs = Array.isArray(category.subcategories) ? category.subcategories : [];
+          return `<article class="admin-category-card">
+            <header>
+              <div><strong>${escapeHtml(category.name)}</strong><small>${Number(category.product_count || 0)} product(s) · ${Number(category.active_product_count || 0)} active</small></div>
+              <span class="status-chip">${category.is_aggregator ? 'Aggregator' : category.is_assignable ? 'Seller category' : 'System category'}</span>
+            </header>
+            <div class="admin-category-subs">${subs.length
+              ? subs.map((sub) => `<span><b>${escapeHtml(sub.name)}</b><small>${Number(sub.product_count || 0)} product(s)</small></span>`).join('')
+              : '<span><b>No sub-categories</b></span>'}</div>
+          </article>`;
+        }).join('')
+      : '<div class="loading-card">No categories configured.</div>';
+  };
+
+  const renderCatalogueProducts = () => {
+    const products = filteredCatalogueProducts();
+    const box = $('#adminCatalogueProductList');
+    if (!box) return;
+
+    $('#adminCatalogueTotal').textContent = state.catalogueProducts.length;
+    $('#adminCatalogueActive').textContent = state.catalogueProducts.filter((p) => p.listing_status === 'active').length;
+    $('#adminCatalogueVariants').textContent = state.catalogueProducts.filter((p) => p.has_variants).length;
+    $('#adminCatalogueCategories').textContent = state.catalogueCategories.filter((c) => c.is_active).length;
+
+    const sellers = [...new Map(state.catalogueProducts.map((p) => [p.seller_id, p.seller_name])).entries()]
+      .sort((a,b) => String(a[1] || '').localeCompare(String(b[1] || '')));
+    const sellerSelect = $('#adminCatalogueSellerFilter');
+    if (sellerSelect) {
+      const current = sellerSelect.value || 'all';
+      sellerSelect.innerHTML = '<option value="all">All Sellers</option>' + sellers
+        .map(([id,name]) => '<option value="'+escapeHtml(id)+'">'+escapeHtml(name || 'Seller')+'</option>').join('');
+      sellerSelect.value = sellers.some(([id]) => id === current) ? current : 'all';
+    }
+
+    const categorySelect = $('#adminCatalogueCategoryFilter');
+    if (categorySelect) {
+      const current = categorySelect.value || 'all';
+      categorySelect.innerHTML = '<option value="all">All Categories</option>' + state.catalogueCategories
+        .filter((c) => c.is_active && !c.is_aggregator)
+        .map((c) => '<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.name)+'</option>').join('');
+      categorySelect.value = state.catalogueCategories.some((c) => c.id === current) ? current : 'all';
+    }
+
+    if (!products.length) {
+      box.innerHTML = '<div class="loading-card">No Seller products match the current filters.</div>';
+      return;
+    }
+
+    box.innerHTML = products.map((product) => {
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      const mainUrl = catalogueMediaUrl(product.main_image_path);
+      const variantHtml = product.has_variants
+        ? '<div class="admin-product-variants">' + (
+            variants.length
+              ? variants.map((variant) => {
+                  const imageUrl = catalogueMediaUrl(variant.image_path);
+                  return '<div class="admin-product-variant">' +
+                    (imageUrl ? '<img src="'+escapeHtml(imageUrl)+'" alt="">' : '<span class="admin-media-placeholder">📷</span>') +
+                    '<div><b>'+escapeHtml(variant.variant_name)+'</b><small>'+formatMoney(variant.price_kes)+' · Qty '+Number(variant.quantity_available || 0)+'</small></div>' +
+                  '</div>';
+                }).join('')
+              : '<div class="admin-product-warning">Variant-enabled product has no saved variant rows.</div>'
+          ) + '</div>'
+        : '';
+
+      const nextAction = product.listing_status === 'suspended'
+        ? '<button type="button" data-admin-product-status="active" data-admin-product-id="'+escapeHtml(product.id)+'">Reactivate</button>'
+        : '<button type="button" class="danger" data-admin-product-status="suspended" data-admin-product-id="'+escapeHtml(product.id)+'">Suspend Listing</button>';
+
+      return `<article class="admin-catalogue-product-card">
+        <div class="admin-catalogue-product-image">${mainUrl
+          ? '<img src="'+escapeHtml(mainUrl)+'" alt="'+escapeHtml(product.product_name)+'">'
+          : '<span>📦</span>'}</div>
+        <div class="admin-catalogue-product-main">
+          <div class="admin-catalogue-product-title">
+            <div>
+              <span>${escapeHtml(product.category_name || 'Uncategorised')}${product.subcategory_name ? ' · '+escapeHtml(product.subcategory_name) : ''}</span>
+              <h3>${escapeHtml(product.product_name)}</h3>
+              <p>Seller: <strong>${escapeHtml(product.seller_name || 'Unknown Seller')}</strong> · ${escapeHtml(product.seller_email || '')}</p>
+            </div>
+            <div class="admin-catalogue-badges">
+              <span class="status-chip">${escapeHtml(product.listing_status)}</span>
+              <span class="status-chip">${escapeHtml(product.availability_status)}</span>
+              ${product.has_variants ? '<span class="status-chip">'+variants.length+' variants</span>' : ''}
+            </div>
+          </div>
+          <div class="admin-product-facts">
+            <span><small>Price</small><strong>${formatMoney(product.price_kes)}</strong></span>
+            <span><small>Stock</small><strong>${Number(product.quantity_available || 0)} ${escapeHtml(product.measurement_unit || '')}</strong></span>
+            <span><small>Updated</small><strong>${formatDate(product.updated_at, true)}</strong></span>
+            <span><small>Seller status</small><strong>${escapeHtml(product.seller_status || '—')}</strong></span>
+          </div>
+          <p class="admin-product-description">${escapeHtml(product.product_details || '')}</p>
+          ${variantHtml}
+          <div class="admin-catalogue-actions">
+            <button type="button" data-seller-record="${escapeHtml(product.seller_id)}">View Seller</button>
+            ${nextAction}
+          </div>
+        </div>
+      </article>`;
+    }).join('');
+
+    $('[data-admin-product-status]', box).forEach((button) => button.addEventListener('click', async () => {
+      const status = button.dataset.adminProductStatus;
+      const product = state.catalogueProducts.find((item) => item.id === button.dataset.adminProductId);
+      if (!product) return;
+
+      const prompt = status === 'suspended'
+        ? 'Suspend "'+product.product_name+'" from the marketplace? The Seller will be notified.'
+        : 'Reactivate "'+product.product_name+'" as an active listing?';
+      if (!window.confirm(prompt)) return;
+
+      await withButtonLock(button, status === 'suspended' ? 'Suspending…' : 'Activating…', async () => {
+        const { error } = await db.rpc('admin_set_seller_product_listing_status', {
+          p_product_id: product.id,
+          p_status: status
+        });
+        if (error) {
+          globalStatus(friendlyError(error), 'error');
+          return;
+        }
+        await Promise.all([loadCatalogue(), loadSellers(), loadAuditLog()]);
+        globalStatus(status === 'suspended' ? 'Product listing suspended. Seller notified.' : 'Product listing reactivated. Seller notified.');
+      });
+    }));
+
+    $('[data-seller-record]', box).forEach((button) => button.addEventListener('click', () => openSellerRecord(button.dataset.sellerRecord)));
+  };
+
+  const loadCatalogue = async () => {
+    const [productsResult,categoriesResult] = await Promise.all([
+      db.rpc('admin_list_catalogue_products'),
+      db.rpc('admin_list_catalogue_categories')
+    ]);
+    if (productsResult.error) throw productsResult.error;
+    if (categoriesResult.error) throw categoriesResult.error;
+
+    state.catalogueProducts = Array.isArray(productsResult.data) ? productsResult.data : [];
+    state.catalogueCategories = Array.isArray(categoriesResult.data) ? categoriesResult.data : [];
+    renderCatalogueProducts();
+    renderCatalogueCategories();
+  };
+
+  $('#refreshAdminCatalogue')?.addEventListener('click', () =>
+    withButtonLock($('#refreshAdminCatalogue'), 'Refreshing…', loadCatalogue)
+  );
+  $('#adminCatalogueSearch')?.addEventListener('input', renderCatalogueProducts);
+  $('#adminCatalogueStatusFilter')?.addEventListener('change', renderCatalogueProducts);
+  $('#adminCatalogueSellerFilter')?.addEventListener('change', renderCatalogueProducts);
+  $('#adminCatalogueCategoryFilter')?.addEventListener('change', renderCatalogueProducts);
 
   const loadCustomers = async () => {
     const { data, error } = await db.rpc('admin_list_customers');
