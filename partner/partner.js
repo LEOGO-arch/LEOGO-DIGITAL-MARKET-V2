@@ -1026,10 +1026,12 @@ function renderProducts(){
         '<p>'+money(p.price_kes)+' · '+Number(p.quantity_available||0)+' '+escapeHtml(p.measurement_unit||'')+'</p>'+
         '<div><span class="badge">'+escapeHtml(String(p.availability_status||'').replaceAll('_',' '))+'</span>'+
           '<span class="badge">'+escapeHtml(String(p.listing_status||'').replaceAll('_',' '))+'</span>'+
+          '<span class="badge">Admin: '+escapeHtml(String(p.product_approval_status||'pending').replaceAll('_',' '))+'</span>'+
           (p.has_variants?'<span class="badge">'+variants.length+' variant'+(variants.length===1?'':'s')+'</span>':'')+
           (p.flash_sale_requested?'<span class="badge flash">Flash Sale '+escapeHtml(p.flash_sale_status||'requested')+'</span>':'')+
         '</div>'+
         '<small>'+escapeHtml(String(p.product_details||'').slice(0,140))+'</small>'+
+        (p.product_review_notes?'<div class="variant-warning">Admin note: '+escapeHtml(p.product_review_notes)+'</div>':'')+
         variantMarkup+
       '</div>'+
       '<button data-edit-product="'+escapeHtml(p.id)+'" type="button">Edit</button>'+
@@ -1336,7 +1338,7 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
 
     status(
       $('#productFormStatus'),
-      'Product saved successfully'+(hasVariants?' with '+savedCount+' variant'+(savedCount===1?'':'s'):'')+'. Loading it in My Products…',
+      'Product saved successfully'+(hasVariants?' with '+savedCount+' variant'+(savedCount===1?'':'s'):'')+'. Submitted to Admin for approval before customer publication.',
       'success'
     );
 
