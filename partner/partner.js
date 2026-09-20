@@ -159,24 +159,64 @@ $('#sellerCounty').addEventListener('change',()=>renderSellerSubcounties());
 
 async function loadSeller(){
   if(!currentUser)return;
-  const {data,error}=await client.from('seller_accounts').select('*').eq('user_id',currentUser.id).maybeSingle();
-  if(error){status($('#sellerRegistrationStatus'),error.message,'error');return;}
-  seller=data||null;
 
-  // Load saved products before the approved dashboard is rendered so the
-  // overview never opens with stale zero product counters.
-  if(seller?.application_status==='approved'){
-    await loadProducts();
+  const {data,error}=await client
+    .from('seller_accounts')
+    .select('*')
+    .eq('user_id',currentUser.id)
+    .maybeSingle();
+
+  if(error){
+    console.error('Seller account load failed:',error);
+    seller=null;
+
+    // Never leave the Partner Portal as a blank page when a Seller query fails.
+    sellerOnboarding.hidden=false;
+    sellerDashboard.hidden=true;
+    sellerReg.hidden=true;
+    sellerShell.hidden=false;
+    sellerOnboarding.innerHTML=
+      '<div class="seller-onboarding-icon">⚠️</div>'+
+      '<div><span>SELLER PORTAL</span><h2>Seller account could not load</h2><p>'+
+      escapeHtml(error.message||'Please refresh the page and try again.')+
+      '</p></div>'+
+      '<button id="retrySellerLoad" type="button">Retry</button>';
+    $('#retrySellerLoad')?.addEventListener('click',()=>loadSeller());
+    return;
   }
 
+  seller=data||null;
+
+  // Render the Seller shell FIRST. Product/orders/settlement loading must never
+  // be able to hide the whole Seller Portal if one background request fails.
   renderSeller();
 
-  if(seller)await loadPartnerNotifications();
+  if(seller){
+    try{
+      await loadPartnerNotifications();
+    }catch(notificationError){
+      console.warn('Seller notifications load failed:',notificationError);
+    }
+  }
 
   if(seller?.application_status==='approved'){
-    await Promise.all([loadTaxonomy(),loadSellerSettlementData(),loadSellerOrders()]);
-    // Re-assert product metrics after the other dashboard loaders finish.
-    renderProducts();
+    const results=await Promise.allSettled([
+      loadProducts(),
+      loadTaxonomy(),
+      loadSellerSettlementData(),
+      loadSellerOrders()
+    ]);
+
+    const labels=['products','taxonomy','settlements','orders'];
+    results.forEach((result,index)=>{
+      if(result.status==='rejected'){
+        console.error('Seller '+labels[index]+' loader failed:',result.reason);
+      }
+    });
+
+    // The dashboard remains visible even if one module failed.
+    // Re-render whatever product data was successfully obtained.
+    try{renderProducts();}catch(renderError){console.error('Seller products render failed:',renderError);}
   }
 }
 
