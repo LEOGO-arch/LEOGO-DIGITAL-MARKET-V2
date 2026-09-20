@@ -58,7 +58,7 @@
     settings: 'System Settings', audit: 'Audit Log'
   };
   const kindLabels = {
-    seller_application: 'Seller Registration', seller_product: 'Seller Product',
+    seller_application: 'Seller Registration', seller_product: 'Seller Product', customer_personal_sale: 'Customer Item Sale',
     premium_customer: 'Premium Customer', premium_profile: 'Verified Premium Profile',
     premium_payment: 'Premium Payment', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
@@ -218,9 +218,17 @@
   };
 
   const loadApprovals = async () => {
-    const { data, error } = await db.rpc('admin_list_approval_queue');
-    if (error) throw error;
-    state.approvals = data || [];
+    const [coreResult,personalSaleResult] = await Promise.all([
+      db.rpc('admin_list_approval_queue'),
+      db.rpc('admin_list_personal_sale_approvals')
+    ]);
+    if (coreResult.error) throw coreResult.error;
+    if (personalSaleResult.error) throw personalSaleResult.error;
+
+    state.approvals = [
+      ...(Array.isArray(coreResult.data) ? coreResult.data : []),
+      ...(Array.isArray(personalSaleResult.data) ? personalSaleResult.data : [])
+    ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     renderApprovals();
 
     // Keep Dashboard and sidebar counts synchronized with the actual Approval Center queue,
@@ -324,6 +332,8 @@
     main_image_path: { label: 'Product Main Image', bucket: 'seller-product-media' },
     gallery_image_paths: { label: 'Product Gallery Image', bucket: 'seller-product-media', multiple: true },
     variant_image_paths: { label: 'Variant Image', bucket: 'seller-product-media', multiple: true },
+    item_image_path: { label: 'Item Picture', bucket: 'customer-sale-media' },
+    ownership_proof_path: { label: 'Ownership Proof', bucket: 'customer-sale-verification' },
 
     cover_image_url: { label: 'Property Cover Image', directUrl: true },
     gallery_image_urls: { label: 'Property Gallery Image', directUrl: true, multiple: true }
@@ -437,7 +447,7 @@
     const approve = $('[data-review-action="approve"]');
     const awaitingCorrection = ['seller_application','seller_product'].includes(kind) && item.status === 'changes_requested';
     underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection;
-    requestChanges.hidden = !['seller_application','seller_product','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection;
+    requestChanges.hidden = !['seller_application','seller_product','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale';
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
@@ -463,8 +473,10 @@
         ? 'admin_review_seller_application'
         : item.kind === 'seller_product'
           ? 'admin_review_seller_product'
-          : 'admin_review_approval';
-      const rpcArgs = ['seller_application','seller_product'].includes(item.kind)
+          : item.kind === 'customer_personal_sale'
+            ? 'admin_review_personal_sale'
+            : 'admin_review_approval';
+      const rpcArgs = ['seller_application','seller_product','customer_personal_sale'].includes(item.kind)
         ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
       const { error } = await db.rpc(rpcName, rpcArgs);
