@@ -674,17 +674,45 @@
   };
 
   const loadCatalogue = async () => {
-    const [productsResult,categoriesResult] = await Promise.all([
-      db.rpc('admin_list_catalogue_products'),
-      db.rpc('admin_list_catalogue_categories')
-    ]);
-    if (productsResult.error) throw productsResult.error;
-    if (categoriesResult.error) throw categoriesResult.error;
+    const productBox = $('#adminCatalogueProductList');
+    const categoryBox = $('#adminCatalogueCategoryList');
 
-    state.catalogueProducts = Array.isArray(productsResult.data) ? productsResult.data : [];
-    state.catalogueCategories = Array.isArray(categoriesResult.data) ? categoriesResult.data : [];
-    renderCatalogueProducts();
-    renderCatalogueCategories();
+    try {
+      if (productBox && !state.catalogueProducts.length) {
+        productBox.innerHTML = '<div class="loading-card">Loading Seller products…</div>';
+      }
+      if (categoryBox && !state.catalogueCategories.length) {
+        categoryBox.innerHTML = '<div class="loading-card">Loading categories…</div>';
+      }
+
+      const [productsResult,categoriesResult] = await Promise.all([
+        db.rpc('admin_list_catalogue_products'),
+        db.rpc('admin_list_catalogue_categories')
+      ]);
+
+      if (productsResult.error) throw productsResult.error;
+      if (categoriesResult.error) throw categoriesResult.error;
+
+      state.catalogueProducts = Array.isArray(productsResult.data) ? productsResult.data : [];
+      state.catalogueCategories = Array.isArray(categoriesResult.data) ? categoriesResult.data : [];
+
+      renderCatalogueProducts();
+      renderCatalogueCategories();
+      return state.catalogueProducts;
+    } catch (error) {
+      console.error('Admin catalogue load failed:', error);
+      if (productBox) {
+        productBox.innerHTML =
+          '<div class="loading-card admin-load-error"><strong>Seller products could not load.</strong><small>'+
+          escapeHtml(friendlyError(error))+
+          '</small><button type="button" id="retryAdminCatalogue">Retry Catalogue</button></div>';
+        $('#retryAdminCatalogue')?.addEventListener('click', () => loadCatalogue());
+      }
+      if (categoryBox) {
+        categoryBox.innerHTML = '<div class="loading-card">Categories could not load. Use Refresh Catalogue.</div>';
+      }
+      throw error;
+    }
   };
 
   $('#refreshAdminCatalogue')?.addEventListener('click', () =>
@@ -1451,10 +1479,16 @@
   const exportData = async (scope,format='xlsx') => { const type=$('#dataTypeFilter').value, source=scope==='selected'?dataRows().filter(r=>state.selectedData.has(dataRecordId(r))):dataRows(); if(!source.length){globalStatus('Select at least one record to export.','error');return;} const rows=[['Record ID','Record Data'],...source.map(r=>[dataRecordId(r),JSON.stringify(r)])]; await exportRows(type,scope,format,rows,{status:$('#dataStatusFilter').value,from:$('#dataFromFilter').value,to:$('#dataToFilter').value}); globalStatus(`${source.length} ${type.replaceAll('_',' ')} record(s) exported and audited.`); };
 
   const changeView = (view, settingsTab = '') => {
-    $$('.admin-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.adminPanel === view));
-    $$('.admin-nav [data-admin-view]').forEach((button) => button.classList.toggle('active', button.dataset.adminView === view && (!button.dataset.settingsTab || button.dataset.settingsTab === settingsTab)));
+    $('.admin-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.adminPanel === view));
+    $('.admin-nav [data-admin-view]').forEach((button) => button.classList.toggle('active', button.dataset.adminView === view && (!button.dataset.settingsTab || button.dataset.settingsTab === settingsTab)));
     $('#adminPageTitle').textContent = viewTitles[view] || 'Admin Control Center';
     $('#adminBreadcrumb').textContent = view === 'settings' ? 'ADMINISTRATION' : 'CONTROL CENTER';
+
+    // Catalogue is refreshed again when Admin opens it, so a failure in any
+    // unrelated dashboard module cannot leave Seller products hidden.
+    if (view === 'products') {
+      loadCatalogue().catch((error) => globalStatus('Catalogue could not load: '+friendlyError(error), 'error'));
+    }
     if (view === 'settings') changeSettingsTab(settingsTab || 'business');
     closeSidebar();
     window.scrollTo({ top: 0, behavior: 'smooth' });
