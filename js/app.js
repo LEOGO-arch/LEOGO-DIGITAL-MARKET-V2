@@ -91,9 +91,38 @@
   const sellingModal = document.getElementById('sellingModal');
   const openSellingForm = document.getElementById('openSellingForm');
   const sellingForm = document.getElementById('customerSellingForm');
+  const sellingItemImage = document.getElementById('sellingItemImage');
+  const sellingItemImageName = document.getElementById('sellingItemImageName');
   const sellingProof = document.getElementById('sellingProof');
   const ownershipFileName = document.getElementById('ownershipFileName');
   const sellingFormStatus = document.getElementById('sellingFormStatus');
+
+  const safeUploadExtension = (file, fallback = 'jpg') => {
+    const name = String(file?.name || '');
+    const ext = name.includes('.') ? name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'') : '';
+    return ext || fallback;
+  };
+
+  const personalSaleEligibility = async () => {
+    const client = window.leogoAuth?.client;
+    const user = window.leogoAuth?.getUser?.();
+    if (!client || !user) return { authenticated:false, eligible:true, is_seller:false };
+    const { data, error } = await client.rpc('customer_personal_sale_eligibility');
+    if (error) throw error;
+    return data || { authenticated:true, eligible:true, is_seller:false };
+  };
+
+  const refreshPersonalSaleEligibility = async () => {
+    if (!openSellingForm) return;
+    try {
+      const eligibility = await personalSaleEligibility();
+      openSellingForm.hidden = Boolean(eligibility?.is_seller);
+      openSellingForm.dataset.sellerRestricted = eligibility?.is_seller ? 'true' : 'false';
+    } catch (error) {
+      console.warn('Personal sale eligibility check failed:', error);
+      openSellingForm.hidden = false;
+    }
+  };
 
   const closeSellingModal = () => {
     if (!sellingModal) return;
@@ -103,8 +132,29 @@
     openSellingForm?.focus();
   };
 
-  const showSellingModal = () => {
+  const showSellingModal = async () => {
     if (!sellingModal) return;
+
+    if (window.leogoAuth?.isAuthenticated?.()) {
+      try {
+        const eligibility = await personalSaleEligibility();
+        if (!eligibility?.eligible) {
+          sellingFormStatus.textContent = eligibility?.reason || 'Registered Sellers must use the LEOGO Partner Portal.';
+          return;
+        }
+      } catch (error) {
+        console.warn('Could not verify personal-sale eligibility:', error);
+      }
+    }
+
+    const user = window.leogoAuth?.getUser?.();
+    const fullName = user?.user_metadata?.full_name || '';
+    const phone = user?.user_metadata?.phone || '';
+    const nameField = document.getElementById('sellingName');
+    const phoneField = document.getElementById('sellingPhone');
+    if (nameField && !nameField.value && fullName) nameField.value = fullName;
+    if (phoneField && !phoneField.value && phone) phoneField.value = phone;
+
     sellingModal.classList.add('is-open');
     sellingModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('selling-modal-open');
@@ -120,15 +170,101 @@
     if (event.key === 'Escape' && sellingModal?.classList.contains('is-open')) closeSellingModal();
   });
 
+  sellingItemImage?.addEventListener('change', () => {
+    sellingItemImageName.textContent = sellingItemImage.files?.[0]?.name || 'No item picture selected';
+  });
   sellingProof?.addEventListener('change', () => {
     ownershipFileName.textContent = sellingProof.files?.[0]?.name || 'No document selected';
   });
 
-  sellingForm?.addEventListener('submit', (event) => {
+  sellingForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!sellingForm.reportValidity()) return;
-    sellingFormStatus.textContent = 'Form design complete. Live submission and admin approval will be connected in the marketplace workflow phase.';
+
+    const client = window.leogoAuth?.client;
+    const user = window.leogoAuth?.getUser?.();
+    if (!client || !user) {
+      sellingFormStatus.textContent = 'Please log in before submitting your item.';
+      window.leogoAuth?.requireLogin?.('Please log in before submitting an item for sale.');
+      return;
+    }
+
+    const submitButton = sellingForm.querySelector('button[type="submit"]');
+    const originalText = submitButton?.textContent || 'Submit for Approval';
+    const uploaded = [];
+
+    try {
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Checking account…';
+      }
+      sellingFormStatus.textContent = 'Checking that this is a non-Seller customer account…';
+
+      const eligibility = await personalSaleEligibility();
+      if (!eligibility?.eligible) {
+        throw new Error(eligibility?.reason || 'Registered Sellers must use the LEOGO Partner Portal.');
+      }
+
+      const itemFile = sellingItemImage?.files?.[0];
+      const proofFile = sellingProof?.files?.[0] || null;
+      if (!itemFile) throw new Error('Add a clear picture of the item you are selling.');
+      if (!['image/jpeg','image/png','image/webp'].includes(itemFile.type)) {
+        throw new Error('Item picture must be JPG, PNG or WebP.');
+      }
+
+      if (submitButton) submitButton.textContent = 'Uploading item…';
+      sellingFormStatus.textContent = 'Uploading your item picture securely…';
+
+      const itemPath = user.id+'/'+crypto.randomUUID()+'.'+safeUploadExtension(itemFile);
+      const itemUpload = await client.storage.from('customer-sale-media').upload(itemPath,itemFile,{upsert:false,contentType:itemFile.type});
+      if (itemUpload.error) throw itemUpload.error;
+      uploaded.push({bucket:'customer-sale-media',path:itemPath});
+
+      let proofPath = null;
+      if (proofFile) {
+        if (submitButton) submitButton.textContent = 'Uploading proof…';
+        proofPath = user.id+'/'+crypto.randomUUID()+'.'+safeUploadExtension(proofFile, proofFile.type === 'application/pdf' ? 'pdf' : 'jpg');
+        const proofUpload = await client.storage.from('customer-sale-verification').upload(proofPath,proofFile,{upsert:false,contentType:proofFile.type});
+        if (proofUpload.error) throw proofUpload.error;
+        uploaded.push({bucket:'customer-sale-verification',path:proofPath});
+      }
+
+      if (submitButton) submitButton.textContent = 'Sending to Admin…';
+      sellingFormStatus.textContent = 'Sending your personal item to LEOGO Admin for approval…';
+
+      const { data, error } = await client.rpc('customer_submit_personal_sale',{
+        p_seller_name: document.getElementById('sellingName').value.trim(),
+        p_id_number: document.getElementById('sellingIdNumber').value.trim(),
+        p_phone: document.getElementById('sellingPhone').value.trim(),
+        p_location: document.getElementById('sellingLocation').value.trim(),
+        p_item_name: document.getElementById('sellingItem').value.trim(),
+        p_marked_price_kes: Number(document.getElementById('sellingPrice').value),
+        p_item_image_path: itemPath,
+        p_ownership_proof_path: proofPath
+      });
+      if (error) throw error;
+
+      sellingFormStatus.textContent = '✓ Submitted successfully. LEOGO Admin must approve the item before it appears publicly.';
+      sellingForm.reset();
+      sellingItemImageName.textContent = 'No item picture selected';
+      ownershipFileName.textContent = 'No document selected';
+
+      window.setTimeout(() => closeSellingModal(), 1600);
+    } catch (error) {
+      for (const file of uploaded) {
+        try { await client.storage.from(file.bucket).remove([file.path]); } catch (_) {}
+      }
+      sellingFormStatus.textContent = error?.message || 'Your item could not be submitted. Please try again.';
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalText;
+      }
+    }
   });
+
+  document.addEventListener('leogo:authchange', refreshPersonalSaleEligibility);
+  window.setTimeout(refreshPersonalSaleEligibility, 700);
 
   const openLeogoBar = document.getElementById('openLeogoBar');
   const barConsentModal = document.getElementById('barConsentModal');
