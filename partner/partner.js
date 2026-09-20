@@ -1192,7 +1192,7 @@ async function editProduct(id){
 
     requestAnimationFrame(()=>{
       $('#sellerProductForm').scrollIntoView({behavior:'smooth',block:'start'});
-      $('#productName').focus({preventScroll:true});
+      try{$('#productName').focus();}catch(_focusError){}
     });
   }catch(error){
     console.error('Edit product failed:',error);
