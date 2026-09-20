@@ -193,9 +193,10 @@
     $('#statOrders').textContent = metricValue(data.top.orders);
     $('#statSales').textContent = metricValue(data.top.gross_sales, true);
     $('#statRevenue').textContent = formatMoney(data.top.leogo_revenue.value);
-    $('#statApprovals').textContent = metricValue(data.top.pending_approvals);
+    const liveApprovalCount = state.approvals.length || Number(data.top.pending_approvals.value || 0);
+    $('#statApprovals').textContent = liveApprovalCount.toLocaleString('en-KE');
     $('#statDeliveries').textContent = metricValue(data.top.active_deliveries);
-    $('#sidebarApprovalCount').textContent = data.top.pending_approvals.value ?? 0;
+    $('#sidebarApprovalCount').textContent = liveApprovalCount;
     $('#financialOverview').innerHTML = [
       ['Gross Order Sales', data.revenue.gross_order_sales, true], ['Platform / Service Fees', data.revenue.platform_fees, true],
       ['Delivery Fees Earned', data.revenue.delivery_fees, true], ['Pickup Station Fees', data.revenue.pickup_fees, true],
@@ -221,6 +222,12 @@
     if (error) throw error;
     state.approvals = data || [];
     renderApprovals();
+
+    // Keep Dashboard and sidebar counts synchronized with the actual Approval Center queue,
+    // including Seller product submissions.
+    if ($('#statApprovals')) $('#statApprovals').textContent = Number(state.approvals.length).toLocaleString('en-KE');
+    if ($('#sidebarApprovalCount')) $('#sidebarApprovalCount').textContent = state.approvals.length;
+
     const compact = $('#dashboardApprovalList');
     const recent = state.approvals.slice(0, 5);
     compact.innerHTML = recent.length ? recent.map((item) => `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.applicant_name)} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-review="${escapeHtml(item.record_id)}" data-dashboard-kind="${escapeHtml(item.kind)}">Review →</button></div>`).join('') : '<div class="empty-mini">No urgent action required.</div>';
