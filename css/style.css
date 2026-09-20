@@ -445,3 +445,15 @@ body.accommodation-modal-open{overflow:hidden}
 @media(max-width:980px){.live-product-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.live-catalogue-heading{align-items:flex-start;gap:10px}.live-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.live-product-image{height:140px}}
 @media(max-width:430px){.live-product-grid{grid-template-columns:1fr 1fr}.live-product-image{height:125px}.live-product-body{padding:10px}.live-product-body h3{font-size:13px}.live-product-price-row{align-items:flex-start;flex-direction:column;gap:2px}}
+
+
+/* One-off customer personal sale listings */
+.personal-sale-preview-row{grid-template-columns:54px 1fr auto!important;align-items:center}
+.personal-sale-preview-image{width:48px;height:48px;border-radius:11px;background:#f3f6fa;display:grid;place-items:center;overflow:hidden;font-size:22px}
+.personal-sale-preview-image img{width:100%;height:100%;object-fit:cover}
+.personal-sale-market-card{border-color:#ffd7b3}
+.personal-sale-market-card .live-product-category{color:#c85b00}
+.personal-sale-public-badge{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:6px 8px;border-radius:999px;background:#eaf8ef;color:#16823b;font-size:8px;font-weight:900}
+.personal-item-photo-upload{margin-top:12px}
+.selling-submit-button:disabled{opacity:.6;cursor:not-allowed}
+@media(max-width:520px){.personal-sale-preview-row{grid-template-columns:48px 1fr auto!important}.personal-sale-preview-image{width:42px;height:42px}.personal-sale-preview-row .clip-price{font-size:10px}}
