@@ -204,3 +204,12 @@
 }
 .saved-product-variants .variant-warning{flex-basis:100%}
 @media(max-width:560px){.product-main-thumb-placeholder{width:60px;height:60px}}
+
+
+/* Seller portal boot/recovery state */
+.seller-boot-status{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;min-height:130px}
+.seller-boot-status>div>span{color:var(--orange);font-size:10px;font-weight:900;letter-spacing:.12em}
+.seller-boot-status h2{margin:5px 0}.seller-boot-status p{margin:0;color:var(--muted);line-height:1.45}
+.seller-boot-spinner{width:34px;height:34px;border:4px solid #e5ebf2;border-top-color:#ff7200;border-radius:50%;animation:sellerBootSpin .9s linear infinite}
+@keyframes sellerBootSpin{to{transform:rotate(360deg)}}
+@media(max-width:640px){.seller-boot-status{grid-template-columns:auto 1fr}.seller-boot-status>button{grid-column:1/-1;width:100%}}
