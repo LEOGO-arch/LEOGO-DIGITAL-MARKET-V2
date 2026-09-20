@@ -495,7 +495,7 @@
         ${o.payment_status==='submitted'?'<button data-order-payment="paid" data-order-id="'+escapeHtml(o.id)+'">Verify Paid</button><button class="danger" data-order-payment="reject" data-order-id="'+escapeHtml(o.id)+'">Reject Payment</button>':''}
       </td>
     </tr>`).join(''):'<tr><td colspan="7">No marketplace orders yet.</td></tr>';
-    $('[data-order-payment]').forEach(button=>button.addEventListener('click',async()=>{
+    $$('[data-order-payment]').forEach(button=>button.addEventListener('click',async()=>{
       const paid=button.dataset.orderPayment==='paid';
       let notes='';
       if(!paid){
@@ -646,7 +646,7 @@
       </article>`;
     }).join('');
 
-    $('[data-admin-product-status]', box).forEach((button) => button.addEventListener('click', async () => {
+    $$('[data-admin-product-status]', box).forEach((button) => button.addEventListener('click', async () => {
       const status = button.dataset.adminProductStatus;
       const product = state.catalogueProducts.find((item) => item.id === button.dataset.adminProductId);
       if (!product) return;
@@ -670,7 +670,7 @@
       });
     }));
 
-    $('[data-seller-record]', box).forEach((button) => button.addEventListener('click', () => openSellerRecord(button.dataset.sellerRecord)));
+    $$('[data-seller-record]', box).forEach((button) => button.addEventListener('click', () => openSellerRecord(button.dataset.sellerRecord)));
   };
 
   const loadCatalogue = async () => {
@@ -898,7 +898,7 @@
       </tr>`;
     }).join(''):'<tr><td colspan="6">No delivery jobs yet.</td></tr>';
 
-    $('[data-assign-delivery]').forEach(button=>button.addEventListener('click',async()=>{
+    $$('[data-assign-delivery]').forEach(button=>button.addEventListener('click',async()=>{
       const select=$('[data-delivery-rider="'+button.dataset.assignDelivery+'"]');
       if(!select?.value){globalStatus('Choose an active LEOGO rider first.','error');return;}
       await withButtonLock(button,'Assigning…',async()=>{
@@ -1139,7 +1139,7 @@
       <td><strong>${formatMoney(item.amount_kes)}</strong></td><td>${escapeHtml(item.settlement_reference)}</td><td><span class="status-chip">${escapeHtml(item.status)}</span></td>
     </tr>`).join('') : '<tr><td colspan="5">No Seller settlements recorded yet.</td></tr>';
 
-    $('[data-request-review]').forEach((button)=>button.addEventListener('click',async()=>{
+    $$('[data-request-review]').forEach((button)=>button.addEventListener('click',async()=>{
       const decision=button.dataset.requestReview;
       let notes='';
       if(decision==='reject'){
@@ -1153,7 +1153,7 @@
         globalStatus(decision==='reject'?'Settlement request rejected.':'Settlement request marked under review.');
       });
     }));
-    $('[data-request-pay]').forEach((button)=>button.addEventListener('click',async()=>{
+    $$('[data-request-pay]').forEach((button)=>button.addEventListener('click',async()=>{
       const request=state.sellerSettlementRequests.find((item)=>item.id===button.dataset.requestPay);
       if(!request)return;
       const reference=window.prompt('Enter the actual M-Pesa / bank transaction reference after sending '+formatMoney(request.requested_amount_kes)+':','')||'';
