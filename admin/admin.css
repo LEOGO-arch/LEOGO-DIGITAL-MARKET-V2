@@ -226,3 +226,36 @@
 .delivery-assign button{border:0;border-radius:9px;background:#ff7200;color:#fff;padding:9px 11px;font-weight:800}
 #adminRiderList{margin-top:14px}
 @media(max-width:760px){.delivery-assign{min-width:0;flex-direction:column;align-items:stretch}.delivery-assign select,.delivery-assign button{width:100%}}
+
+
+/* Live Seller catalogue in Admin Control Center */
+.admin-catalogue-toolbar{grid-template-columns:minmax(220px,1.5fr) repeat(3,minmax(150px,.7fr))}
+.admin-catalogue-product-list{display:grid;gap:14px}
+.admin-catalogue-product-card{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;border:1px solid var(--line);border-radius:18px;background:#fff;padding:14px}
+.admin-catalogue-product-image{min-height:150px;border:1px solid #dce4ee;border-radius:14px;background:#f5f8fc;display:grid;place-items:center;overflow:hidden}
+.admin-catalogue-product-image img{width:100%;height:100%;min-height:150px;object-fit:cover}
+.admin-catalogue-product-image>span{font-size:34px}
+.admin-catalogue-product-main{min-width:0}
+.admin-catalogue-product-title{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.admin-catalogue-product-title>div:first-child>span{display:block;color:var(--orange);font-size:10px;font-weight:900;letter-spacing:.06em}
+.admin-catalogue-product-title h3{margin:4px 0 3px;font-size:20px}
+.admin-catalogue-product-title p{margin:0;color:var(--muted);font-size:11px}
+.admin-catalogue-badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.admin-product-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+.admin-product-facts span{border:1px solid #e1e7ef;border-radius:10px;padding:9px;background:#fbfcfe}
+.admin-product-facts small,.admin-product-facts strong{display:block}.admin-product-facts small{color:var(--muted);font-size:9px}.admin-product-facts strong{margin-top:3px;font-size:11px}
+.admin-product-description{margin:8px 0;color:#46556a;font-size:12px;line-height:1.45}
+.admin-product-variants{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:7px;margin-top:10px}
+.admin-product-variant{display:flex;align-items:center;gap:8px;border:1px solid #e1e7ef;border-radius:10px;padding:7px;background:#f8fafc}
+.admin-product-variant img,.admin-media-placeholder{width:42px;height:42px;border-radius:8px;object-fit:cover;background:#eef3f8;display:grid;place-items:center;flex:0 0 42px}
+.admin-product-variant div{display:grid;min-width:0}.admin-product-variant b{font-size:11px;overflow-wrap:anywhere}.admin-product-variant small{font-size:9px;color:var(--muted)}
+.admin-product-warning{padding:8px 10px;background:#fff4e8;color:#9a3412;border-radius:9px;font-size:10px}
+.admin-catalogue-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.admin-catalogue-actions button{border:1px solid #cbd5e1;border-radius:9px;background:#eef3f9;color:#07152f;padding:9px 11px;font-weight:800;cursor:pointer}
+.admin-catalogue-actions button.danger{background:#fff0f0;color:#a02222;border-color:#f0c6c6}
+.admin-catalogue-category-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.admin-category-card{border:1px solid var(--line);border-radius:14px;background:#fff;padding:13px}
+.admin-category-card header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.admin-category-card header strong{display:block}.admin-category-card header small{display:block;color:var(--muted);font-size:9px;margin-top:3px}
+.admin-category-subs{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}.admin-category-subs span{border:1px solid #e1e7ef;border-radius:9px;padding:6px 8px;background:#f8fafc}.admin-category-subs b,.admin-category-subs small{display:block}.admin-category-subs b{font-size:10px}.admin-category-subs small{font-size:8px;color:var(--muted);margin-top:2px}
+@media(max-width:900px){.admin-catalogue-toolbar{grid-template-columns:1fr 1fr}.admin-product-facts{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.admin-catalogue-toolbar{grid-template-columns:1fr}.admin-catalogue-product-card{grid-template-columns:1fr}.admin-catalogue-product-image{min-height:180px}.admin-catalogue-product-title{flex-direction:column}.admin-catalogue-badges{justify-content:flex-start}.admin-product-facts{grid-template-columns:1fr 1fr}}
