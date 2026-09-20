@@ -879,77 +879,149 @@ function editProduct(id){
 
 $('#sellerProductForm').addEventListener('submit',async e=>{
   e.preventDefault();
-  if(!seller||seller.application_status!=='approved'){status($('#productFormStatus'),'Seller approval is required before adding products.','error');return;}
+  if(!seller||seller.application_status!=='approved'){
+    status($('#productFormStatus'),'Seller approval is required before adding products.','error');
+    return;
+  }
+
+  const submitButton=e.submitter||$('#sellerProductForm button[type="submit"]');
+  const originalText=submitButton?.textContent||'Save Product';
+  const uploadedThisAttempt=[];
+
   try{
-    status($('#productFormStatus'),'Saving product…');
+    if(submitButton){submitButton.disabled=true;submitButton.textContent='Checking Product…';}
+    status($('#productFormStatus'),'Checking product and variants…');
+
     const selectedCategory=categories.find(x=>x.id===$('#productCategory').value);
     const selectedSubcategory=subcategories.find(x=>x.id===$('#productSubcategory').value);
-    if(selectedCategory?.code==='other'&&$('#productCustomCategory').value.trim().length<2)throw new Error('Specify the category name.');
-    if(selectedSubcategory?.code==='others'&&$('#productCustomSubcategory').value.trim().length<2)throw new Error('Specify the sub-category name.');
-    const galleryFiles=[...$('#productGallery').files];if(galleryFiles.length>3)throw new Error('Choose a maximum of 3 gallery pictures.');
-    const hasVariants=$('#productHasVariants').checked,lpp=$('#productLpp').checked;
 
-    // Validate the visible variant cards BEFORE creating/updating the product.
-    // This prevents a failed variant validation from leaving an incomplete product behind.
-    const variantRows=hasVariants?$('#variantRows .variant-row'):[];
-    if(hasVariants&&!variantRows.length)throw new Error('Add at least one variant or switch off variants.');
+    if(selectedCategory?.code==='other'&&$('#productCustomCategory').value.trim().length<2){
+      throw new Error('Specify the category name.');
+    }
+    if(selectedSubcategory?.code==='others'&&$('#productCustomSubcategory').value.trim().length<2){
+      throw new Error('Specify the sub-category name.');
+    }
+
+    const hasVariants=$('#productHasVariants').checked;
+    const lpp=$('#productLpp').checked;
+    const variantContainer=document.getElementById('variantRows');
+    const variantRows=hasVariants&&variantContainer
+      ? Array.from(variantContainer.querySelectorAll('.variant-row'))
+      : [];
+
+    if(hasVariants&&variantRows.length===0){
+      throw new Error('Add at least one variant or switch off variants.');
+    }
+
     for(let i=0;i<variantRows.length;i++){
       const row=variantRows[i];
-      const name=$('[data-variant-name]',row)?.value.trim()||'';
-      const price=Number($('[data-variant-price]',row)?.value);
-      const qty=Number($('[data-variant-qty]',row)?.value);
-      const file=$('[data-variant-image]',row)?.files?.[0];
+      const name=row.querySelector('[data-variant-name]')?.value.trim()||'';
+      const price=Number(row.querySelector('[data-variant-price]')?.value);
+      const qty=Number(row.querySelector('[data-variant-qty]')?.value);
+      const file=row.querySelector('[data-variant-image]')?.files?.[0]||null;
       const existingImage=row.dataset.existingImage||'';
-      if(name.length<1)throw new Error('Enter a name for variant '+(i+1)+'.');
+
+      if(!name)throw new Error('Enter a name for variant '+(i+1)+'.');
       if(!Number.isFinite(price)||price<0)throw new Error('Enter a valid Amount (KSh) for variant "'+name+'".');
       if(!Number.isFinite(qty)||qty<0)throw new Error('Enter a valid quantity for variant "'+name+'".');
       if(!file&&!existingImage)throw new Error('Add a profile picture for variant "'+name+'".');
     }
 
-    let mainPath=editingProduct?.main_image_path||null;if($('#productMainImage').files[0])mainPath=await uploadImage($('#productMainImage').files[0],'main');
+    const galleryFiles=[...$('#productGallery').files];
+    if(galleryFiles.length>3)throw new Error('Choose a maximum of 3 gallery pictures.');
+
+    if(submitButton)submitButton.textContent='Uploading Pictures…';
+    status($('#productFormStatus'),'Uploading product and variant pictures…');
+
+    const uploadTracked=async(file,prefix)=>{
+      const path=await uploadImage(file,prefix);
+      if(path)uploadedThisAttempt.push(path);
+      return path;
+    };
+
+    let mainPath=editingProduct?.main_image_path||null;
+    if($('#productMainImage').files[0]){
+      mainPath=await uploadTracked($('#productMainImage').files[0],'main');
+    }
     if(!mainPath)throw new Error('Add a main product picture.');
-    let galleryPaths=editingProduct?.gallery_image_paths||[];if(galleryFiles.length)galleryPaths=await Promise.all(galleryFiles.map((f,i)=>uploadImage(f,'gallery-'+i)));
-    const payload={
-      seller_id:currentUser.id,product_name:$('#productName').value.trim(),price_kes:Number($('#productPrice').value),
-      availability_status:$('#productAvailability').value,quantity_available:Number($('#productQuantity').value),
-      measurement_unit:$('#productUnit').value,measurement_unit_other:$('#productUnit').value==='other'?$('#productOtherUnit').value.trim()||null:null,
-      accepts_lipa_pole_pole:lpp,lipa_pole_pole_first_deposit_kes:lpp?Number($('#productLppDeposit').value):null,lipa_pole_pole_max_days:lpp?Number($('#productLppDays').value):null,
-      has_variants:hasVariants,product_details:$('#productDetails').value.trim(),main_image_path:mainPath,gallery_image_paths:galleryPaths,
-      category_id:$('#productCategory').value,subcategory_id:$('#productSubcategory').value||null,
+
+    let galleryPaths=editingProduct?.gallery_image_paths||[];
+    if(galleryFiles.length){
+      galleryPaths=[];
+      for(let i=0;i<galleryFiles.length;i++){
+        galleryPaths.push(await uploadTracked(galleryFiles[i],'gallery-'+i));
+      }
+    }
+
+    const variants=[];
+    for(let i=0;i<variantRows.length;i++){
+      const row=variantRows[i];
+      const name=row.querySelector('[data-variant-name]').value.trim();
+      const price=Number(row.querySelector('[data-variant-price]').value);
+      const qty=Number(row.querySelector('[data-variant-qty]').value);
+      const file=row.querySelector('[data-variant-image]').files[0]||null;
+      let imagePath=row.dataset.existingImage||null;
+      if(file)imagePath=await uploadTracked(file,'variant-'+i);
+      variants.push({
+        variant_name:name,
+        price_kes:price,
+        quantity_available:qty,
+        image_path:imagePath,
+        display_order:i,
+        is_active:true
+      });
+    }
+
+    const productPayload={
+      product_name:$('#productName').value.trim(),
+      price_kes:Number($('#productPrice').value),
+      availability_status:$('#productAvailability').value,
+      quantity_available:Number($('#productQuantity').value),
+      measurement_unit:$('#productUnit').value,
+      measurement_unit_other:$('#productUnit').value==='other'?$('#productOtherUnit').value.trim()||null:null,
+      accepts_lipa_pole_pole:lpp,
+      lipa_pole_pole_first_deposit_kes:lpp?Number($('#productLppDeposit').value):null,
+      lipa_pole_pole_max_days:lpp?Number($('#productLppDays').value):null,
+      has_variants:hasVariants,
+      product_details:$('#productDetails').value.trim(),
+      main_image_path:mainPath,
+      gallery_image_paths:galleryPaths,
+      category_id:$('#productCategory').value,
+      subcategory_id:$('#productSubcategory').value||null,
       custom_category_name:$('#productCustomCategoryWrap').hidden?null:$('#productCustomCategory').value.trim()||null,
       custom_subcategory_name:$('#productCustomSubcategoryWrap').hidden?null:$('#productCustomSubcategory').value.trim()||null,
       group_name:$('#productGroup').value.trim()||null,
-      listing_status:$('#productListingStatus').value,updated_at:new Date().toISOString()
+      listing_status:$('#productListingStatus').value
     };
-    let productId=editingProduct?.id;
-    if(productId){const {error}=await client.from('seller_products').update(payload).eq('id',productId).eq('seller_id',currentUser.id);if(error)throw error;}
-    else{const {data,error}=await client.from('seller_products').insert(payload).select('id').single();if(error)throw error;productId=data.id;}
-    let variants=[];
-    if(hasVariants){
-      for(let i=0;i<variantRows.length;i++){
-        const row=variantRows[i];
-        const name=$('[data-variant-name]',row).value.trim();
-        const price=Number($('[data-variant-price]',row).value);
-        const qty=Number($('[data-variant-qty]',row).value);
-        const file=$('[data-variant-image]',row).files[0];
-        let imagePath=row.dataset.existingImage||null;
-        if(file)imagePath=await uploadImage(file,'variant-'+i);
-        variants.push({
-          product_id:productId,
-          variant_name:name,
-          price_kes:price,
-          quantity_available:qty,
-          image_path:imagePath,
-          display_order:i
-        });
-      }
+
+    if(submitButton)submitButton.textContent='Saving Product…';
+    status($('#productFormStatus'),'Saving product with '+variants.length+' variant'+(variants.length===1?'':'s')+'…');
+
+    const {data,error}=await client.rpc('seller_save_product_with_variants',{
+      p_product_id:editingProduct?.id||null,
+      p_product:productPayload,
+      p_variants:variants
+    });
+    if(error)throw error;
+
+    const savedCount=Number(data?.variant_count??variants.length);
+    status(
+      $('#productFormStatus'),
+      'Product saved successfully'+(hasVariants?' with '+savedCount+' variant'+(savedCount===1?'':'s'):'')+'.',
+      'success'
+    );
+
+    await loadProducts();
+    setTimeout(()=>resetProductForm(true),900);
+  }catch(err){
+    if(uploadedThisAttempt.length){
+      try{await client.storage.from('seller-product-media').remove(uploadedThisAttempt);}catch(cleanupError){console.warn('Media cleanup failed',cleanupError);}
     }
-    const {error:deleteError}=await client.from('seller_product_variants').delete().eq('product_id',productId);if(deleteError)throw deleteError;
-    if(hasVariants){
-      const {error}=await client.from('seller_product_variants').insert(variants);if(error)throw error;
-    }
-    status($('#productFormStatus'),'Product saved successfully. Flash Sale can be requested separately from the Flash Sale menu.','success');await loadProducts();setTimeout(()=>resetProductForm(true),700);
-  }catch(err){status($('#productFormStatus'),err.message||'Product could not be saved.','error');}
+    console.error('Seller product save failed:',err);
+    status($('#productFormStatus'),err?.message||'Product could not be saved.','error');
+  }finally{
+    if(submitButton){submitButton.disabled=false;submitButton.textContent=originalText;}
+  }
 });
 
 async function handleSession(session){
