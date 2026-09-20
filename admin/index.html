@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-v1-18">
+  <link rel="stylesheet" href="admin.css?v=admin-v1-19">
 </head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
@@ -155,7 +155,42 @@
         <div class="table-card"><div class="responsive-table"><table><thead><tr><th aria-label="Select"></th><th>Customer</th><th>Phone</th><th>Location</th><th>Registered</th><th>Last sign in</th></tr></thead><tbody id="customerTableBody"><tr><td colspan="6">Loading customers…</td></tr></tbody></table></div></div>
       </section>
 
-      <section class="admin-panel" data-admin-panel="products"><div class="section-head"><div><span>CATALOGUE</span><h2>Products &amp; Categories</h2><p>Product and Explore LEOGO administration foundation.</p></div></div><div class="reserved-module"><span>□</span><h3>Catalogue connection reserved</h3><p>The customer catalogue is locked. Product, category and seller tables will be connected here when their production workflow is approved.</p></div></section>
+      <section class="admin-panel" data-admin-panel="products">
+        <div class="section-head">
+          <div><span>CATALOGUE</span><h2>Products &amp; Categories</h2><p>Live Seller catalogue from the Partner Portal, including variants, stock, images and Seller ownership.</p></div>
+          <button id="refreshAdminCatalogue" class="primary-button" type="button">↻ Refresh Catalogue</button>
+        </div>
+
+        <div class="seller-admin-summary">
+          <article><span>Total Products</span><strong id="adminCatalogueTotal">0</strong><small>Seller-created products</small></article>
+          <article><span>Active Listings</span><strong id="adminCatalogueActive">0</strong><small>Visible catalogue listings</small></article>
+          <article><span>Products With Variants</span><strong id="adminCatalogueVariants">0</strong><small>Variant-enabled items</small></article>
+          <article><span>Categories</span><strong id="adminCatalogueCategories">0</strong><small>Configured product categories</small></article>
+        </div>
+
+        <div class="seller-admin-toolbar admin-catalogue-toolbar">
+          <input id="adminCatalogueSearch" type="search" placeholder="Search product, Seller, category or variant…">
+          <select id="adminCatalogueStatusFilter">
+            <option value="all">All listing statuses</option>
+            <option value="active">Active</option>
+            <option value="draft">Draft</option>
+            <option value="inactive">Inactive</option>
+            <option value="suspended">Suspended</option>
+          </select>
+          <select id="adminCatalogueSellerFilter"><option value="all">All Sellers</option></select>
+          <select id="adminCatalogueCategoryFilter"><option value="all">All Categories</option></select>
+        </div>
+
+        <section class="content-card">
+          <div class="card-head"><div><span>SELLER PRODUCTS</span><h3>Products received from Partner Portal</h3><p>Every saved Seller product appears here automatically from the shared Supabase backend.</p></div></div>
+          <div id="adminCatalogueProductList" class="admin-catalogue-product-list"><div class="loading-card">Loading Seller products…</div></div>
+        </section>
+
+        <section class="content-card">
+          <div class="card-head"><div><span>CATEGORY DIRECTORY</span><h3>Categories &amp; Sub-categories</h3><p>Current Seller product taxonomy and live product counts.</p></div></div>
+          <div id="adminCatalogueCategoryList" class="admin-catalogue-category-list"><div class="loading-card">Loading categories…</div></div>
+        </section>
+      </section>
       <section class="admin-panel" data-admin-panel="sellers">
         <div class="section-head"><div><span>MARKETPLACE PARTNERS</span><h2>Sellers</h2><p>All Seller registration records remain here after approval, together with product and Flash Sale activity.</p></div><button data-open-view="approvals" data-filter-target="sellers" class="primary-button">Open Seller Approvals</button></div>
         <div class="seller-admin-summary">
@@ -388,6 +423,6 @@
   <div class="modal" id="pickupStationModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="pickupStationForm"><header><div><span>DELIVERY SETTINGS</span><h2 id="pickupModalTitle">Add Pickup Station</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label class="wide"><span>Station name</span><input name="station_name" required></label><label><span>County</span><input name="county" required></label><label><span>Sub-County</span><input name="sub_county" required></label><label><span>Town</span><input name="town" required></label><label><span>Door number</span><input name="door_number"></label><label class="wide"><span>Address</span><input name="address_line" required></label><label><span>Landmark</span><input name="landmark"></label><label><span>Contact phone</span><input name="contact_phone"></label><label class="wide"><span>Operating information</span><input name="operating_hours" placeholder="e.g. Monday–Saturday, 8:00 AM–6:00 PM"></label><label><span>Pickup service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.001" required></label><label><span>Display order</span><input name="display_order" type="number" min="0" max="999" value="0"></label><label class="switch-label"><input name="is_active" type="checkbox" checked><span>Station is active</span></label></div><div class="form-status" id="pickupStationStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Pickup Station</button></footer></form></div>
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
-  <script src="admin.js?v=admin-v1-20" defer></script>
+  <script src="admin.js?v=admin-v1-21" defer></script>
 </body>
 </html>
