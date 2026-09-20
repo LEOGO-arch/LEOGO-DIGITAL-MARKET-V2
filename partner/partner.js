@@ -747,9 +747,36 @@ $('#productHasVariants').addEventListener('change',()=>{$('#variantSection').hid
 $('#productLpp').addEventListener('change',()=>{$('#lppFields').hidden=!$('#productLpp').checked;});
 $('#addVariantRow').addEventListener('click',addVariantRow);
 function addVariantRow(v={}){
-  const row=document.createElement('div');row.className='variant-row';
-  row.innerHTML='<input data-variant-name placeholder="Variant name" value="'+escapeHtml(v.variant_name||'')+'" required><input data-variant-price type="number" min="0" step="0.01" placeholder="Price" value="'+(v.price_kes??'')+'" required><input data-variant-qty type="number" min="0" step="0.001" placeholder="Qty" value="'+(v.quantity_available??0)+'" required><button type="button">×</button>';
-  row.querySelector('button').addEventListener('click',()=>row.remove());$('#variantRows').append(row);
+  const row=document.createElement('div');
+  row.className='variant-row';
+  row.dataset.existingImage=v.image_path||'';
+  const imageUrl=v.image_path?publicUrl(v.image_path):'';
+  row.innerHTML=
+    '<label class="variant-image-field"><span>Variant picture</span>'+
+      '<div class="variant-image-preview">'+
+        (imageUrl?'<img data-variant-preview src="'+escapeHtml(imageUrl)+'" alt="'+escapeHtml(v.variant_name||'Variant')+' picture">':'<div data-variant-preview-placeholder>📷</div>')+
+      '</div>'+
+      '<input data-variant-image type="file" accept="image/jpeg,image/png,image/webp">'+
+      '<small>'+(v.image_path?'Current picture will remain unless replaced.':'Add a profile picture for this variant.')+'</small>'+
+    '</label>'+
+    '<label><span>Variant name</span><input data-variant-name placeholder="e.g. Cocacola" value="'+escapeHtml(v.variant_name||'')+'" required></label>'+
+    '<label><span>Amount (KSh)</span><input data-variant-price type="number" min="0" step="0.01" placeholder="Amount in KSh" value="'+(v.price_kes??'')+'" required></label>'+
+    '<label><span>Quantity available</span><input data-variant-qty type="number" min="0" step="0.001" placeholder="Quantity" value="'+(v.quantity_available??0)+'" required></label>'+
+    '<button class="variant-remove" type="button" aria-label="Remove variant">× Remove Variant</button>';
+  const fileInput=$('[data-variant-image]',row);
+  fileInput.addEventListener('change',()=>{
+    const file=fileInput.files[0];
+    if(!file)return;
+    const holder=$('.variant-image-preview',row);
+    const img=document.createElement('img');
+    img.dataset.variantPreview='';
+    img.alt=($('[data-variant-name]',row).value.trim()||'Variant')+' picture';
+    img.src=URL.createObjectURL(file);
+    holder.innerHTML='';
+    holder.append(img);
+  });
+  $('.variant-remove',row).addEventListener('click',()=>row.remove());
+  $('#variantRows').append(row);
 }
 
 async function uploadImage(file,prefix){
@@ -879,10 +906,31 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
     let productId=editingProduct?.id;
     if(productId){const {error}=await client.from('seller_products').update(payload).eq('id',productId).eq('seller_id',currentUser.id);if(error)throw error;}
     else{const {data,error}=await client.from('seller_products').insert(payload).select('id').single();if(error)throw error;productId=data.id;}
+    let variants=[];
+    if(hasVariants){
+      const rows=$('.variant-row');
+      if(!rows.length)throw new Error('Add at least one variant or switch off variants.');
+      for(let i=0;i<rows.length;i++){
+        const row=rows[i];
+        const name=$('[data-variant-name]',row).value.trim();
+        const price=Number($('[data-variant-price]',row).value);
+        const qty=Number($('[data-variant-qty]',row).value);
+        const file=$('[data-variant-image]',row).files[0];
+        let imagePath=row.dataset.existingImage||null;
+        if(file)imagePath=await uploadImage(file,'variant-'+i);
+        if(!imagePath)throw new Error('Add a profile picture for variant "'+(name||String(i+1))+'".');
+        variants.push({
+          product_id:productId,
+          variant_name:name,
+          price_kes:price,
+          quantity_available:qty,
+          image_path:imagePath,
+          display_order:i
+        });
+      }
+    }
     const {error:deleteError}=await client.from('seller_product_variants').delete().eq('product_id',productId);if(deleteError)throw deleteError;
     if(hasVariants){
-      const variants=$$('.variant-row').map((row,i)=>({product_id:productId,variant_name:$('[data-variant-name]',row).value.trim(),price_kes:Number($('[data-variant-price]',row).value),quantity_available:Number($('[data-variant-qty]',row).value),display_order:i}));
-      if(!variants.length)throw new Error('Add at least one variant or switch off variants.');
       const {error}=await client.from('seller_product_variants').insert(variants);if(error)throw error;
     }
     status($('#productFormStatus'),'Product saved successfully. Flash Sale can be requested separately from the Flash Sale menu.','success');await loadProducts();setTimeout(()=>resetProductForm(true),700);
