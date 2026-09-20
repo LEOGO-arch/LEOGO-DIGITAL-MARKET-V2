@@ -27,8 +27,45 @@ const applyInitialServiceAreas=()=>{
 const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),logout=$('#partnerLogout'),hero=$('.hero');
 const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
-const sellerProfilePanel=$('#sellerProfilePanel'),sellerNotificationPanel=$('#sellerNotificationPanel'),sellerSettlementPanel=$('#sellerSettlementPanel'),sellerPendingArea=$('#sellerPendingArea'),sellerSidebar=$('#sellerSidebar');
+const sellerProfilePanel=$('#sellerProfilePanel'),sellerNotificationPanel=$('#sellerNotificationPanel'),sellerSettlementPanel=$('#sellerSettlementPanel'),sellerPendingArea=$('#sellerPendingArea'),sellerSidebar=$('#sellerSidebar'),sellerBootStatus=$('#sellerBootStatus');
 let activeRole='';
+
+const waitTimeout=(ms,message='Request timed out')=>new Promise((_,reject)=>window.setTimeout(()=>reject(new Error(message)),ms));
+
+function primeSellerLocationOptions(){
+  if(!kenyaCounties.length)applyInitialServiceAreas();
+  const county=$('#sellerCounty');
+  if(county){
+    const current=county.value;
+    county.innerHTML='<option value="">Select county</option>'+kenyaCounties.map(item=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.display_name||item.name)+'</option>').join('');
+    if(current&&kenyaCounties.some(item=>item.code===current))county.value=current;
+  }
+}
+
+function showSellerBoot(message='Loading your Seller account…',isError=false){
+  if(!sellerBootStatus)return;
+  sellerBootStatus.hidden=false;
+  $('#sellerBootTitle').textContent=isError?'Seller Portal needs attention':'Opening your Seller dashboard…';
+  $('#sellerBootMessage').textContent=message;
+  $('.seller-boot-spinner',sellerBootStatus).hidden=isError;
+  $('#retrySellerBoot').hidden=!isError;
+}
+
+function hideSellerBoot(){
+  if(sellerBootStatus)sellerBootStatus.hidden=true;
+}
+
+function showSellerBootError(error){
+  console.error('Seller portal boot failed:',error);
+  showSellerBoot(error?.message||'The Seller dashboard could not finish loading. Tap Retry.',true);
+  sellerOnboarding.hidden=true;
+  sellerDashboard.hidden=true;
+  sellerReg.hidden=true;
+  sellerShell.hidden=false;
+}
+
+$('#retrySellerBoot')?.addEventListener('click',()=>openSellerRole());
+
 
 $$('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('[data-auth-form]').forEach(f=>f.classList.toggle('active',f.dataset.authForm===b.dataset.authTab));}));
 
@@ -160,63 +197,46 @@ $('#sellerCounty').addEventListener('change',()=>renderSellerSubcounties());
 async function loadSeller(){
   if(!currentUser)return;
 
-  const {data,error}=await client
-    .from('seller_accounts')
-    .select('*')
-    .eq('user_id',currentUser.id)
-    .maybeSingle();
+  showSellerBoot('Loading your Seller account…');
+  primeSellerLocationOptions();
 
-  if(error){
-    console.error('Seller account load failed:',error);
-    seller=null;
-
-    // Never leave the Partner Portal as a blank page when a Seller query fails.
-    sellerOnboarding.hidden=false;
-    sellerDashboard.hidden=true;
-    sellerReg.hidden=true;
-    sellerShell.hidden=false;
-    sellerOnboarding.innerHTML=
-      '<div class="seller-onboarding-icon">⚠️</div>'+
-      '<div><span>SELLER PORTAL</span><h2>Seller account could not load</h2><p>'+
-      escapeHtml(error.message||'Please refresh the page and try again.')+
-      '</p></div>'+
-      '<button id="retrySellerLoad" type="button">Retry</button>';
-    $('#retrySellerLoad')?.addEventListener('click',()=>loadSeller());
-    return;
-  }
-
-  seller=data||null;
-
-  // Render the Seller shell FIRST. Product/orders/settlement loading must never
-  // be able to hide the whole Seller Portal if one background request fails.
-  renderSeller();
-
-  if(seller){
-    try{
-      await loadPartnerNotifications();
-    }catch(notificationError){
-      console.warn('Seller notifications load failed:',notificationError);
-    }
-  }
-
-  if(seller?.application_status==='approved'){
-    const results=await Promise.allSettled([
-      loadProducts(),
-      loadTaxonomy(),
-      loadSellerSettlementData(),
-      loadSellerOrders()
+  try{
+    const result=await Promise.race([
+      client.rpc('seller_get_own_account'),
+      waitTimeout(8000,'Seller account is taking too long to load. Check your connection and tap Retry.')
     ]);
 
-    const labels=['products','taxonomy','settlements','orders'];
-    results.forEach((result,index)=>{
-      if(result.status==='rejected'){
-        console.error('Seller '+labels[index]+' loader failed:',result.reason);
-      }
-    });
+    if(result?.error)throw result.error;
+    seller=result?.data||null;
 
-    // The dashboard remains visible even if one module failed.
-    // Re-render whatever product data was successfully obtained.
-    try{renderProducts();}catch(renderError){console.error('Seller products render failed:',renderError);}
+    // Show the actual Seller interface immediately after the account record arrives.
+    renderSeller();
+    hideSellerBoot();
+
+    // Everything below is background enhancement. It must never blank the dashboard.
+    if(seller){
+      loadPartnerNotifications().catch(error=>console.warn('Seller notifications load failed:',error));
+    }
+
+    if(seller?.application_status==='approved'){
+      Promise.allSettled([
+        loadProducts(),
+        loadTaxonomy(),
+        loadSellerSettlementData(),
+        loadSellerOrders(),
+        loadKenyaLocations()
+      ]).then(results=>{
+        const labels=['products','taxonomy','settlements','orders','locations'];
+        results.forEach((result,index)=>{
+          if(result.status==='rejected')console.error('Seller '+labels[index]+' loader failed:',result.reason);
+        });
+        try{renderProducts();}catch(error){console.error('Seller products render failed:',error);}
+      });
+    }else{
+      loadKenyaLocations().catch(error=>console.warn('Seller locations load failed:',error));
+    }
+  }catch(error){
+    showSellerBootError(error);
   }
 }
 
@@ -237,7 +257,14 @@ async function openSellerRole(){
   rolePicker.hidden=true;
   sellerShell.hidden=false;
   if(hero)hero.hidden=true;
-  await loadKenyaLocations();
+
+  // Show visible feedback synchronously before any network request begins.
+  sellerOnboarding.hidden=true;
+  sellerDashboard.hidden=true;
+  sellerReg.hidden=true;
+  showSellerBoot('Loading your Seller account…');
+  primeSellerLocationOptions();
+
   await loadSeller();
 }
 function sellerStatusCopy(state){
@@ -294,6 +321,7 @@ $('#sellerSidebarToggle').addEventListener('click',()=>{sellerSidebar.classList.
 $('#sellerSidebarScrim').addEventListener('click',closeSellerSidebar);
 
 function renderSeller(){
+  hideSellerBoot();
   const name=currentUser?.user_metadata?.full_name||currentUser?.email||'Partner';
   const state=seller?.application_status||'not_registered';
   const hasSeller=Boolean(seller);
@@ -1261,6 +1289,19 @@ async function handleSession(session){
   if(hero)hero.hidden=false;
   if(activeRole==='seller')await openSellerRole();
 }
+
+window.addEventListener('unhandledrejection',event=>{
+  if(activeRole==='seller' && sellerShell && !sellerShell.hidden && sellerDashboard.hidden){
+    const reason=event.reason instanceof Error?event.reason:new Error(String(event.reason||'Unknown Seller Portal error'));
+    showSellerBootError(reason);
+  }
+});
+window.addEventListener('error',event=>{
+  if(activeRole==='seller' && sellerShell && !sellerShell.hidden && sellerDashboard.hidden){
+    showSellerBootError(event.error||new Error(event.message||'Seller Portal error'));
+  }
+});
+
 client.auth.onAuthStateChange((event,s)=>{
   if(event==='PASSWORD_RECOVERY'){
     currentUser=s?.user||null;
