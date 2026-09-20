@@ -1037,6 +1037,23 @@ function renderProducts(){
   }).join('');
 
   installSellerMediaFallback(box);
+  $('[data-edit-product]',box).forEach(button=>{
+    button.addEventListener('click',async event=>{
+      event.preventDefault();
+      event.stopPropagation();
+      const original=button.textContent;
+      button.disabled=true;
+      button.textContent='Opening…';
+      try{
+        await editProduct(button.dataset.editProduct);
+      }finally{
+        if(button.isConnected){
+          button.disabled=false;
+          button.textContent=original;
+        }
+      }
+    });
+  });
   renderFlashSaleProducts();
   renderSellerDataSelection();
 }
