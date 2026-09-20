@@ -58,7 +58,7 @@
     settings: 'System Settings', audit: 'Audit Log'
   };
   const kindLabels = {
-    seller_application: 'Seller Registration',
+    seller_application: 'Seller Registration', seller_product: 'Seller Product',
     premium_customer: 'Premium Customer', premium_profile: 'Verified Premium Profile',
     premium_payment: 'Premium Payment', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
@@ -227,7 +227,7 @@
     $$('[data-dashboard-review]', compact).forEach((button) => button.addEventListener('click', () => openApproval(button.dataset.dashboardKind, button.dataset.dashboardReview)));
   };
 
-  const approvalGroup = (kind) => kind === 'seller_application' ? 'sellers' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalGroup = (kind) => ['seller_application','seller_product'].includes(kind) ? 'sellers' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
   const approvalIsFinancial = (item) => item.kind === 'premium_payment' || item.kind.startsWith('wallet');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
@@ -316,6 +316,7 @@
 
     main_image_path: { label: 'Product Main Image', bucket: 'seller-product-media' },
     gallery_image_paths: { label: 'Product Gallery Image', bucket: 'seller-product-media', multiple: true },
+    variant_image_paths: { label: 'Variant Image', bucket: 'seller-product-media', multiple: true },
 
     cover_image_url: { label: 'Property Cover Image', directUrl: true },
     gallery_image_urls: { label: 'Property Gallery Image', directUrl: true, multiple: true }
@@ -427,9 +428,9 @@
     const requestChanges = $('[data-review-action="changes_requested"]');
     const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
-    const awaitingCorrection = kind === 'seller_application' && item.status === 'changes_requested';
+    const awaitingCorrection = ['seller_application','seller_product'].includes(kind) && item.status === 'changes_requested';
     underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection;
-    requestChanges.hidden = !['seller_application','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection;
+    requestChanges.hidden = !['seller_application','seller_product','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection;
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
@@ -451,8 +452,12 @@
       setFormStatus($('#reviewStatus'), decision === 'changes_requested' ? 'Explain what the applicant needs to correct before resubmitting.' : 'Add a clear rejection reason before rejecting.', 'error'); return;
     }
     await withButtonLock(button, 'Saving…', async () => {
-      const rpcName = item.kind === 'seller_application' ? 'admin_review_seller_application' : 'admin_review_approval';
-      const rpcArgs = item.kind === 'seller_application'
+      const rpcName = item.kind === 'seller_application'
+        ? 'admin_review_seller_application'
+        : item.kind === 'seller_product'
+          ? 'admin_review_seller_product'
+          : 'admin_review_approval';
+      const rpcArgs = ['seller_application','seller_product'].includes(item.kind)
         ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
       const { error } = await db.rpc(rpcName, rpcArgs);
@@ -465,7 +470,7 @@
             ? 'Correction request saved and audited. The application remains in Approval Center with status CHANGES REQUESTED until the Seller resubmits.'
             : 'Approval decision saved and audited.'
       );
-      await Promise.all([loadApprovals(), loadDashboard(), loadAuditLog(), loadSellers(), loadPremiumCustomers(), loadPremiumProfiles()]);
+      await Promise.all([loadApprovals(), loadDashboard(), loadAuditLog(), loadSellers(), loadCatalogue(), loadPremiumCustomers(), loadPremiumProfiles()]);
     });
   };
 
@@ -625,6 +630,7 @@
               <p>Seller: <strong>${escapeHtml(product.seller_name || 'Unknown Seller')}</strong> · ${escapeHtml(product.seller_email || '')}</p>
             </div>
             <div class="admin-catalogue-badges">
+              <span class="status-chip">Approval: ${escapeHtml(product.product_approval_status || 'pending')}</span>
               <span class="status-chip">${escapeHtml(product.listing_status)}</span>
               <span class="status-chip">${escapeHtml(product.availability_status)}</span>
               ${product.has_variants ? '<span class="status-chip">'+variants.length+' variants</span>' : ''}
