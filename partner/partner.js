@@ -162,9 +162,22 @@ async function loadSeller(){
   const {data,error}=await client.from('seller_accounts').select('*').eq('user_id',currentUser.id).maybeSingle();
   if(error){status($('#sellerRegistrationStatus'),error.message,'error');return;}
   seller=data||null;
+
+  // Load saved products before the approved dashboard is rendered so the
+  // overview never opens with stale zero product counters.
+  if(seller?.application_status==='approved'){
+    await loadProducts();
+  }
+
   renderSeller();
-  if(seller) await loadPartnerNotifications();
-  if(seller?.application_status==='approved')await Promise.all([loadTaxonomy(),loadProducts(),loadSellerSettlementData(),loadSellerOrders()]);
+
+  if(seller)await loadPartnerNotifications();
+
+  if(seller?.application_status==='approved'){
+    await Promise.all([loadTaxonomy(),loadSellerSettlementData(),loadSellerOrders()]);
+    // Re-assert product metrics after the other dashboard loaders finish.
+    renderProducts();
+  }
 }
 
 function formatDate(value){
@@ -788,6 +801,26 @@ async function uploadImage(file,prefix){
   if(error)throw error;return path;
 }
 const publicUrl=path=>path?client.storage.from('seller-product-media').getPublicUrl(path).data.publicUrl:'';
+function sellerMediaMarkup(path,alt='',variant=false){
+  const placeholderClass=variant?'saved-variant-image-placeholder':'product-main-thumb-placeholder';
+  if(!path){
+    return '<div class="'+placeholderClass+'" role="img" aria-label="'+escapeHtml(alt||'Product')+' image unavailable">📷</div>';
+  }
+  const className=variant?'':' class="product-main-thumb"';
+  return '<img'+className+' data-seller-media-image src="'+escapeHtml(publicUrl(path))+'" alt="'+escapeHtml(alt||'Product image')+'">';
+}
+function installSellerMediaFallback(root){
+  if(!root)return;
+  $('[data-seller-media-image]',root).forEach(img=>img.addEventListener('error',()=>{
+    const variant=Boolean(img.closest('.saved-variant-chip'));
+    const fallback=document.createElement('div');
+    fallback.className=variant?'saved-variant-image-placeholder':'product-main-thumb-placeholder';
+    fallback.setAttribute('role','img');
+    fallback.setAttribute('aria-label',(img.alt||'Product')+' image unavailable');
+    fallback.textContent='📷';
+    img.replaceWith(fallback);
+  },{once:true}));
+}
 
 async function loadProducts(options={}){
   const focusProductId=options?.focusProductId||null;
@@ -904,19 +937,22 @@ function renderProducts(){
 
   box.innerHTML=products.map(p=>{
     const variants=Array.isArray(p.seller_product_variants)?p.seller_product_variants:[];
+    const missingVariantImages=variants.filter(v=>!v.image_path).length;
     const variantMarkup=p.has_variants
       ? '<div class="saved-product-variants">'+(
           variants.length
             ? variants.map(v=>'<div class="saved-variant-chip">'+
-                '<img src="'+escapeHtml(publicUrl(v.image_path))+'" alt="">'+
+                sellerMediaMarkup(v.image_path,v.variant_name,true)+
                 '<span><b>'+escapeHtml(v.variant_name)+'</b><small>'+money(v.price_kes)+' · Qty '+Number(v.quantity_available||0)+'</small></span>'+
               '</div>').join('')
             : '<div class="variant-warning">⚠ Variant product has no readable variants. Refresh or edit this product.</div>'
-        )+'</div>'
+        )+(missingVariantImages
+          ? '<div class="variant-warning">⚠ '+missingVariantImages+' variant image'+(missingVariantImages===1?'':'s')+' need to be re-uploaded. Open Edit to replace them.</div>'
+          : '')+'</div>'
       : '';
 
     return '<article class="product-card seller-saved-product" data-product-card="'+escapeHtml(p.id)+'">'+
-      '<img class="product-main-thumb" src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt="'+escapeHtml(p.product_name)+'">'+
+      sellerMediaMarkup(p.main_image_path,p.product_name,false)+
       '<div class="product-card-content">'+
         '<h4>'+escapeHtml(p.product_name)+'</h4>'+
         '<p>'+money(p.price_kes)+' · '+Number(p.quantity_available||0)+' '+escapeHtml(p.measurement_unit||'')+'</p>'+
@@ -932,7 +968,8 @@ function renderProducts(){
     '</article>';
   }).join('');
 
-  $$('[data-edit-product]').forEach(button=>button.addEventListener('click',()=>editProduct(button.dataset.editProduct)));
+  installSellerMediaFallback(box);
+  $('[data-edit-product]').forEach(button=>button.addEventListener('click',()=>editProduct(button.dataset.editProduct)));
   renderFlashSaleProducts();
   renderSellerDataSelection();
 }
