@@ -789,59 +789,88 @@ async function uploadImage(file,prefix){
 }
 const publicUrl=path=>path?client.storage.from('seller-product-media').getPublicUrl(path).data.publicUrl:'';
 
-async function loadProducts(){
+async function loadProducts(options={}){
+  const focusProductId=options?.focusProductId||null;
   if(!currentUser){
     products=[];
     renderProducts();
-    return;
+    return products;
   }
 
-  // Load the Seller's product rows first. Do not make the whole list depend on
-  // the nested variants relationship: if variant expansion fails, products
-  // must still appear in "My Products".
-  const {data,error}=await client
-    .from('seller_products')
-    .select('*')
-    .eq('seller_id',currentUser.id)
-    .order('updated_at',{ascending:false});
-
-  if(error){
-    console.error('Seller products load failed:',error);
-    products=[];
-    const box=$('#sellerProductList');
-    if(box)box.innerHTML='<div class="empty-card">Products could not load: '+escapeHtml(error.message||'Unknown error')+'</div>';
-    status($('#productFormStatus'),error.message||'Products could not load.','error');
-    return;
+  const box=$('#sellerProductList');
+  if(box && !products.length){
+    box.innerHTML='<div class="loading-card">Loading your saved products…</div>';
   }
 
-  products=(data||[]).map(product=>({...product,seller_product_variants:[]}));
+  try{
+    // Preferred path: one Seller-scoped backend function returns parent products
+    // together with their variants, avoiding relationship/RLS race conditions.
+    const {data,error}=await client.rpc('seller_list_own_products');
+    if(error)throw error;
+    products=Array.isArray(data)?data:[];
+  }catch(rpcError){
+    console.warn('Seller product RPC load failed; using direct fallback:',rpcError);
 
-  // Variants are loaded separately so a variants/RLS/relationship problem
-  // can never hide successfully saved parent products.
-  if(products.length){
-    const ids=products.map(product=>product.id);
-    const {data:variantData,error:variantError}=await client
-      .from('seller_product_variants')
+    // Safe fallback so the Seller is never left with a blank product list.
+    const {data,error}=await client
+      .from('seller_products')
       .select('*')
-      .in('product_id',ids)
-      .order('display_order',{ascending:true});
+      .eq('seller_id',currentUser.id)
+      .order('updated_at',{ascending:false});
 
-    if(variantError){
-      console.warn('Seller product variants could not load:',variantError);
-    }else{
-      const variantsByProduct=new Map();
-      (variantData||[]).forEach(variant=>{
-        if(!variantsByProduct.has(variant.product_id))variantsByProduct.set(variant.product_id,[]);
-        variantsByProduct.get(variant.product_id).push(variant);
-      });
-      products=products.map(product=>({
-        ...product,
-        seller_product_variants:variantsByProduct.get(product.id)||[]
-      }));
+    if(error){
+      console.error('Seller products load failed:',error);
+      products=[];
+      if(box)box.innerHTML='<div class="empty-card">Products could not load: '+escapeHtml(error.message||'Unknown error')+'</div>';
+      status($('#productFormStatus'),error.message||'Products could not load.','error');
+      return products;
+    }
+
+    products=(data||[]).map(product=>({...product,seller_product_variants:[]}));
+
+    if(products.length){
+      const ids=products.map(product=>product.id);
+      const {data:variantData,error:variantError}=await client
+        .from('seller_product_variants')
+        .select('*')
+        .in('product_id',ids)
+        .order('display_order',{ascending:true});
+      if(variantError){
+        console.warn('Seller product variants fallback load failed:',variantError);
+      }else{
+        const byProduct=new Map();
+        (variantData||[]).forEach(variant=>{
+          if(!byProduct.has(variant.product_id))byProduct.set(variant.product_id,[]);
+          byProduct.get(variant.product_id).push(variant);
+        });
+        products=products.map(product=>({
+          ...product,
+          seller_product_variants:byProduct.get(product.id)||[]
+        }));
+      }
     }
   }
 
+  // Normalize RPC JSON so rendering/editing always sees the same shape.
+  products=products.map(product=>({
+    ...product,
+    seller_product_variants:Array.isArray(product.seller_product_variants)?product.seller_product_variants:[]
+  }));
+
   renderProducts();
+
+  if(focusProductId){
+    requestAnimationFrame(()=>{
+      const card=document.querySelector('[data-product-card="'+CSS.escape(String(focusProductId))+'"]');
+      if(card){
+        card.classList.add('product-card-saved');
+        card.scrollIntoView({behavior:'smooth',block:'center'});
+        window.setTimeout(()=>card.classList.remove('product-card-saved'),2600);
+      }
+    });
+  }
+
+  return products;
 }
 function renderFlashSaleProducts(){
   const select=$('#flashSaleProduct');
@@ -856,14 +885,54 @@ function renderFlashSaleProducts(){
   $('#sellerFlashSaleList').innerHTML=flashItems.length?flashItems.map(p=>'<article class="product-card"><img src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt=""><div><h4>'+escapeHtml(p.product_name)+'</h4><p>Normal '+money(p.price_kes)+' · Flash '+money(p.flash_sale_price_kes)+'</p><span class="badge flash">'+escapeHtml((p.flash_sale_status||'requested').replaceAll('_',' '))+'</span><small>Qty '+Number(p.flash_sale_quantity||0)+' · '+formatDate(p.flash_sale_starts_at)+' → '+formatDate(p.flash_sale_ends_at)+'</small></div></article>').join(''):'<div class="empty-card">No products have been sent to Flash Sale yet.</div>';
 }
 function renderProducts(){
-  $('#sellerProductCount').textContent=products.length;
-  $('#sellerAvailableCount').textContent=products.filter(p=>p.availability_status==='available'&&p.listing_status==='active').length;
-  $('#sellerFlashCount').textContent=products.filter(p=>p.flash_sale_requested || ['requested','approved'].includes(p.flash_sale_status)).length;
-  $('#sellerOrderCount').textContent='0';
+  const productCount=$('#sellerProductCount');
+  const availableCount=$('#sellerAvailableCount');
+  const flashCount=$('#sellerFlashCount');
+  if(productCount)productCount.textContent=products.length;
+  if(availableCount)availableCount.textContent=products.filter(p=>p.availability_status==='available'&&p.listing_status==='active').length;
+  if(flashCount)flashCount.textContent=products.filter(p=>p.flash_sale_requested || ['requested','approved'].includes(p.flash_sale_status)).length;
+
   const box=$('#sellerProductList');
-  if(!products.length){box.innerHTML='<div class="empty-card">No products yet. Use “Add Product” to create your first item.</div>';renderFlashSaleProducts();return;}
-  box.innerHTML=products.map(p=>'<article class="product-card"><img src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt=""><div><h4>'+escapeHtml(p.product_name)+'</h4><p>'+money(p.price_kes)+' · '+p.quantity_available+' '+escapeHtml(p.measurement_unit)+'</p><span class="badge">'+escapeHtml(p.availability_status.replaceAll('_',' '))+'</span>'+(p.flash_sale_requested?'<span class="badge flash">Flash Sale '+escapeHtml(p.flash_sale_status||'requested')+'</span>':'')+'<small>'+escapeHtml(String(p.product_details||'').slice(0,140))+'</small></div><button data-edit-product="'+p.id+'" type="button">Edit</button></article>').join('');
-  $$('[data-edit-product]').forEach(b=>b.addEventListener('click',()=>editProduct(b.dataset.editProduct)));
+  if(!box)return;
+
+  if(!products.length){
+    box.innerHTML='<div class="empty-card">No products yet. Use “Add Product” to create your first item.</div>';
+    renderFlashSaleProducts();
+    renderSellerDataSelection();
+    return;
+  }
+
+  box.innerHTML=products.map(p=>{
+    const variants=Array.isArray(p.seller_product_variants)?p.seller_product_variants:[];
+    const variantMarkup=p.has_variants
+      ? '<div class="saved-product-variants">'+(
+          variants.length
+            ? variants.map(v=>'<div class="saved-variant-chip">'+
+                '<img src="'+escapeHtml(publicUrl(v.image_path))+'" alt="">'+
+                '<span><b>'+escapeHtml(v.variant_name)+'</b><small>'+money(v.price_kes)+' · Qty '+Number(v.quantity_available||0)+'</small></span>'+
+              '</div>').join('')
+            : '<div class="variant-warning">⚠ Variant product has no readable variants. Refresh or edit this product.</div>'
+        )+'</div>'
+      : '';
+
+    return '<article class="product-card seller-saved-product" data-product-card="'+escapeHtml(p.id)+'">'+
+      '<img class="product-main-thumb" src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt="'+escapeHtml(p.product_name)+'">'+
+      '<div class="product-card-content">'+
+        '<h4>'+escapeHtml(p.product_name)+'</h4>'+
+        '<p>'+money(p.price_kes)+' · '+Number(p.quantity_available||0)+' '+escapeHtml(p.measurement_unit||'')+'</p>'+
+        '<div><span class="badge">'+escapeHtml(String(p.availability_status||'').replaceAll('_',' '))+'</span>'+
+          '<span class="badge">'+escapeHtml(String(p.listing_status||'').replaceAll('_',' '))+'</span>'+
+          (p.has_variants?'<span class="badge">'+variants.length+' variant'+(variants.length===1?'':'s')+'</span>':'')+
+          (p.flash_sale_requested?'<span class="badge flash">Flash Sale '+escapeHtml(p.flash_sale_status||'requested')+'</span>':'')+
+        '</div>'+
+        '<small>'+escapeHtml(String(p.product_details||'').slice(0,140))+'</small>'+
+        variantMarkup+
+      '</div>'+
+      '<button data-edit-product="'+escapeHtml(p.id)+'" type="button">Edit</button>'+
+    '</article>';
+  }).join('');
+
+  $$('[data-edit-product]').forEach(button=>button.addEventListener('click',()=>editProduct(button.dataset.editProduct)));
   renderFlashSaleProducts();
   renderSellerDataSelection();
 }
@@ -936,6 +1005,7 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
   const submitButton=e.submitter||$('#sellerProductForm button[type="submit"]');
   const originalText=submitButton?.textContent||'Save Product';
   const uploadedThisAttempt=[];
+  let saveCommitted=false;
 
   try{
     if(submitButton){submitButton.disabled=true;submitButton.textContent='Checking Product…';}
@@ -1052,18 +1122,35 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
       p_variants:variants
     });
     if(error)throw error;
+    saveCommitted=true;
 
+    const savedProductId=data?.product_id||editingProduct?.id||null;
     const savedCount=Number(data?.variant_count??variants.length);
+
     status(
       $('#productFormStatus'),
-      'Product saved successfully'+(hasVariants?' with '+savedCount+' variant'+(savedCount===1?'':'s'):'')+'.',
+      'Product saved successfully'+(hasVariants?' with '+savedCount+' variant'+(savedCount===1?'':'s'):'')+'. Loading it in My Products…',
       'success'
     );
 
-    await loadProducts();
-    setTimeout(()=>resetProductForm(true),900);
+    const refreshed=await loadProducts({focusProductId:savedProductId});
+    const visible=Boolean(savedProductId&&refreshed.some(product=>product.id===savedProductId));
+
+    if(visible){
+      $('#sellerProductForm').hidden=true;
+      openSellerView('products');
+      const list=$('#sellerProductList');
+      if(list)list.scrollIntoView({behavior:'smooth',block:'start'});
+      window.setTimeout(()=>resetProductForm(true),500);
+    }else{
+      status(
+        $('#productFormStatus'),
+        'Product was saved, but the product list did not refresh. Use Refresh Products; your saved data is safe.',
+        'error'
+      );
+    }
   }catch(err){
-    if(uploadedThisAttempt.length){
+    if(!saveCommitted&&uploadedThisAttempt.length){
       try{await client.storage.from('seller-product-media').remove(uploadedThisAttempt);}catch(cleanupError){console.warn('Media cleanup failed',cleanupError);}
     }
     console.error('Seller product save failed:',err);
