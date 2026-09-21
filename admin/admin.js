@@ -138,7 +138,7 @@
       customers: () => adminHas('customers.read'),
       products: () => adminHas('products.read'),
       sellers: () => adminHas('sellers.read'),
-      settlements: () => adminHas('sellers.read'),
+      settlements: () => adminHas('settlements.read'),
       providers: () => adminHas('approvals.read'),
       transport: () => adminHas('orders.read') || adminHas('delivery.manage'),
       wallet: () => adminHas('approvals.read'),
@@ -225,7 +225,7 @@
       [loadPersonalMarketplace, () => adminHas('products.read')],
       [loadCustomers, () => adminHas('customers.read')],
       [loadSellers, () => adminHas('sellers.read')],
-      [loadSellerSettlements, () => adminHas('sellers.read')],
+      [loadSellerSettlements, () => adminHas('settlements.read')],
       [loadDeliveryOps, () => adminHas('orders.read') || adminHas('delivery.manage')],
       [loadServiceLocations, () => adminHas('settings.manage')],
       [loadBusinessSettings, () => adminHas('settings.manage')],
@@ -575,10 +575,13 @@
     ['approvals.read','Approvals','View Approval Center'],
     ['approvals.manage','Approvals','Approve, reject and return applications'],
     ['orders.read','Orders','View customer orders'],
-    ['orders.manage','Orders','Verify order payment and assign delivery'],
-    ['delivery.manage','Delivery','Manage delivery operations'],
+    ['orders.manage','Orders','Manage order fulfilment and operational controls'],
+    ['orders.payment_verify','Finance','Verify or reject customer order payments'],
+    ['delivery.manage','Delivery','Assign Riders and manage delivery operations'],
     ['customers.read','Customers','View customer accounts'],
-    ['sellers.read','Sellers','View Sellers and settlement records'],
+    ['sellers.read','Sellers','View Seller accounts'],
+    ['settlements.read','Finance','View Seller settlement accounts, requests and payout history'],
+    ['settlements.manage','Finance','Approve settlement accounts and process Seller payouts'],
     ['products.read','Marketplace','View products and categories'],
     ['products.manage','Marketplace','Manage product listings and catalogue'],
     ['premium.read','Premium','View Premium records'],
@@ -911,6 +914,10 @@
   };
 
   const verifyMarketplaceOrderPayment=async(button,orderId,paid)=>{
+    if(!adminHas('orders.payment_verify')){
+      globalStatus('Your staff role cannot verify customer payments.','error');
+      return;
+    }
     let notes='';
     if(!paid){
       notes=window.prompt('Reason the payment could not be verified:','')||'';
@@ -959,7 +966,7 @@
       <td><small class="order-payment-proof">${escapeHtml(o.payment_message||'No payment message')}</small></td>
       <td class="settlement-admin-actions admin-order-row-actions">
         <button type="button" data-open-marketplace-order="${escapeHtml(o.id)}">View Order</button>
-        ${o.payment_status==='submitted'
+        ${o.payment_status==='submitted' && adminHas('orders.payment_verify')
           ? '<button type="button" data-order-payment="paid" data-order-id="'+escapeHtml(o.id)+'">Verify Paid</button><button type="button" class="danger" data-order-payment="reject" data-order-id="'+escapeHtml(o.id)+'">Reject</button>'
           : ''}
       </td>
@@ -1029,7 +1036,7 @@
       '<div class="admin-order-info-row admin-order-address-row"><small>Destination</small><strong>'+escapeHtml(orderDeliveryAddress(order))+'</strong></div>'+
       (locationUrl?'<a class="admin-order-location-link" href="'+escapeHtml(locationUrl)+'" target="_blank" rel="noopener">Open customer location pin ↗</a>':'');
 
-    const paymentActions=order.payment_status==='submitted'
+    const paymentActions=order.payment_status==='submitted' && adminHas('orders.payment_verify')
       ? '<div class="admin-order-payment-actions"><button type="button" data-detail-payment="paid">Verify Paid</button><button type="button" class="danger" data-detail-payment="reject">Reject Payment</button></div>'
       : '';
 
@@ -1081,6 +1088,7 @@
 
     const activeRiders=state.riders.filter((r)=>r.status==='active');
     const assignmentLocked=delivery&&['picked_up','on_the_way','delivered'].includes(delivery.status);
+    const canAssignRider=adminHas('delivery.manage')||adminHas('orders.manage');
     const riderOptions='<option value="">Choose active LEOGO rider…</option>'+activeRiders.map((r)=>
       '<option value="'+escapeHtml(r.user_id)+'" '+(delivery?.rider_id===r.user_id?'selected':'')+'>'+
         escapeHtml(r.display_name)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):'')+
@@ -1102,11 +1110,13 @@
         '<span><small>Rider phone</small><strong>'+escapeHtml(delivery?.rider_phone||'—')+'</strong></span>'+
       '</div>'+
       '<div class="admin-order-timeline admin-order-delivery-timeline">'+deliveryTimeline.map(([label,date])=>'<span class="'+(date?'done':'')+'"><i></i><b>'+escapeHtml(label)+'</b><small>'+escapeHtml(date?formatDate(date,true):'Pending')+'</small></span>').join('')+'</div>'+
-      (assignmentLocked
-        ? '<div class="admin-order-assignment-locked">Rider assignment is locked because delivery has already started.</div>'
-        : activeRiders.length
-          ? '<div class="admin-order-rider-assign"><select id="adminOrderRiderSelect">'+riderOptions+'</select><button type="button" id="assignRiderFromOrder">'+(delivery?.rider_id?'Reassign Rider':'Assign Rider')+'</button></div>'
-          : '<div class="admin-order-no-rider"><strong>No active LEOGO rider account exists yet.</strong><p>The order screen is ready. Next we can build the Staff account function, create a Rider staff account, then assign that Rider here.</p><button type="button" disabled>Assign Rider</button></div>'
+      (!canAssignRider
+        ? '<div class="admin-order-assignment-locked">Your staff role can view delivery status but cannot assign or reassign Riders.</div>'
+        : assignmentLocked
+          ? '<div class="admin-order-assignment-locked">Rider assignment is locked because delivery has already started.</div>'
+          : activeRiders.length
+            ? '<div class="admin-order-rider-assign"><select id="adminOrderRiderSelect">'+riderOptions+'</select><button type="button" id="assignRiderFromOrder">'+(delivery?.rider_id?'Reassign Rider':'Assign Rider')+'</button></div>'
+            : '<div class="admin-order-no-rider"><strong>No active LEOGO rider account exists yet.</strong><p>Create a Rider from Staff Management and the Rider will become selectable here automatically.</p><button type="button" disabled>Assign Rider</button></div>'
       );
 
     $$('[data-detail-payment]').forEach((button)=>button.addEventListener('click',()=>{
