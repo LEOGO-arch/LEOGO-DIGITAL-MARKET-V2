@@ -734,7 +734,7 @@ function renderSellerOrders(){
   $('#sellerOrderBadge').textContent=newCount;
   $('#sellerOrderCount').textContent=sellerOrders.filter(o=>!['delivered','cancelled'].includes(o.fulfilment_status)).length;
   $('#sellerOrderList').innerHTML=rows.length?rows.map(o=>{
-    const items=(o.items||[]).map(i=>'<li>'+escapeHtml(i.product_name)+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
+    const items=(o.items||[]).map(i=>'<li>'+escapeHtml(i.product_name)+(i.variant_name?' — <b>'+escapeHtml(i.variant_name)+'</b>':'')+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
     const next=o.fulfilment_status==='new'
       ? '<button data-order-next="received" data-seller-order-id="'+escapeHtml(o.seller_order_id)+'">Mark Received</button>'
       : o.fulfilment_status==='received'
