@@ -1645,11 +1645,17 @@
     }
 
     customerNotificationList.innerHTML=customerNotifications.length
-      ? customerNotifications.map((item)=>'<button type="button" class="customer-notification-item'+(item.read_at?'':' unread')+'" data-customer-notification-id="'+receiptEscape(item.id)+'">'+
-          '<strong>'+receiptEscape(item.title)+'</strong>'+
-          '<span>'+receiptEscape(item.message)+'</span>'+
-          '<small>'+new Date(item.created_at).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Nairobi'})+'</small>'+
-        '</button>').join('')
+      ? customerNotifications.map((item)=>'<article class="customer-notification-item'+(item.read_at?'':' unread')+'">'+
+          '<button type="button" class="customer-notification-open" data-customer-notification-id="'+receiptEscape(item.id)+'">'+
+            '<span class="customer-notification-icon">'+(item.read_at?'✓':'●')+'</span>'+
+            '<span class="customer-notification-copy">'+
+              '<strong>'+receiptEscape(item.title)+'</strong>'+
+              '<span>'+receiptEscape(item.message)+'</span>'+
+              '<small>'+new Date(item.created_at).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Nairobi'})+'</small>'+
+            '</span>'+
+            (item.read_at?'':'<i aria-label="Unread"></i>')+
+          '</button>'+
+        '</article>').join('')
       : '<div class="customer-notification-empty">No notifications yet.</div>';
   };
 
@@ -1670,6 +1676,8 @@
   };
 
   const closeCustomerNotifications = () => {
+    customerNotificationPanel?.classList.remove('open');
+    customerNotificationScrim?.classList.remove('open');
     if(customerNotificationPanel) customerNotificationPanel.hidden=true;
     if(customerNotificationScrim) customerNotificationScrim.hidden=true;
     openNotifications?.setAttribute('aria-expanded','false');
@@ -1683,6 +1691,10 @@
     await loadCustomerNotifications();
     if(customerNotificationPanel) customerNotificationPanel.hidden=false;
     if(customerNotificationScrim) customerNotificationScrim.hidden=false;
+    requestAnimationFrame(()=>{
+      customerNotificationPanel?.classList.add('open');
+      customerNotificationScrim?.classList.add('open');
+    });
     openNotifications?.setAttribute('aria-expanded','true');
   };
 
