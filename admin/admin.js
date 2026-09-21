@@ -756,9 +756,13 @@
     const symbols='!@#$%';
     const all=upper+lower+digits+symbols;
     const pick=(chars)=>chars[crypto.getRandomValues(new Uint32Array(1))[0]%chars.length];
-    let password=pick(upper)+pick(lower)+pick(digits)+pick(symbols);
-    for(let i=0;i<8;i++) password+=pick(all);
-    return password.split('').sort(()=>Math.random()-.5).join('');
+    const chars=[pick(upper),pick(lower),pick(digits),pick(symbols)];
+    for(let i=0;i<8;i++) chars.push(pick(all));
+    for(let i=chars.length-1;i>0;i--){
+      const j=crypto.getRandomValues(new Uint32Array(1))[0]%(i+1);
+      [chars[i],chars[j]]=[chars[j],chars[i]];
+    }
+    return chars.join('');
   };
 
   const createStaffAccount = async (event) => {
