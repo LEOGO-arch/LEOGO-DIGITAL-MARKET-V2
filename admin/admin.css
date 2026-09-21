@@ -259,3 +259,36 @@
 .admin-category-subs{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}.admin-category-subs span{border:1px solid #e1e7ef;border-radius:9px;padding:6px 8px;background:#f8fafc}.admin-category-subs b,.admin-category-subs small{display:block}.admin-category-subs b{font-size:10px}.admin-category-subs small{font-size:8px;color:var(--muted);margin-top:2px}
 @media(max-width:900px){.admin-catalogue-toolbar{grid-template-columns:1fr 1fr}.admin-product-facts{grid-template-columns:1fr 1fr}}
 @media(max-width:650px){.admin-catalogue-toolbar{grid-template-columns:1fr}.admin-catalogue-product-card{grid-template-columns:1fr}.admin-catalogue-product-image{min-height:180px}.admin-catalogue-product-title{flex-direction:column}.admin-catalogue-badges{justify-content:flex-start}.admin-product-facts{grid-template-columns:1fr 1fr}}
+
+
+/* Personal customer marketplace + LEOGO contact mediation */
+.personal-market-admin-card{margin-top:18px}
+.personal-market-summary{margin:12px 0 18px}
+.admin-personal-sale-list,.admin-personal-interest-list{display:grid;gap:12px}
+.admin-personal-sale-card{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;border:1px solid var(--line);border-radius:15px;padding:12px;background:#fff}
+.admin-personal-sale-image{width:120px;height:120px;border-radius:12px;background:#f4f7fb;overflow:hidden;display:grid;place-items:center}
+.admin-personal-sale-image img{width:100%;height:100%;object-fit:cover}
+.admin-personal-sale-image span{font-size:36px}
+.admin-personal-sale-title{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.admin-personal-sale-title>div:first-child>span{display:block;color:#ff7800;font-size:9px;font-weight:900;letter-spacing:.08em}
+.admin-personal-sale-title h4{margin:4px 0;font-size:17px}
+.admin-personal-sale-title p{margin:0;color:var(--muted);font-size:10px}
+.personal-interest-head{margin-top:22px}
+.admin-personal-interest-card{border:1px solid #dfe6ef;border-radius:15px;padding:13px;background:#fbfcfe}
+.admin-personal-interest-headline span{display:inline-block;font-size:9px;font-weight:900;text-transform:uppercase;color:#ff7800}
+.admin-personal-interest-headline h4{margin:4px 0;font-size:15px}
+.admin-personal-interest-headline p{margin:0;color:var(--muted);font-size:10px}
+.admin-contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.admin-contact-grid>div{border:1px solid #e1e7ef;border-radius:11px;padding:10px;background:#fff;display:grid;gap:3px}
+.admin-contact-grid small{font-size:8px;color:#7c8797;font-weight:900}
+.admin-contact-grid strong{font-size:12px}
+.admin-contact-grid span{font-size:10px;color:#49566a;overflow-wrap:anywhere}
+.admin-interest-message{margin-top:10px;border-left:3px solid #ff7800;background:#fff7ef;border-radius:8px;padding:9px 10px}
+.admin-interest-message small{font-size:8px;font-weight:900;color:#a54b00}
+.admin-interest-message p{margin:4px 0 0;font-size:11px;line-height:1.45}
+@media(max-width:700px){
+  .admin-personal-sale-card{grid-template-columns:1fr}
+  .admin-personal-sale-image{width:100%;height:190px}
+  .admin-personal-sale-title{flex-direction:column}
+  .admin-contact-grid{grid-template-columns:1fr}
+}
