@@ -16,6 +16,8 @@
     user: null,
     approvals: [],
     marketplaceOrders: [],
+    activeMarketplaceOrderId: null,
+    activeMarketplaceOrderDetail: null,
     catalogueProducts: [],
     catalogueCategories: [],
     personalSales: [],
@@ -498,44 +500,328 @@
   const loadMarketplaceOrders = async () => {
     const {data,error}=await db.rpc('admin_list_marketplace_orders');
     if(error) throw error;
-    state.marketplaceOrders=data||[];
+    state.marketplaceOrders=Array.isArray(data)?data:[];
     renderMarketplaceOrders();
+
+    if(state.activeMarketplaceOrderId && !$('#adminOrderDetailPanel')?.hidden){
+      await loadMarketplaceOrderDetail(state.activeMarketplaceOrderId,{scroll:false});
+    }
   };
+
   const paymentStatusLabel=(status)=>({
-    submitted:'Submitted — verify',verified_paid:'Paid',cod_due:'COD due',cod_paid:'Paid on delivery',rejected:'Rejected'
+    submitted:'Submitted — verify',
+    verified_paid:'Paid',
+    cod_due:'COD due',
+    cod_paid:'Paid on delivery',
+    rejected:'Rejected'
   }[status]||String(status||'').replaceAll('_',' '));
+
+  const orderStatusLabel=(status)=>({
+    placed:'Placed',
+    processing:'Seller preparing',
+    with_rider:'With rider',
+    delivered:'Delivered',
+    cancelled:'Cancelled'
+  }[status]||String(status||'').replaceAll('_',' '));
+
+  const sellerFulfilmentLabel=(status)=>({
+    new:'New order',
+    received:'Received',
+    packed_ready:'Packed & ready',
+    handed_to_rider:'Handed to rider',
+    delivered:'Delivered',
+    cancelled:'Cancelled'
+  }[status]||String(status||'').replaceAll('_',' '));
+
+  const deliveryStatusLabel=(status)=>({
+    awaiting_assignment:'Awaiting assignment',
+    assigned:'Rider assigned',
+    picked_up:'Picked up',
+    on_the_way:'On the way',
+    delivered:'Delivered',
+    cancelled:'Cancelled'
+  }[status]||String(status||'').replaceAll('_',' '));
+
+  const filteredMarketplaceOrders=()=>{
+    const term=($('#adminOrderSearch')?.value||'').trim().toLowerCase();
+    const payment= $('#adminOrderPaymentFilter')?.value||'all';
+    const status= $('#adminOrderStatusFilter')?.value||'all';
+
+    return state.marketplaceOrders.filter((order)=>{
+      const values=[
+        order.order_reference,order.receiver_name,order.contact_number,order.customer_email,
+        order.payment_method,order.payment_status,order.order_status
+      ].map((value)=>String(value||'').toLowerCase());
+
+      return (!term||values.some((value)=>value.includes(term)))
+        && (payment==='all'||order.payment_status===payment)
+        && (status==='all'||order.order_status===status);
+    });
+  };
+
+  const verifyMarketplaceOrderPayment=async(button,orderId,paid)=>{
+    let notes='';
+    if(!paid){
+      notes=window.prompt('Reason the payment could not be verified:','')||'';
+      if(notes.trim().length<3){
+        globalStatus('Enter a clear payment rejection reason.','error');
+        return;
+      }
+    }
+
+    if(paid&&!window.confirm('Confirm that this customer payment has been verified in the LEOGO receiving account?')) return;
+
+    await withButtonLock(button,paid?'Verifying…':'Rejecting…',async()=>{
+      const {error}=await db.rpc('admin_verify_marketplace_order_payment',{
+        p_order_id:orderId,
+        p_paid:paid,
+        p_notes:notes||null
+      });
+      if(error){
+        globalStatus(friendlyError(error),'error');
+        return;
+      }
+
+      await Promise.all([loadMarketplaceOrders(),loadAuditLog()]);
+      if(state.activeMarketplaceOrderId===orderId){
+        await loadMarketplaceOrderDetail(orderId,{scroll:false});
+      }
+      globalStatus(paid?'Order payment verified.':'Order payment rejected.');
+    });
+  };
+
   const renderMarketplaceOrders=()=>{
-    const orders=state.marketplaceOrders;
-    $('#adminOrderTotal').textContent=orders.length;
-    $('#adminOrderPaymentPending').textContent=orders.filter(o=>o.payment_status==='submitted').length;
-    $('#adminOrderWithRider').textContent=orders.filter(o=>o.order_status==='with_rider').length;
-    $('#adminOrderDelivered').textContent=orders.filter(o=>o.order_status==='delivered').length;
-    $('#adminMarketplaceOrderBody').innerHTML=orders.length?orders.map(o=>`<tr>
+    const all=state.marketplaceOrders;
+    const orders=filteredMarketplaceOrders();
+
+    $('#adminOrderTotal').textContent=all.length;
+    $('#adminOrderPaymentPending').textContent=all.filter((o)=>o.payment_status==='submitted').length;
+    $('#adminOrderWithRider').textContent=all.filter((o)=>o.order_status==='with_rider').length;
+    $('#adminOrderDelivered').textContent=all.filter((o)=>o.order_status==='delivered').length;
+
+    $('#adminMarketplaceOrderBody').innerHTML=orders.length?orders.map((o)=>`<tr class="${state.activeMarketplaceOrderId===o.id?'admin-order-row-active':''}">
       <td><strong>${escapeHtml(o.order_reference)}</strong><small>${formatDate(o.created_at,true)}</small></td>
       <td><strong>${escapeHtml(o.receiver_name)}</strong><small>${escapeHtml(o.customer_email||o.contact_number||'')}</small></td>
       <td><strong>${formatMoney(o.grand_total_kes)}</strong><small>${Number(o.seller_count||0)} Seller(s)</small></td>
-      <td><span class="status-chip">${escapeHtml(paymentStatusLabel(o.payment_status))}</span><small>${escapeHtml(o.payment_method||'')}</small></td>
-      <td><span class="status-chip">${escapeHtml(String(o.order_status||'').replaceAll('_',' '))}</span></td>
-      <td><small class="order-payment-proof">${escapeHtml(o.payment_message||'No message')}</small></td>
-      <td class="settlement-admin-actions">
-        ${o.payment_status==='submitted'?'<button data-order-payment="paid" data-order-id="'+escapeHtml(o.id)+'">Verify Paid</button><button class="danger" data-order-payment="reject" data-order-id="'+escapeHtml(o.id)+'">Reject Payment</button>':''}
+      <td><span class="status-chip">${escapeHtml(paymentStatusLabel(o.payment_status))}</span><small>${escapeHtml(String(o.payment_method||'').replaceAll('_',' '))}</small></td>
+      <td><span class="status-chip">${escapeHtml(orderStatusLabel(o.order_status))}</span></td>
+      <td><small class="order-payment-proof">${escapeHtml(o.payment_message||'No payment message')}</small></td>
+      <td class="settlement-admin-actions admin-order-row-actions">
+        <button type="button" data-open-marketplace-order="${escapeHtml(o.id)}">View Order</button>
+        ${o.payment_status==='submitted'
+          ? '<button type="button" data-order-payment="paid" data-order-id="'+escapeHtml(o.id)+'">Verify Paid</button><button type="button" class="danger" data-order-payment="reject" data-order-id="'+escapeHtml(o.id)+'">Reject</button>'
+          : ''}
       </td>
-    </tr>`).join(''):'<tr><td colspan="7">No marketplace orders yet.</td></tr>';
-    $$('[data-order-payment]').forEach(button=>button.addEventListener('click',async()=>{
-      const paid=button.dataset.orderPayment==='paid';
-      let notes='';
-      if(!paid){
-        notes=window.prompt('Reason the payment could not be verified:','')||'';
-        if(notes.trim().length<3){globalStatus('Enter a clear payment rejection reason.','error');return;}
-      }
-      if(paid && !window.confirm('Confirm that this customer payment has been verified in the LEOGO receiving account?'))return;
-      await withButtonLock(button,paid?'Verifying…':'Rejecting…',async()=>{
-        const {error}=await db.rpc('admin_verify_marketplace_order_payment',{p_order_id:button.dataset.orderId,p_paid:paid,p_notes:notes||null});
-        if(error){globalStatus(friendlyError(error),'error');return;}
-        await Promise.all([loadMarketplaceOrders(),loadAuditLog()]);
-        globalStatus(paid?'Order payment verified.':'Order payment rejected.');
-      });
+    </tr>`).join(''):'<tr><td colspan="7">No marketplace orders match the current filters.</td></tr>';
+
+    $$('[data-open-marketplace-order]').forEach((button)=>button.addEventListener('click',()=>{
+      loadMarketplaceOrderDetail(button.dataset.openMarketplaceOrder,{scroll:true});
     }));
+
+    $$('[data-order-payment]').forEach((button)=>button.addEventListener('click',()=>{
+      verifyMarketplaceOrderPayment(button,button.dataset.orderId,button.dataset.orderPayment==='paid');
+    }));
+  };
+
+  const orderItemMediaUrl=(path)=>{
+    if(!path) return '';
+    return db.storage.from('seller-product-media').getPublicUrl(String(path)).data?.publicUrl||'';
+  };
+
+  const safeHttpUrl=(value)=>{
+    try{
+      const url=new URL(String(value||''));
+      return ['http:','https:'].includes(url.protocol)?url.href:'';
+    }catch{return '';}
+  };
+
+  const orderDeliveryAddress=(order)=>{
+    if(order.delivery_zone==='pickup'){
+      return order.pickup_station_name
+        ? [order.pickup_station_name,order.pickup_station_address].filter(Boolean).join(' — ')
+        : 'Customer collection at selected LEOGO pickup station';
+    }
+    return [order.estate,order.landmark,order.sub_county,order.county].filter(Boolean).join(', ')||'Delivery address not supplied';
+  };
+
+  const sellerReadiness=(sellers)=>{
+    if(!sellers.length) return {ready:false,label:'Waiting for Seller order records'};
+    const ready=sellers.every((seller)=>['packed_ready','handed_to_rider','delivered'].includes(seller.fulfilment_status));
+    return {
+      ready,
+      label:ready?'All Seller portions are packed & ready':'Waiting for Seller preparation'
+    };
+  };
+
+  const renderMarketplaceOrderDetail=()=>{
+    const panel=$('#adminOrderDetailPanel');
+    const detail=state.activeMarketplaceOrderDetail;
+    if(!panel||!detail?.order) return;
+
+    const order=detail.order;
+    const items=Array.isArray(detail.items)?detail.items:[];
+    const sellers=Array.isArray(detail.sellers)?detail.sellers:[];
+    const delivery=detail.delivery||null;
+    const readiness=sellerReadiness(sellers);
+
+    panel.hidden=false;
+    $('#adminOrderDetailTitle').textContent=order.order_reference||'Order Details';
+    $('#adminOrderDetailSubtitle').textContent=formatDate(order.created_at,true)+' · '+orderStatusLabel(order.order_status);
+    setFormStatus($('#adminOrderDetailStatus'));
+
+    const locationUrl=safeHttpUrl(order.location_link);
+    $('#adminOrderCustomerDetail').innerHTML=
+      '<div class="admin-order-info-row"><small>Receiver</small><strong>'+escapeHtml(order.receiver_name||'—')+'</strong></div>'+
+      '<div class="admin-order-info-row"><small>Phone</small><strong>'+escapeHtml(order.contact_number||'—')+'</strong></div>'+
+      '<div class="admin-order-info-row"><small>Customer email</small><strong>'+escapeHtml(order.customer_email||'—')+'</strong></div>'+
+      '<div class="admin-order-info-row"><small>Delivery method</small><strong>'+escapeHtml(String(order.delivery_zone||'').replaceAll('_',' '))+'</strong></div>'+
+      '<div class="admin-order-info-row admin-order-address-row"><small>Destination</small><strong>'+escapeHtml(orderDeliveryAddress(order))+'</strong></div>'+
+      (locationUrl?'<a class="admin-order-location-link" href="'+escapeHtml(locationUrl)+'" target="_blank" rel="noopener">Open customer location pin ↗</a>':'');
+
+    const paymentActions=order.payment_status==='submitted'
+      ? '<div class="admin-order-payment-actions"><button type="button" data-detail-payment="paid">Verify Paid</button><button type="button" class="danger" data-detail-payment="reject">Reject Payment</button></div>'
+      : '';
+
+    $('#adminOrderPaymentDetail').innerHTML=
+      '<div class="admin-order-info-row"><small>Payment method</small><strong>'+escapeHtml(String(order.payment_method||'').replaceAll('_',' '))+'</strong></div>'+
+      '<div class="admin-order-info-row"><small>Payment status</small><strong>'+escapeHtml(paymentStatusLabel(order.payment_status))+'</strong></div>'+
+      '<div class="admin-order-payment-proof-full"><small>Payment confirmation / proof</small><p>'+escapeHtml(order.payment_message||'No payment message submitted')+'</p></div>'+
+      '<div class="admin-order-totals">'+
+        '<span><small>Items subtotal</small><strong>'+formatMoney(order.items_subtotal_kes)+'</strong></span>'+
+        '<span><small>Service fee</small><strong>'+formatMoney(order.service_fee_kes)+'</strong></span>'+
+        '<span><small>Pickup fee</small><strong>'+formatMoney(order.pickup_fee_kes)+'</strong></span>'+
+        '<span><small>Delivery fee</small><strong>'+formatMoney(order.delivery_fee_kes)+'</strong></span>'+
+        '<span class="grand"><small>Grand total</small><strong>'+formatMoney(order.grand_total_kes)+'</strong></span>'+
+      '</div>'+
+      (order.payment_verified_at?'<p class="admin-order-verified-note">Verified '+escapeHtml(formatDate(order.payment_verified_at,true))+(order.payment_verified_by_name?' by '+escapeHtml(order.payment_verified_by_name):'')+'</p>':'')+
+      paymentActions;
+
+    $('#adminOrderItemList').innerHTML=items.length?items.map((item)=>{
+      const imageUrl=orderItemMediaUrl(item.variant_image_path||item.product_image_path);
+      const itemName=item.variant_name?item.product_name+' — '+item.variant_name:item.product_name;
+      return '<article class="admin-order-item-card">'+
+        '<div class="admin-order-item-image">'+(imageUrl?'<img src="'+escapeHtml(imageUrl)+'" alt="">':'<span>📦</span>')+'</div>'+
+        '<div class="admin-order-item-main">'+
+          '<span>'+escapeHtml(item.seller_name||'Seller')+'</span>'+
+          '<h5>'+escapeHtml(itemName)+'</h5>'+
+          '<p>'+Number(item.quantity)+' × '+formatMoney(item.unit_price_kes)+(item.measurement_unit?' · '+escapeHtml(item.measurement_unit):'')+'</p>'+
+        '</div>'+
+        '<strong>'+formatMoney(item.line_total_kes)+'</strong>'+
+      '</article>';
+    }).join(''):'<div class="loading-card">No order items found.</div>';
+
+    $('#adminOrderSellerList').innerHTML=sellers.length?sellers.map((seller)=>{
+      const stages=[
+        ['Received',seller.received_at],
+        ['Packed & Ready',seller.packed_ready_at],
+        ['Handed to Rider',seller.handed_to_rider_at],
+        ['Delivered',seller.delivered_at]
+      ];
+      return '<article class="admin-order-seller-card">'+
+        '<header><div><span>SELLER</span><h5>'+escapeHtml(seller.business_name||'Seller')+'</h5><p>'+escapeHtml(seller.seller_phone||'')+(seller.seller_email?' · '+escapeHtml(seller.seller_email):'')+'</p></div>'+
+          '<span class="status-chip">'+escapeHtml(sellerFulfilmentLabel(seller.fulfilment_status))+'</span></header>'+
+        '<div class="admin-order-seller-facts">'+
+          '<span><small>Seller subtotal</small><strong>'+formatMoney(seller.seller_subtotal_kes)+'</strong></span>'+
+          '<span><small>Pickup location</small><strong>'+escapeHtml(seller.seller_location||'Not supplied')+'</strong></span>'+
+        '</div>'+
+        '<div class="admin-order-timeline">'+stages.map(([label,date])=>'<span class="'+(date?'done':'')+'"><i></i><b>'+escapeHtml(label)+'</b><small>'+escapeHtml(date?formatDate(date,true):'Pending')+'</small></span>').join('')+'</div>'+
+      '</article>';
+    }).join(''):'<div class="loading-card">No Seller fulfilment records found.</div>';
+
+    const activeRiders=state.riders.filter((r)=>r.status==='active');
+    const assignmentLocked=delivery&&['picked_up','on_the_way','delivered'].includes(delivery.status);
+    const riderOptions='<option value="">Choose active LEOGO rider…</option>'+activeRiders.map((r)=>
+      '<option value="'+escapeHtml(r.user_id)+'" '+(delivery?.rider_id===r.user_id?'selected':'')+'>'+
+        escapeHtml(r.display_name)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):'')+
+      '</option>'
+    ).join('');
+
+    const deliveryTimeline=[
+      ['Assigned',delivery?.assigned_at],
+      ['Picked Up',delivery?.picked_up_at],
+      ['On the Way',delivery?.on_the_way_at],
+      ['Delivered',delivery?.delivered_at]
+    ];
+
+    $('#adminOrderDeliveryDetail').innerHTML=
+      '<div class="admin-order-delivery-summary">'+
+        '<span><small>Seller readiness</small><strong>'+escapeHtml(readiness.label)+'</strong></span>'+
+        '<span><small>Delivery status</small><strong>'+escapeHtml(deliveryStatusLabel(delivery?.status||'awaiting_assignment'))+'</strong></span>'+
+        '<span><small>Current rider</small><strong>'+escapeHtml(delivery?.rider_name||'Not assigned')+'</strong></span>'+
+        '<span><small>Rider phone</small><strong>'+escapeHtml(delivery?.rider_phone||'—')+'</strong></span>'+
+      '</div>'+
+      '<div class="admin-order-timeline admin-order-delivery-timeline">'+deliveryTimeline.map(([label,date])=>'<span class="'+(date?'done':'')+'"><i></i><b>'+escapeHtml(label)+'</b><small>'+escapeHtml(date?formatDate(date,true):'Pending')+'</small></span>').join('')+'</div>'+
+      (assignmentLocked
+        ? '<div class="admin-order-assignment-locked">Rider assignment is locked because delivery has already started.</div>'
+        : activeRiders.length
+          ? '<div class="admin-order-rider-assign"><select id="adminOrderRiderSelect">'+riderOptions+'</select><button type="button" id="assignRiderFromOrder">'+(delivery?.rider_id?'Reassign Rider':'Assign Rider')+'</button></div>'
+          : '<div class="admin-order-no-rider"><strong>No active LEOGO rider account exists yet.</strong><p>The order screen is ready. Next we can build the Staff account function, create a Rider staff account, then assign that Rider here.</p><button type="button" disabled>Assign Rider</button></div>'
+      );
+
+    $$('[data-detail-payment]').forEach((button)=>button.addEventListener('click',()=>{
+      verifyMarketplaceOrderPayment(button,order.id,button.dataset.detailPayment==='paid');
+    }));
+
+    $('#assignRiderFromOrder')?.addEventListener('click',async(event)=>{
+      const riderId=$('#adminOrderRiderSelect')?.value;
+      if(!riderId){
+        setFormStatus($('#adminOrderDetailStatus'),'Choose an active LEOGO rider first.','error');
+        return;
+      }
+
+      await withButtonLock(event.currentTarget,'Assigning…',async()=>{
+        const {error}=await db.rpc('admin_assign_rider_to_order',{
+          p_order_id:order.id,
+          p_rider_id:riderId
+        });
+        if(error){
+          setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
+          return;
+        }
+
+        setFormStatus($('#adminOrderDetailStatus'),'Rider assigned. Customer and Seller were notified.','success');
+        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders(),loadAuditLog()]);
+        await loadMarketplaceOrderDetail(order.id,{scroll:false});
+      });
+    });
+  };
+
+  const loadMarketplaceOrderDetail=async(orderId,{scroll=true}={})=>{
+    const panel=$('#adminOrderDetailPanel');
+    state.activeMarketplaceOrderId=orderId;
+    state.activeMarketplaceOrderDetail=null;
+
+    if(panel){
+      panel.hidden=false;
+      $('#adminOrderDetailTitle').textContent='Loading order…';
+      $('#adminOrderDetailSubtitle').textContent='Retrieving customer, Seller, item, payment and delivery information.';
+      $('#adminOrderCustomerDetail').textContent='Loading…';
+      $('#adminOrderPaymentDetail').textContent='Loading…';
+      $('#adminOrderItemList').innerHTML='<div class="loading-card">Loading items…</div>';
+      $('#adminOrderSellerList').innerHTML='<div class="loading-card">Loading Seller fulfilment…</div>';
+      $('#adminOrderDeliveryDetail').innerHTML='<div class="loading-card">Loading delivery state…</div>';
+    }
+
+    renderMarketplaceOrders();
+
+    const {data,error}=await db.rpc('admin_get_marketplace_order_detail',{p_order_id:orderId});
+    if(error){
+      state.activeMarketplaceOrderDetail=null;
+      setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
+      return;
+    }
+
+    state.activeMarketplaceOrderDetail=data;
+    renderMarketplaceOrderDetail();
+
+    if(scroll) panel?.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  const closeMarketplaceOrderDetail=()=>{
+    state.activeMarketplaceOrderId=null;
+    state.activeMarketplaceOrderDetail=null;
+    if($('#adminOrderDetailPanel')) $('#adminOrderDetailPanel').hidden=true;
+    renderMarketplaceOrders();
   };
 
   const catalogueMediaUrl = (path) => {
@@ -1707,6 +1993,10 @@
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
     $('#refreshMarketplaceOrders').addEventListener('click', () => withButtonLock($('#refreshMarketplaceOrders'), 'Refreshing…', loadMarketplaceOrders));
+    $('#adminOrderSearch')?.addEventListener('input', renderMarketplaceOrders);
+    $('#adminOrderPaymentFilter')?.addEventListener('change', renderMarketplaceOrders);
+    $('#adminOrderStatusFilter')?.addEventListener('change', renderMarketplaceOrders);
+    $('#closeAdminOrderDetail')?.addEventListener('click', closeMarketplaceOrderDetail);
     $('#refreshDeliveryOps').addEventListener('click', () => withButtonLock($('#refreshDeliveryOps'), 'Refreshing…', loadDeliveryOps));
     $('#adminAddRiderForm').addEventListener('submit', addRider);
     $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
