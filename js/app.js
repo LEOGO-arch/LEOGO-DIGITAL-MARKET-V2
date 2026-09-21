@@ -1375,6 +1375,7 @@
         '<div class="live-product-price-row"><strong>'+money(listing.marked_price_kes)+'</strong><span>1 item</span></div>'+
         '<p class="live-product-description">This is a personal item listing from a LEOGO customer, not a registered Seller business.</p>'+
         '<div class="personal-sale-public-badge">✓ Approved by LEOGO Admin</div>'+
+        '<button type="button" class="personal-interest-button" data-personal-interest="'+receiptEscape(listing.id)+'">♥ I’m Interested</button>'+
       '</div>'+
     '</article>';
   };
@@ -1431,6 +1432,7 @@
         '<div><b>'+receiptEscape(listing.public_title || ((listing.public_name || 'Customer')+' is Selling '+listing.item_name))+'</b>'+
           '<small>Personal item · Admin approved</small></div>'+
         '<span class="clip-price">'+money(listing.marked_price_kes)+'</span>'+
+        '<button type="button" class="personal-interest-mini" data-personal-interest="'+receiptEscape(listing.id)+'">Interested</button>'+
       '</div>';
     }).join('')
       : '<div class="customer-empty-state compact"><span>🏷️</span><h4>No approved personal items yet</h4><p>Customer one-off items will appear here after Admin approval.</p></div>';
@@ -1534,6 +1536,91 @@
 
   document.addEventListener('leogo:authchange', () => loadMarketplaceProducts());
   window.setTimeout(loadMarketplaceProducts, 500);
+
+  const personalInterestModal = document.getElementById('personalInterestModal');
+  const personalInterestForm = document.getElementById('personalInterestForm');
+  const personalInterestListingId = document.getElementById('personalInterestListingId');
+  const personalInterestItemSummary = document.getElementById('personalInterestItemSummary');
+  const personalInterestName = document.getElementById('personalInterestName');
+  const personalInterestPhone = document.getElementById('personalInterestPhone');
+  const personalInterestMessage = document.getElementById('personalInterestMessage');
+  const personalInterestStatus = document.getElementById('personalInterestStatus');
+
+  const closePersonalInterest = () => {
+    if (!personalInterestModal) return;
+    personalInterestModal.classList.remove('is-open');
+    personalInterestModal.setAttribute('aria-hidden','true');
+    document.body.classList.remove('selling-modal-open');
+  };
+
+  const openPersonalInterest = (listingId) => {
+    const listing=personalSaleListings.find((item)=>item.id===listingId);
+    if(!listing) return;
+
+    if(!window.leogoAuth?.isAuthenticated?.()){
+      window.leogoAuth?.requireLogin?.('Please log in to send an interest request through LEOGO.');
+      return;
+    }
+
+    const user=window.leogoAuth?.getUser?.();
+    if(personalInterestListingId) personalInterestListingId.value=listing.id;
+    if(personalInterestItemSummary) personalInterestItemSummary.innerHTML=
+      '<strong>'+receiptEscape(listing.public_title || listing.item_name)+'</strong><span>'+money(listing.marked_price_kes)+'</span>';
+    if(personalInterestName && !personalInterestName.value) personalInterestName.value=user?.user_metadata?.full_name || '';
+    if(personalInterestPhone && !personalInterestPhone.value) personalInterestPhone.value=user?.user_metadata?.phone || '';
+    if(personalInterestMessage) personalInterestMessage.value='';
+    if(personalInterestStatus) personalInterestStatus.textContent='';
+
+    personalInterestModal?.classList.add('is-open');
+    personalInterestModal?.setAttribute('aria-hidden','false');
+    document.body.classList.add('selling-modal-open');
+    window.setTimeout(()=>personalInterestName?.focus(),50);
+  };
+
+  document.addEventListener('click',(event)=>{
+    const button=event.target.closest?.('[data-personal-interest]');
+    if(!button) return;
+    event.preventDefault();
+    openPersonalInterest(button.dataset.personalInterest);
+  });
+
+  personalInterestModal?.querySelectorAll('[data-close-personal-interest]').forEach((button)=>{
+    button.addEventListener('click',closePersonalInterest);
+  });
+  document.addEventListener('keydown',(event)=>{
+    if(event.key==='Escape' && personalInterestModal?.classList.contains('is-open')) closePersonalInterest();
+  });
+
+  personalInterestForm?.addEventListener('submit',async(event)=>{
+    event.preventDefault();
+    if(!personalInterestForm.reportValidity()) return;
+    const client=window.leogoAuth?.client;
+    const listingId=personalInterestListingId?.value;
+    if(!client || !listingId){
+      personalInterestStatus.textContent='This request could not be prepared. Refresh and try again.';
+      return;
+    }
+
+    const button=personalInterestForm.querySelector('button[type="submit"]');
+    const original=button?.textContent || 'Send Interest Through LEOGO';
+    try{
+      if(button){button.disabled=true;button.textContent='Sending…';}
+      personalInterestStatus.textContent='Sending your interest securely through LEOGO…';
+      const {error}=await client.rpc('customer_submit_personal_sale_interest',{
+        p_listing_id:listingId,
+        p_buyer_name:personalInterestName.value.trim(),
+        p_buyer_phone:personalInterestPhone.value.trim(),
+        p_message:personalInterestMessage.value.trim() || null
+      });
+      if(error) throw error;
+      personalInterestStatus.textContent='✓ Interest sent. LEOGO Admin will coordinate contact between you and the item owner.';
+      window.setTimeout(closePersonalInterest,1800);
+    }catch(error){
+      personalInterestStatus.textContent=error?.message || 'Your interest request could not be sent. Please try again.';
+    }finally{
+      if(button){button.disabled=false;button.textContent=original;}
+    }
+  });
 
   cartShellItems?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-cart-action]');
