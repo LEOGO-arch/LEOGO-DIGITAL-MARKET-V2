@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-v1-22">
+  <link rel="stylesheet" href="admin.css?v=admin-v1-23">
 </head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
@@ -142,14 +142,80 @@
       </section>
 
       <section class="admin-panel" data-admin-panel="orders">
-        <div class="section-head"><div><span>ORDERS</span><h2>Order Management</h2><p>Production customer orders, Seller fulfilment and payment verification.</p></div><button id="refreshMarketplaceOrders" class="primary-button" type="button">↻ Refresh Orders</button></div>
+        <div class="section-head">
+          <div><span>ORDERS</span><h2>Order Management</h2><p>Open an order to review the exact items and variants, customer delivery details, Seller preparation, payment verification and LEOGO rider assignment.</p></div>
+          <button id="refreshMarketplaceOrders" class="primary-button" type="button">↻ Refresh Orders</button>
+        </div>
         <div class="seller-admin-summary">
           <article><span>Total Orders</span><strong id="adminOrderTotal">0</strong><small>All marketplace orders</small></article>
           <article><span>Payment Review</span><strong id="adminOrderPaymentPending">0</strong><small>Submitted payments</small></article>
           <article><span>With Rider</span><strong id="adminOrderWithRider">0</strong><small>Awaiting delivery</small></article>
           <article><span>Delivered</span><strong id="adminOrderDelivered">0</strong><small>Completed delivery</small></article>
         </div>
-        <div class="table-card"><div class="responsive-table"><table><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Payment</th><th>Fulfilment</th><th>Payment Proof</th><th>Action</th></tr></thead><tbody id="adminMarketplaceOrderBody"><tr><td colspan="7">Loading orders…</td></tr></tbody></table></div></div>
+
+        <div class="seller-admin-toolbar admin-order-toolbar">
+          <input id="adminOrderSearch" type="search" placeholder="Search order, customer, phone or email…">
+          <select id="adminOrderPaymentFilter">
+            <option value="all">All payment statuses</option>
+            <option value="submitted">Payment submitted</option>
+            <option value="verified_paid">Paid</option>
+            <option value="cod_due">COD due</option>
+            <option value="cod_paid">COD paid</option>
+            <option value="rejected">Payment rejected</option>
+          </select>
+          <select id="adminOrderStatusFilter">
+            <option value="all">All order statuses</option>
+            <option value="placed">Placed</option>
+            <option value="processing">Seller preparing</option>
+            <option value="with_rider">With rider</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        <div class="table-card">
+          <div class="responsive-table">
+            <table>
+              <thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Payment</th><th>Fulfilment</th><th>Payment Proof</th><th>Action</th></tr></thead>
+              <tbody id="adminMarketplaceOrderBody"><tr><td colspan="7">Loading orders…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <section id="adminOrderDetailPanel" class="admin-order-detail-panel" hidden>
+          <div class="admin-order-detail-head">
+            <div><span>ORDER CONTROL</span><h3 id="adminOrderDetailTitle">Order Details</h3><p id="adminOrderDetailSubtitle">Loading order information…</p></div>
+            <button id="closeAdminOrderDetail" type="button" class="secondary">Close</button>
+          </div>
+
+          <div id="adminOrderDetailStatus" class="form-status"></div>
+
+          <div class="admin-order-detail-grid">
+            <article class="admin-order-detail-card">
+              <span>CUSTOMER & DELIVERY</span>
+              <div id="adminOrderCustomerDetail" class="admin-order-detail-content">Loading…</div>
+            </article>
+            <article class="admin-order-detail-card">
+              <span>PAYMENT & TOTALS</span>
+              <div id="adminOrderPaymentDetail" class="admin-order-detail-content">Loading…</div>
+            </article>
+          </div>
+
+          <article class="admin-order-detail-card">
+            <div class="admin-order-card-head"><div><span>ORDER ITEMS</span><h4>Exact products and variants</h4></div></div>
+            <div id="adminOrderItemList" class="admin-order-item-list"><div class="loading-card">Loading items…</div></div>
+          </article>
+
+          <article class="admin-order-detail-card">
+            <div class="admin-order-card-head"><div><span>SELLER FULFILMENT</span><h4>Preparation by Seller</h4></div></div>
+            <div id="adminOrderSellerList" class="admin-order-seller-list"><div class="loading-card">Loading Seller fulfilment…</div></div>
+          </article>
+
+          <article class="admin-order-detail-card">
+            <div class="admin-order-card-head"><div><span>DELIVERY ASSIGNMENT</span><h4>Assign LEOGO rider</h4><p>Rider assignment is controlled by Admin. Rider accounts will be created from the Staff module next.</p></div></div>
+            <div id="adminOrderDeliveryDetail" class="admin-order-delivery-detail"><div class="loading-card">Loading delivery state…</div></div>
+          </article>
+        </section>
       </section>
 
       <section class="admin-panel" data-admin-panel="customers">
@@ -442,6 +508,6 @@
   <div class="modal" id="pickupStationModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="pickupStationForm"><header><div><span>DELIVERY SETTINGS</span><h2 id="pickupModalTitle">Add Pickup Station</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label class="wide"><span>Station name</span><input name="station_name" required></label><label><span>County</span><input name="county" required></label><label><span>Sub-County</span><input name="sub_county" required></label><label><span>Town</span><input name="town" required></label><label><span>Door number</span><input name="door_number"></label><label class="wide"><span>Address</span><input name="address_line" required></label><label><span>Landmark</span><input name="landmark"></label><label><span>Contact phone</span><input name="contact_phone"></label><label class="wide"><span>Operating information</span><input name="operating_hours" placeholder="e.g. Monday–Saturday, 8:00 AM–6:00 PM"></label><label><span>Pickup service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.001" required></label><label><span>Display order</span><input name="display_order" type="number" min="0" max="999" value="0"></label><label class="switch-label"><input name="is_active" type="checkbox" checked><span>Station is active</span></label></div><div class="form-status" id="pickupStationStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Pickup Station</button></footer></form></div>
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
-  <script src="admin.js?v=admin-v1-30" defer></script>
+  <script src="admin.js?v=admin-v1-31" defer></script>
 </body>
 </html>
