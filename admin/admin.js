@@ -40,6 +40,9 @@
     sellerSettlementRequests: [],
     sellerSettlements: [],
     riders: [],
+    staffDirectory: [],
+    staffRolePresets: [],
+    activeStaff: null,
     deliveryJobs: [],
     deliverySellerStates: [],
     serviceCounties: [],
@@ -59,7 +62,7 @@
     products: 'Products & Categories', sellers: 'Sellers', settlements: 'Seller Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
     accommodation: 'Accommodation', loyalty: 'Loyalty & Rewards', reports: 'Reports',
-    settings: 'System Settings', audit: 'Audit Log'
+    staff: 'Staff Management', settings: 'System Settings', audit: 'Audit Log'
   };
   const kindLabels = {
     seller_application: 'Seller Registration', seller_product: 'Seller Product', customer_personal_sale: 'Customer Item Sale',
@@ -118,6 +121,55 @@
     finally { button.disabled = false; button.textContent = original; }
   };
 
+  const adminHas = (permission) => {
+    const admin = state.admin;
+    if (!admin || admin.status !== 'active') return false;
+    if (['super_admin','admin'].includes(admin.role)) return true;
+    return !permission || (Array.isArray(admin.permissions) && admin.permissions.includes(permission));
+  };
+  const isSuperAdmin = () => state.admin?.status === 'active' && state.admin?.role === 'super_admin';
+
+  const viewAllowed = (view, settingsTab = '') => {
+    if (isSuperAdmin()) return true;
+    const checks = {
+      dashboard: () => adminHas('dashboard.read'),
+      approvals: () => adminHas('approvals.read'),
+      orders: () => adminHas('orders.read'),
+      customers: () => adminHas('customers.read'),
+      products: () => adminHas('products.read'),
+      sellers: () => adminHas('sellers.read'),
+      settlements: () => adminHas('sellers.read'),
+      providers: () => adminHas('approvals.read'),
+      transport: () => adminHas('orders.read') || adminHas('delivery.manage'),
+      wallet: () => adminHas('approvals.read'),
+      premium: () => adminHas('premium.read'),
+      accommodation: () => adminHas('approvals.read'),
+      loyalty: () => adminHas('settings.manage'),
+      reports: () => adminHas('reports.export'),
+      staff: () => false,
+      audit: () => false,
+      settings: () => settingsTab === 'payments'
+        ? adminHas('payments.manage')
+        : adminHas('settings.manage') || adminHas('fees.manage')
+    };
+    return checks[view] ? checks[view]() : false;
+  };
+
+  const applyAdminNavigationPermissions = () => {
+    document.querySelectorAll('.admin-nav [data-admin-view]').forEach((button) => {
+      const view = button.dataset.adminView;
+      const tab = button.dataset.settingsTab || '';
+      button.hidden = !viewAllowed(view, tab);
+    });
+
+    document.querySelectorAll('[data-nav-children]').forEach((group) => {
+      const visibleChild = [...group.querySelectorAll('[data-admin-view]')].some((button) => !button.hidden);
+      group.hidden = !visibleChild;
+      const parent = document.querySelector('[data-nav-group="'+group.dataset.navChildren+'"]');
+      if (parent && !visibleChild) parent.hidden = true;
+    });
+  };
+
   const showGate = (name) => {
     $('#adminAuthGate').hidden = name !== 'login';
     $('#adminAccessDenied').hidden = name !== 'denied';
@@ -145,6 +197,7 @@
       $('#adminRole').textContent = admin.role.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       $('#adminInitials').textContent = name.split(/\s+/).slice(0, 2).map((word) => word[0]).join('').toUpperCase();
       $('#dashboardGreeting').textContent = `Good day, ${name.split(/\s+/)[0]}`;
+      applyAdminNavigationPermissions();
       await loadAll();
     } catch (error) {
       showGate('denied');
@@ -164,13 +217,33 @@
   };
 
   const loadAll = async () => {
-    const loaders = [loadDashboard, loadApprovals, loadMarketplaceOrders, loadCatalogue, loadPersonalMarketplace, loadCustomers, loadSellers, loadSellerSettlements, loadDeliveryOps, loadServiceLocations, loadBusinessSettings,
-      loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumCustomers, loadPremiumProfiles, loadPremiumPlans,
-      loadAccommodationSummary, loadAuditLog];
+    const loaderSpecs = [
+      [loadDashboard, () => adminHas('dashboard.read')],
+      [loadApprovals, () => adminHas('approvals.read')],
+      [loadMarketplaceOrders, () => adminHas('orders.read')],
+      [loadCatalogue, () => adminHas('products.read')],
+      [loadPersonalMarketplace, () => adminHas('products.read')],
+      [loadCustomers, () => adminHas('customers.read')],
+      [loadSellers, () => adminHas('sellers.read')],
+      [loadSellerSettlements, () => adminHas('sellers.read')],
+      [loadDeliveryOps, () => adminHas('orders.read') || adminHas('delivery.manage')],
+      [loadServiceLocations, () => adminHas('settings.manage')],
+      [loadBusinessSettings, () => adminHas('settings.manage')],
+      [loadPaymentSettings, () => adminHas('payments.manage')],
+      [loadPickupStations, () => adminHas('orders.read') || adminHas('delivery.manage')],
+      [loadWalletSettings, () => adminHas('approvals.read') || adminHas('fees.manage')],
+      [loadPremiumCustomers, () => adminHas('premium.read')],
+      [loadPremiumProfiles, () => adminHas('premium.read')],
+      [loadPremiumPlans, () => adminHas('premium.read')],
+      [loadAccommodationSummary, () => adminHas('approvals.read')],
+      [loadAuditLog, () => isSuperAdmin()],
+      [loadStaffManagement, () => isSuperAdmin()]
+    ];
+    const loaders = loaderSpecs.filter(([,allowed]) => allowed()).map(([load]) => load);
     const results = await Promise.allSettled(loaders.map((load) => load()));
     const failed = results.find((result) => result.status === 'rejected');
-    if (failed) globalStatus(`Some Admin data could not load: ${friendlyError(failed.reason)}`, 'error');
-    renderDataManagement();
+    if (failed) globalStatus(`Some permitted Admin data could not load: ${friendlyError(failed.reason)}`, 'error');
+    if (isSuperAdmin()) renderDataManagement();
     $('#lastSynced').textContent = formatDate(new Date().toISOString(), true);
   };
 
@@ -494,6 +567,284 @@
             : 'Approval decision saved and audited.'
       );
       await Promise.all([loadApprovals(), loadDashboard(), loadAuditLog(), loadSellers(), loadCatalogue(), loadPremiumCustomers(), loadPremiumProfiles()]);
+    });
+  };
+
+  const STAFF_PERMISSION_DEFS = [
+    ['dashboard.read','Dashboard','View operational dashboard'],
+    ['approvals.read','Approvals','View Approval Center'],
+    ['approvals.manage','Approvals','Approve, reject and return applications'],
+    ['orders.read','Orders','View customer orders'],
+    ['orders.manage','Orders','Verify order payment and assign delivery'],
+    ['delivery.manage','Delivery','Manage delivery operations'],
+    ['customers.read','Customers','View customer accounts'],
+    ['sellers.read','Sellers','View Sellers and settlement records'],
+    ['products.read','Marketplace','View products and categories'],
+    ['products.manage','Marketplace','Manage product listings and catalogue'],
+    ['premium.read','Premium','View Premium records'],
+    ['premium.manage','Premium','Manage Premium records'],
+    ['reports.export','Reports','Export operational / financial reports'],
+    ['payments.manage','Payments','Manage LEOGO payment accounts — highly sensitive'],
+    ['fees.manage','Settings','Manage supported fee rules'],
+    ['settings.manage','Settings','Manage system and business settings — highly sensitive']
+  ];
+
+  const selectedPermissionValues = (container) =>
+    [...(container?.querySelectorAll('input[data-staff-permission]:checked') || [])].map((input) => input.value);
+
+  const presetForRole = (role) => state.staffRolePresets.find((preset) => preset.code === role);
+
+  const renderPermissionGrid = (container, selected = []) => {
+    if (!container) return;
+    const chosen = new Set(Array.isArray(selected) ? selected : []);
+    container.innerHTML = STAFF_PERMISSION_DEFS.map(([code,group,label]) =>
+      '<label class="staff-permission-option'+(['payments.manage','settings.manage'].includes(code)?' sensitive':'')+'">'+
+        '<input type="checkbox" data-staff-permission value="'+escapeHtml(code)+'" '+(chosen.has(code)?'checked':'')+'>'+
+        '<span><b>'+escapeHtml(label)+'</b><small>'+escapeHtml(group)+' · '+escapeHtml(code)+'</small></span>'+
+      '</label>'
+    ).join('');
+  };
+
+  const renderStaffRoleOptions = () => {
+    const options = state.staffRolePresets.map((preset) =>
+      '<option value="'+escapeHtml(preset.code)+'">'+escapeHtml(preset.label)+'</option>'
+    ).join('');
+    if ($('#staffRole')) $('#staffRole').innerHTML=options;
+    if ($('#staffEditorRole')) $('#staffEditorRole').innerHTML=options;
+  };
+
+  const applyCreateRolePreset = () => {
+    const preset=presetForRole($('#staffRole')?.value);
+    if(!preset) return;
+    $('#staffDepartment').value=preset.department||'';
+    $('#staffJobTitle').value=preset.label||'';
+    $('#staffRoleDescription').innerHTML='<strong>'+escapeHtml(preset.label)+'</strong><span>'+escapeHtml(preset.description||'')+'</span>';
+    renderPermissionGrid($('#staffPermissionGrid'),preset.permissions||[]);
+  };
+
+  const resetEditorRolePermissions = () => {
+    const preset=presetForRole($('#staffEditorRole')?.value);
+    renderPermissionGrid($('#staffEditorPermissionGrid'),preset?.permissions||[]);
+  };
+
+  const filteredStaffDirectory = () => {
+    const term=($('#staffSearch')?.value||'').trim().toLowerCase();
+    const role=$('#staffRoleFilter')?.value||'all';
+    const status=$('#staffStatusFilter')?.value||'all';
+    return state.staffDirectory.filter((staff)=>{
+      const matchesTerm=!term||[
+        staff.display_name,staff.email,staff.phone,staff.role_label,staff.department,
+        staff.job_title,staff.vehicle_type,staff.vehicle_registration
+      ].some((value)=>String(value||'').toLowerCase().includes(term));
+      const matchesRole=role==='all'
+        || (role==='admin_staff'&&staff.account_kind==='admin_staff')
+        || staff.role_code===role;
+      const matchesStatus=status==='all'||staff.status===status;
+      return matchesTerm&&matchesRole&&matchesStatus;
+    });
+  };
+
+  const renderStaffDirectory = () => {
+    const list=$('#staffDirectoryList');
+    if(!list) return;
+
+    const all=state.staffDirectory;
+    const rows=filteredStaffDirectory();
+    $('#staffTotalCount').textContent=all.length;
+    $('#staffAdminCount').textContent=all.filter((s)=>s.account_kind==='admin_staff'&&s.status==='active').length;
+    $('#staffRiderCount').textContent=all.filter((s)=>s.account_kind==='rider'&&s.status==='active').length;
+    $('#staffInactiveCount').textContent=all.filter((s)=>s.status!=='active').length;
+
+    list.innerHTML=rows.length?rows.map((staff)=>{
+      const permissions=Array.isArray(staff.permissions)?staff.permissions:[];
+      const isOwner=staff.role_code==='super_admin';
+      const riderMeta=staff.account_kind==='rider'
+        ? '<div class="staff-card-meta"><span><small>Vehicle</small><strong>'+escapeHtml(staff.vehicle_type||'Not set')+(staff.vehicle_registration?' · '+escapeHtml(staff.vehicle_registration):'')+'</strong></span><span><small>Availability</small><strong>'+escapeHtml(String(staff.availability_status||'available').replaceAll('_',' '))+'</strong></span></div>'
+        : '<div class="staff-card-permissions"><small>'+permissions.length+' permission'+(permissions.length===1?'':'s')+'</small><span>'+permissions.slice(0,4).map((permission)=>'<b>'+escapeHtml(permission)+'</b>').join('')+(permissions.length>4?'<b>+'+(permissions.length-4)+' more</b>':'')+'</span></div>';
+
+      return '<article class="staff-directory-item">'+
+        '<div class="staff-avatar">'+escapeHtml(String(staff.display_name||'?').split(/\\s+/).slice(0,2).map((x)=>x[0]||'').join('').toUpperCase())+'</div>'+
+        '<div class="staff-directory-main">'+
+          '<div class="staff-directory-title"><div><span>'+escapeHtml(staff.account_kind==='rider'?'DELIVERY STAFF':'ADMIN STAFF')+'</span><h4>'+escapeHtml(staff.display_name)+'</h4><p>'+escapeHtml(staff.email||'')+(staff.phone?' · '+escapeHtml(staff.phone):'')+'</p></div>'+
+            '<div class="staff-directory-badges"><span class="status-chip">'+escapeHtml(staff.role_label||staff.role_code)+'</span><span class="status-chip">'+escapeHtml(staff.status)+'</span></div></div>'+
+          '<div class="staff-card-meta"><span><small>Department</small><strong>'+escapeHtml(staff.department||'—')+'</strong></span><span><small>Last sign in</small><strong>'+escapeHtml(formatDate(staff.last_sign_in_at,true))+'</strong></span><span><small>Created</small><strong>'+escapeHtml(formatDate(staff.created_at))+'</strong></span></div>'+
+          riderMeta+
+          '<div class="staff-directory-actions">'+
+            (isOwner?'<span class="staff-owner-protected">🔒 Owner account protected</span>':'<button type="button" data-manage-staff="'+escapeHtml(staff.user_id)+'" data-staff-kind="'+escapeHtml(staff.account_kind)+'">Manage Access</button>')+
+          '</div>'+
+        '</div>'+
+      '</article>';
+    }).join(''):'<div class="loading-card">No staff match the current filters.</div>';
+
+    $('[data-manage-staff]',list).forEach((button)=>button.addEventListener('click',()=>{
+      openStaffEditor(button.dataset.manageStaff,button.dataset.staffKind);
+    }));
+  };
+
+  const loadStaffManagement = async () => {
+    if(!isSuperAdmin()) return;
+    const [directoryResult,presetResult]=await Promise.all([
+      db.rpc('admin_list_staff_directory'),
+      db.rpc('admin_staff_role_presets')
+    ]);
+    if(directoryResult.error) throw directoryResult.error;
+    if(presetResult.error) throw presetResult.error;
+    state.staffDirectory=Array.isArray(directoryResult.data)?directoryResult.data:[];
+    state.staffRolePresets=Array.isArray(presetResult.data)?presetResult.data:[];
+    renderStaffRoleOptions();
+    if($('#staffRole')&&!$('#staffRole').value&&state.staffRolePresets[0]) $('#staffRole').value=state.staffRolePresets[0].code;
+    if(!$('#staffPermissionGrid')?.children.length) applyCreateRolePreset();
+    renderStaffDirectory();
+  };
+
+  const openStaffEditor = (userId,accountKind) => {
+    const staff=state.staffDirectory.find((item)=>item.user_id===userId&&item.account_kind===accountKind);
+    if(!staff||staff.role_code==='super_admin') return;
+    state.activeStaff=staff;
+
+    $('#staffEditorUserId').value=staff.user_id;
+    $('#staffEditorAccountKind').value=staff.account_kind;
+    $('#staffEditorName').value=staff.display_name||'';
+    $('#staffEditorPhone').value=staff.phone||'';
+    $('#staffEditorTitle').textContent='Manage '+staff.display_name;
+    $('#staffEditorSubtitle').textContent=staff.email+' · '+(staff.role_label||staff.role_code);
+
+    const rider=staff.account_kind==='rider';
+    $('#staffEditorRoleWrap').hidden=rider;
+    $('#staffEditorDepartmentWrap').hidden=rider;
+    $('#staffEditorJobTitleWrap').hidden=rider;
+    $('#staffEditorPermissionSection').hidden=rider;
+    $('#staffEditorVehicleWrap').hidden=!rider;
+    $('#staffEditorRegistrationWrap').hidden=!rider;
+    $('#staffEditorIdWrap').hidden=!rider;
+    $('#staffEditorLicenseWrap').hidden=!rider;
+    $('#staffEditorAvailabilityWrap').hidden=!rider;
+
+    if(rider){
+      $('#staffEditorStatus').innerHTML='<option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option>';
+      $('#staffEditorVehicleType').value=staff.vehicle_type||'';
+      $('#staffEditorVehicleRegistration').value=staff.vehicle_registration||'';
+      $('#staffEditorIdNumber').value=staff.id_number||'';
+      $('#staffEditorLicenseNumber').value=staff.license_number||'';
+      $('#staffEditorAvailability').value=staff.availability_status||'available';
+    }else{
+      $('#staffEditorStatus').innerHTML='<option value="active">Active</option><option value="suspended">Suspended</option>';
+      $('#staffEditorRole').value=staff.role_code||'read_only';
+      $('#staffEditorDepartment').value=staff.department||'';
+      $('#staffEditorJobTitle').value=staff.job_title||'';
+      renderPermissionGrid($('#staffEditorPermissionGrid'),staff.permissions||[]);
+    }
+    $('#staffEditorStatus').value=staff.status||'active';
+    setFormStatus($('#staffAccessStatus'));
+    $('#staffAccessEditor').hidden=false;
+    $('#staffAccessEditor').scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  const closeStaffEditor = () => {
+    state.activeStaff=null;
+    if($('#staffAccessEditor')) $('#staffAccessEditor').hidden=true;
+    setFormStatus($('#staffAccessStatus'));
+  };
+
+  const generateTemporaryPassword = () => {
+    const upper='ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower='abcdefghijkmnopqrstuvwxyz';
+    const digits='23456789';
+    const symbols='!@#$%';
+    const all=upper+lower+digits+symbols;
+    const pick=(chars)=>chars[crypto.getRandomValues(new Uint32Array(1))[0]%chars.length];
+    let password=pick(upper)+pick(lower)+pick(digits)+pick(symbols);
+    for(let i=0;i<8;i++) password+=pick(all);
+    return password.split('').sort(()=>Math.random()-.5).join('');
+  };
+
+  const createStaffAccount = async (event) => {
+    event.preventDefault();
+    if(!isSuperAdmin()){
+      setFormStatus($('#createStaffStatus'),'Super Admin access required.','error');
+      return;
+    }
+    const form=$('#createStaffForm');
+    if(!form.reportValidity()) return;
+    const kind=$('#staffAccountKind').value;
+    const body={
+      account_kind:kind,
+      display_name:$('#staffDisplayName').value.trim(),
+      email:$('#staffEmail').value.trim(),
+      phone:$('#staffPhone').value.trim(),
+      temporary_password:$('#staffTemporaryPassword').value,
+      role_code:kind==='admin_staff'?$('#staffRole').value:'rider',
+      department:kind==='admin_staff'?$('#staffDepartment').value.trim():'Delivery',
+      job_title:kind==='admin_staff'?$('#staffJobTitle').value.trim():'LEOGO Rider',
+      permissions:kind==='admin_staff'?selectedPermissionValues($('#staffPermissionGrid')):[],
+      vehicle_type:kind==='rider'?$('#staffVehicleType').value:'',
+      vehicle_registration:kind==='rider'?$('#staffVehicleRegistration').value.trim():'',
+      id_number:kind==='rider'?$('#staffIdNumber').value.trim():'',
+      license_number:kind==='rider'?$('#staffLicenseNumber').value.trim():''
+    };
+
+    await withButtonLock($('#createStaffButton'),'Creating Account…',async()=>{
+      setFormStatus($('#createStaffStatus'),'Creating secure staff login…');
+      const {data,error}=await db.functions.invoke('admin-create-staff',{body});
+      if(error){
+        let message=error.message||'Staff account could not be created.';
+        try{
+          const payload=await error.context?.json?.();
+          if(payload?.error) message=payload.error;
+        }catch{}
+        setFormStatus($('#createStaffStatus'),message,'error');
+        return;
+      }
+      if(data?.error){
+        setFormStatus($('#createStaffStatus'),data.error,'error');
+        return;
+      }
+
+      setFormStatus($('#createStaffStatus'),'Staff account created successfully. Share the temporary password privately.','success');
+      form.reset();
+      $('#staffAccountKind').value='admin_staff';
+      document.querySelector('#adminStaffFields').hidden=false;
+      document.querySelector('#riderStaffFields').hidden=true;
+      renderStaffRoleOptions();
+      if(state.staffRolePresets[0]) $('#staffRole').value=state.staffRolePresets[0].code;
+      applyCreateRolePreset();
+      await Promise.all([loadStaffManagement(),loadDeliveryOps(),loadAuditLog()]);
+    });
+  };
+
+  const saveStaffAccess = async (event) => {
+    event.preventDefault();
+    const staff=state.activeStaff;
+    if(!staff) return;
+
+    const rider=staff.account_kind==='rider';
+    await withButtonLock($('#saveStaffAccess'),'Saving…',async()=>{
+      setFormStatus($('#staffAccessStatus'),'Saving staff access…');
+      const args={
+        p_user_id:staff.user_id,
+        p_account_kind:staff.account_kind,
+        p_display_name:$('#staffEditorName').value.trim(),
+        p_phone:$('#staffEditorPhone').value.trim()||null,
+        p_department:rider?null:($('#staffEditorDepartment').value.trim()||null),
+        p_job_title:rider?null:($('#staffEditorJobTitle').value.trim()||null),
+        p_role_code:rider?null:$('#staffEditorRole').value,
+        p_status:$('#staffEditorStatus').value,
+        p_permissions:rider?[]:selectedPermissionValues($('#staffEditorPermissionGrid')),
+        p_vehicle_type:rider?($('#staffEditorVehicleType').value.trim()||null):null,
+        p_vehicle_registration:rider?($('#staffEditorVehicleRegistration').value.trim()||null):null,
+        p_id_number:rider?($('#staffEditorIdNumber').value.trim()||null):null,
+        p_license_number:rider?($('#staffEditorLicenseNumber').value.trim()||null):null,
+        p_availability_status:rider?$('#staffEditorAvailability').value:null
+      };
+      const {error}=await db.rpc('admin_update_staff_access',args);
+      if(error){
+        setFormStatus($('#staffAccessStatus'),friendlyError(error),'error');
+        return;
+      }
+      setFormStatus($('#staffAccessStatus'),'Staff access updated and recorded in the Audit Log.','success');
+      await Promise.all([loadStaffManagement(),loadDeliveryOps(),loadAuditLog()]);
+      const refreshed=state.staffDirectory.find((item)=>item.user_id===staff.user_id&&item.account_kind===staff.account_kind);
+      if(refreshed) state.activeStaff=refreshed;
     });
   };
 
@@ -1918,6 +2269,10 @@
   const exportData = async (scope,format='xlsx') => { const type=$('#dataTypeFilter').value, source=scope==='selected'?dataRows().filter(r=>state.selectedData.has(dataRecordId(r))):dataRows(); if(!source.length){globalStatus('Select at least one record to export.','error');return;} const rows=[['Record ID','Record Data'],...source.map(r=>[dataRecordId(r),JSON.stringify(r)])]; await exportRows(type,scope,format,rows,{status:$('#dataStatusFilter').value,from:$('#dataFromFilter').value,to:$('#dataToFilter').value}); globalStatus(`${source.length} ${type.replaceAll('_',' ')} record(s) exported and audited.`); };
 
   const changeView = (view, settingsTab = '') => {
+    if (!viewAllowed(view, settingsTab)) {
+      globalStatus('Your staff role does not have access to this Admin module.', 'error');
+      return;
+    }
     document.querySelectorAll('.admin-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.adminPanel === view));
     document.querySelectorAll('.admin-nav [data-admin-view]').forEach((button) => button.classList.toggle('active', button.dataset.adminView === view && (!button.dataset.settingsTab || button.dataset.settingsTab === settingsTab)));
     $('#adminPageTitle').textContent = viewTitles[view] || 'Admin Control Center';
@@ -1928,6 +2283,9 @@
     if (view === 'products') {
       Promise.all([loadCatalogue(),loadPersonalMarketplace()])
         .catch((error) => globalStatus('Product management data could not load: '+friendlyError(error), 'error'));
+    }
+    if (view === 'staff' && isSuperAdmin()) {
+      loadStaffManagement().catch((error) => globalStatus('Staff directory could not load: '+friendlyError(error), 'error'));
     }
     if (view === 'settings') changeSettingsTab(settingsTab || 'business');
     closeSidebar();
@@ -1996,6 +2354,25 @@
     });
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
+    $('#refreshStaffDirectory')?.addEventListener('click', () => withButtonLock($('#refreshStaffDirectory'), 'Refreshing…', loadStaffManagement));
+    $('#staffSearch')?.addEventListener('input', renderStaffDirectory);
+    $('#staffRoleFilter')?.addEventListener('change', renderStaffDirectory);
+    $('#staffStatusFilter')?.addEventListener('change', renderStaffDirectory);
+    $('#staffAccountKind')?.addEventListener('change', () => {
+      const rider=$('#staffAccountKind').value==='rider';
+      $('#adminStaffFields').hidden=rider;
+      $('#riderStaffFields').hidden=!rider;
+      $('#staffPhone').required=rider;
+      $('#staffRole').required=!rider;
+    });
+    $('#staffRole')?.addEventListener('change', applyCreateRolePreset);
+    $('#resetStaffPermissions')?.addEventListener('click', applyCreateRolePreset);
+    $('#generateStaffPassword')?.addEventListener('click', () => { $('#staffTemporaryPassword').value=generateTemporaryPassword(); });
+    $('#createStaffForm')?.addEventListener('submit', createStaffAccount);
+    $('#closeStaffEditor')?.addEventListener('click', closeStaffEditor);
+    $('#staffEditorRole')?.addEventListener('change', resetEditorRolePermissions);
+    $('#resetEditorPermissions')?.addEventListener('click', resetEditorRolePermissions);
+    $('#staffAccessForm')?.addEventListener('submit', saveStaffAccess);
     $('#refreshMarketplaceOrders').addEventListener('click', () => withButtonLock($('#refreshMarketplaceOrders'), 'Refreshing…', loadMarketplaceOrders));
     $('#adminOrderSearch')?.addEventListener('input', renderMarketplaceOrders);
     $('#adminOrderPaymentFilter')?.addEventListener('change', renderMarketplaceOrders);
