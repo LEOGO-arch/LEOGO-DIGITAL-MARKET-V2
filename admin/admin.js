@@ -804,14 +804,18 @@
 
     renderMarketplaceOrders();
 
-    const {data,error}=await db.rpc('admin_get_marketplace_order_detail',{p_order_id:orderId});
-    if(error){
+    const [detailResult,riderResult]=await Promise.all([
+      db.rpc('admin_get_marketplace_order_detail',{p_order_id:orderId}),
+      db.rpc('admin_list_riders')
+    ]);
+    if(detailResult.error){
       state.activeMarketplaceOrderDetail=null;
-      setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
+      setFormStatus($('#adminOrderDetailStatus'),friendlyError(detailResult.error),'error');
       return;
     }
+    if(!riderResult.error) state.riders=Array.isArray(riderResult.data)?riderResult.data:[];
 
-    state.activeMarketplaceOrderDetail=data;
+    state.activeMarketplaceOrderDetail=detailResult.data;
     renderMarketplaceOrderDetail();
 
     if(scroll) panel?.scrollIntoView({behavior:'smooth',block:'start'});
