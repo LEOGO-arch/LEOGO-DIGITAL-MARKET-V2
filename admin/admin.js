@@ -18,6 +18,8 @@
     marketplaceOrders: [],
     catalogueProducts: [],
     catalogueCategories: [],
+    personalSales: [],
+    personalSaleInterests: [],
     approvalFilter: 'all',
     approvalSearch: '',
     selectedApprovals: new Set(),
@@ -160,7 +162,7 @@
   };
 
   const loadAll = async () => {
-    const loaders = [loadDashboard, loadApprovals, loadMarketplaceOrders, loadCatalogue, loadCustomers, loadSellers, loadSellerSettlements, loadDeliveryOps, loadServiceLocations, loadBusinessSettings,
+    const loaders = [loadDashboard, loadApprovals, loadMarketplaceOrders, loadCatalogue, loadPersonalMarketplace, loadCustomers, loadSellers, loadSellerSettlements, loadDeliveryOps, loadServiceLocations, loadBusinessSettings,
       loadPaymentSettings, loadPickupStations, loadWalletSettings, loadPremiumCustomers, loadPremiumProfiles, loadPremiumPlans,
       loadAccommodationSummary, loadAuditLog];
     const results = await Promise.allSettled(loaders.map((load) => load()));
@@ -697,6 +699,128 @@
 
     $$('[data-seller-record]', box).forEach((button) => button.addEventListener('click', () => openSellerRecord(button.dataset.sellerRecord)));
   };
+
+  const personalSaleMediaUrl = (path) => {
+    if (!path) return '';
+    return db.storage.from('customer-sale-media').getPublicUrl(String(path)).data?.publicUrl || '';
+  };
+
+  const renderPersonalMarketplaceAdmin = () => {
+    const listingBox = $('#adminPersonalSaleList');
+    const interestBox = $('#adminPersonalInterestList');
+    if (!listingBox || !interestBox) return;
+
+    const listings = state.personalSales;
+    const interests = state.personalSaleInterests;
+    $('#adminPersonalSaleTotal').textContent = listings.length;
+    $('#adminPersonalSaleAvailable').textContent = listings.filter((item) => item.approval_status === 'approved' && item.sale_status === 'available').length;
+    $('#adminPersonalSaleClosed').textContent = listings.filter((item) => ['sold','removed'].includes(item.sale_status)).length;
+    $('#adminPersonalInterestOpen').textContent = interests.filter((item) => ['new','contacted'].includes(item.status)).length;
+
+    listingBox.innerHTML = listings.length ? listings.map((item) => {
+      const imageUrl = personalSaleMediaUrl(item.item_image_path);
+      const approved = item.approval_status === 'approved';
+      const canManage = approved;
+      const statusActions = !canManage
+        ? '<span class="status-chip">Awaiting / historical approval</span>'
+        : item.sale_status === 'available'
+          ? '<button type="button" class="danger" data-personal-sale-status="sold" data-personal-sale-id="'+escapeHtml(item.id)+'">Mark Sold</button><button type="button" class="danger" data-personal-sale-status="removed" data-personal-sale-id="'+escapeHtml(item.id)+'">Remove Listing</button>'
+          : '<button type="button" data-personal-sale-status="available" data-personal-sale-id="'+escapeHtml(item.id)+'">Restore as Available</button>';
+
+      return `<article class="admin-personal-sale-card">
+        <div class="admin-personal-sale-image">${imageUrl ? '<img src="'+escapeHtml(imageUrl)+'" alt="">' : '<span>🏷️</span>'}</div>
+        <div class="admin-personal-sale-main">
+          <div class="admin-personal-sale-title">
+            <div><span>PERSONAL ITEM</span><h4>${escapeHtml(item.item_name)}</h4><p>${escapeHtml(item.seller_name)} · ${escapeHtml(item.seller_email || '')}</p></div>
+            <div class="admin-catalogue-badges">
+              <span class="status-chip">Approval: ${escapeHtml(item.approval_status)}</span>
+              <span class="status-chip">Sale: ${escapeHtml(item.sale_status)}</span>
+            </div>
+          </div>
+          <div class="admin-product-facts">
+            <span><small>Marked price</small><strong>${formatMoney(item.marked_price_kes)}</strong></span>
+            <span><small>Owner phone</small><strong>${escapeHtml(item.phone || '—')}</strong></span>
+            <span><small>Location</small><strong>${escapeHtml(item.location || '—')}</strong></span>
+            <span><small>Buyer interest</small><strong>${Number(item.open_interest_count || 0)} open / ${Number(item.interest_count || 0)} total</strong></span>
+          </div>
+          <div class="admin-catalogue-actions">${statusActions}</div>
+        </div>
+      </article>`;
+    }).join('') : '<div class="loading-card">No personal item listings have been submitted yet.</div>';
+
+    interestBox.innerHTML = interests.length ? interests.map((item) => {
+      const open = ['new','contacted'].includes(item.status);
+      return `<article class="admin-personal-interest-card">
+        <div class="admin-personal-interest-headline">
+          <div><span>${escapeHtml(item.status)}</span><h4>${escapeHtml(item.buyer_name)} is interested in ${escapeHtml(item.item_name)}</h4><p>${formatMoney(item.marked_price_kes)} · ${formatDate(item.created_at,true)}</p></div>
+        </div>
+        <div class="admin-contact-grid">
+          <div><small>BUYER — ADMIN ONLY</small><strong>${escapeHtml(item.buyer_name)}</strong><span>${escapeHtml(item.buyer_phone || '—')}</span><span>${escapeHtml(item.buyer_email || '—')}</span></div>
+          <div><small>ITEM OWNER — ADMIN ONLY</small><strong>${escapeHtml(item.seller_name)}</strong><span>${escapeHtml(item.seller_phone || '—')}</span><span>${escapeHtml(item.seller_email || '—')}</span></div>
+        </div>
+        ${item.message ? '<div class="admin-interest-message"><small>BUYER MESSAGE</small><p>'+escapeHtml(item.message)+'</p></div>' : ''}
+        <div class="admin-catalogue-actions">
+          ${item.status === 'new' ? '<button type="button" data-personal-interest-status="contacted" data-personal-interest-id="'+escapeHtml(item.id)+'">Mark Contacted</button>' : ''}
+          ${open ? '<button type="button" data-personal-interest-status="closed" data-personal-interest-id="'+escapeHtml(item.id)+'">Close Request</button>' : '<span class="status-chip">Closed</span>'}
+        </div>
+      </article>`;
+    }).join('') : '<div class="loading-card">No customer interest requests yet.</div>';
+
+    $('[data-personal-sale-status]',listingBox).forEach((button)=>button.addEventListener('click',async()=>{
+      const status=button.dataset.personalSaleStatus;
+      const listing=state.personalSales.find((item)=>item.id===button.dataset.personalSaleId);
+      if(!listing) return;
+      const prompt=status==='sold'
+        ? 'Mark "'+listing.item_name+'" as SOLD? It will disappear from the public marketplace.'
+        : status==='removed'
+          ? 'Remove "'+listing.item_name+'" from the public marketplace?'
+          : 'Restore "'+listing.item_name+'" as available?';
+      if(!window.confirm(prompt)) return;
+      await withButtonLock(button,status==='available'?'Restoring…':'Updating…',async()=>{
+        const {error}=await db.rpc('admin_set_personal_sale_status',{
+          p_listing_id:listing.id,p_status:status,p_notes:null
+        });
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        await Promise.all([loadPersonalMarketplace(),loadAuditLog()]);
+        globalStatus(status==='sold'?'Personal item marked sold.':status==='removed'?'Personal item removed from public marketplace.':'Personal item restored as available.');
+      });
+    }));
+
+    $('[data-personal-interest-status]',interestBox).forEach((button)=>button.addEventListener('click',async()=>{
+      const status=button.dataset.personalInterestStatus;
+      await withButtonLock(button,status==='contacted'?'Updating…':'Closing…',async()=>{
+        const {error}=await db.rpc('admin_update_personal_sale_interest',{
+          p_interest_id:button.dataset.personalInterestId,p_status:status,p_notes:null
+        });
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        await Promise.all([loadPersonalMarketplace(),loadAuditLog()]);
+        globalStatus(status==='contacted'?'Interest request marked contacted. Both customers were notified.':'Interest request closed.');
+      });
+    }));
+  };
+
+  const loadPersonalMarketplace = async () => {
+    const listingBox=$('#adminPersonalSaleList');
+    const interestBox=$('#adminPersonalInterestList');
+    try{
+      const [listingResult,interestResult]=await Promise.all([
+        db.rpc('admin_list_personal_marketplace'),
+        db.rpc('admin_list_personal_sale_interests')
+      ]);
+      if(listingResult.error) throw listingResult.error;
+      if(interestResult.error) throw interestResult.error;
+      state.personalSales=Array.isArray(listingResult.data)?listingResult.data:[];
+      state.personalSaleInterests=Array.isArray(interestResult.data)?interestResult.data:[];
+      renderPersonalMarketplaceAdmin();
+    }catch(error){
+      console.error('Personal marketplace admin load failed:',error);
+      if(listingBox) listingBox.innerHTML='<div class="loading-card admin-load-error">Personal listings could not load: '+escapeHtml(friendlyError(error))+'</div>';
+      if(interestBox) interestBox.innerHTML='<div class="loading-card admin-load-error">Interest requests could not load.</div>';
+      throw error;
+    }
+  };
+
+  $('#refreshPersonalMarketplace')?.addEventListener('click',()=>withButtonLock($('#refreshPersonalMarketplace'),'Refreshing…',loadPersonalMarketplace));
 
   const loadCatalogue = async () => {
     const productBox = $('#adminCatalogueProductList');
@@ -1512,7 +1636,8 @@
     // Catalogue is refreshed again when Admin opens it, so a failure in any
     // unrelated dashboard module cannot leave Seller products hidden.
     if (view === 'products') {
-      loadCatalogue().catch((error) => globalStatus('Catalogue could not load: '+friendlyError(error), 'error'));
+      Promise.all([loadCatalogue(),loadPersonalMarketplace()])
+        .catch((error) => globalStatus('Product management data could not load: '+friendlyError(error), 'error'));
     }
     if (view === 'settings') changeSettingsTab(settingsTab || 'business');
     closeSidebar();
