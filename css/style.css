@@ -457,3 +457,20 @@ body.accommodation-modal-open{overflow:hidden}
 .personal-item-photo-upload{margin-top:12px}
 .selling-submit-button:disabled{opacity:.6;cursor:not-allowed}
 @media(max-width:520px){.personal-sale-preview-row{grid-template-columns:48px 1fr auto!important}.personal-sale-preview-image{width:42px;height:42px}.personal-sale-preview-row .clip-price{font-size:10px}}
+
+
+/* Contact-through-LEOGO for personal item listings */
+.personal-interest-button{margin-top:8px;border:0;background:#07152f;color:#fff;border-radius:10px;padding:10px 12px;font-weight:900;cursor:pointer}
+.personal-interest-mini{border:0;background:#07152f;color:#fff;border-radius:8px;padding:8px 10px;font-size:9px;font-weight:900;cursor:pointer;white-space:nowrap}
+.personal-sale-preview-row{grid-template-columns:54px 1fr auto auto!important}
+.personal-interest-card{max-width:620px}
+.personal-interest-item{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:10px 0 14px;padding:12px;border:1px solid #dfe6ef;border-radius:12px;background:#f8fafc}
+.personal-interest-item strong{font-size:13px}
+.personal-interest-item span{font-size:12px;font-weight:900;color:#ff7800}
+.personal-interest-modal textarea{width:100%;resize:vertical}
+@media(max-width:520px){
+  .personal-sale-preview-row{grid-template-columns:42px 1fr auto!important}
+  .personal-sale-preview-row .clip-price{grid-column:2}
+  .personal-sale-preview-row .personal-interest-mini{grid-column:3;grid-row:1 / span 2}
+  .personal-interest-item{align-items:flex-start;flex-direction:column}
+}
