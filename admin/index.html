@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-v1-23">
+  <link rel="stylesheet" href="admin.css?v=admin-v1-24">
 </head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
@@ -57,6 +57,7 @@
         <button data-admin-view="loyalty"><i>★</i><span>Loyalty &amp; Rewards</span></button>
         <button data-admin-view="reports"><i>↗</i><span>Reports</span></button>
         <span class="nav-label">ADMINISTRATION</span>
+        <button data-admin-view="staff" id="staffManagementNav"><i>♟</i><span>Staff Management</span></button>
         <button data-admin-view="settings" data-settings-tab="business"><i>⚙</i><span>System Settings</span></button>
         <button data-admin-view="audit"><i>◴</i><span>Audit Log</span></button>
       </nav>
@@ -485,6 +486,110 @@
         <div class="settings-panel" data-settings-content="reserved"><div class="reserved-settings-grid"><article><span>▤</span><strong>Order Settings</strong><small>Reserved</small></article><article><span>🚚</span><strong>Delivery Settings</strong><small>Pickup Stations connected</small></article><article><span>💰</span><strong>Wallet/SACCO Settings</strong><small>Core fees connected</small></article><article><span>🪙</span><strong>Lipa Pole Pole Settings</strong><small>Reserved</small></article><article><span>18+</span><strong>Premium Settings</strong><small>Plans connected</small></article><article><span>⌂</span><strong>Accommodation Settings</strong><small>Approvals connected</small></article><article><span>🔔</span><strong>Notifications</strong><small>Reserved</small></article><article><span>🔒</span><strong>Security &amp; Access</strong><small>Admin roles active</small></article><article><span>⚙</span><strong>System Preferences</strong><small>KSh · Africa/Nairobi</small></article></div></div>
       </section>
 
+      <section class="admin-panel" data-admin-panel="staff">
+        <div class="section-head">
+          <div><span>ADMINISTRATION</span><h2>Staff Management</h2><p>Create LEOGO staff accounts, assign role-based permissions, manage Rider details and suspend access without deleting accountability history.</p></div>
+          <button id="refreshStaffDirectory" class="primary-button" type="button">↻ Refresh Staff</button>
+        </div>
+
+        <div class="seller-admin-summary staff-admin-summary">
+          <article><span>Total Staff</span><strong id="staffTotalCount">0</strong><small>Admin + delivery staff</small></article>
+          <article><span>Active Admin Staff</span><strong id="staffAdminCount">0</strong><small>Can access Admin Center</small></article>
+          <article><span>Active Riders</span><strong id="staffRiderCount">0</strong><small>Available for delivery assignment</small></article>
+          <article><span>Suspended / Inactive</span><strong id="staffInactiveCount">0</strong><small>Access restricted</small></article>
+        </div>
+
+        <div class="staff-management-grid">
+          <section class="content-card staff-create-card">
+            <div class="card-head">
+              <div><span>CREATE STAFF ACCOUNT</span><h3>New LEOGO staff member</h3><p>Super Admin creates the login account and assigns only the access needed for the staff member's work.</p></div>
+            </div>
+
+            <form id="createStaffForm" class="staff-form">
+              <div class="staff-form-grid">
+                <label><span>Account type</span>
+                  <select id="staffAccountKind" required>
+                    <option value="admin_staff">Admin Staff</option>
+                    <option value="rider">Rider / Delivery Staff</option>
+                  </select>
+                </label>
+                <label><span>Full name</span><input id="staffDisplayName" type="text" maxlength="120" required></label>
+                <label><span>Email / Login</span><input id="staffEmail" type="email" autocomplete="off" required></label>
+                <label><span>Phone</span><input id="staffPhone" type="tel" autocomplete="off" placeholder="e.g. 0712 345 678"></label>
+                <label class="staff-password-field"><span>Temporary password</span><input id="staffTemporaryPassword" type="text" minlength="8" autocomplete="off" required><button id="generateStaffPassword" type="button">Generate</button></label>
+              </div>
+
+              <div id="adminStaffFields">
+                <div class="staff-form-grid">
+                  <label><span>Staff role</span><select id="staffRole" required></select></label>
+                  <label><span>Department</span><input id="staffDepartment" type="text" maxlength="80"></label>
+                  <label><span>Job title</span><input id="staffJobTitle" type="text" maxlength="100"></label>
+                </div>
+                <div class="staff-role-description" id="staffRoleDescription"></div>
+                <div class="staff-permission-section">
+                  <div class="staff-permission-head"><div><strong>Permissions</strong><small>Role defaults are selected automatically. Super Admin can customise them before account creation.</small></div><button id="resetStaffPermissions" type="button">Reset to Role Defaults</button></div>
+                  <div id="staffPermissionGrid" class="staff-permission-grid"></div>
+                </div>
+              </div>
+
+              <div id="riderStaffFields" hidden>
+                <div class="staff-rider-note"><strong>Rider access is separate from Admin access.</strong><span>The Rider will only see Rider delivery jobs assigned to this account.</span></div>
+                <div class="staff-form-grid">
+                  <label><span>Vehicle type</span><select id="staffVehicleType"><option value="">Select vehicle</option><option>Motorcycle</option><option>Car</option><option>Van</option><option>Bicycle</option><option>On Foot</option></select></label>
+                  <label><span>Registration number</span><input id="staffVehicleRegistration" type="text" maxlength="30" placeholder="e.g. KMDX 123A"></label>
+                  <label><span>National ID <small>(optional)</small></span><input id="staffIdNumber" type="text" maxlength="40"></label>
+                  <label><span>Driving licence <small>(optional)</small></span><input id="staffLicenseNumber" type="text" maxlength="50"></label>
+                </div>
+              </div>
+
+              <div class="staff-security-note"><span>🔒</span><p><strong>Security:</strong> Staff accounts cannot create another Super Admin from this screen. Suspended accounts remain in the audit history. Share temporary passwords privately and ask the staff member to change them after first login.</p></div>
+              <div id="createStaffStatus" class="form-status" aria-live="polite"></div>
+              <button id="createStaffButton" class="primary-button staff-create-button" type="submit">Create Staff Account</button>
+            </form>
+          </section>
+
+          <section class="content-card staff-directory-card">
+            <div class="card-head"><div><span>STAFF DIRECTORY</span><h3>LEOGO team & access</h3><p>Admin officers and Riders are shown together while keeping their access models separate.</p></div></div>
+            <div class="seller-admin-toolbar staff-directory-toolbar">
+              <input id="staffSearch" type="search" placeholder="Search name, email, phone or role…">
+              <select id="staffRoleFilter"><option value="all">All roles</option><option value="admin_staff">All Admin Staff</option><option value="rider">Riders</option><option value="operations">Operations</option><option value="reviewer">Marketplace & Approval</option><option value="finance">Finance</option><option value="support">Customer Support</option><option value="read_only">Read-only</option></select>
+              <select id="staffStatusFilter"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select>
+            </div>
+            <div id="staffDirectoryList" class="staff-directory-list"><div class="loading-card">Loading Staff Directory…</div></div>
+          </section>
+        </div>
+
+        <section id="staffAccessEditor" class="content-card staff-access-editor" hidden>
+          <div class="card-head">
+            <div><span>ACCESS CONTROL</span><h3 id="staffEditorTitle">Manage Staff Access</h3><p id="staffEditorSubtitle">Update role, permissions and account status.</p></div>
+            <button id="closeStaffEditor" type="button" class="secondary">Close</button>
+          </div>
+          <form id="staffAccessForm">
+            <input id="staffEditorUserId" type="hidden">
+            <input id="staffEditorAccountKind" type="hidden">
+            <div class="staff-form-grid">
+              <label><span>Name</span><input id="staffEditorName" type="text" required></label>
+              <label><span>Phone</span><input id="staffEditorPhone" type="tel"></label>
+              <label id="staffEditorRoleWrap"><span>Role</span><select id="staffEditorRole"></select></label>
+              <label><span>Status</span><select id="staffEditorStatus"></select></label>
+              <label id="staffEditorDepartmentWrap"><span>Department</span><input id="staffEditorDepartment" type="text"></label>
+              <label id="staffEditorJobTitleWrap"><span>Job title</span><input id="staffEditorJobTitle" type="text"></label>
+              <label id="staffEditorVehicleWrap" hidden><span>Vehicle type</span><input id="staffEditorVehicleType" type="text"></label>
+              <label id="staffEditorRegistrationWrap" hidden><span>Vehicle registration</span><input id="staffEditorVehicleRegistration" type="text"></label>
+              <label id="staffEditorIdWrap" hidden><span>National ID</span><input id="staffEditorIdNumber" type="text"></label>
+              <label id="staffEditorLicenseWrap" hidden><span>Driving licence</span><input id="staffEditorLicenseNumber" type="text"></label>
+              <label id="staffEditorAvailabilityWrap" hidden><span>Rider availability</span><select id="staffEditorAvailability"><option value="available">Available</option><option value="off_duty">Off duty</option><option value="on_delivery">On delivery</option></select></label>
+            </div>
+            <div id="staffEditorPermissionSection" class="staff-permission-section">
+              <div class="staff-permission-head"><div><strong>Permissions</strong><small>Changes take effect the next time the staff member opens or refreshes Admin Center.</small></div><button id="resetEditorPermissions" type="button">Reset to Role Defaults</button></div>
+              <div id="staffEditorPermissionGrid" class="staff-permission-grid"></div>
+            </div>
+            <div id="staffAccessStatus" class="form-status" aria-live="polite"></div>
+            <div class="staff-editor-actions"><button id="saveStaffAccess" class="primary-button" type="submit">Save Staff Access</button></div>
+          </form>
+        </section>
+      </section>
+
       <section class="admin-panel" data-admin-panel="audit">
         <div class="section-head"><div><span>ACCOUNTABILITY</span><h2>Audit Log</h2><p>Immutable history of sensitive Admin actions and setting changes.</p></div><button class="primary-button" id="refreshAudit" type="button">↻ Refresh</button></div>
         <div class="table-card"><div class="responsive-table"><table><thead><tr><th>Date &amp; Time</th><th>Admin</th><th>Action</th><th>Entity</th><th>Reference</th></tr></thead><tbody id="auditTableBody"><tr><td colspan="5">Loading audit history…</td></tr></tbody></table></div></div>
@@ -508,6 +613,6 @@
   <div class="modal" id="pickupStationModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="pickupStationForm"><header><div><span>DELIVERY SETTINGS</span><h2 id="pickupModalTitle">Add Pickup Station</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label class="wide"><span>Station name</span><input name="station_name" required></label><label><span>County</span><input name="county" required></label><label><span>Sub-County</span><input name="sub_county" required></label><label><span>Town</span><input name="town" required></label><label><span>Door number</span><input name="door_number"></label><label class="wide"><span>Address</span><input name="address_line" required></label><label><span>Landmark</span><input name="landmark"></label><label><span>Contact phone</span><input name="contact_phone"></label><label class="wide"><span>Operating information</span><input name="operating_hours" placeholder="e.g. Monday–Saturday, 8:00 AM–6:00 PM"></label><label><span>Pickup service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.001" required></label><label><span>Display order</span><input name="display_order" type="number" min="0" max="999" value="0"></label><label class="switch-label"><input name="is_active" type="checkbox" checked><span>Station is active</span></label></div><div class="form-status" id="pickupStationStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Pickup Station</button></footer></form></div>
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
-  <script src="admin.js?v=admin-v1-32" defer></script>
+  <script src="admin.js?v=admin-v1-33" defer></script>
 </body>
 </html>
