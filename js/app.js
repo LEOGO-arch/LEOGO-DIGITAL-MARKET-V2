@@ -1614,6 +1614,7 @@
       });
       if(error) throw error;
       personalInterestStatus.textContent='✓ Interest sent. LEOGO Admin will coordinate contact between you and the item owner.';
+      loadCustomerNotifications().catch(()=>{});
       window.setTimeout(closePersonalInterest,1800);
     }catch(error){
       personalInterestStatus.textContent=error?.message || 'Your interest request could not be sent. Please try again.';
@@ -1621,6 +1622,95 @@
       if(button){button.disabled=false;button.textContent=original;}
     }
   });
+
+  const openNotifications = document.getElementById('openNotifications');
+  const closeNotifications = document.getElementById('closeNotifications');
+  const customerNotificationPanel = document.getElementById('customerNotificationPanel');
+  const customerNotificationScrim = document.getElementById('customerNotificationScrim');
+  const customerNotificationList = document.getElementById('customerNotificationList');
+  const headerNotificationCount = document.getElementById('headerNotificationCount');
+  const notificationUnreadText = document.getElementById('notificationUnreadText');
+  const markAllNotificationsRead = document.getElementById('markAllNotificationsRead');
+  let customerNotifications = [];
+
+  const renderCustomerNotifications = () => {
+    const unread = customerNotifications.filter((item)=>!item.read_at).length;
+    if(headerNotificationCount) headerNotificationCount.textContent=String(unread);
+    if(notificationUnreadText) notificationUnreadText.textContent=unread+' unread';
+    if(!customerNotificationList) return;
+
+    if(!window.leogoAuth?.isAuthenticated?.()){
+      customerNotificationList.innerHTML='<div class="customer-notification-empty">Sign in to see your LEOGO notifications.</div>';
+      return;
+    }
+
+    customerNotificationList.innerHTML=customerNotifications.length
+      ? customerNotifications.map((item)=>'<button type="button" class="customer-notification-item'+(item.read_at?'':' unread')+'" data-customer-notification-id="'+receiptEscape(item.id)+'">'+
+          '<strong>'+receiptEscape(item.title)+'</strong>'+
+          '<span>'+receiptEscape(item.message)+'</span>'+
+          '<small>'+new Date(item.created_at).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Nairobi'})+'</small>'+
+        '</button>').join('')
+      : '<div class="customer-notification-empty">No notifications yet.</div>';
+  };
+
+  const loadCustomerNotifications = async () => {
+    const client=window.leogoAuth?.client;
+    if(!client || !window.leogoAuth?.isAuthenticated?.()){
+      customerNotifications=[];
+      renderCustomerNotifications();
+      return;
+    }
+    const {data,error}=await client.from('customer_notifications')
+      .select('id,notification_type,title,message,source_type,source_id,action_view,metadata,read_at,created_at')
+      .order('created_at',{ascending:false})
+      .limit(30);
+    if(error){console.warn('Customer notifications could not load:',error);return;}
+    customerNotifications=Array.isArray(data)?data:[];
+    renderCustomerNotifications();
+  };
+
+  const closeCustomerNotifications = () => {
+    if(customerNotificationPanel) customerNotificationPanel.hidden=true;
+    if(customerNotificationScrim) customerNotificationScrim.hidden=true;
+    openNotifications?.setAttribute('aria-expanded','false');
+  };
+
+  const showCustomerNotifications = async () => {
+    if(!window.leogoAuth?.isAuthenticated?.()){
+      window.leogoAuth?.requireLogin?.('Please log in to view your LEOGO notifications.');
+      return;
+    }
+    await loadCustomerNotifications();
+    if(customerNotificationPanel) customerNotificationPanel.hidden=false;
+    if(customerNotificationScrim) customerNotificationScrim.hidden=false;
+    openNotifications?.setAttribute('aria-expanded','true');
+  };
+
+  openNotifications?.addEventListener('click',()=>{
+    if(customerNotificationPanel?.hidden) showCustomerNotifications();
+    else closeCustomerNotifications();
+  });
+  closeNotifications?.addEventListener('click',closeCustomerNotifications);
+  customerNotificationScrim?.addEventListener('click',closeCustomerNotifications);
+
+  customerNotificationList?.addEventListener('click',async(event)=>{
+    const button=event.target.closest('[data-customer-notification-id]');
+    if(!button) return;
+    const item=customerNotifications.find((row)=>row.id===button.dataset.customerNotificationId);
+    if(!item || item.read_at) return;
+    const {error}=await window.leogoAuth.client.rpc('mark_customer_notification_read',{p_notification_id:item.id});
+    if(!error) await loadCustomerNotifications();
+  });
+
+  markAllNotificationsRead?.addEventListener('click',async()=>{
+    if(!window.leogoAuth?.isAuthenticated?.()) return;
+    const {error}=await window.leogoAuth.client.rpc('mark_all_customer_notifications_read');
+    if(!error) await loadCustomerNotifications();
+  });
+
+  document.addEventListener('leogo:authchange',()=>loadCustomerNotifications());
+  window.setTimeout(loadCustomerNotifications,800);
+  window.setInterval(()=>{ if(window.leogoAuth?.isAuthenticated?.()) loadCustomerNotifications(); },60000);
 
   cartShellItems?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-cart-action]');
