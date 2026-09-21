@@ -992,7 +992,7 @@
     try {
       const pickupStation = checkoutDeliveryZone?.value === 'pickup' ? selectedPickupStation() : null;
       const { data, error } = await window.leogoAuth.client.rpc('customer_create_marketplace_order', {
-        p_items: testCart.map(item => ({ product_id: item.productId, quantity: item.quantity })),
+        p_items: testCart.map(item => ({ product_id: item.productId, variant_id: item.variantId || null, quantity: item.quantity })),
         p_receiver_name: document.getElementById('checkoutReceiverName')?.value.trim(),
         p_contact_number: document.getElementById('checkoutContactNumber')?.value.trim(),
         p_delivery_zone: checkoutDeliveryZone?.value,
@@ -1331,17 +1331,27 @@
   };
 
   const renderSellerProductCard = (product) => {
-    const available = product.availability_status === 'available' && Number(product.quantity_available || 0) > 0;
-    const imageUrl = sellerProductMediaUrl(product.main_image_path);
     const variants = Array.isArray(product.variants) ? product.variants : [];
-    const variantMarkup = variants.length
-      ? '<div class="live-product-variants">'+variants.map((variant) =>
-          '<span><b>'+receiptEscape(variant.variant_name)+'</b><small>'+money(variant.price_kes)+' · Qty '+Number(variant.quantity_available || 0)+'</small></span>'
-        ).join('')+'</div>'
+    const activeVariants = variants.filter((variant) => variant.is_active !== false);
+    const hasVariants = Boolean(product.has_variants && activeVariants.length);
+    const variantStock = activeVariants.reduce((sum, variant) => sum + Number(variant.quantity_available || 0), 0);
+    const available = product.availability_status === 'available'
+      && (hasVariants ? variantStock > 0 : Number(product.quantity_available || 0) > 0);
+    const imageUrl = sellerProductMediaUrl(product.main_image_path);
+
+    const variantMarkup = hasVariants
+      ? '<div class="live-product-variant-picker"><small>Choose variant</small><div class="live-product-variants">'+activeVariants.map((variant) => {
+          const variantAvailable = Number(variant.quantity_available || 0) > 0;
+          const variantImage = sellerProductMediaUrl(variant.image_path);
+          return '<button type="button" class="live-product-variant-option" data-product-variant="'+receiptEscape(variant.id)+'" data-product-id="'+receiptEscape(product.id)+'" data-variant-name="'+receiptEscape(variant.variant_name)+'" data-variant-price="'+Number(variant.price_kes || 0)+'" data-variant-stock="'+Number(variant.quantity_available || 0)+'" data-variant-image="'+receiptEscape(variantImage)+'" '+(variantAvailable?'':'disabled')+'>'+
+            (variantImage?'<img src="'+receiptEscape(variantImage)+'" alt="">':'')+
+            '<span><b>'+receiptEscape(variant.variant_name)+'</b><small>'+money(variant.price_kes)+' · Qty '+Number(variant.quantity_available || 0)+'</small></span>'+
+          '</button>';
+        }).join('')+'</div><p class="live-variant-selection-note" data-variant-selection-note>Select one variant before adding to cart.</p></div>'
       : '';
 
-    return '<article class="live-product-card" data-live-product-card="'+receiptEscape(product.id)+'">'+
-      '<div class="live-product-image">'+
+    return '<article class="live-product-card" data-live-product-card="'+receiptEscape(product.id)+'" data-has-variants="'+(hasVariants?'true':'false')+'">'+
+      '<div class="live-product-image" data-live-product-image>'+
         (imageUrl
           ? '<img src="'+receiptEscape(imageUrl)+'" alt="'+receiptEscape(product.product_name)+'">'
           : '<span>'+categoryIcon(product.category_code)+'</span>')+
@@ -1352,11 +1362,11 @@
         '</div>'+
         '<h3>'+receiptEscape(product.product_name)+'</h3>'+
         '<p class="live-product-seller">'+receiptEscape(product.seller_name || 'LEOGO Seller')+'</p>'+
-        '<div class="live-product-price-row"><strong>'+money(product.price_kes)+'</strong><span>Qty '+Number(product.quantity_available || 0)+' '+receiptEscape(product.measurement_unit || 'item')+'</span></div>'+
+        '<div class="live-product-price-row"><strong data-live-product-price>'+money(product.price_kes)+'</strong><span data-live-product-stock>Qty '+Number(hasVariants?variantStock:product.quantity_available || 0)+' '+receiptEscape(product.measurement_unit || 'item')+'</span></div>'+
         '<p class="live-product-description">'+receiptEscape(String(product.product_details || '').slice(0,180))+'</p>'+
         variantMarkup+
         '<button type="button" data-live-add-cart data-product-id="'+receiptEscape(product.id)+'" '+(available ? '' : 'disabled')+'>'+
-          (available ? '＋ Add to Cart' : 'Out of Stock')+
+          (available ? (hasVariants ? 'Choose Variant' : '＋ Add to Cart') : 'Out of Stock')+
         '</button>'+
       '</div>'+
     '</article>';
@@ -1482,32 +1492,96 @@
     const product = marketplaceProducts.find((item) => item.id === button.dataset.productId);
     if (!product) return;
 
-    const existing = testCart.find((item) => item.productId === product.id);
-    if (existing) existing.quantity += 1;
-    else testCart.push({
-      id: product.id,
-      productId: product.id,
-      sellerId: product.seller_id,
-      sellerName: product.seller_name,
-      name: product.product_name,
-      price: Number(product.price_kes),
-      deposit: Number(product.lipa_pole_pole_first_deposit_kes || 0),
-      lppDays: Number(product.lipa_pole_pole_max_days || 0),
-      icon: categoryIcon(product.category_code),
-      quantity: 1
-    });
+    const card = button.closest('[data-live-product-card]');
+    const hasVariants = card?.dataset.hasVariants === 'true';
+    const selectedVariantId = card?.dataset.selectedVariantId || '';
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    const variant = selectedVariantId ? variants.find((item) => item.id === selectedVariantId) : null;
+
+    if (hasVariants && !variant) {
+      const note = card?.querySelector('[data-variant-selection-note]');
+      if (note) note.textContent = 'Choose a variant first.';
+      button.textContent = 'Choose Variant';
+      return;
+    }
+
+    const stock = Number(variant ? variant.quantity_available : product.quantity_available || 0);
+    if (stock <= 0) {
+      button.textContent = 'Out of Stock';
+      button.disabled = true;
+      return;
+    }
+
+    const cartId = variant ? product.id+':'+variant.id : product.id;
+    const existing = testCart.find((item) => item.id === cartId);
+
+    if (existing) {
+      if (existing.quantity >= stock) {
+        const note = card?.querySelector('[data-variant-selection-note]');
+        if (note) note.textContent = 'Maximum available stock already in your cart.';
+        return;
+      }
+      existing.quantity += 1;
+      existing.stock = stock;
+    } else {
+      testCart.push({
+        id: cartId,
+        productId: product.id,
+        variantId: variant?.id || null,
+        variantName: variant?.variant_name || null,
+        sellerId: product.seller_id,
+        sellerName: product.seller_name,
+        name: variant ? product.product_name+' — '+variant.variant_name : product.product_name,
+        productName: product.product_name,
+        price: Number(variant ? variant.price_kes : product.price_kes),
+        stock,
+        deposit: Number(product.lipa_pole_pole_first_deposit_kes || 0),
+        lppDays: Number(product.lipa_pole_pole_max_days || 0),
+        icon: categoryIcon(product.category_code),
+        quantity: 1
+      });
+    }
 
     saveTestCart();
     renderTestCart();
 
     const feedback = document.getElementById('testCartFeedback');
-    if (feedback) feedback.textContent = product.product_name + ' added to cart.';
+    if (feedback) feedback.textContent = (variant ? product.product_name+' — '+variant.variant_name : product.product_name) + ' added to cart.';
     const original = button.textContent;
     button.textContent = '✓ Added';
-    window.setTimeout(() => { if (button.isConnected) button.textContent = original; }, 900);
+    window.setTimeout(() => {
+      if (button.isConnected) button.textContent = hasVariants ? '＋ Add Selected Variant' : original;
+    }, 900);
   };
 
   liveProductGrid?.addEventListener('click', (event) => {
+    const variantButton = event.target.closest('[data-product-variant]');
+    if (variantButton) {
+      const product = marketplaceProducts.find((item) => item.id === variantButton.dataset.productId);
+      const card = variantButton.closest('[data-live-product-card]');
+      if (!product || !card || variantButton.disabled) return;
+
+      card.querySelectorAll('[data-product-variant]').forEach((item) => item.classList.toggle('selected', item === variantButton));
+      card.dataset.selectedVariantId = variantButton.dataset.productVariant;
+
+      const price = card.querySelector('[data-live-product-price]');
+      const stock = card.querySelector('[data-live-product-stock]');
+      const note = card.querySelector('[data-variant-selection-note]');
+      const addButton = card.querySelector('[data-live-add-cart]');
+      const imageWrap = card.querySelector('[data-live-product-image]');
+
+      if (price) price.textContent = money(Number(variantButton.dataset.variantPrice || 0));
+      if (stock) stock.textContent = 'Qty '+Number(variantButton.dataset.variantStock || 0)+' '+(product.measurement_unit || 'item');
+      if (note) note.textContent = 'Selected: '+variantButton.dataset.variantName;
+      if (addButton) addButton.textContent = '＋ Add Selected Variant';
+
+      const variantImage = variantButton.dataset.variantImage;
+      if (variantImage && imageWrap) {
+        imageWrap.innerHTML = '<img src="'+receiptEscape(variantImage)+'" alt="'+receiptEscape(product.product_name+' '+variantButton.dataset.variantName)+'">';
+      }
+      return;
+    }
+
     addLiveProductToCart(event.target.closest('[data-live-add-cart]'));
   });
 
@@ -1730,7 +1804,10 @@
     if (!button || !row) return;
     const index = testCart.findIndex((item) => item.id === row.dataset.cartItem);
     if (index < 0) return;
-    if (button.dataset.cartAction === 'increase') testCart[index].quantity += 1;
+    if (button.dataset.cartAction === 'increase') {
+      const maxStock = Number(testCart[index].stock || 0);
+      if (!maxStock || testCart[index].quantity < maxStock) testCart[index].quantity += 1;
+    }
     if (button.dataset.cartAction === 'decrease') {
       testCart[index].quantity -= 1;
       if (testCart[index].quantity <= 0) testCart.splice(index, 1);
@@ -1980,7 +2057,7 @@
     if (['services','transport'].includes(customerActivityFilter)) rows = [];
     if (customerActivityFilter === 'products') rows = customerMarketplaceOrders;
     container.innerHTML = rows.map(order => {
-      const items=(order.items||[]).map(i=>'<li>'+receiptEscape(i.product_name)+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
+      const items=(order.items||[]).map(i=>'<li>'+receiptEscape(i.product_name)+(i.variant_name?' — <b>'+receiptEscape(i.variant_name)+'</b>':'')+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
       const sellers=(order.seller_fulfilments||[]).map(s=>'<span>'+receiptEscape(s.seller_name)+' — <b>'+receiptEscape(String(s.fulfilment_status).replaceAll('_',' '))+'</b></span>').join('');
       const rider = order.rider_name ? '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>'+receiptEscape(order.rider_name)+'</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(String(order.delivery_status||'awaiting_assignment').replaceAll('_',' '))+'</strong></span></div>' : '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>Awaiting assignment</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(String(order.delivery_status||'awaiting_assignment').replaceAll('_',' '))+'</strong></span></div>';
       return '<article class="customer-order-card"><header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+formatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header><ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+'<div class="customer-order-total"><span>Total</span><strong>'+money(order.grand_total_kes)+'</strong></div></article>';
