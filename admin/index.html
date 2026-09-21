@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-v1-20">
+  <link rel="stylesheet" href="admin.css?v=admin-v1-21">
 </head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
@@ -187,6 +187,22 @@
         <section class="content-card">
           <div class="card-head"><div><span>SELLER PRODUCTS</span><h3>Products received from Partner Portal</h3><p>Every saved Seller product appears here automatically from the shared Supabase backend.</p></div></div>
           <div id="adminCatalogueProductList" class="admin-catalogue-product-list"><div class="loading-card">Loading Seller products…</div></div>
+        </section>
+
+        <section class="content-card personal-market-admin-card">
+          <div class="card-head">
+            <div><span>PERSONAL MARKETPLACE</span><h3>Customer one-off item listings</h3><p>Manage approved personal listings and LEOGO-mediated buyer interest requests without exposing private contacts publicly.</p></div>
+            <button id="refreshPersonalMarketplace" class="primary-button" type="button">↻ Refresh Personal Market</button>
+          </div>
+          <div class="seller-admin-summary personal-market-summary">
+            <article><span>Personal Listings</span><strong id="adminPersonalSaleTotal">0</strong><small>All submitted one-off items</small></article>
+            <article><span>Available</span><strong id="adminPersonalSaleAvailable">0</strong><small>Currently public</small></article>
+            <article><span>Sold / Removed</span><strong id="adminPersonalSaleClosed">0</strong><small>Not shown publicly</small></article>
+            <article><span>Open Interest</span><strong id="adminPersonalInterestOpen">0</strong><small>Needs LEOGO follow-up</small></article>
+          </div>
+          <div id="adminPersonalSaleList" class="admin-personal-sale-list"><div class="loading-card">Loading personal listings…</div></div>
+          <div class="card-head personal-interest-head"><div><span>CONTACT THROUGH LEOGO</span><h3>Buyer interest requests</h3><p>Only Admin sees buyer and item-owner contact details. Use these requests to coordinate contact safely.</p></div></div>
+          <div id="adminPersonalInterestList" class="admin-personal-interest-list"><div class="loading-card">Loading interest requests…</div></div>
         </section>
 
         <section class="content-card">
@@ -426,6 +442,6 @@
   <div class="modal" id="pickupStationModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="pickupStationForm"><header><div><span>DELIVERY SETTINGS</span><h2 id="pickupModalTitle">Add Pickup Station</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label class="wide"><span>Station name</span><input name="station_name" required></label><label><span>County</span><input name="county" required></label><label><span>Sub-County</span><input name="sub_county" required></label><label><span>Town</span><input name="town" required></label><label><span>Door number</span><input name="door_number"></label><label class="wide"><span>Address</span><input name="address_line" required></label><label><span>Landmark</span><input name="landmark"></label><label><span>Contact phone</span><input name="contact_phone"></label><label class="wide"><span>Operating information</span><input name="operating_hours" placeholder="e.g. Monday–Saturday, 8:00 AM–6:00 PM"></label><label><span>Pickup service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.001" required></label><label><span>Display order</span><input name="display_order" type="number" min="0" max="999" value="0"></label><label class="switch-label"><input name="is_active" type="checkbox" checked><span>Station is active</span></label></div><div class="form-status" id="pickupStationStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Pickup Station</button></footer></form></div>
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
-  <script src="admin.js?v=admin-v1-28" defer></script>
+  <script src="admin.js?v=admin-v1-29" defer></script>
 </body>
 </html>
