@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-v1-32">
+  <link rel="stylesheet" href="admin.css?v=admin-v1-33">
 </head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
@@ -305,6 +305,7 @@
           <article><span>Active Listings</span><strong id="adminCatalogueActive">0</strong><small>Visible catalogue listings</small></article>
           <article><span>Products With Variants</span><strong id="adminCatalogueVariants">0</strong><small>Variant-enabled items</small></article>
           <article><span>Categories</span><strong id="adminCatalogueCategories">0</strong><small>Configured product categories</small></article>
+          <article><span>Pending Reviews</span><strong id="adminProductReviewPending">0</strong><small>Customer product reviews awaiting approval</small></article>
         </div>
 
         <div class="seller-admin-toolbar admin-catalogue-toolbar">
@@ -323,6 +324,22 @@
         <section class="content-card">
           <div class="card-head"><div><span>SELLER PRODUCTS</span><h3>Products received from Partner Portal</h3><p>Every saved Seller product appears here automatically from the shared Supabase backend.</p></div></div>
           <div id="adminCatalogueProductList" class="admin-catalogue-product-list"><div class="loading-card">Loading Seller products…</div></div>
+        </section>
+
+        <section class="content-card admin-product-reviews-card">
+          <div class="card-head">
+            <div><span>PRODUCT REVIEWS</span><h3>Customer Reviews Awaiting Moderation</h3><p>Only reviews from verified delivered purchases enter this queue. Approved reviews become public and contribute to the product rating.</p></div>
+            <div class="admin-product-review-controls">
+              <select id="adminProductReviewStatusFilter">
+                <option value="submitted">Pending approval</option>
+                <option value="all">All reviews</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <button id="refreshProductReviews" class="primary-button" type="button">↻ Refresh Reviews</button>
+            </div>
+          </div>
+          <div id="adminProductReviewList" class="admin-product-review-list"><div class="loading-card">Loading product reviews…</div></div>
         </section>
 
         <section class="content-card personal-market-admin-card">
@@ -718,6 +735,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=admin-v1-48" defer></script>
+  <script src="admin.js?v=admin-v1-49" defer></script>
 </body>
 </html>
