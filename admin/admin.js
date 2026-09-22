@@ -19,6 +19,7 @@
     marketplaceOrders: [],
     activeMarketplaceOrderId: null,
     activeMarketplaceOrderDetail: null,
+    orderDetailLoadToken: 0,
     catalogueProducts: [],
     catalogueCategories: [],
     personalSales: [],
@@ -144,9 +145,27 @@
     const original = button.textContent;
     button.disabled = true;
     button.textContent = label;
-    try { return await work(); }
-    finally { button.disabled = false; button.textContent = original; }
+    try {
+      return await work();
+    } catch (error) {
+      globalStatus(friendlyError(error), 'error');
+      return null;
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
   };
+
+  window.addEventListener('unhandledrejection',(event)=>{
+    const message=friendlyError(event.reason);
+    globalStatus('Admin action stopped safely: '+message,'error');
+    console.error('LEOGO Admin unhandled action error:',event.reason);
+  });
+  window.addEventListener('error',(event)=>{
+    const message=friendlyError(event.error||event.message);
+    globalStatus('Admin screen error: '+message,'error');
+    console.error('LEOGO Admin runtime error:',event.error||event.message);
+  });
 
   const adminHas = (permission) => {
     const admin = state.admin;
@@ -1133,13 +1152,13 @@
     });
   };
 
-  const loadMarketplaceOrders = async () => {
+  const loadMarketplaceOrders = async ({refreshActiveDetail=false}={}) => {
     const {data,error}=await db.rpc('admin_list_marketplace_orders');
     if(error) throw error;
     state.marketplaceOrders=Array.isArray(data)?data:[];
     renderMarketplaceOrders();
 
-    if(state.activeMarketplaceOrderId && !$('#adminOrderDetailPanel')?.hidden){
+    if(refreshActiveDetail && state.activeMarketplaceOrderId && !$('#adminOrderDetailPanel')?.hidden){
       await loadMarketplaceOrderDetail(state.activeMarketplaceOrderId,{scroll:false});
     }
   };
@@ -1226,7 +1245,7 @@
         return;
       }
 
-      await Promise.all([loadMarketplaceOrders(),loadAuditLog()]);
+      await Promise.all([loadMarketplaceOrders({refreshActiveDetail:false}),loadAuditLog()]);
       if(state.activeMarketplaceOrderId===orderId){
         await loadMarketplaceOrderDetail(orderId,{scroll:false});
       }
@@ -1803,7 +1822,7 @@
         showOrderDeliveryStatus(status==='sorting_received'
           ?'Order received at LEOGO Sorting Center.'
           :'Order is ready for dispatch. The assigned Rider can continue delivery.','success');
-        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders(),loadAuditLog()]);
+        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders({refreshActiveDetail:false}),loadAuditLog()]);
         await loadMarketplaceOrderDetail(order.id,{scroll:false});
       }catch(error){
         showOrderDeliveryStatus(friendlyError(error),'error');
@@ -1829,7 +1848,7 @@
         if(error) throw error;
         if(data?.error) throw new Error(data.error);
         showOrderDeliveryStatus('Rider instructions saved successfully.','success');
-        await Promise.all([loadAuditLog(),loadMarketplaceOrders()]);
+        await Promise.all([loadAuditLog(),loadMarketplaceOrders({refreshActiveDetail:false})]);
         await loadMarketplaceOrderDetail(order.id,{scroll:false});
       }catch(error){
         showOrderDeliveryStatus(friendlyError(error),'error');
@@ -1880,7 +1899,7 @@
         if(data?.error) throw new Error(data.error);
 
         showOrderDeliveryStatus('Rider assigned successfully. Customer, Seller and Rider were notified.','success');
-        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders(),loadAuditLog()]);
+        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders({refreshActiveDetail:false}),loadAuditLog()]);
         await loadMarketplaceOrderDetail(order.id,{scroll:false});
       }catch(error){
         showOrderDeliveryStatus(friendlyError(error),'error');
@@ -1890,6 +1909,7 @@
 
   const loadMarketplaceOrderDetail=async(orderId,{scroll=true}={})=>{
     const panel=$('#adminOrderDetailPanel');
+    const loadToken=++state.orderDetailLoadToken;
     state.activeMarketplaceOrderId=orderId;
     state.activeMarketplaceOrderDetail=null;
 
@@ -1913,6 +1933,7 @@
       db.rpc('admin_list_riders'),
       db.rpc('admin_get_delivery_sorting_state',{p_order_id:orderId})
     ]);
+    if(loadToken!==state.orderDetailLoadToken || state.activeMarketplaceOrderId!==orderId) return;
     if(detailResult.error){
       state.activeMarketplaceOrderDetail=null;
       setFormStatus($('#adminOrderDetailStatus'),friendlyError(detailResult.error),'error');
@@ -1933,6 +1954,7 @@
   };
 
   const closeMarketplaceOrderDetail=()=>{
+    state.orderDetailLoadToken++;
     state.activeMarketplaceOrderId=null;
     state.activeMarketplaceOrderDetail=null;
     if($('#adminOrderDetailPanel')) $('#adminOrderDetailPanel').hidden=true;
@@ -2485,7 +2507,7 @@
         const {error}=await db.rpc('admin_assign_rider_to_order',{p_order_id:button.dataset.assignDelivery,p_rider_id:select.value});
         if(error){globalStatus(friendlyError(error),'error');return;}
         globalStatus('Order assigned to LEOGO rider. Customer and Seller were notified.');
-        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders(),loadAuditLog()]);
+        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders({refreshActiveDetail:false}),loadAuditLog()]);
       });
     }));
   };
