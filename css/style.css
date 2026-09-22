@@ -489,3 +489,78 @@ body.accommodation-modal-open{overflow:hidden}
 .live-product-variant-option:disabled{opacity:.5;cursor:not-allowed}
 .live-variant-selection-note{margin:0;font-size:8px;color:#7a8494}
 @media(max-width:430px){.live-product-variants{grid-template-columns:1fr}}
+
+
+/* Customer order lifecycle, dashboard history, reviews and aftersales */
+.customer-dashboard-orders{margin-top:14px;padding:14px;border:1px solid #dfe5ee;border-radius:16px;background:#fff}
+.customer-dashboard-orders-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.customer-dashboard-orders-head>div{display:grid;gap:2px}
+.customer-dashboard-orders-head span{font-size:8px;font-weight:950;letter-spacing:.08em;color:#ff7800}
+.customer-dashboard-orders-head h4{margin:0;font-size:14px;color:#07152f}
+.customer-dashboard-orders-head button{border:1px solid #d8e0ea;background:#fff;color:#07152f;border-radius:9px;padding:8px 10px;font-size:9px;font-weight:900;cursor:pointer}
+.customer-dashboard-order-list{display:grid;gap:10px}
+.customer-dashboard-order-empty{padding:16px;border:1px dashed #d4dde8;border-radius:11px;color:#7a8495;font-size:10px;text-align:center}
+.customer-dashboard-order-card{border:1px solid #e0e6ee;border-radius:13px;padding:12px;background:#f9fbfd}
+.customer-dashboard-order-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.customer-dashboard-order-top>div{display:grid;gap:3px}
+.customer-dashboard-order-top small{font-size:8px;color:#8993a2;font-weight:900}
+.customer-dashboard-order-top strong{font-size:12px;color:#07152f}
+.customer-dashboard-order-top span{font-size:9px;color:#798596}
+.customer-dashboard-order-top>b{border-radius:999px;padding:6px 8px;font-size:8px;white-space:nowrap}
+.customer-dashboard-order-top>b.active{background:#fff0e3;color:#bd5200}
+.customer-dashboard-order-top>b.complete{background:#eaf8ef;color:#16713d}
+.customer-dashboard-order-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+.customer-dashboard-order-bottom>strong{font-size:14px;color:#07152f}
+.customer-dashboard-order-bottom>div{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.customer-dashboard-order-bottom button,.customer-order-complete-actions button{border:0;border-radius:8px;background:#ff7800;color:#fff;padding:8px 10px;font-size:8px;font-weight:900;cursor:pointer}
+.customer-dashboard-order-bottom button.secondary,.customer-order-complete-actions button.secondary{background:#fff;color:#07152f;border:1px solid #ccd6e3}
+
+.customer-order-history-wrap{display:grid;gap:8px;margin-top:11px;padding:11px;border:1px solid #e1e7ef;border-radius:11px;background:#fbfcfe}
+.customer-order-history-title{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.customer-order-history-title span{font-size:8px;font-weight:950;letter-spacing:.08em;color:#637186}
+.customer-order-history-title strong{font-size:8px;color:#ff7800}
+.customer-order-history{display:grid;gap:0}
+.customer-order-history-event{position:relative;display:grid;grid-template-columns:16px 1fr;gap:8px;min-height:48px}
+.customer-order-history-event>i{width:10px;height:10px;border:2px solid #cbd5e1;border-radius:50%;margin-top:3px;position:relative;background:#fff}
+.customer-order-history-event:not(:last-child)>i:after{content:"";position:absolute;left:2px;top:9px;width:2px;height:38px;background:#dce4ed}
+.customer-order-history-event.done>i{border-color:#22a35a;background:#22a35a}
+.customer-order-history-event>div{display:grid;gap:2px;padding-bottom:11px}
+.customer-order-history-event strong{font-size:10px;color:#07152f}
+.customer-order-history-event small{font-size:8px;color:#8590a0}
+.customer-order-history-event span{font-size:9px;line-height:1.45;color:#5f6d80}
+.customer-order-history.compact{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:9px}
+.customer-order-history.compact .customer-order-history-event{grid-template-columns:1fr;min-height:0;padding:7px;border-radius:8px;background:#fff}
+.customer-order-history.compact .customer-order-history-event>i{display:none}
+.customer-order-history.compact .customer-order-history-event>div{padding:0}
+.customer-order-history.compact .customer-order-history-event strong{font-size:8px}
+.customer-order-history.compact .customer-order-history-event small{font-size:7px}
+
+.customer-order-complete-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.customer-review-summary{display:grid;gap:4px;margin-top:9px;padding:9px 10px;border-radius:10px;background:#fff8e8;border:1px solid #f2dfae}
+.customer-review-summary strong{font-size:15px;letter-spacing:1px;color:#f59e0b}
+.customer-review-summary span{font-size:9px;line-height:1.45;color:#615e55}
+.customer-order-review-box{margin-top:9px;padding:11px;border:1px solid #dce4ee;border-radius:11px;background:#f8fafc}
+.customer-order-review-box[hidden]{display:none}
+.customer-order-review-box form{display:grid;gap:9px}
+.customer-order-review-box label{display:grid;gap:5px}
+.customer-order-review-box label>span{font-size:8px;font-weight:900;color:#59677a}
+.customer-order-review-box select,.customer-order-review-box textarea{width:100%;border:1px solid #cfd8e4;border-radius:9px;background:#fff;padding:9px;font:inherit;font-size:9px;color:#07152f}
+.customer-order-review-box textarea{resize:vertical}
+.customer-order-review-box button{border:0;border-radius:9px;background:#ff7800;color:#fff;padding:9px 11px;font-size:9px;font-weight:900;cursor:pointer}
+.customer-order-action-status{min-height:16px;font-size:8px}
+.customer-order-action-status.is-success,.auth-preview-status.is-success{color:#157a45}
+.customer-order-action-status.is-error,.auth-preview-status.is-error{color:#b42318}
+
+#aftersalesOrderId,#aftersalesActivityType,#aftersalesIssueType,#aftersalesPreferredSolution{
+  width:100%;border:1px solid #dce2ec;border-radius:9px;padding:10px;font-size:9px;background:#fff;color:#07152f
+}
+
+@media(max-width:700px){
+  .customer-order-history.compact{grid-template-columns:1fr 1fr}
+  .customer-dashboard-order-bottom{align-items:flex-start;flex-direction:column}
+  .customer-dashboard-order-bottom>div{justify-content:flex-start}
+}
+@media(max-width:460px){
+  .customer-dashboard-orders-head{align-items:flex-start;flex-direction:column}
+  .customer-order-history.compact{grid-template-columns:1fr}
+}
