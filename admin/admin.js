@@ -1609,6 +1609,9 @@
     const sellers=Array.isArray(detail.sellers)?detail.sellers:[];
     const delivery=detail.delivery||null;
     const readiness=sellerReadiness(sellers);
+    const codNeedsCollection=String(order.payment_method||'').toLowerCase()==='cod'
+      && !['cod_paid','verified_paid'].includes(String(order.payment_status||'').toLowerCase());
+    const codInstruction='COD: Collect and confirm the full '+formatMoney(order.grand_total_kes)+' payment before handing over the order to the customer.';
 
     panel.hidden=false;
     if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=false;
@@ -1700,6 +1703,17 @@
         '<span><small>Rider phone</small><strong>'+escapeHtml(delivery?.rider_phone||'—')+'</strong></span>'+
       '</div>'+
       '<div class="admin-order-timeline admin-order-delivery-timeline">'+deliveryTimeline.map(([label,date])=>'<span class="'+(date?'done':'')+'"><i></i><b>'+escapeHtml(label)+'</b><small>'+escapeHtml(date?formatDate(date,true):'Pending')+'</small></span>').join('')+'</div>'+
+      (codNeedsCollection
+        ? '<div class="admin-order-cod-warning"><strong>💵 COD — payment must be collected before customer handover</strong><span>'+escapeHtml(codInstruction)+'</span></div>'
+        : '')+
+      '<div class="admin-order-delivery-notes">'+
+        '<label><span>Rider instructions / delivery notes</span><textarea id="adminRiderInstructions" maxlength="2000" rows="3" placeholder="Add pickup, customer, payment or handling instructions for the Rider…">'+escapeHtml(delivery?.admin_notes||'')+'</textarea></label>'+
+        '<div class="admin-order-delivery-note-actions">'+
+          (codNeedsCollection?'<button type="button" class="secondary" id="useCodRiderInstruction">Use COD Instruction</button>':'')+
+          '<button type="button" id="saveAdminRiderInstructions">Save Instructions</button>'+
+        '</div>'+
+        '<div class="admin-order-rider-note-readback"><small>Rider notes / delivery update</small><p>'+escapeHtml(delivery?.rider_notes||'No Rider notes added yet.')+'</p></div>'+
+      '</div>'+
       (!canAssignRider
         ? '<div class="admin-order-assignment-locked">Your staff role can view delivery status but cannot assign or reassign Riders.</div>'
         : assignmentLocked
@@ -1714,6 +1728,45 @@
     }));
 
 
+  };
+
+  const saveActiveOrderRiderInstructions = async (button) => {
+    const order=state.activeMarketplaceOrderDetail?.order;
+    const notes=$('#adminRiderInstructions')?.value||'';
+    if(!order?.id){
+      showOrderDeliveryStatus('The open order could not be identified. Refresh and try again.','error');
+      return;
+    }
+
+    await withButtonLock(button,'Saving…',async()=>{
+      showOrderDeliveryStatus('Saving Rider instructions…');
+      try{
+        const {data,error}=await db.rpc('admin_update_delivery_instructions',{
+          p_order_id:order.id,
+          p_admin_notes:notes
+        });
+        if(error) throw error;
+        if(data?.error) throw new Error(data.error);
+        showOrderDeliveryStatus('Rider instructions saved successfully.','success');
+        await Promise.all([loadAuditLog(),loadMarketplaceOrders()]);
+        await loadMarketplaceOrderDetail(order.id,{scroll:false});
+      }catch(error){
+        showOrderDeliveryStatus(friendlyError(error),'error');
+      }
+    });
+  };
+
+  const applyCodRiderInstruction = () => {
+    const detail=state.activeMarketplaceOrderDetail;
+    const order=detail?.order;
+    const box=$('#adminRiderInstructions');
+    if(!order||!box) return;
+    const instruction='COD: Collect and confirm the full '+formatMoney(order.grand_total_kes)+' payment before handing over the order to the customer.';
+    const current=box.value.trim();
+    box.value=current
+      ? (current.includes(instruction)?current:current+'\n'+instruction)
+      : instruction;
+    box.focus();
   };
 
   const showOrderDeliveryStatus = (message='',type='') => {
@@ -3001,8 +3054,12 @@
     $('#printOrderDeliverySummary')?.addEventListener('click', printOrderDeliverySummary);
     $('#closeAdminOrderDetail')?.addEventListener('click', closeMarketplaceOrderDetail);
     $('#adminOrderDeliveryDetail')?.addEventListener('click',(event)=>{
-      const button=event.target.closest?.('#assignRiderFromOrder');
-      if(button) assignActiveOrderRider(button);
+      const assignButton=event.target.closest?.('#assignRiderFromOrder');
+      if(assignButton){ assignActiveOrderRider(assignButton); return; }
+      const saveButton=event.target.closest?.('#saveAdminRiderInstructions');
+      if(saveButton){ saveActiveOrderRiderInstructions(saveButton); return; }
+      const codButton=event.target.closest?.('#useCodRiderInstruction');
+      if(codButton) applyCodRiderInstruction();
     });
     $('#refreshDeliveryOps').addEventListener('click', () => withButtonLock($('#refreshDeliveryOps'), 'Refreshing…', loadDeliveryOps));
     $('#adminAddRiderForm').addEventListener('submit', addRider);
