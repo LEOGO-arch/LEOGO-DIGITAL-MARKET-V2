@@ -4,30 +4,63 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07152f">
-  <title>LEOGO Staff Rider Portal</title>
-  <link rel="stylesheet" href="staff.css?v=rider-1">
+  <title>LEOGO Staff Portal</title>
+  <link rel="stylesheet" href="staff.css?v=staff-portal-2">
 </head>
 <body>
 <header class="staff-header">
-  <a href="../"><img src="../assets/images/leogo-official-logo.jpg" alt="LEOGO"><span><b>LEOGO DIGITAL MARKET</b><small>Staff Rider Portal</small></span></a>
+  <a href="../"><img src="../assets/images/leogo-official-logo.jpg" alt="LEOGO"><span><b>LEOGO DIGITAL MARKET</b><small>Staff Portal</small></span></a>
   <button id="staffLogout" type="button" hidden>Sign Out</button>
 </header>
+
 <main>
   <section class="staff-login" id="staffLogin">
     <span>LEOGO STAFF</span>
-    <h1>Rider Sign In</h1>
-    <p>This portal is for authorized LEOGO staff riders only. Use your existing LEOGO account.</p>
+    <h1>Staff Sign In</h1>
+    <p>One secure portal for LEOGO staff. Your account role determines the workspace you can open.</p>
     <form id="staffLoginForm">
       <label>Email<input id="staffEmail" type="email" autocomplete="email" required></label>
       <label>Password<input id="staffPassword" type="password" autocomplete="current-password" minlength="8" required></label>
       <button type="submit">Sign In</button>
     </form>
+    <button id="forgotPasswordOpen" class="text-action" type="button">Forgot password?</button>
     <p id="staffLoginStatus" class="status"></p>
   </section>
 
+  <section class="staff-login" id="staffForgot" hidden>
+    <span>ACCOUNT RECOVERY</span>
+    <h1>Reset your password</h1>
+    <p>Enter the email address assigned to your LEOGO staff account. We will send a secure reset link.</p>
+    <form id="staffForgotForm">
+      <label>Staff email<input id="staffForgotEmail" type="email" autocomplete="email" required></label>
+      <button type="submit">Send Reset Link</button>
+    </form>
+    <button id="forgotPasswordBack" class="text-action" type="button">← Back to sign in</button>
+    <p id="staffForgotStatus" class="status"></p>
+  </section>
+
+  <section class="staff-login" id="staffPasswordSetup" hidden>
+    <span id="passwordSetupEyebrow">ACCOUNT ACTIVATION</span>
+    <h1 id="passwordSetupTitle">Create your password</h1>
+    <p id="passwordSetupText">Set a private password for your LEOGO Staff account.</p>
+    <form id="staffPasswordForm">
+      <label>New password<input id="staffNewPassword" type="password" autocomplete="new-password" minlength="10" required></label>
+      <label>Confirm password<input id="staffConfirmPassword" type="password" autocomplete="new-password" minlength="10" required></label>
+      <small class="password-help">Use at least 10 characters with uppercase, lowercase, a number and a symbol.</small>
+      <button type="submit">Save Password</button>
+    </form>
+    <p id="staffPasswordStatus" class="status"></p>
+  </section>
+
+  <section class="staff-login staff-routing" id="staffRouting" hidden>
+    <span>LEOGO STAFF</span>
+    <h1>Opening your workspace…</h1>
+    <p>Your staff role and access are being checked.</p>
+  </section>
+
   <section id="staffAccessDenied" class="staff-denied" hidden>
-    <span>⛔</span><h2>Rider access not enabled</h2>
-    <p>This LEOGO account is not currently registered as an active staff rider. Ask LEOGO Admin to add or reactivate the account.</p>
+    <span>⛔</span><h2>Staff access not enabled</h2>
+    <p>This account is not currently registered as an active LEOGO staff account. Ask LEOGO Admin to add or reactivate it.</p>
     <button id="deniedSignOut" type="button">Sign Out</button>
   </section>
 
@@ -51,7 +84,8 @@
     <p id="riderStatus" class="status"></p>
   </section>
 </main>
+
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="staff.js?v=rider-1" defer></script>
+<script src="staff.js?v=staff-portal-2" defer></script>
 </body>
 </html>
