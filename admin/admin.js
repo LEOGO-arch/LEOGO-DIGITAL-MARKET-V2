@@ -2392,6 +2392,46 @@
 
   $('#refreshPersonalMarketplace')?.addEventListener('click',()=>withButtonLock($('#refreshPersonalMarketplace'),'Refreshing…',loadPersonalMarketplace));
 
+  const adminReviewStars=(rating)=>{
+    const value=Math.max(0,Math.min(5,Number(rating||0)));
+    return '★'.repeat(value)+'☆'.repeat(5-value);
+  };
+
+  const renderProductReviews=()=>{
+    const box=$('#adminProductReviewList');
+    if(!box) return;
+    const filter=$('#adminProductReviewStatusFilter')?.value||'submitted';
+    const rows=state.productReviews.filter((review)=>filter==='all'||review.moderation_status===filter);
+    const pending=state.productReviews.filter((review)=>review.moderation_status==='submitted').length;
+    if($('#adminProductReviewPending')) $('#adminProductReviewPending').textContent=pending;
+
+    if(!rows.length){
+      box.innerHTML='<div class="loading-card">No product reviews match this filter.</div>';
+      return;
+    }
+
+    box.innerHTML=rows.map((review)=>{
+      const approved=review.moderation_status==='approved';
+      const rejected=review.moderation_status==='rejected';
+      return '<article class="admin-product-review-card" data-product-review-card="'+escapeHtml(review.review_id)+'">'+
+        '<header><div><span>VERIFIED PURCHASE REVIEW</span><h4>'+escapeHtml(review.product_name)+(review.variant_name?' · '+escapeHtml(review.variant_name):'')+'</h4>'+
+        '<p>Order <strong>'+escapeHtml(review.order_reference)+'</strong> · Seller <strong>'+escapeHtml(review.seller_name)+'</strong></p></div>'+
+        '<div class="admin-product-review-rating"><strong>'+adminReviewStars(review.rating)+'</strong><span>'+Number(review.rating)+'/5</span></div></header>'+
+        '<div class="admin-product-review-meta">'+
+          '<span><small>Customer</small><strong>'+escapeHtml(review.customer_name||'Customer')+'</strong></span>'+
+          '<span><small>Submitted</small><strong>'+formatDate(review.created_at,true)+'</strong></span>'+
+          '<span><small>Status</small><strong>'+escapeHtml(String(review.moderation_status||'submitted').replaceAll('_',' '))+'</strong></span>'+
+        '</div>'+
+        '<div class="admin-product-review-comment"><small>CUSTOMER REVIEW</small><p>'+escapeHtml(review.comment||'Rating only — no written comment.')+'</p></div>'+
+        '<label class="admin-product-review-note"><span>Admin moderation note</span><textarea data-product-review-note maxlength="1500" rows="2" placeholder="Required when rejecting; optional when approving…">'+escapeHtml(review.admin_notes||'')+'</textarea></label>'+
+        '<div class="admin-product-review-actions">'+
+          (approved?'<span class="admin-product-review-approved">✓ Approved & public</span>':'<button type="button" data-product-review-action="approved" data-review-id="'+escapeHtml(review.review_id)+'">Approve Review</button>')+
+          (rejected?'<span class="admin-product-review-rejected">Rejected</span>':'<button type="button" class="danger" data-product-review-action="rejected" data-review-id="'+escapeHtml(review.review_id)+'">Reject</button>')+
+        '</div>'+
+      '</article>';
+    }).join('');
+  };
+
   const loadCatalogue = async () => {
     const productBox = $('#adminCatalogueProductList');
     const categoryBox = $('#adminCatalogueCategoryList');
