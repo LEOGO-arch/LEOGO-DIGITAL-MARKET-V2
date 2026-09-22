@@ -43,6 +43,7 @@
     staffDirectory: [],
     staffRolePresets: [],
     activeStaff: null,
+    activeStaffDocuments: null,
     deliveryJobs: [],
     deliverySellerStates: [],
     serviceCounties: [],
@@ -700,6 +701,139 @@
     renderStaffDirectory();
   };
 
+  const STAFF_DOCUMENT_BUCKET = 'staff-private-documents';
+  const STAFF_DOCUMENT_MAX_BYTES = 8 * 1024 * 1024;
+  const STAFF_DOCUMENT_MIME_TYPES = new Set(['image/jpeg','image/png','image/webp']);
+
+  const validateStaffDocumentFile = (file,label) => {
+    if(!file) return;
+    if(!STAFF_DOCUMENT_MIME_TYPES.has(file.type)) throw new Error(label+' must be a JPG, PNG or WEBP image.');
+    if(file.size>STAFF_DOCUMENT_MAX_BYTES) throw new Error(label+' must be 8 MB or smaller.');
+  };
+
+  const staffDocumentExtension = (file) => {
+    if(file.type==='image/png') return 'png';
+    if(file.type==='image/webp') return 'webp';
+    return 'jpg';
+  };
+
+  const uploadStaffPrivateDocument = async (userId,accountKind,documentType,file) => {
+    validateStaffDocumentFile(file,documentType==='passport'?'Passport photo':'ID picture');
+    const token=(crypto.randomUUID?.()||String(Date.now())).replace(/[^a-zA-Z0-9-]/g,'').slice(0,36);
+    const path=accountKind+'/'+userId+'/'+documentType+'-'+Date.now()+'-'+token+'.'+staffDocumentExtension(file);
+    const {error}=await db.storage.from(STAFF_DOCUMENT_BUCKET).upload(path,file,{
+      cacheControl:'3600',
+      upsert:false,
+      contentType:file.type
+    });
+    if(error) throw error;
+    return path;
+  };
+
+  const removeStaffPrivateDocuments = async (paths) => {
+    const clean=(paths||[]).filter(Boolean);
+    if(!clean.length) return;
+    try{ await db.storage.from(STAFF_DOCUMENT_BUCKET).remove(clean); }catch{}
+  };
+
+  const renderStaffDocumentPreview = async (container,path,alt) => {
+    if(!container) return;
+    if(!path){
+      container.innerHTML='<small>Not uploaded</small>';
+      return;
+    }
+    container.innerHTML='<small>Loading protected image…</small>';
+    const {data,error}=await db.storage.from(STAFF_DOCUMENT_BUCKET).createSignedUrl(path,600);
+    if(error||!data?.signedUrl){
+      container.innerHTML='<small>Private image unavailable</small>';
+      return;
+    }
+    container.innerHTML='<img src="'+escapeHtml(data.signedUrl)+'" alt="'+escapeHtml(alt)+'">';
+  };
+
+  const loadStaffDocuments = async (staff) => {
+    if(!staff||!isSuperAdmin()) return;
+    $('#staffPassportPhotoPreview').innerHTML='<small>Loading…</small>';
+    $('#staffIdPicturePreview').innerHTML='<small>Loading…</small>';
+    setFormStatus($('#staffDocumentStatus'));
+    const {data,error}=await db.rpc('admin_get_staff_documents',{p_user_id:staff.user_id});
+    if(error){
+      state.activeStaffDocuments=null;
+      setFormStatus($('#staffDocumentStatus'),friendlyError(error),'error');
+      return;
+    }
+    state.activeStaffDocuments=data||{
+      user_id:staff.user_id,
+      account_kind:staff.account_kind,
+      passport_photo_path:null,
+      id_picture_path:null
+    };
+    await Promise.all([
+      renderStaffDocumentPreview($('#staffPassportPhotoPreview'),state.activeStaffDocuments.passport_photo_path,'Staff passport photo'),
+      renderStaffDocumentPreview($('#staffIdPicturePreview'),state.activeStaffDocuments.id_picture_path,'Staff ID picture')
+    ]);
+  };
+
+  const saveStaffDocuments = async () => {
+    const staff=state.activeStaff;
+    if(!staff||!isSuperAdmin()) return;
+    const passportFile=$('#staffEditorPassportPhoto')?.files?.[0]||null;
+    const idFile=$('#staffEditorIdPicture')?.files?.[0]||null;
+    if(!passportFile&&!idFile){
+      setFormStatus($('#staffDocumentStatus'),'Choose a passport photo or ID picture to upload.','error');
+      return;
+    }
+
+    try{
+      validateStaffDocumentFile(passportFile,'Passport photo');
+      validateStaffDocumentFile(idFile,'ID picture');
+    }catch(error){
+      setFormStatus($('#staffDocumentStatus'),friendlyError(error),'error');
+      return;
+    }
+
+    await withButtonLock($('#saveStaffDocuments'),'Uploading…',async()=>{
+      setFormStatus($('#staffDocumentStatus'),'Uploading protected staff documents…');
+      const current=state.activeStaffDocuments||{};
+      let passportPath=current.passport_photo_path||null;
+      let idPath=current.id_picture_path||null;
+      const uploaded=[];
+
+      try{
+        if(passportFile){
+          passportPath=await uploadStaffPrivateDocument(staff.user_id,staff.account_kind,'passport',passportFile);
+          uploaded.push(passportPath);
+        }
+        if(idFile){
+          idPath=await uploadStaffPrivateDocument(staff.user_id,staff.account_kind,'id-picture',idFile);
+          uploaded.push(idPath);
+        }
+
+        const {error}=await db.rpc('admin_set_staff_documents',{
+          p_user_id:staff.user_id,
+          p_account_kind:staff.account_kind,
+          p_passport_photo_path:passportPath,
+          p_id_picture_path:idPath
+        });
+        if(error) throw error;
+
+        const oldToRemove=[];
+        if(passportFile&&current.passport_photo_path&&current.passport_photo_path!==passportPath) oldToRemove.push(current.passport_photo_path);
+        if(idFile&&current.id_picture_path&&current.id_picture_path!==idPath) oldToRemove.push(current.id_picture_path);
+        await removeStaffPrivateDocuments(oldToRemove);
+
+        $('#staffEditorPassportPhoto').value='';
+        $('#staffEditorIdPicture').value='';
+        setFormStatus($('#staffDocumentStatus'),'Private staff documents updated successfully.','success');
+        await loadStaffDocuments(staff);
+        await loadAuditLog();
+      }catch(error){
+        await removeStaffPrivateDocuments(uploaded);
+        setFormStatus($('#staffDocumentStatus'),friendlyError(error),'error');
+      }
+    });
+  };
+
   const openStaffEditor = (userId,accountKind) => {
     const staff=state.staffDirectory.find((item)=>item.user_id===userId&&item.account_kind===accountKind);
     if(!staff||staff.role_code==='super_admin') return;
@@ -738,15 +872,25 @@
       renderPermissionGrid($('#staffEditorPermissionGrid'),staff.permissions||[]);
     }
     $('#staffEditorStatus').value=staff.status||'active';
+    $('#staffEditorPassportPhoto').value='';
+    $('#staffEditorIdPicture').value='';
     setFormStatus($('#staffAccessStatus'));
+    setFormStatus($('#staffDocumentStatus'));
     $('#staffAccessEditor').hidden=false;
     $('#staffAccessEditor').scrollIntoView({behavior:'smooth',block:'start'});
+    loadStaffDocuments(staff).catch((error)=>setFormStatus($('#staffDocumentStatus'),friendlyError(error),'error'));
   };
 
   const closeStaffEditor = () => {
     state.activeStaff=null;
+    state.activeStaffDocuments=null;
     if($('#staffAccessEditor')) $('#staffAccessEditor').hidden=true;
+    if($('#staffEditorPassportPhoto')) $('#staffEditorPassportPhoto').value='';
+    if($('#staffEditorIdPicture')) $('#staffEditorIdPicture').value='';
+    if($('#staffPassportPhotoPreview')) $('#staffPassportPhotoPreview').innerHTML='<small>Not uploaded</small>';
+    if($('#staffIdPicturePreview')) $('#staffIdPicturePreview').innerHTML='<small>Not uploaded</small>';
     setFormStatus($('#staffAccessStatus'));
+    setFormStatus($('#staffDocumentStatus'));
   };
 
   const generateTemporaryPassword = () => {
@@ -774,6 +918,15 @@
     const form=$('#createStaffForm');
     if(!form.reportValidity()) return;
     const kind=$('#staffAccountKind').value;
+    const passportFile=$('#staffPassportPhoto')?.files?.[0]||null;
+    const idFile=$('#staffIdPicture')?.files?.[0]||null;
+    try{
+      validateStaffDocumentFile(passportFile,'Passport photo');
+      validateStaffDocumentFile(idFile,'ID picture');
+    }catch(error){
+      setFormStatus($('#createStaffStatus'),friendlyError(error),'error');
+      return;
+    }
     const body={
       account_kind:kind,
       display_name:$('#staffDisplayName').value.trim(),
@@ -807,7 +960,37 @@
         return;
       }
 
-      setFormStatus($('#createStaffStatus'),'Staff account created successfully. Share the temporary password privately.','success');
+      let documentMessage='Staff account created successfully. Share the temporary password privately.';
+      let documentStatus='success';
+      if(data?.user_id&&(passportFile||idFile)){
+        setFormStatus($('#createStaffStatus'),'Staff account created. Uploading protected staff documents…');
+        const uploaded=[];
+        try{
+          let passportPath=null;
+          let idPicturePath=null;
+          if(passportFile){
+            passportPath=await uploadStaffPrivateDocument(data.user_id,kind,'passport',passportFile);
+            uploaded.push(passportPath);
+          }
+          if(idFile){
+            idPicturePath=await uploadStaffPrivateDocument(data.user_id,kind,'id-picture',idFile);
+            uploaded.push(idPicturePath);
+          }
+          const {error:documentError}=await db.rpc('admin_set_staff_documents',{
+            p_user_id:data.user_id,
+            p_account_kind:kind,
+            p_passport_photo_path:passportPath,
+            p_id_picture_path:idPicturePath
+          });
+          if(documentError) throw documentError;
+          documentMessage='Staff account and private documents created successfully. Share the temporary password privately.';
+        }catch(documentError){
+          await removeStaffPrivateDocuments(uploaded);
+          documentMessage='Staff account was created, but the private documents could not be saved: '+friendlyError(documentError)+' You can upload them from Manage Access.';
+          documentStatus='error';
+        }
+      }
+      setFormStatus($('#createStaffStatus'),documentMessage,documentStatus);
       form.reset();
       $('#staffAccountKind').value='admin_staff';
       document.querySelector('#adminStaffFields').hidden=false;
@@ -2387,6 +2570,7 @@
     $('#staffEditorRole')?.addEventListener('change', resetEditorRolePermissions);
     $('#resetEditorPermissions')?.addEventListener('click', resetEditorRolePermissions);
     $('#staffAccessForm')?.addEventListener('submit', saveStaffAccess);
+    $('#saveStaffDocuments')?.addEventListener('click', saveStaffDocuments);
     $('#refreshMarketplaceOrders').addEventListener('click', () => withButtonLock($('#refreshMarketplaceOrders'), 'Refreshing…', loadMarketplaceOrders));
     $('#adminOrderSearch')?.addEventListener('input', renderMarketplaceOrders);
     $('#adminOrderPaymentFilter')?.addEventListener('change', renderMarketplaceOrders);
