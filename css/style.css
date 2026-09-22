@@ -564,3 +564,35 @@ body.accommodation-modal-open{overflow:hidden}
   .customer-dashboard-orders-head{align-items:flex-start;flex-direction:column}
   .customer-order-history.compact{grid-template-columns:1fr}
 }
+
+
+/* Customer Aftersales case tracking */
+.customer-aftersales-history{margin-top:14px;padding:14px;border:1px solid #dfe5ee;border-radius:16px;background:#fff}
+.customer-aftersales-history-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.customer-aftersales-history-head>div{display:grid;gap:2px}
+.customer-aftersales-history-head span{font-size:8px;font-weight:950;letter-spacing:.08em;color:#ff7800}
+.customer-aftersales-history-head h4{margin:0;font-size:14px;color:#07152f}
+.customer-aftersales-case-list{display:grid;gap:10px}
+.customer-aftersales-case-card{display:grid;gap:10px;padding:12px;border:1px solid #e0e6ee;border-radius:13px;background:#f9fbfd}
+.customer-aftersales-case-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.customer-aftersales-case-top>div{display:grid;gap:3px}
+.customer-aftersales-case-top small{font-size:8px;font-weight:900;color:#8993a2}
+.customer-aftersales-case-top strong{font-size:12px;color:#07152f}
+.customer-aftersales-case-top span{font-size:9px;color:#6d788a}
+.customer-aftersales-case-top>b{border-radius:999px;padding:6px 8px;background:#eef3fb;color:#334b68;font-size:8px;white-space:nowrap}
+.customer-aftersales-case-top>b.status-submitted{background:#fff1e5;color:#ad4d00}
+.customer-aftersales-case-top>b.status-in_review,.customer-aftersales-case-top>b.status-contacted{background:#eef5ff;color:#245582}
+.customer-aftersales-case-top>b.status-resolved{background:#eaf8ef;color:#17633c}
+.customer-aftersales-case-top>b.status-rejected,.customer-aftersales-case-top>b.status-cancelled{background:#f3f4f6;color:#5d6675}
+.customer-aftersales-case-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.customer-aftersales-case-grid>div{display:grid;gap:3px;padding:9px;border-radius:9px;background:#fff;border:1px solid #e4e9f0}
+.customer-aftersales-case-grid small,.customer-aftersales-case-details small,.customer-aftersales-admin-note small{font-size:8px;font-weight:900;color:#7b8798}
+.customer-aftersales-case-grid strong{font-size:9px;color:#1f3045;text-transform:capitalize}
+.customer-aftersales-case-details,.customer-aftersales-admin-note{display:grid;gap:4px;padding:9px;border-radius:9px;background:#fff;border:1px solid #e4e9f0}
+.customer-aftersales-case-details p,.customer-aftersales-admin-note p{margin:0;font-size:9px;line-height:1.5;color:#4e5c70;white-space:pre-wrap}
+.customer-aftersales-admin-note{background:#eef6ff;border-color:#cfe1f4}
+.customer-aftersales-resolved{padding:9px;border-radius:9px;background:#edf9f2;border:1px solid #bfe3cc;color:#17633c;font-size:9px;font-weight:900}
+@media(max-width:560px){
+  .customer-aftersales-case-top{align-items:flex-start;flex-direction:column}
+  .customer-aftersales-case-grid{grid-template-columns:1fr}
+}
