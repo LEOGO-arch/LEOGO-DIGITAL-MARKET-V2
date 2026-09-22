@@ -2432,6 +2432,39 @@
     }).join('');
   };
 
+  const moderateProductReview=async(button)=>{
+    const reviewId=button.dataset.reviewId;
+    const action=button.dataset.productReviewAction;
+    const card=button.closest('[data-product-review-card]');
+    const notes=card?.querySelector('[data-product-review-note]')?.value.trim()||'';
+
+    if(action==='rejected'&&!notes){
+      globalStatus('Add an Admin note explaining why this product review is rejected.','error');
+      card?.querySelector('[data-product-review-note]')?.focus();
+      return;
+    }
+
+    const confirmation=action==='approved'
+      ? 'Approve this verified product review and publish it on the customer website?'
+      : 'Reject this review? It will remain private and the customer will be notified.';
+    if(!window.confirm(confirmation)) return;
+
+    await withButtonLock(button,action==='approved'?'Approving…':'Rejecting…',async()=>{
+      const {data,error}=await db.rpc('admin_moderate_product_review',{
+        p_review_id:reviewId,
+        p_action:action,
+        p_admin_notes:notes||null
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+
+      await Promise.all([loadCatalogue(),loadAuditLog()]);
+      globalStatus(action==='approved'
+        ? 'Product review approved and published.'
+        : 'Product review rejected. Customer notified.');
+    });
+  };
+
   const loadCatalogue = async () => {
     const productBox = $('#adminCatalogueProductList');
     const categoryBox = $('#adminCatalogueCategoryList');
