@@ -1293,6 +1293,312 @@
     };
   };
 
+  const deliveryQrTarget = (order) => {
+    const url=new URL('../staff/',window.location.href);
+    url.searchParams.set('order',order.id);
+    return url.href;
+  };
+
+  const loadImageForCanvas = (src) => new Promise((resolve,reject)=>{
+    const image=new Image();
+    image.onload=()=>resolve(image);
+    image.onerror=()=>reject(new Error('Image could not load'));
+    image.src=src;
+  });
+
+  const canvasWrapText = (ctx,text,x,y,maxWidth,lineHeight,maxLines=99) => {
+    const words=String(text||'').replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+    const lines=[];
+    let line='';
+    for(const word of words){
+      const test=line?line+' '+word:word;
+      if(ctx.measureText(test).width>maxWidth && line){
+        lines.push(line);
+        line=word;
+        if(lines.length>=maxLines) break;
+      }else{
+        line=test;
+      }
+    }
+    if(lines.length<maxLines && line) lines.push(line);
+    if(words.length && lines.length===maxLines){
+      const joined=lines.join(' ');
+      if(joined.length<String(text||'').trim().length){
+        let last=lines[lines.length-1]||'';
+        while(last.length>3 && ctx.measureText(last+'...').width>maxWidth) last=last.slice(0,-1);
+        lines[lines.length-1]=last+'...';
+      }
+    }
+    lines.forEach((value,index)=>ctx.fillText(value,x,y+(index*lineHeight)));
+    return y+(lines.length*lineHeight);
+  };
+
+  const buildDeliveryQrCanvas = async (text,size=250) => {
+    if(!window.QRCode) throw new Error('QR generator did not load. Refresh Admin and try again.');
+    const holder=document.createElement('div');
+    holder.style.position='fixed';
+    holder.style.left='-10000px';
+    holder.style.top='-10000px';
+    document.body.appendChild(holder);
+    try{
+      new window.QRCode(holder,{
+        text,
+        width:size,
+        height:size,
+        correctLevel:window.QRCode.CorrectLevel?.M ?? 0
+      });
+      await new Promise((resolve)=>window.setTimeout(resolve,30));
+      const qrCanvas=holder.querySelector('canvas');
+      if(qrCanvas) return qrCanvas;
+
+      const img=holder.querySelector('img');
+      if(img){
+        if(!img.complete) await new Promise((resolve)=>{img.onload=resolve;});
+        const canvas=document.createElement('canvas');
+        canvas.width=size;
+        canvas.height=size;
+        canvas.getContext('2d').drawImage(img,0,0,size,size);
+        return canvas;
+      }
+      throw new Error('QR code could not be generated.');
+    }finally{
+      holder.remove();
+    }
+  };
+
+  const buildOrderDeliverySummaryCanvas = async (detail) => {
+    if(!detail?.order) throw new Error('Open an order before downloading its delivery summary.');
+
+    const order=detail.order;
+    const items=Array.isArray(detail.items)?detail.items:[];
+    const sellers=Array.isArray(detail.sellers)?detail.sellers:[];
+    const delivery=detail.delivery||null;
+    const width=1240;
+    const height=1754;
+    const canvas=document.createElement('canvas');
+    canvas.width=width;
+    canvas.height=height;
+    const ctx=canvas.getContext('2d');
+
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,width,height);
+    ctx.fillStyle='#07152f';
+    ctx.fillRect(0,0,width,220);
+    ctx.fillStyle='#ff7800';
+    ctx.fillRect(0,220,width,16);
+
+    try{
+      const logoUrl=new URL('../assets/images/leogo-official-logo.jpg',window.location.href).href;
+      const logo=await loadImageForCanvas(logoUrl);
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(52,44,126,126);
+      ctx.drawImage(logo,52,44,126,126);
+    }catch{}
+
+    ctx.textBaseline='top';
+    ctx.fillStyle='#ffffff';
+    ctx.font='700 42px Arial, sans-serif';
+    ctx.fillText('LEOGO DIGITAL MARKET',205,54);
+    ctx.font='700 24px Arial, sans-serif';
+    ctx.fillStyle='#ffb26e';
+    ctx.fillText('ORDER DELIVERY SUMMARY',205,110);
+    ctx.font='18px Arial, sans-serif';
+    ctx.fillStyle='#d7dfeb';
+    ctx.fillText('Attach this label to the order package before dispatch.',205,150);
+
+    const qrUrl=deliveryQrTarget(order);
+    const qr=await buildDeliveryQrCanvas(qrUrl,250);
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(930,278,270,300);
+    ctx.drawImage(qr,940,288,250,250);
+    ctx.fillStyle='#07152f';
+    ctx.font='700 16px Arial, sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('SCAN - LEOGO STAFF',1065,546);
+    ctx.textAlign='left';
+
+    let y=286;
+    ctx.fillStyle='#6b778b';
+    ctx.font='700 16px Arial, sans-serif';
+    ctx.fillText('ORDER REFERENCE',54,y);
+    y+=30;
+    ctx.fillStyle='#07152f';
+    ctx.font='700 38px Arial, sans-serif';
+    ctx.fillText(String(order.order_reference||'ORDER'),54,y);
+    y+=62;
+
+    ctx.fillStyle='#fff4e8';
+    ctx.fillRect(54,y,830,82);
+    ctx.fillStyle='#b44f00';
+    ctx.font='700 18px Arial, sans-serif';
+    ctx.fillText('STATUS',72,y+18);
+    ctx.fillStyle='#07152f';
+    ctx.font='700 24px Arial, sans-serif';
+    ctx.fillText(orderStatusLabel(order.order_status).toUpperCase()+'  |  '+deliveryStatusLabel(delivery?.status||'awaiting_assignment').toUpperCase(),175,y+13);
+    y+=116;
+
+    const sectionTitle=(title,atY)=>{
+      ctx.fillStyle='#07152f';
+      ctx.font='700 22px Arial, sans-serif';
+      ctx.fillText(title,54,atY);
+      ctx.fillStyle='#ff7800';
+      ctx.fillRect(54,atY+31,830,4);
+      return atY+52;
+    };
+
+    y=sectionTitle('DELIVER TO',y);
+    ctx.fillStyle='#07152f';
+    ctx.font='700 30px Arial, sans-serif';
+    ctx.fillText(String(order.receiver_name||'Receiver'),54,y);
+    y+=44;
+    ctx.font='700 23px Arial, sans-serif';
+    ctx.fillStyle='#26364f';
+    ctx.fillText(String(order.contact_number||'No phone'),54,y);
+    y+=38;
+    ctx.font='22px Arial, sans-serif';
+    ctx.fillStyle='#44526a';
+    y=canvasWrapText(ctx,orderDeliveryAddress(order),54,y,830,31,4)+12;
+
+    y=sectionTitle('ORDER ITEMS',y);
+    const visibleItems=items.slice(0,7);
+    if(!visibleItems.length){
+      ctx.font='20px Arial, sans-serif';
+      ctx.fillStyle='#6b778b';
+      ctx.fillText('No item lines found.',54,y);
+      y+=40;
+    }else{
+      for(const item of visibleItems){
+        const name=item.variant_name?item.product_name+' - '+item.variant_name:item.product_name;
+        ctx.font='700 22px Arial, sans-serif';
+        ctx.fillStyle='#07152f';
+        ctx.fillText(Number(item.quantity||0)+' x',54,y);
+        ctx.font='22px Arial, sans-serif';
+        canvasWrapText(ctx,name,112,y,570,29,2);
+        ctx.font='700 20px Arial, sans-serif';
+        ctx.textAlign='right';
+        ctx.fillText(formatMoney(item.line_total_kes),880,y);
+        ctx.textAlign='left';
+        y+=58;
+        ctx.fillStyle='#e2e8f0';
+        ctx.fillRect(54,y-9,830,1);
+      }
+      if(items.length>visibleItems.length){
+        ctx.fillStyle='#6b778b';
+        ctx.font='700 18px Arial, sans-serif';
+        ctx.fillText('+'+(items.length-visibleItems.length)+' more item line(s)',54,y);
+        y+=34;
+      }
+    }
+
+    y=sectionTitle('PAYMENT',Math.min(y+8,1250));
+    const codDue=order.payment_status==='cod_due';
+    ctx.fillStyle=codDue?'#fff0e5':'#edf9f1';
+    ctx.fillRect(54,y,830,92);
+    ctx.fillStyle=codDue?'#a94300':'#177245';
+    ctx.font='700 20px Arial, sans-serif';
+    ctx.fillText(codDue?'COLLECT ON DELIVERY':'PAYMENT STATUS',72,y+16);
+    ctx.font='700 30px Arial, sans-serif';
+    ctx.fillText(codDue?formatMoney(order.grand_total_kes):paymentStatusLabel(order.payment_status).toUpperCase(),72,y+46);
+    ctx.fillStyle='#394960';
+    ctx.font='18px Arial, sans-serif';
+    ctx.textAlign='right';
+    ctx.fillText(String(order.payment_method||'').replaceAll('_',' ').toUpperCase(),865,y+53);
+    ctx.textAlign='left';
+    y+=122;
+
+    ctx.fillStyle='#07152f';
+    ctx.font='700 19px Arial, sans-serif';
+    ctx.fillText('RIDER',54,y);
+    ctx.font='20px Arial, sans-serif';
+    ctx.fillStyle='#34445d';
+    ctx.fillText(delivery?.rider_name||'Not yet assigned',150,y);
+    if(delivery?.rider_phone){
+      ctx.font='18px Arial, sans-serif';
+      ctx.fillText(delivery.rider_phone,500,y+2);
+    }
+
+    y+=42;
+    ctx.font='700 19px Arial, sans-serif';
+    ctx.fillStyle='#07152f';
+    ctx.fillText('SELLER(S)',54,y);
+    ctx.font='18px Arial, sans-serif';
+    ctx.fillStyle='#34445d';
+    canvasWrapText(ctx,sellers.map((seller)=>seller.business_name).filter(Boolean).join(', ')||'Seller details available in Admin',165,y,715,26,2);
+
+    const footerY=1608;
+    ctx.fillStyle='#07152f';
+    ctx.fillRect(0,footerY,width,height-footerY);
+    ctx.fillStyle='#ffffff';
+    ctx.font='700 18px Arial, sans-serif';
+    ctx.fillText('QR opens the secure LEOGO Staff Portal for this order. Staff login is required.',54,footerY+28);
+    ctx.font='16px Arial, sans-serif';
+    ctx.fillStyle='#c9d4e4';
+    ctx.fillText('Printed '+formatDate(new Date().toISOString(),true)+'  |  Do not expose this label after delivery.',54,footerY+62);
+    ctx.textAlign='right';
+    ctx.fillStyle='#ffb26e';
+    ctx.font='700 17px Arial, sans-serif';
+    ctx.fillText(String(order.order_reference||''),1186,footerY+47);
+    ctx.textAlign='left';
+
+    return canvas;
+  };
+
+  const downloadOrderDeliverySummary = async () => {
+    const detail=state.activeMarketplaceOrderDetail;
+    if(!detail?.order) return;
+    const button=$('#downloadOrderDeliverySummary');
+    const original=button?.textContent||'Download Delivery Summary';
+    try{
+      if(button){button.disabled=true;button.textContent='Preparing Label…';}
+      setFormStatus($('#adminOrderDetailStatus'),'Generating delivery summary with secure Rider QR…');
+      const canvas=await buildOrderDeliverySummaryCanvas(detail);
+      const blob=await new Promise((resolve)=>canvas.toBlob(resolve,'image/png'));
+      if(!blob) throw new Error('Delivery summary image could not be created.');
+      const url=URL.createObjectURL(blob);
+      const link=document.createElement('a');
+      link.href=url;
+      link.download=(detail.order.order_reference||'LEOGO-order')+'-delivery-summary.png';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(url),1500);
+      setFormStatus($('#adminOrderDetailStatus'),'Delivery summary downloaded. Print it and attach it to the package.','success');
+    }catch(error){
+      setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
+    }finally{
+      if(button){button.disabled=false;button.textContent=original;}
+    }
+  };
+
+  const printOrderDeliverySummary = async () => {
+    const detail=state.activeMarketplaceOrderDetail;
+    if(!detail?.order) return;
+
+    const popup=window.open('','_blank','width=900,height=1100');
+    if(!popup){
+      setFormStatus($('#adminOrderDetailStatus'),'Your browser blocked the print window. Allow pop-ups for LEOGO Admin and try again.','error');
+      return;
+    }
+
+    const button=$('#printOrderDeliverySummary');
+    const original=button?.textContent||'Print Label';
+    try{
+      if(button){button.disabled=true;button.textContent='Preparing…';}
+      popup.document.write('<!doctype html><title>Preparing LEOGO Delivery Summary</title><body style="font-family:Arial;padding:24px">Preparing delivery summary…</body>');
+      const canvas=await buildOrderDeliverySummaryCanvas(detail);
+      const dataUrl=canvas.toDataURL('image/png');
+      popup.document.open();
+      popup.document.write('<!doctype html><html><head><title>'+escapeHtml(detail.order.order_reference||'LEOGO Delivery Summary')+'</title><style>@page{size:A6 portrait;margin:0}html,body{margin:0;padding:0;background:#fff}img{width:105mm;height:auto;display:block;margin:0 auto}@media print{img{width:105mm}}</style></head><body><img id="label" src="'+dataUrl+'" alt="LEOGO Delivery Summary"><script>document.getElementById("label").onload=function(){setTimeout(function(){window.print();},120)};<\/script></body></html>');
+      popup.document.close();
+      setFormStatus($('#adminOrderDetailStatus'),'Delivery label opened for printing.','success');
+    }catch(error){
+      popup.close();
+      setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
+    }finally{
+      if(button){button.disabled=false;button.textContent=original;}
+    }
+  };
+
   const renderMarketplaceOrderDetail=()=>{
     const panel=$('#adminOrderDetailPanel');
     const detail=state.activeMarketplaceOrderDetail;
@@ -1305,6 +1611,8 @@
     const readiness=sellerReadiness(sellers);
 
     panel.hidden=false;
+    if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=false;
+    if($('#printOrderDeliverySummary')) $('#printOrderDeliverySummary').disabled=false;
     $('#adminOrderDetailTitle').textContent=order.order_reference||'Order Details';
     $('#adminOrderDetailSubtitle').textContent=formatDate(order.created_at,true)+' · '+orderStatusLabel(order.order_status);
     setFormStatus($('#adminOrderDetailStatus'));
@@ -1436,6 +1744,8 @@
 
     if(panel){
       panel.hidden=false;
+      if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=true;
+      if($('#printOrderDeliverySummary')) $('#printOrderDeliverySummary').disabled=true;
       $('#adminOrderDetailTitle').textContent='Loading order…';
       $('#adminOrderDetailSubtitle').textContent='Retrieving customer, Seller, item, payment and delivery information.';
       $('#adminOrderCustomerDetail').textContent='Loading…';
@@ -1468,6 +1778,8 @@
     state.activeMarketplaceOrderId=null;
     state.activeMarketplaceOrderDetail=null;
     if($('#adminOrderDetailPanel')) $('#adminOrderDetailPanel').hidden=true;
+    if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=true;
+    if($('#printOrderDeliverySummary')) $('#printOrderDeliverySummary').disabled=true;
     renderMarketplaceOrders();
   };
 
@@ -2668,6 +2980,8 @@
     $('#adminOrderSearch')?.addEventListener('input', renderMarketplaceOrders);
     $('#adminOrderPaymentFilter')?.addEventListener('change', renderMarketplaceOrders);
     $('#adminOrderStatusFilter')?.addEventListener('change', renderMarketplaceOrders);
+    $('#downloadOrderDeliverySummary')?.addEventListener('click', downloadOrderDeliverySummary);
+    $('#printOrderDeliverySummary')?.addEventListener('click', printOrderDeliverySummary);
     $('#closeAdminOrderDetail')?.addEventListener('click', closeMarketplaceOrderDetail);
     $('#refreshDeliveryOps').addEventListener('click', () => withButtonLock($('#refreshDeliveryOps'), 'Refreshing…', loadDeliveryOps));
     $('#adminAddRiderForm').addEventListener('submit', addRider);
