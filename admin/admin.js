@@ -1616,8 +1616,8 @@
       const canvas=await buildOrderDeliverySummaryCanvas(detail);
       const dataUrl=canvas.toDataURL('image/png');
       const pageCss=paperSize==='80mm'
-        ? '@page{size:80mm 113mm;margin:0}html,body{width:80mm;margin:0;padding:0;background:#fff}img{width:80mm;height:auto;display:block;margin:0}'
-        : '@page{size:A6 portrait;margin:0}html,body{width:105mm;margin:0;padding:0;background:#fff}img{width:105mm;height:auto;display:block;margin:0}';
+        ? '@page{size:80mm 113mm;margin:0}html,body{width:80mm;height:113mm;margin:0;padding:0;background:#fff}img{width:80mm;height:113mm;object-fit:contain;display:block;margin:0}'
+        : '@page{size:A6 portrait;margin:0}html,body{width:105mm;height:148mm;margin:0;padding:0;background:#fff}img{width:105mm;height:148mm;object-fit:contain;display:block;margin:0}';
       const paperLabel=paperSize==='80mm'?'80 mm thermal':'A6';
       popup.document.open();
       popup.document.write('<!doctype html><html><head><title>'+escapeHtml(detail.order.order_reference||'LEOGO Order Summary')+'</title><style>'+pageCss+'</style></head><body><img id="label" src="'+dataUrl+'" alt="LEOGO Order Summary"><script>document.getElementById("label").onload=function(){setTimeout(function(){window.print();},120)};<\/script></body></html>');
