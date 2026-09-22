@@ -1294,8 +1294,10 @@
   };
 
   const deliveryQrTarget = (order) => {
-    const url=new URL('../staff/',window.location.href);
+    const url=new URL('../scan/',window.location.href);
     url.searchParams.set('order',order.id);
+    url.searchParams.set('ref',order.order_reference||'');
+    url.searchParams.set('type','marketplace');
     return url.href;
   };
 
@@ -1401,20 +1403,23 @@
     ctx.fillText('LEOGO DIGITAL MARKET',205,54);
     ctx.font='700 24px Arial, sans-serif';
     ctx.fillStyle='#ffb26e';
-    ctx.fillText('ORDER DELIVERY SUMMARY',205,110);
+    ctx.fillText('ORDER SUMMARY / DELIVERY LABEL',205,110);
     ctx.font='18px Arial, sans-serif';
     ctx.fillStyle='#d7dfeb';
-    ctx.fillText('Attach this label to the order package before dispatch.',205,150);
+    ctx.fillText('For fulfilment, pickup, Rider handover and final delivery.',205,150);
 
     const qrUrl=deliveryQrTarget(order);
     const qr=await buildDeliveryQrCanvas(qrUrl,250);
     ctx.fillStyle='#ffffff';
-    ctx.fillRect(930,278,270,300);
+    ctx.fillRect(930,278,270,330);
     ctx.drawImage(qr,940,288,250,250);
     ctx.fillStyle='#07152f';
     ctx.font='700 16px Arial, sans-serif';
     ctx.textAlign='center';
-    ctx.fillText('SCAN - LEOGO STAFF',1065,546);
+    ctx.fillText('SCAN ORDER',1065,546);
+    ctx.font='700 13px Arial, sans-serif';
+    ctx.fillStyle='#5d6b7f';
+    ctx.fillText(String(order.order_reference||'LEOGO ORDER'),1065,572);
     ctx.textAlign='left';
 
     let y=286;
@@ -1523,14 +1528,32 @@
     ctx.fillText('SELLER(S)',54,y);
     ctx.font='18px Arial, sans-serif';
     ctx.fillStyle='#34445d';
-    canvasWrapText(ctx,sellers.map((seller)=>seller.business_name).filter(Boolean).join(', ')||'Seller details available in Admin',165,y,715,26,2);
+    y=canvasWrapText(ctx,sellers.map((seller)=>seller.business_name).filter(Boolean).join(', ')||'Seller details available in Admin',165,y,715,26,2)+28;
+
+    if(delivery?.admin_notes){
+      ctx.font='700 17px Arial, sans-serif';
+      ctx.fillStyle='#07152f';
+      ctx.fillText('STAFF / RIDER INSTRUCTIONS',54,y);
+      ctx.font='17px Arial, sans-serif';
+      ctx.fillStyle='#44526a';
+      y=canvasWrapText(ctx,delivery.admin_notes,54,y+28,830,24,3)+18;
+    }
+
+    if(delivery?.rider_notes){
+      ctx.font='700 17px Arial, sans-serif';
+      ctx.fillStyle='#07152f';
+      ctx.fillText('RIDER UPDATE',54,y);
+      ctx.font='17px Arial, sans-serif';
+      ctx.fillStyle='#44526a';
+      canvasWrapText(ctx,delivery.rider_notes,54,y+28,830,24,2);
+    }
 
     const footerY=1608;
     ctx.fillStyle='#07152f';
     ctx.fillRect(0,footerY,width,height-footerY);
     ctx.fillStyle='#ffffff';
     ctx.font='700 18px Arial, sans-serif';
-    ctx.fillText('QR opens the secure LEOGO Staff Portal for this order. Staff login is required.',54,footerY+28);
+    ctx.fillText('Permanent LEOGO order QR — authorized Staff and future Pickup Agents can use it to identify this order.',54,footerY+28);
     ctx.font='16px Arial, sans-serif';
     ctx.fillStyle='#c9d4e4';
     ctx.fillText('Printed '+formatDate(new Date().toISOString(),true)+'  |  Do not expose this label after delivery.',54,footerY+62);
@@ -1547,22 +1570,22 @@
     const detail=state.activeMarketplaceOrderDetail;
     if(!detail?.order) return;
     const button=$('#downloadOrderDeliverySummary');
-    const original=button?.textContent||'Download Delivery Summary';
+    const original=button?.textContent||'Download Order Summary + QR';
     try{
-      if(button){button.disabled=true;button.textContent='Preparing Label…';}
-      setFormStatus($('#adminOrderDetailStatus'),'Generating delivery summary with secure Rider QR…');
+      if(button){button.disabled=true;button.textContent='Preparing Summary…';}
+      setFormStatus($('#adminOrderDetailStatus'),'Generating order summary with permanent LEOGO order QR…');
       const canvas=await buildOrderDeliverySummaryCanvas(detail);
       const blob=await new Promise((resolve)=>canvas.toBlob(resolve,'image/png'));
       if(!blob) throw new Error('Delivery summary image could not be created.');
       const url=URL.createObjectURL(blob);
       const link=document.createElement('a');
       link.href=url;
-      link.download=(detail.order.order_reference||'LEOGO-order')+'-delivery-summary.png';
+      link.download=(detail.order.order_reference||'LEOGO-order')+'-order-summary.png';
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.setTimeout(()=>URL.revokeObjectURL(url),1500);
-      setFormStatus($('#adminOrderDetailStatus'),'Delivery summary downloaded. Print it and attach it to the package.','success');
+      setFormStatus($('#adminOrderDetailStatus'),'Order summary with QR downloaded successfully.','success');
     }catch(error){
       setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
     }finally{
@@ -1581,7 +1604,7 @@
     }
 
     const button=$('#printOrderDeliverySummary');
-    const original=button?.textContent||'Print Label';
+    const original=button?.textContent||'Print Order Summary';
     try{
       if(button){button.disabled=true;button.textContent='Preparing…';}
       popup.document.write('<!doctype html><title>Preparing LEOGO Delivery Summary</title><body style="font-family:Arial;padding:24px">Preparing delivery summary…</body>');
@@ -1590,7 +1613,7 @@
       popup.document.open();
       popup.document.write('<!doctype html><html><head><title>'+escapeHtml(detail.order.order_reference||'LEOGO Delivery Summary')+'</title><style>@page{size:A6 portrait;margin:0}html,body{margin:0;padding:0;background:#fff}img{width:105mm;height:auto;display:block;margin:0 auto}@media print{img{width:105mm}}</style></head><body><img id="label" src="'+dataUrl+'" alt="LEOGO Delivery Summary"><script>document.getElementById("label").onload=function(){setTimeout(function(){window.print();},120)};<\/script></body></html>');
       popup.document.close();
-      setFormStatus($('#adminOrderDetailStatus'),'Delivery label opened for printing.','success');
+      setFormStatus($('#adminOrderDetailStatus'),'Order summary opened for printing.','success');
     }catch(error){
       popup.close();
       setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
