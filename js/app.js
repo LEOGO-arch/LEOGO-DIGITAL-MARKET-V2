@@ -2325,7 +2325,7 @@
   });
   window.setTimeout(loadCustomerMarketplaceOrders,500);
 
-  const showCustomerOrderInActivity = (orderId,{review=false}={}) => {
+  const showCustomerOrderInActivity = (orderId,{review=false,updates=false}={}) => {
     customerActivityFilter='all';
     activityFilterButtons?.forEach((button)=>{
       const selected=button.dataset.activityFilter==='all';
@@ -2338,7 +2338,7 @@
       const card=[...document.querySelectorAll('[data-customer-order-id]')].find((item)=>item.dataset.customerOrderId===orderId);
       if(!card) return;
       card.scrollIntoView({behavior:'smooth',block:'start'});
-      if(review){
+      if(review||updates){
         const expanded=card.querySelector('[data-order-expanded]');
         const toggle=card.querySelector('[data-toggle-order-updates]');
         if(expanded) expanded.hidden=false;
@@ -2346,6 +2346,8 @@
           toggle.setAttribute('aria-expanded','true');
           toggle.innerHTML='Hide Order Updates <span>⌃</span>';
         }
+      }
+      if(review){
         const box=card.querySelector('[data-order-review-box]');
         if(box){box.hidden=false;box.querySelector('select')?.focus();}
       }
@@ -2385,7 +2387,7 @@
     }
     const historyButton=event.target.closest?.('[data-view-order-history]');
     if(historyButton){
-      showCustomerOrderInActivity(historyButton.dataset.viewOrderHistory);
+      showCustomerOrderInActivity(historyButton.dataset.viewOrderHistory,{updates:true});
       return;
     }
     const reviewButton=event.target.closest?.('[data-review-order]');
