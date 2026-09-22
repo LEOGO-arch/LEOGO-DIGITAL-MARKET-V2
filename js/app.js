@@ -2046,6 +2046,18 @@
   const customerPaymentText = (status) => ({
     submitted:'Payment submitted — verifying',verified_paid:'Paid',cod_due:'COD — due on delivery',cod_paid:'Paid on delivery',rejected:'Payment rejected'
   }[status] || String(status || '').replaceAll('_',' '));
+  const customerDeliveryStatusText = (status) => ({
+    awaiting_assignment:'Awaiting Rider assignment',
+    assigned:'Rider assigned',
+    picked_up:'Picked up from Seller',
+    arrived_sorting_center:'Arrived at LEOGO Sorting Center',
+    sorting_received:'Order Received at LEOGO Sorting Center',
+    ready_for_dispatch:'Ready for Dispatch',
+    on_the_way:'On the way to you',
+    delivered:'Delivered',
+    failed:'Delivery issue',
+    cancelled:'Cancelled'
+  }[status] || String(status || '').replaceAll('_',' '));
   const renderCustomerMarketplaceOrders = () => {
     const container = document.getElementById('customerMarketplaceOrders');
     const empty = document.getElementById('customerActivityEmpty');
@@ -2059,7 +2071,7 @@
     container.innerHTML = rows.map(order => {
       const items=(order.items||[]).map(i=>'<li>'+receiptEscape(i.product_name)+(i.variant_name?' — <b>'+receiptEscape(i.variant_name)+'</b>':'')+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
       const sellers=(order.seller_fulfilments||[]).map(s=>'<span>'+receiptEscape(s.seller_name)+' — <b>'+receiptEscape(String(s.fulfilment_status).replaceAll('_',' '))+'</b></span>').join('');
-      const rider = order.rider_name ? '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>'+receiptEscape(order.rider_name)+'</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(String(order.delivery_status||'awaiting_assignment').replaceAll('_',' '))+'</strong></span></div>' : '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>Awaiting assignment</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(String(order.delivery_status||'awaiting_assignment').replaceAll('_',' '))+'</strong></span></div>';
+      const rider = order.rider_name ? '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>'+receiptEscape(order.rider_name)+'</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>' : '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>Awaiting assignment</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>';
       return '<article class="customer-order-card"><header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+formatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header><ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+'<div class="customer-order-total"><span>Total</span><strong>'+money(order.grand_total_kes)+'</strong></div></article>';
     }).join('');
     if (empty) empty.hidden = rows.length > 0;
