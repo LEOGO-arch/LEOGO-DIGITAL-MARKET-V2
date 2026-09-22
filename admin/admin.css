@@ -533,3 +533,28 @@
   .admin-sorting-actions button{width:100%}
   .order-summary-paper-select{flex:1 1 150px;justify-content:space-between}
 }
+
+
+/* Marketplace Aftersales */
+.admin-aftersales-toolbar{grid-template-columns:minmax(240px,1fr) 230px}
+.admin-aftersales-request{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.admin-aftersales-request>div{display:grid;gap:4px;padding:10px;border:1px solid #e0e6ee;border-radius:10px;background:#f8fafc}
+.admin-aftersales-request small{font-size:8px;font-weight:900;color:#7a8697;text-transform:uppercase}
+.admin-aftersales-request strong{font-size:10px;color:#07152f}
+.admin-aftersales-details-copy{grid-column:1/-1}
+.admin-aftersales-details-copy p{margin:0;white-space:pre-wrap;font-size:10px;line-height:1.55;color:#425168}
+.admin-aftersales-editor{display:grid;gap:10px}
+.admin-aftersales-editor label{display:grid;gap:5px}
+.admin-aftersales-editor label>span{font-size:8px;font-weight:900;color:#59677a;text-transform:uppercase}
+.admin-aftersales-editor select,.admin-aftersales-editor textarea{width:100%;border:1px solid #cfd8e4;border-radius:9px;background:#fff;padding:10px;font:inherit;font-size:9px;color:#07152f}
+.admin-aftersales-editor textarea{resize:vertical}
+.admin-aftersales-actions{display:flex;gap:9px;flex-wrap:wrap}
+.admin-aftersales-actions button{border-radius:9px;padding:9px 12px;font-size:9px;font-weight:900;cursor:pointer}
+.admin-aftersales-actions .secondary{border:1px solid #cdd7e3;background:#fff;color:#07152f}
+.admin-aftersales-actions button:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:700px){
+  .admin-aftersales-toolbar{grid-template-columns:1fr}
+  .admin-aftersales-request{grid-template-columns:1fr}
+  .admin-aftersales-details-copy{grid-column:auto}
+  .admin-aftersales-actions button{width:100%}
+}
