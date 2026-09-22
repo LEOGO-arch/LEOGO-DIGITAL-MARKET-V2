@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07152f">
+  <meta name="robots" content="noindex,nofollow">
+  <title>LEOGO Order Scan</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#07152f}
+    main{min-height:100vh;display:grid;place-items:center;padding:24px}
+    .card{width:min(560px,100%);background:#fff;border:1px solid #dce4ee;border-radius:22px;box-shadow:0 18px 45px rgba(7,21,47,.08);overflow:hidden}
+    header{background:#07152f;color:#fff;padding:24px;display:flex;gap:16px;align-items:center}
+    header img{width:72px;height:72px;object-fit:cover;border-radius:14px;background:#fff}
+    header span{display:block;color:#ff9a3c;font-size:11px;font-weight:900;letter-spacing:.12em}
+    header h1{margin:5px 0 0;font-size:26px}
+    .body{padding:24px}
+    .ref{padding:18px;border-radius:14px;background:#fff5eb;border:1px solid #ffd1a8}
+    .ref small{display:block;color:#7b8798;font-size:10px;font-weight:900;letter-spacing:.08em}
+    .ref strong{display:block;margin-top:7px;font-size:22px;overflow-wrap:anywhere}
+    p{line-height:1.55;color:#56657a;font-size:14px}
+    .notice{padding:12px 14px;border-radius:11px;background:#eef5ff;border:1px solid #cfe0f5;font-size:12px;color:#31506d}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+    a{display:block;text-align:center;text-decoration:none;border-radius:11px;padding:12px 14px;font-weight:900}
+    .primary{background:#ff7800;color:#fff}
+    .secondary{border:1px solid #cfd9e6;color:#07152f;background:#fff}
+    footer{padding:0 24px 22px;color:#8590a0;font-size:10px;text-align:center}
+    @media(max-width:520px){.actions{grid-template-columns:1fr}header{align-items:flex-start}.ref strong{font-size:18px}}
+  </style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <header>
+      <img src="../assets/images/leogo-official-logo.jpg" alt="LEOGO">
+      <div><span>SECURE ORDER IDENTIFIER</span><h1>LEOGO Order Scan</h1></div>
+    </header>
+    <div class="body">
+      <div class="ref"><small>ORDER REFERENCE</small><strong id="orderRef">LEOGO ORDER</strong></div>
+      <p>This QR identifies a LEOGO marketplace order. It does not expose customer, payment, or delivery details publicly.</p>
+      <div class="notice">Authorized LEOGO staff can continue through their secure portal. Pickup Agent access can use this same QR when that portal is added later.</div>
+      <div class="actions">
+        <a class="primary" id="staffLink" href="../staff/">Open Staff Portal</a>
+        <a class="secondary" href="../admin/">Open Admin Center</a>
+      </div>
+    </div>
+    <footer>LEOGO DIGITAL MARKET · Order QR v1</footer>
+  </section>
+</main>
+<script>
+(() => {
+  const params=new URLSearchParams(location.search);
+  const order=(params.get('order')||'').trim();
+  const ref=(params.get('ref')||'').trim();
+  document.getElementById('orderRef').textContent=ref||'LEOGO ORDER';
+  const staff=new URL('../staff/',location.href);
+  if(order) staff.searchParams.set('order',order);
+  if(ref) staff.searchParams.set('ref',ref);
+  document.getElementById('staffLink').href=staff.href;
+})();
+</script>
+</body>
+</html>
