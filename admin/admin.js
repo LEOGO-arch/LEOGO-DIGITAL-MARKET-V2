@@ -911,94 +911,142 @@
 
   const createStaffAccount = async (event) => {
     event.preventDefault();
+
+    const statusBox=$('#createStaffStatus');
+    const form=$('#createStaffForm');
+    const createButton=$('#createStaffButton');
+
     if(!isSuperAdmin()){
-      setFormStatus($('#createStaffStatus'),'Super Admin access required.','error');
+      setFormStatus(statusBox,'Super Admin access required.','error');
       return;
     }
-    const form=$('#createStaffForm');
-    if(!form.reportValidity()) return;
-    const kind=$('#staffAccountKind').value;
+    if(!form){
+      globalStatus('Staff form is unavailable. Refresh Admin Center and try again.','error');
+      return;
+    }
+    if(!form.reportValidity()){
+      setFormStatus(statusBox,'Complete the required staff fields highlighted above.','error');
+      return;
+    }
+
+    const kind=$('#staffAccountKind')?.value||'';
+    if(kind==='admin_staff'&&!$('#staffRole')?.value){
+      setFormStatus(statusBox,'Choose a Staff role before creating the account.','error');
+      return;
+    }
+    if(kind==='rider'&&($('#staffPhone')?.value||'').trim().length<7){
+      setFormStatus(statusBox,'Enter the Rider phone number.','error');
+      return;
+    }
+
     const passportFile=$('#staffPassportPhoto')?.files?.[0]||null;
     const idFile=$('#staffIdPicture')?.files?.[0]||null;
     try{
       validateStaffDocumentFile(passportFile,'Passport photo');
       validateStaffDocumentFile(idFile,'ID picture');
     }catch(error){
-      setFormStatus($('#createStaffStatus'),friendlyError(error),'error');
+      setFormStatus(statusBox,friendlyError(error),'error');
       return;
     }
+
     const body={
       account_kind:kind,
-      display_name:$('#staffDisplayName').value.trim(),
-      email:$('#staffEmail').value.trim(),
-      phone:$('#staffPhone').value.trim(),
-      temporary_password:$('#staffTemporaryPassword').value,
-      role_code:kind==='admin_staff'?$('#staffRole').value:'rider',
-      department:kind==='admin_staff'?$('#staffDepartment').value.trim():'Delivery',
-      job_title:kind==='admin_staff'?$('#staffJobTitle').value.trim():'LEOGO Rider',
+      display_name:($('#staffDisplayName')?.value||'').trim(),
+      email:($('#staffEmail')?.value||'').trim(),
+      phone:($('#staffPhone')?.value||'').trim(),
+      temporary_password:$('#staffTemporaryPassword')?.value||'',
+      role_code:kind==='admin_staff'?$('#staffRole')?.value:'rider',
+      department:kind==='admin_staff'?($('#staffDepartment')?.value||'').trim():'Delivery',
+      job_title:kind==='admin_staff'?($('#staffJobTitle')?.value||'').trim():'LEOGO Rider',
       permissions:kind==='admin_staff'?selectedPermissionValues($('#staffPermissionGrid')):[],
-      vehicle_type:kind==='rider'?$('#staffVehicleType').value:'',
-      vehicle_registration:kind==='rider'?$('#staffVehicleRegistration').value.trim():'',
-      id_number:kind==='rider'?$('#staffIdNumber').value.trim():'',
-      license_number:kind==='rider'?$('#staffLicenseNumber').value.trim():''
+      vehicle_type:kind==='rider'?($('#staffVehicleType')?.value||''):'',
+      vehicle_registration:kind==='rider'?($('#staffVehicleRegistration')?.value||'').trim():'',
+      id_number:kind==='rider'?($('#staffIdNumber')?.value||'').trim():'',
+      license_number:kind==='rider'?($('#staffLicenseNumber')?.value||'').trim():''
     };
 
-    await withButtonLock($('#createStaffButton'),'Creating Account…',async()=>{
-      setFormStatus($('#createStaffStatus'),'Creating secure staff login…');
-      const {data,error}=await db.functions.invoke('admin-create-staff',{body});
-      if(error){
-        let message=error.message||'Staff account could not be created.';
-        try{
-          const payload=await error.context?.json?.();
-          if(payload?.error) message=payload.error;
-        }catch{}
-        setFormStatus($('#createStaffStatus'),message,'error');
-        return;
-      }
-      if(data?.error){
-        setFormStatus($('#createStaffStatus'),data.error,'error');
-        return;
-      }
+    await withButtonLock(createButton,'Creating Account…',async()=>{
+      try{
+        setFormStatus(statusBox,'Creating secure staff login…');
 
-      let documentMessage='Staff account created successfully. Share the temporary password privately.';
-      let documentStatus='success';
-      if(data?.user_id&&(passportFile||idFile)){
-        setFormStatus($('#createStaffStatus'),'Staff account created. Uploading protected staff documents…');
-        const uploaded=[];
-        try{
-          let passportPath=null;
-          let idPicturePath=null;
-          if(passportFile){
-            passportPath=await uploadStaffPrivateDocument(data.user_id,kind,'passport',passportFile);
-            uploaded.push(passportPath);
-          }
-          if(idFile){
-            idPicturePath=await uploadStaffPrivateDocument(data.user_id,kind,'id-picture',idFile);
-            uploaded.push(idPicturePath);
-          }
-          const {error:documentError}=await db.rpc('admin_set_staff_documents',{
-            p_user_id:data.user_id,
-            p_account_kind:kind,
-            p_passport_photo_path:passportPath,
-            p_id_picture_path:idPicturePath
-          });
-          if(documentError) throw documentError;
-          documentMessage='Staff account and private documents created successfully. Share the temporary password privately.';
-        }catch(documentError){
-          await removeStaffPrivateDocuments(uploaded);
-          documentMessage='Staff account was created, but the private documents could not be saved: '+friendlyError(documentError)+' You can upload them from Manage Access.';
-          documentStatus='error';
+        const invokeResult=await db.functions.invoke('admin-create-staff',{body});
+        const data=invokeResult?.data;
+        const error=invokeResult?.error;
+
+        if(error){
+          let message=error.message||'Staff account could not be created.';
+          try{
+            const payload=await error.context?.json?.();
+            if(payload?.error) message=payload.error;
+          }catch{}
+          setFormStatus(statusBox,message,'error');
+          return;
         }
+        if(!data?.ok){
+          setFormStatus(statusBox,data?.error||'Staff account could not be created. No account was saved.','error');
+          return;
+        }
+
+        let documentMessage='Staff account created successfully. Share the temporary password privately.';
+        let documentStatus='success';
+
+        if(data.user_id&&(passportFile||idFile)){
+          setFormStatus(statusBox,'Staff account created. Uploading protected staff documents…');
+          const uploaded=[];
+          try{
+            let passportPath=null;
+            let idPicturePath=null;
+
+            if(passportFile){
+              passportPath=await uploadStaffPrivateDocument(data.user_id,kind,'passport',passportFile);
+              uploaded.push(passportPath);
+            }
+            if(idFile){
+              idPicturePath=await uploadStaffPrivateDocument(data.user_id,kind,'id-picture',idFile);
+              uploaded.push(idPicturePath);
+            }
+
+            const {error:documentError}=await db.rpc('admin_set_staff_documents',{
+              p_user_id:data.user_id,
+              p_account_kind:kind,
+              p_passport_photo_path:passportPath,
+              p_id_picture_path:idPicturePath
+            });
+            if(documentError) throw documentError;
+
+            documentMessage='Staff account and private documents created successfully. Share the temporary password privately.';
+          }catch(documentError){
+            await removeStaffPrivateDocuments(uploaded);
+            documentMessage='Staff account was created, but the private documents could not be saved: '+friendlyError(documentError)+' You can upload them later from Manage Access.';
+            documentStatus='error';
+          }
+        }
+
+        setFormStatus(statusBox,documentMessage,documentStatus);
+
+        form.reset();
+        $('#staffAccountKind').value='admin_staff';
+        $('#staffPhone').required=false;
+        $('#staffRole').required=true;
+        $('#adminStaffFields').hidden=false;
+        $('#riderStaffFields').hidden=true;
+        renderStaffRoleOptions();
+        if(state.staffRolePresets[0]) $('#staffRole').value=state.staffRolePresets[0].code;
+        applyCreateRolePreset();
+
+        const refreshes=await Promise.allSettled([
+          loadStaffManagement(),
+          loadDeliveryOps(),
+          loadAuditLog()
+        ]);
+        const refreshFailure=refreshes.find((result)=>result.status==='rejected');
+        if(refreshFailure){
+          console.warn('Staff account created but one Admin refresh failed:',refreshFailure.reason);
+        }
+      }catch(error){
+        console.error('Create staff failed:',error);
+        setFormStatus(statusBox,friendlyError(error),'error');
       }
-      setFormStatus($('#createStaffStatus'),documentMessage,documentStatus);
-      form.reset();
-      $('#staffAccountKind').value='admin_staff';
-      document.querySelector('#adminStaffFields').hidden=false;
-      document.querySelector('#riderStaffFields').hidden=true;
-      renderStaffRoleOptions();
-      if(state.staffRolePresets[0]) $('#staffRole').value=state.staffRolePresets[0].code;
-      applyCreateRolePreset();
-      await Promise.all([loadStaffManagement(),loadDeliveryOps(),loadAuditLog()]);
     });
   };
 
