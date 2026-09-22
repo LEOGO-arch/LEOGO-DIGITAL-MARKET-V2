@@ -1172,9 +1172,13 @@
   const deliveryStatusLabel=(status)=>({
     awaiting_assignment:'Awaiting assignment',
     assigned:'Rider assigned',
-    picked_up:'Picked up',
-    on_the_way:'On the way',
+    picked_up:'Picked up from Seller',
+    arrived_sorting_center:'Arrived at LEOGO Sorting Center',
+    sorting_received:'Received at LEOGO Sorting Center',
+    ready_for_dispatch:'Ready for dispatch',
+    on_the_way:'On the way to customer',
     delivered:'Delivered',
+    failed:'Failed',
     cancelled:'Cancelled'
   }[status]||String(status||'').replaceAll('_',' '));
 
@@ -1597,7 +1601,8 @@
     const detail=state.activeMarketplaceOrderDetail;
     if(!detail?.order) return;
 
-    const popup=window.open('','_blank','width=900,height=1100');
+    const paperSize=$('#orderSummaryPaperSize')?.value||'a6';
+    const popup=window.open('','_blank',paperSize==='80mm'?'width=420,height=760':'width=900,height=1100');
     if(!popup){
       setFormStatus($('#adminOrderDetailStatus'),'Your browser blocked the print window. Allow pop-ups for LEOGO Admin and try again.','error');
       return;
@@ -1610,10 +1615,14 @@
       popup.document.write('<!doctype html><title>Preparing LEOGO Delivery Summary</title><body style="font-family:Arial;padding:24px">Preparing delivery summary…</body>');
       const canvas=await buildOrderDeliverySummaryCanvas(detail);
       const dataUrl=canvas.toDataURL('image/png');
+      const pageCss=paperSize==='80mm'
+        ? '@page{size:80mm 113mm;margin:0}html,body{width:80mm;margin:0;padding:0;background:#fff}img{width:80mm;height:auto;display:block;margin:0}'
+        : '@page{size:A6 portrait;margin:0}html,body{width:105mm;margin:0;padding:0;background:#fff}img{width:105mm;height:auto;display:block;margin:0}';
+      const paperLabel=paperSize==='80mm'?'80 mm thermal':'A6';
       popup.document.open();
-      popup.document.write('<!doctype html><html><head><title>'+escapeHtml(detail.order.order_reference||'LEOGO Delivery Summary')+'</title><style>@page{size:A6 portrait;margin:0}html,body{margin:0;padding:0;background:#fff}img{width:105mm;height:auto;display:block;margin:0 auto}@media print{img{width:105mm}}</style></head><body><img id="label" src="'+dataUrl+'" alt="LEOGO Delivery Summary"><script>document.getElementById("label").onload=function(){setTimeout(function(){window.print();},120)};<\/script></body></html>');
+      popup.document.write('<!doctype html><html><head><title>'+escapeHtml(detail.order.order_reference||'LEOGO Order Summary')+'</title><style>'+pageCss+'</style></head><body><img id="label" src="'+dataUrl+'" alt="LEOGO Order Summary"><script>document.getElementById("label").onload=function(){setTimeout(function(){window.print();},120)};<\/script></body></html>');
       popup.document.close();
-      setFormStatus($('#adminOrderDetailStatus'),'Order summary opened for printing.','success');
+      setFormStatus($('#adminOrderDetailStatus'),'Order summary opened for '+paperLabel+' printing.','success');
     }catch(error){
       popup.close();
       setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
@@ -1703,8 +1712,18 @@
     }).join(''):'<div class="loading-card">No Seller fulfilment records found.</div>';
 
     const activeRiders=state.riders.filter((r)=>r.status==='active');
-    const assignmentLocked=delivery&&['picked_up','on_the_way','delivered'].includes(delivery.status);
+    const assignmentLocked=delivery&&['picked_up','arrived_sorting_center','sorting_received','ready_for_dispatch','on_the_way','delivered'].includes(delivery.status);
     const canAssignRider=adminHas('delivery.manage')||adminHas('orders.manage');
+    const canManageSorting=adminHas('delivery.manage')||adminHas('orders.manage');
+    const sortingActionHtml=!delivery||!canManageSorting
+      ? ''
+      : ['picked_up','arrived_sorting_center'].includes(delivery.status)
+        ? '<div class="admin-sorting-actions"><button type="button" data-sorting-status="sorting_received">Confirm Received at Sorting Center</button><small>Use this when the order is physically handed in at LEOGO Sorting Center.</small></div>'
+        : delivery.status==='sorting_received'
+          ? '<div class="admin-sorting-actions"><button type="button" data-sorting-status="ready_for_dispatch">Mark Ready for Dispatch</button><small>After this, the assigned Rider can continue final delivery from the Sorting Center.</small></div>'
+          : delivery.status==='ready_for_dispatch'
+            ? '<div class="admin-sorting-ready"><strong>✓ Ready for dispatch</strong><span>The assigned Rider can now start final delivery from LEOGO Sorting Center.</span></div>'
+            : '';
     const riderOptions='<option value="">Choose active LEOGO rider…</option>'+activeRiders.map((r)=>
       '<option value="'+escapeHtml(r.user_id)+'" '+(delivery?.rider_id===r.user_id?'selected':'')+'>'+
         escapeHtml(r.display_name)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):'')+
@@ -1713,7 +1732,10 @@
 
     const deliveryTimeline=[
       ['Assigned',delivery?.assigned_at],
-      ['Picked Up',delivery?.picked_up_at],
+      ['Picked Up from Seller',delivery?.picked_up_at],
+      ['Arrived Sorting Center',delivery?.arrived_sorting_center_at],
+      ['Received at Sorting Center',delivery?.sorting_received_at],
+      ['Ready for Dispatch',delivery?.ready_for_dispatch_at],
       ['On the Way',delivery?.on_the_way_at],
       ['Delivered',delivery?.delivered_at]
     ];
@@ -1726,6 +1748,7 @@
         '<span><small>Rider phone</small><strong>'+escapeHtml(delivery?.rider_phone||'—')+'</strong></span>'+
       '</div>'+
       '<div class="admin-order-timeline admin-order-delivery-timeline">'+deliveryTimeline.map(([label,date])=>'<span class="'+(date?'done':'')+'"><i></i><b>'+escapeHtml(label)+'</b><small>'+escapeHtml(date?formatDate(date,true):'Pending')+'</small></span>').join('')+'</div>'+
+      sortingActionHtml+
       (codNeedsCollection
         ? '<div class="admin-order-cod-warning"><strong>💵 COD — payment must be collected before customer handover</strong><span>'+escapeHtml(codInstruction)+'</span></div>'
         : '')+
@@ -1751,6 +1774,41 @@
     }));
 
 
+  };
+
+  const updateActiveOrderSortingStatus = async (button,status) => {
+    const order=state.activeMarketplaceOrderDetail?.order;
+    if(!order?.id){
+      showOrderDeliveryStatus('The open order could not be identified. Refresh and try again.','error');
+      return;
+    }
+
+    const label=status==='sorting_received'
+      ?'confirm this order has been received at the LEOGO Sorting Center'
+      :'mark this order ready for dispatch from the LEOGO Sorting Center';
+    if(!window.confirm('Confirm you want to '+label+'?')) return;
+
+    await withButtonLock(button,status==='sorting_received'?'Confirming…':'Updating…',async()=>{
+      showOrderDeliveryStatus(status==='sorting_received'
+        ?'Confirming Sorting Center receipt…'
+        :'Marking order ready for dispatch…');
+      try{
+        const {data,error}=await db.rpc('admin_update_sorting_center_status',{
+          p_order_id:order.id,
+          p_status:status
+        });
+        if(error) throw error;
+        if(data?.error) throw new Error(data.error);
+
+        showOrderDeliveryStatus(status==='sorting_received'
+          ?'Order received at LEOGO Sorting Center.'
+          :'Order is ready for dispatch. The assigned Rider can continue delivery.','success');
+        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders(),loadAuditLog()]);
+        await loadMarketplaceOrderDetail(order.id,{scroll:false});
+      }catch(error){
+        showOrderDeliveryStatus(friendlyError(error),'error');
+      }
+    });
   };
 
   const saveActiveOrderRiderInstructions = async (button) => {
@@ -1850,9 +1908,10 @@
 
     renderMarketplaceOrders();
 
-    const [detailResult,riderResult]=await Promise.all([
+    const [detailResult,riderResult,sortingResult]=await Promise.all([
       db.rpc('admin_get_marketplace_order_detail',{p_order_id:orderId}),
-      db.rpc('admin_list_riders')
+      db.rpc('admin_list_riders'),
+      db.rpc('admin_get_delivery_sorting_state',{p_order_id:orderId})
     ]);
     if(detailResult.error){
       state.activeMarketplaceOrderDetail=null;
@@ -1862,6 +1921,12 @@
     if(!riderResult.error) state.riders=Array.isArray(riderResult.data)?riderResult.data:[];
 
     state.activeMarketplaceOrderDetail=detailResult.data;
+    if(!sortingResult.error&&sortingResult.data&&state.activeMarketplaceOrderDetail?.delivery){
+      state.activeMarketplaceOrderDetail.delivery={
+        ...state.activeMarketplaceOrderDetail.delivery,
+        ...sortingResult.data
+      };
+    }
     renderMarketplaceOrderDetail();
 
     if(scroll) panel?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -3082,7 +3147,9 @@
       const saveButton=event.target.closest?.('#saveAdminRiderInstructions');
       if(saveButton){ saveActiveOrderRiderInstructions(saveButton); return; }
       const codButton=event.target.closest?.('#useCodRiderInstruction');
-      if(codButton) applyCodRiderInstruction();
+      if(codButton){ applyCodRiderInstruction(); return; }
+      const sortingButton=event.target.closest?.('[data-sorting-status]');
+      if(sortingButton) updateActiveOrderSortingStatus(sortingButton,sortingButton.dataset.sortingStatus);
     });
     $('#refreshDeliveryOps').addEventListener('click', () => withButtonLock($('#refreshDeliveryOps'), 'Refreshing…', loadDeliveryOps));
     $('#adminAddRiderForm').addEventListener('submit', addRider);
