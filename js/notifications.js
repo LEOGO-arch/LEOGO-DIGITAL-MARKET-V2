@@ -98,6 +98,12 @@
           document.dispatchEvent(new CustomEvent('leogo:customer-data-refresh',{
             detail:{source:'notification-open'}
           }));
+        } else if (action === 'aftersales') {
+          closePanel();
+          window.leogoOpenCustomerView?.('aftersales');
+          document.dispatchEvent(new CustomEvent('leogo:customer-data-refresh',{
+            detail:{source:'aftersales-notification-open'}
+          }));
         }
       });
     });
