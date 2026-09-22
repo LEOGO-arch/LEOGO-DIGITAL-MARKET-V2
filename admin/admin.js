@@ -24,6 +24,7 @@
     orderDetailLoadToken: 0,
     catalogueProducts: [],
     catalogueCategories: [],
+    productReviews: [],
     personalSales: [],
     personalSaleInterests: [],
     approvalFilter: 'all',
