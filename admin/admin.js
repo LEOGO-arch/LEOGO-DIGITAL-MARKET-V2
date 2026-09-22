@@ -25,6 +25,7 @@
     catalogueProducts: [],
     catalogueCategories: [],
     productReviews: [],
+    orderReviews: [],
     personalSales: [],
     personalSaleInterests: [],
     approvalFilter: 'all',
@@ -2432,6 +2433,73 @@
     }).join('');
   };
 
+  const renderOrderReviews=()=>{ 
+    const box=$('#adminOrderReviewList');
+    if(!box) return;
+    const filter=$('#adminOrderReviewStatusFilter')?.value||'submitted';
+    const rows=state.orderReviews.filter((review)=>filter==='all'||review.moderation_status===filter);
+
+    if(!rows.length){
+      box.innerHTML='<div class="loading-card">No overall order reviews match this filter.</div>';
+      return;
+    }
+
+    box.innerHTML=rows.map((review)=>{
+      const approved=review.moderation_status==='approved';
+      const rejected=review.moderation_status==='rejected';
+      return '<article class="admin-product-review-card" data-order-review-card="'+escapeHtml(review.review_id)+'">'+
+        '<header><div><span>VERIFIED DELIVERED ORDER REVIEW</span><h4>'+escapeHtml(review.order_reference)+'</h4>'+
+        '<p>'+Number(review.item_count||0)+' item(s) · '+Number(review.seller_count||0)+' Seller(s)</p></div>'+
+        '<div class="admin-product-review-rating"><strong>'+adminReviewStars(review.rating)+'</strong><span>'+Number(review.rating)+'/5</span></div></header>'+
+        '<div class="admin-product-review-meta">'+
+          '<span><small>Customer</small><strong>'+escapeHtml(review.customer_name||'Customer')+'</strong></span>'+
+          '<span><small>Email</small><strong>'+escapeHtml(review.customer_email||'—')+'</strong></span>'+
+          '<span><small>Submitted</small><strong>'+formatDate(review.created_at,true)+'</strong></span>'+
+          '<span><small>Status</small><strong>'+escapeHtml(String(review.moderation_status||'submitted').replaceAll('_',' '))+'</strong></span>'+
+        '</div>'+
+        '<div class="admin-product-review-comment"><small>OVERALL ORDER REVIEW</small><p>'+escapeHtml(review.comment||'Rating only — no written comment.')+'</p></div>'+
+        '<label class="admin-product-review-note"><span>Admin moderation note</span><textarea data-order-review-note maxlength="1500" rows="2" placeholder="Required when rejecting; optional when approving…">'+escapeHtml(review.admin_notes||'')+'</textarea></label>'+
+        '<div class="admin-product-review-actions">'+
+          (approved?'<span class="admin-product-review-approved">✓ Approved</span>':'<button type="button" data-order-review-action="approved" data-review-id="'+escapeHtml(review.review_id)+'">Approve Review</button>')+
+          (rejected?'<span class="admin-product-review-rejected">Rejected</span>':'<button type="button" class="danger" data-order-review-action="rejected" data-review-id="'+escapeHtml(review.review_id)+'">Reject</button>')+
+        '</div>'+
+      '</article>';
+    }).join('');
+  };
+
+  const moderateOrderReview=async(button)=>{
+    const reviewId=button.dataset.reviewId;
+    const action=button.dataset.orderReviewAction;
+    const card=button.closest('[data-order-review-card]');
+    const notes=card?.querySelector('[data-order-review-note]')?.value.trim()||'';
+
+    if(action==='rejected'&&!notes){
+      globalStatus('Add an Admin note explaining why this order review is rejected.','error');
+      card?.querySelector('[data-order-review-note]')?.focus();
+      return;
+    }
+
+    const confirmation=action==='approved'
+      ? 'Approve this overall order review?'
+      : 'Reject this order review? The customer will be notified.';
+    if(!window.confirm(confirmation)) return;
+
+    await withButtonLock(button,action==='approved'?'Approving…':'Rejecting…',async()=>{
+      const {data,error}=await db.rpc('admin_moderate_order_review',{
+        p_review_id:reviewId,
+        p_action:action,
+        p_admin_notes:notes||null
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+
+      await Promise.all([loadCatalogue(),loadAuditLog()]);
+      globalStatus(action==='approved'
+        ? 'Order review approved.'
+        : 'Order review rejected. Customer notified.');
+    });
+  };
+
   const moderateProductReview=async(button)=>{
     const reviewId=button.dataset.reviewId;
     const action=button.dataset.productReviewAction;
@@ -2477,23 +2545,27 @@
         categoryBox.innerHTML = '<div class="loading-card">Loading categories…</div>';
       }
 
-      const [productsResult,categoriesResult,reviewsResult] = await Promise.all([
+      const [productsResult,categoriesResult,reviewsResult,orderReviewsResult] = await Promise.all([
         db.rpc('admin_list_catalogue_products'),
         db.rpc('admin_list_catalogue_categories'),
-        db.rpc('admin_list_product_reviews')
+        db.rpc('admin_list_product_reviews'),
+        db.rpc('admin_list_order_reviews')
       ]);
 
       if (productsResult.error) throw productsResult.error;
       if (categoriesResult.error) throw categoriesResult.error;
       if (reviewsResult.error) throw reviewsResult.error;
+      if (orderReviewsResult.error) throw orderReviewsResult.error;
 
       state.catalogueProducts = Array.isArray(productsResult.data) ? productsResult.data : [];
       state.catalogueCategories = Array.isArray(categoriesResult.data) ? categoriesResult.data : [];
       state.productReviews = Array.isArray(reviewsResult.data) ? reviewsResult.data : [];
+      state.orderReviews = Array.isArray(orderReviewsResult.data) ? orderReviewsResult.data : [];
 
       renderCatalogueProducts();
       renderCatalogueCategories();
       renderProductReviews();
+      renderOrderReviews();
       return state.catalogueProducts;
     } catch (error) {
       console.error('Admin catalogue load failed:', error);
@@ -2517,10 +2589,18 @@
   $('#refreshProductReviews')?.addEventListener('click', () =>
     withButtonLock($('#refreshProductReviews'), 'Refreshing…', loadCatalogue)
   );
+  $('#refreshOrderReviews')?.addEventListener('click', () =>
+    withButtonLock($('#refreshOrderReviews'), 'Refreshing…', loadCatalogue)
+  );
   $('#adminProductReviewStatusFilter')?.addEventListener('change', renderProductReviews);
+  $('#adminOrderReviewStatusFilter')?.addEventListener('change', renderOrderReviews);
   $('#adminProductReviewList')?.addEventListener('click',(event)=>{
     const button=event.target.closest?.('[data-product-review-action]');
     if(button) moderateProductReview(button);
+  });
+  $('#adminOrderReviewList')?.addEventListener('click',(event)=>{
+    const button=event.target.closest?.('[data-order-review-action]');
+    if(button) moderateOrderReview(button);
   });
   $('#adminCatalogueSearch')?.addEventListener('input', renderCatalogueProducts);
   $('#adminCatalogueStatusFilter')?.addEventListener('change', renderCatalogueProducts);
