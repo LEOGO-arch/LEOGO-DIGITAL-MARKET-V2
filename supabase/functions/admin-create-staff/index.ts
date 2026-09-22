@@ -6,6 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const STAFF_PORTAL_SETUP_URL =
+  "https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/staff/?setup=1";
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -34,7 +37,9 @@ const errorPayload = (stage: string, error: unknown, status = 400) =>
     ok: false,
     stage,
     error: errorText(error),
-    code: typeof error === "object" && error && "code" in error ? String((error as Record<string, unknown>).code ?? "") : null,
+    code: typeof error === "object" && error && "code" in error
+      ? String((error as Record<string, unknown>).code ?? "")
+      : null,
   }, status);
 
 const ROLE_DEFAULTS: Record<string, string[]> = {
@@ -80,7 +85,9 @@ const readSecretKey = () => {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return json({ ok:false, stage:"request", error:"Method not allowed" }, 405);
+  if (req.method !== "POST") {
+    return json({ ok:false, stage:"request", error:"Method not allowed" }, 405);
+  }
 
   let createdUserId: string | null = null;
   let staffRecordCreated = false;
@@ -92,12 +99,18 @@ Deno.serve(async (req: Request) => {
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
     if (!url || !secretKey) {
-      return json({ ok:false, stage:"configuration", error:"Secure staff service is not configured correctly." }, 500);
+      return json({
+        ok:false,
+        stage:"configuration",
+        error:"Secure staff service is not configured correctly."
+      }, 500);
     }
-    if (!token) return json({ ok:false, stage:"authentication", error:"Sign in required." }, 401);
+    if (!token) {
+      return json({ ok:false, stage:"authentication", error:"Sign in required." }, 401);
+    }
 
     const admin = createClient(url, secretKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     });
 
     const { data: userData, error: userError } = await admin.auth.getUser(token);
@@ -128,7 +141,6 @@ Deno.serve(async (req: Request) => {
     const displayName = String(body.display_name || "").trim();
     const email = String(body.email || "").trim().toLowerCase();
     const phone = String(body.phone || "").trim();
-    const password = String(body.temporary_password || "");
 
     if (!["admin_staff","rider"].includes(accountKind)) {
       return json({ ok:false, stage:"validation", error:"Choose a supported staff account type." }, 400);
@@ -138,19 +150,6 @@ Deno.serve(async (req: Request) => {
     }
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       return json({ ok:false, stage:"validation", error:"Enter a valid staff email address." }, 400);
-    }
-    if (
-      password.length < 10 ||
-      !/[A-Z]/.test(password) ||
-      !/[a-z]/.test(password) ||
-      !/[0-9]/.test(password) ||
-      !/[^A-Za-z0-9]/.test(password)
-    ) {
-      return json({
-        ok:false,
-        stage:"validation",
-        error:"Temporary password must be at least 10 characters and include uppercase, lowercase, a number and a symbol. Use Generate for a secure password."
-      }, 400);
     }
 
     let roleCode = "";
@@ -177,23 +176,26 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const { data: createdData, error: createError } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: displayName,
-        phone: phone || null,
-        staff_account: true,
-        staff_role: roleCode,
-      },
-    });
+    const { data: inviteData, error: inviteError } =
+      await admin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: STAFF_PORTAL_SETUP_URL,
+        data: {
+          full_name: displayName,
+          phone: phone || null,
+          staff_account: true,
+          staff_role: roleCode,
+        },
+      });
 
-    if (createError || !createdData?.user) {
-      return errorPayload("auth_user_creation", createError || "Staff login account could not be created", 400);
+    if (inviteError || !inviteData?.user) {
+      return errorPayload(
+        "auth_invitation",
+        inviteError || "Staff invitation could not be sent",
+        400
+      );
     }
 
-    const staffUser = createdData.user;
+    const staffUser = inviteData.user;
     createdUserId = staffUser.id;
 
     if (accountKind === "admin_staff") {
@@ -252,7 +254,11 @@ Deno.serve(async (req: Request) => {
         status: "active",
         permissions,
       },
-      metadata: { created_via: "admin_staff_management" },
+      metadata: {
+        created_via: "admin_staff_management",
+        invitation_sent: true,
+        activation_portal: STAFF_PORTAL_SETUP_URL,
+      },
     });
 
     if (auditError) {
@@ -267,7 +273,10 @@ Deno.serve(async (req: Request) => {
       account_kind: accountKind,
       role_code: roleCode,
       status: "active",
-      warning: auditError ? "Account created, but its creation audit entry could not be written." : null,
+      invitation_sent: true,
+      warning: auditError
+        ? "Account created and invitation sent, but its creation audit entry could not be written."
+        : null,
     });
   } catch (error) {
     if (createdUserId && !staffRecordCreated) {
