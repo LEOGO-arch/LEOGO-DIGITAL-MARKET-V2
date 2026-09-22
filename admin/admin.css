@@ -558,3 +558,41 @@
   .admin-aftersales-details-copy{grid-column:auto}
   .admin-aftersales-actions button{width:100%}
 }
+
+
+/* Verified product review moderation */
+.admin-product-review-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.admin-product-review-controls select{border:1px solid #d4dce7;border-radius:9px;background:#fff;color:#07152f;padding:9px 10px;font-size:9px;font-weight:800}
+.admin-product-review-list{display:grid;gap:10px;margin-top:12px}
+.admin-product-review-card{display:grid;gap:10px;padding:12px;border:1px solid #dfe6ee;border-radius:12px;background:#f9fbfd}
+.admin-product-review-card header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.admin-product-review-card header>div:first-child{display:grid;gap:3px}
+.admin-product-review-card header span{font-size:8px;font-weight:900;letter-spacing:.08em;color:#ff7800}
+.admin-product-review-card header h4{margin:0;font-size:12px;color:#07152f}
+.admin-product-review-card header p{margin:0;font-size:8.5px;color:#6a7789}
+.admin-product-review-rating{display:grid;gap:2px;text-align:right;white-space:nowrap}
+.admin-product-review-rating strong{font-size:12px;color:#f59e0b;letter-spacing:.04em}
+.admin-product-review-rating span{font-size:8px;color:#748194}
+.admin-product-review-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.admin-product-review-meta span{display:grid;gap:3px;padding:8px;border-radius:8px;background:#fff;border:1px solid #e3e8ef}
+.admin-product-review-meta small{font-size:7.5px;font-weight:900;color:#7a8697;text-transform:uppercase}
+.admin-product-review-meta strong{font-size:8.5px;color:#25364b;text-transform:capitalize}
+.admin-product-review-comment{display:grid;gap:4px;padding:9px;border-radius:9px;background:#fff;border:1px solid #e3e8ef}
+.admin-product-review-comment small{font-size:7.5px;font-weight:900;color:#7a8697}
+.admin-product-review-comment p{margin:0;white-space:pre-wrap;font-size:9px;line-height:1.5;color:#405066}
+.admin-product-review-note{display:grid;gap:5px}
+.admin-product-review-note>span{font-size:8px;font-weight:900;color:#59677a}
+.admin-product-review-note textarea{width:100%;border:1px solid #cfd8e4;border-radius:9px;background:#fff;padding:9px;font:inherit;font-size:9px;color:#07152f;resize:vertical}
+.admin-product-review-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.admin-product-review-actions button{border:0;border-radius:9px;padding:9px 11px;background:#198754;color:#fff;font-size:8.5px;font-weight:900;cursor:pointer}
+.admin-product-review-actions button.danger{background:#b42318}
+.admin-product-review-approved,.admin-product-review-rejected{padding:7px 9px;border-radius:999px;font-size:8px;font-weight:900}
+.admin-product-review-approved{background:#eaf8ef;color:#17633c}
+.admin-product-review-rejected{background:#fff0f0;color:#a12626}
+@media(max-width:700px){
+  .admin-product-review-card header{flex-direction:column}
+  .admin-product-review-rating{text-align:left}
+  .admin-product-review-meta{grid-template-columns:1fr}
+  .admin-product-review-controls{align-items:stretch;flex-direction:column}
+  .admin-product-review-controls select,.admin-product-review-controls button{width:100%}
+}
