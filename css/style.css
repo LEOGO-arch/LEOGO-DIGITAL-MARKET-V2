@@ -596,3 +596,44 @@ body.accommodation-modal-open{overflow:hidden}
   .customer-aftersales-case-top{align-items:flex-start;flex-direction:column}
   .customer-aftersales-case-grid{grid-template-columns:1fr}
 }
+
+
+/* Compact My Activity product order cards */
+.customer-order-card-compact{padding:13px}
+.customer-order-card-compact header{padding-bottom:10px}
+.customer-order-compact-body{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:end;padding:11px 0}
+.customer-order-compact-body>div{display:grid;gap:4px;min-width:0}
+.customer-order-compact-body small{font-size:8px;font-weight:900;color:#8691a1;letter-spacing:.05em}
+.customer-order-compact-body strong{font-size:11px;color:#13243d;overflow-wrap:anywhere}
+.customer-order-compact-body>div:last-child{text-align:right}
+.customer-order-compact-body>div:last-child strong{font-size:15px}
+.customer-order-compact-actions{display:flex;gap:7px;flex-wrap:wrap;padding-top:2px}
+.customer-order-compact-actions button{border:0;border-radius:9px;padding:8px 10px;background:#ff7800;color:#fff;font-size:8px;font-weight:900;cursor:pointer}
+.customer-order-compact-actions button.secondary{background:#fff;color:#07152f;border:1px solid #ccd6e3}
+.customer-order-compact-actions .customer-order-update-toggle{background:#07152f}
+.customer-order-compact-actions .customer-order-update-toggle span{margin-left:4px}
+.customer-order-expanded{margin-top:11px;padding-top:11px;border-top:1px solid #e8edf3}
+.customer-order-expanded[hidden]{display:none}
+.customer-order-expanded-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
+.customer-order-expanded-head span{font-size:8px;font-weight:950;letter-spacing:.08em;color:#ff7800}
+.customer-order-expanded-head small{font-size:8px;font-weight:900;color:#7f8a9b}
+.customer-order-expanded .customer-order-history-wrap{margin-top:10px}
+.customer-order-expanded .customer-order-delivery{margin-top:9px}
+.customer-order-expanded>ul{margin:10px 0 9px;padding-left:18px}
+.customer-order-expanded>ul li{font-size:10px;margin:5px 0}
+.customer-order-expanded>ul li strong{float:right}
+.customer-order-card-compact .customer-order-review-box{margin-top:10px}
+@media(max-width:560px){
+  .customer-order-card-compact header{flex-direction:row;align-items:flex-start}
+  .customer-order-card-compact header>div:last-child{text-align:right}
+  .customer-order-compact-body{grid-template-columns:minmax(0,1fr) auto}
+  .customer-order-compact-actions{display:grid;grid-template-columns:1fr 1fr}
+  .customer-order-compact-actions .customer-order-update-toggle{grid-column:1/-1}
+  .customer-order-compact-actions button{width:100%}
+}
+@media(max-width:390px){
+  .customer-order-card-compact header{flex-direction:column}
+  .customer-order-card-compact header>div:last-child{text-align:left}
+  .customer-order-compact-body{grid-template-columns:1fr}
+  .customer-order-compact-body>div:last-child{text-align:left}
+}
