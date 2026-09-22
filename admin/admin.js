@@ -4,6 +4,7 @@
 
   const PROJECT_URL = 'https://dzdciuqkqixwutvtfotj.supabase.co';
   const PUBLISHABLE_KEY = 'sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
+  const STAFF_PORTAL_URL = 'https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/staff/';
   const supabaseFactory = window.supabase?.createClient;
   const db = supabaseFactory ? supabaseFactory(PROJECT_URL, PUBLISHABLE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
@@ -238,7 +239,10 @@
       return;
     }
     const { data, error } = await db.auth.getSession();
-    if (error || !data.session?.user) { showGate('login'); return; }
+    if (error || !data.session?.user) {
+      window.location.replace('../staff/?next=admin');
+      return;
+    }
     await enterAdmin(data.session.user);
   };
 
@@ -699,7 +703,10 @@
           '<div class="staff-card-meta"><span><small>Department</small><strong>'+escapeHtml(staff.department||'—')+'</strong></span><span><small>Last sign in</small><strong>'+escapeHtml(formatDate(staff.last_sign_in_at,true))+'</strong></span><span><small>Created</small><strong>'+escapeHtml(formatDate(staff.created_at))+'</strong></span></div>'+
           riderMeta+
           '<div class="staff-directory-actions">'+
-            (isOwner?'<span class="staff-owner-protected">🔒 Owner account protected</span>':'<button type="button" data-manage-staff="'+escapeHtml(staff.user_id)+'" data-staff-kind="'+escapeHtml(staff.account_kind)+'">Manage Access</button>')+
+            (isOwner
+              ?'<span class="staff-owner-protected">🔒 Owner account protected</span>'
+              :'<button type="button" data-manage-staff="'+escapeHtml(staff.user_id)+'" data-staff-kind="'+escapeHtml(staff.account_kind)+'">Manage Access</button>'+
+               '<button type="button" data-send-staff-access="'+escapeHtml(staff.user_id)+'" data-staff-email="'+escapeHtml(staff.email||'')+'">Send Access Email</button>')+
           '</div>'+
         '</div>'+
       '</article>';
@@ -707,6 +714,28 @@
 
     Array.from(list.querySelectorAll('[data-manage-staff]')).forEach((button)=>button.addEventListener('click',()=>{
       openStaffEditor(button.dataset.manageStaff,button.dataset.staffKind);
+    }));
+    Array.from(list.querySelectorAll('[data-send-staff-access]')).forEach((button)=>button.addEventListener('click',async()=>{
+      const email=(button.dataset.staffEmail||'').trim();
+      if(!email){
+        globalStatus('This staff account does not have an email address.','error');
+        return;
+      }
+      const original=button.textContent;
+      button.disabled=true;
+      button.textContent='Sending…';
+      try{
+        const {error}=await db.auth.resetPasswordForEmail(email,{
+          redirectTo:STAFF_PORTAL_URL+'?recovery=1'
+        });
+        if(error) throw error;
+        globalStatus('Staff access email sent to '+email+'. The staff member can create a new password from the secure LEOGO link.','success');
+      }catch(error){
+        globalStatus('Access email could not be sent: '+friendlyError(error),'error');
+      }finally{
+        button.disabled=false;
+        button.textContent=original;
+      }
     }));
   };
 
@@ -918,22 +947,6 @@
     setFormStatus($('#staffDocumentStatus'));
   };
 
-  const generateTemporaryPassword = () => {
-    const upper='ABCDEFGHJKLMNPQRSTUVWXYZ';
-    const lower='abcdefghijkmnopqrstuvwxyz';
-    const digits='23456789';
-    const symbols='!@#$%';
-    const all=upper+lower+digits+symbols;
-    const pick=(chars)=>chars[crypto.getRandomValues(new Uint32Array(1))[0]%chars.length];
-    const chars=[pick(upper),pick(lower),pick(digits),pick(symbols)];
-    for(let i=0;i<8;i++) chars.push(pick(all));
-    for(let i=chars.length-1;i>0;i--){
-      const j=crypto.getRandomValues(new Uint32Array(1))[0]%(i+1);
-      [chars[i],chars[j]]=[chars[j],chars[i]];
-    }
-    return chars.join('');
-  };
-
   const createStaffAccount = async (event) => {
     event.preventDefault();
 
@@ -974,23 +987,11 @@
       return;
     }
 
-    const temporaryPassword=$('#staffTemporaryPassword')?.value||'';
-    const passwordStrong=temporaryPassword.length>=10
-      && /[A-Z]/.test(temporaryPassword)
-      && /[a-z]/.test(temporaryPassword)
-      && /[0-9]/.test(temporaryPassword)
-      && /[^A-Za-z0-9]/.test(temporaryPassword);
-    if(!passwordStrong){
-      setFormStatus(statusBox,'Temporary password is too weak. Use at least 10 characters with uppercase, lowercase, a number and a symbol — or click Generate.','error');
-      return;
-    }
-
     const body={
       account_kind:kind,
       display_name:($('#staffDisplayName')?.value||'').trim(),
       email:($('#staffEmail')?.value||'').trim(),
       phone:($('#staffPhone')?.value||'').trim(),
-      temporary_password:temporaryPassword,
       role_code:kind==='admin_staff'?$('#staffRole')?.value:'rider',
       department:kind==='admin_staff'?($('#staffDepartment')?.value||'').trim():'Delivery',
       job_title:kind==='admin_staff'?($('#staffJobTitle')?.value||'').trim():'LEOGO Rider',
@@ -1003,7 +1004,7 @@
 
     await withButtonLock(createButton,'Creating Account…',async()=>{
       try{
-        setFormStatus(statusBox,'Creating secure staff login…');
+        setFormStatus(statusBox,'Creating staff account and sending activation email…');
 
         const {data:{session},error:sessionError}=await db.auth.getSession();
         if(sessionError||!session?.access_token){
@@ -1033,7 +1034,7 @@
           return;
         }
 
-        let documentMessage='Staff account created successfully. Share the temporary password privately.';
+        let documentMessage='Staff account created successfully. Activation email sent to '+body.email+'.';
         let documentStatus='success';
 
         if(data.user_id&&(passportFile||idFile)){
@@ -1060,10 +1061,10 @@
             });
             if(documentError) throw documentError;
 
-            documentMessage='Staff account and private documents created successfully. Share the temporary password privately.';
+            documentMessage='Staff account and private documents created successfully. Activation email sent to '+body.email+'.';
           }catch(documentError){
             await removeStaffPrivateDocuments(uploaded);
-            documentMessage='Staff account was created, but the private documents could not be saved: '+friendlyError(documentError)+' You can upload them later from Manage Access.';
+            documentMessage='Staff account was created and its activation email was sent, but the private documents could not be saved: '+friendlyError(documentError)+' You can upload them later from Manage Access.';
             documentStatus='error';
           }
         }
@@ -2597,17 +2598,16 @@
   const closeModals = () => { $$('.modal').forEach((modal) => { modal.hidden = true; }); state.activeApproval = null; };
 
   const bindEvents = () => {
-    $('#adminLoginForm').addEventListener('submit', async (event) => {
+    $('#adminLoginForm').addEventListener('submit', (event) => {
       event.preventDefault();
-      const button = $('#adminLoginButton');
-      setFormStatus($('#adminLoginStatus'));
-      await withButtonLock(button, 'Signing in…', async () => {
-        const { data, error } = await db.auth.signInWithPassword({ email: $('#adminEmail').value.trim(), password: $('#adminPassword').value });
-        if (error) { setFormStatus($('#adminLoginStatus'), friendlyError(error), 'error'); return; }
-        await enterAdmin(data.user);
-      });
+      window.location.href='../staff/?next=admin';
     });
-    const signOut = async () => { await db?.auth.signOut(); state.admin = null; state.user = null; showGate('login'); };
+    const signOut = async () => {
+      await db?.auth.signOut();
+      state.admin = null;
+      state.user = null;
+      window.location.replace('../staff/');
+    };
     $('#adminLogout').addEventListener('click', signOut);
     $('#deniedLogout').addEventListener('click', signOut);
     $('#openSidebar').addEventListener('click', () => { $('#adminSidebar').classList.add('open'); $('#sidebarScrim').classList.add('open'); });
@@ -2658,7 +2658,6 @@
     });
     $('#staffRole')?.addEventListener('change', applyCreateRolePreset);
     $('#resetStaffPermissions')?.addEventListener('click', applyCreateRolePreset);
-    $('#generateStaffPassword')?.addEventListener('click', () => { $('#staffTemporaryPassword').value=generateTemporaryPassword(); });
     $('#createStaffForm')?.addEventListener('submit', createStaffAccount);
     $('#closeStaffEditor')?.addEventListener('click', closeStaffEditor);
     $('#staffEditorRole')?.addEventListener('change', resetEditorRolePermissions);
