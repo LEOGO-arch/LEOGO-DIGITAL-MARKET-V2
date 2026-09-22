@@ -2144,6 +2144,36 @@
     customerReviewBoxHtml(order);
   };
 
+  const renderCustomerAftersalesCases = () => {
+    const container=document.getElementById('customerAftersalesCaseList');
+    if(!container) return;
+    const cases=customerMarketplaceOrders
+      .filter((order)=>order.aftersales_case)
+      .map((order)=>({order,case:order.aftersales_case}))
+      .sort((a,b)=>new Date(b.case.created_at||0)-new Date(a.case.created_at||0));
+
+    if(!cases.length){
+      container.innerHTML='<div class="customer-dashboard-order-empty">No Aftersales cases yet.</div>';
+      return;
+    }
+
+    container.innerHTML=cases.map(({order,case:item})=>
+      '<article class="customer-aftersales-case-card">'+
+        '<div class="customer-aftersales-case-top"><div><small>CASE</small><strong>'+receiptEscape(item.case_reference)+'</strong><span>Order '+receiptEscape(order.order_reference)+'</span></div>'+
+          '<b class="status-'+receiptEscape(item.status)+'">'+receiptEscape(customerAftersalesStatusText(item.status))+'</b></div>'+
+        '<div class="customer-aftersales-case-grid">'+
+          '<div><small>Issue</small><strong>'+receiptEscape(String(item.issue_type||'').replaceAll('_',' '))+'</strong></div>'+
+          '<div><small>Preferred solution</small><strong>'+receiptEscape(String(item.preferred_solution||'').replaceAll('_',' '))+'</strong></div>'+
+          '<div><small>Submitted</small><strong>'+receiptEscape(customerOrderFormatDate(item.created_at))+'</strong></div>'+
+          '<div><small>Last updated</small><strong>'+receiptEscape(customerOrderFormatDate(item.updated_at||item.created_at))+'</strong></div>'+
+        '</div>'+
+        '<div class="customer-aftersales-case-details"><small>Your explanation</small><p>'+receiptEscape(item.details||'—')+'</p></div>'+
+        (item.admin_notes?'<div class="customer-aftersales-admin-note"><small>LEOGO Customer Care update</small><p>'+receiptEscape(item.admin_notes)+'</p></div>':'')+
+        (item.status==='resolved'&&item.resolved_at?'<div class="customer-aftersales-resolved">✓ Resolved '+receiptEscape(customerOrderFormatDate(item.resolved_at))+'</div>':'')+
+      '</article>'
+    ).join('');
+  };
+
   const populateCustomerAftersalesOrders = () => {
     const select=document.getElementById('aftersalesOrderId');
     if(!select) return;
@@ -2202,6 +2232,7 @@
 
     renderCustomerDashboardOrders();
     populateCustomerAftersalesOrders();
+    renderCustomerAftersalesCases();
 
     if (!container) return;
     let rows = customerMarketplaceOrders;
