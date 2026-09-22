@@ -2058,9 +2058,24 @@
     failed:'Delivery issue',
     cancelled:'Cancelled'
   }[status] || String(status || '').replaceAll('_',' '));
+  let customerOrderLoadPromise = null;
   const renderCustomerMarketplaceOrders = () => {
     const container = document.getElementById('customerMarketplaceOrders');
     const empty = document.getElementById('customerActivityEmpty');
+
+    const active = customerMarketplaceOrders.filter(o=>!['delivered','cancelled'].includes(o.order_status)).length;
+    const latest = customerMarketplaceOrders[0] || null;
+    const ac=document.getElementById('customerActiveOrderCount');
+    if(ac) ac.textContent=active;
+    const at=document.getElementById('customerActiveOrderText');
+    if(at) at.textContent=active
+      ? active+' order(s) in progress'
+      : latest
+        ? 'Latest: '+customerDeliveryStatusText(latest.delivery_status||latest.order_status)
+        : 'No active orders';
+    const pc=document.getElementById('customerProductOrderCount');
+    if(pc) pc.textContent=customerMarketplaceOrders.length;
+
     if (!container) return;
     let rows = customerMarketplaceOrders;
     if (customerActivityFilter === 'active') rows = rows.filter(o => !['delivered','cancelled'].includes(o.order_status));
@@ -2068,32 +2083,66 @@
     if (customerActivityFilter === 'cancelled') rows = rows.filter(o => o.order_status === 'cancelled');
     if (['services','transport'].includes(customerActivityFilter)) rows = [];
     if (customerActivityFilter === 'products') rows = customerMarketplaceOrders;
+
     container.innerHTML = rows.map(order => {
-      const items=(order.items||[]).map(i=>'<li>'+receiptEscape(i.product_name)+(i.variant_name?' — <b>'+receiptEscape(i.variant_name)+'</b>':'')+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
-      const sellers=(order.seller_fulfilments||[]).map(s=>'<span>'+receiptEscape(s.seller_name)+' — <b>'+receiptEscape(String(s.fulfilment_status).replaceAll('_',' '))+'</b></span>').join('');
+      const items=(Array.isArray(order.items)?order.items:[]).map(i=>'<li>'+receiptEscape(i.product_name)+(i.variant_name?' — <b>'+receiptEscape(i.variant_name)+'</b>':'')+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
+      const sellers=(Array.isArray(order.seller_fulfilments)?order.seller_fulfilments:[]).map(s=>'<span>'+receiptEscape(s.seller_name)+' — <b>'+receiptEscape(String(s.fulfilment_status).replaceAll('_',' '))+'</b></span>').join('');
       const rider = order.rider_name ? '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>'+receiptEscape(order.rider_name)+'</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>' : '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>Awaiting assignment</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>';
       return '<article class="customer-order-card"><header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+formatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header><ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+'<div class="customer-order-total"><span>Total</span><strong>'+money(order.grand_total_kes)+'</strong></div></article>';
     }).join('');
     if (empty) empty.hidden = rows.length > 0;
-    const active = customerMarketplaceOrders.filter(o=>!['delivered','cancelled'].includes(o.order_status)).length;
-    const ac=document.getElementById('customerActiveOrderCount'); if(ac) ac.textContent=active;
-    const at=document.getElementById('customerActiveOrderText'); if(at) at.textContent=active?active+' order(s) in progress':'No active orders';
-    const pc=document.getElementById('customerProductOrderCount'); if(pc) pc.textContent=customerMarketplaceOrders.length;
-
   };
+
   async function loadCustomerMarketplaceOrders(){
-    if(!window.leogoAuth?.isAuthenticated?.()){
-      customerMarketplaceOrders=[];renderCustomerMarketplaceOrders();return;
-    }
-    const {data,error}=await window.leogoAuth.client.rpc('customer_list_marketplace_orders');
-    if(error){console.error(error);return;}
-    customerMarketplaceOrders=data||[];
-    renderCustomerMarketplaceOrders();
+    if(customerOrderLoadPromise) return customerOrderLoadPromise;
+    customerOrderLoadPromise=(async()=>{
+      const auth=window.leogoAuth;
+      const client=auth?.client;
+      if(!client) return;
+
+      let user=auth.getUser?.()||null;
+      if(!user){
+        const sessionResult=await client.auth.getSession();
+        user=sessionResult.data?.session?.user||null;
+      }
+      if(!user){
+        customerMarketplaceOrders=[];
+        renderCustomerMarketplaceOrders();
+        return;
+      }
+
+      const {data,error}=await client.rpc('customer_list_marketplace_orders');
+      if(error){
+        console.error('LEOGO customer orders could not load:',error.message||error);
+        const empty=document.getElementById('customerActivityEmpty');
+        if(empty && !customerMarketplaceOrders.length){
+          const title=document.getElementById('activityEmptyTitle');
+          const text=document.getElementById('activityEmptyText');
+          if(title) title.textContent='Orders could not refresh';
+          if(text) text.textContent='Your order history is safe. Check your connection and reopen My Activity to try again.';
+          empty.hidden=false;
+        }
+        return;
+      }
+      customerMarketplaceOrders=Array.isArray(data)?data:[];
+      renderCustomerMarketplaceOrders();
+    })().finally(()=>{customerOrderLoadPromise=null;});
+    return customerOrderLoadPromise;
   }
-  document.addEventListener('leogo:authchange',()=>loadCustomerMarketplaceOrders());
+
+  const refreshCustomerOrdersSoon=()=>window.setTimeout(()=>loadCustomerMarketplaceOrders(),40);
+  document.addEventListener('leogo:authchange',refreshCustomerOrdersSoon);
+  document.addEventListener('leogo:customer-data-refresh',refreshCustomerOrdersSoon);
   document.addEventListener('click',(event)=>{
-    if(event.target.closest?.('[data-customer-view="orders"],[data-open-customer-view="orders"]')) window.setTimeout(loadCustomerMarketplaceOrders,0);
+    if(event.target.closest?.('[data-customer-view="dashboard"],[data-open-customer-view="dashboard"],[data-customer-view="orders"],[data-open-customer-view="orders"]')){
+      refreshCustomerOrdersSoon();
+    }
   });
+  window.addEventListener('focus',()=>{ if(window.leogoAuth?.getUser?.()) loadCustomerMarketplaceOrders(); });
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible' && window.leogoAuth?.getUser?.()) loadCustomerMarketplaceOrders();
+  });
+  window.setTimeout(loadCustomerMarketplaceOrders,500);
 
   const activityFilterButtons = customerShellModal?.querySelectorAll('[data-activity-filter]');
   const activityEmptyIcon = document.getElementById('activityEmptyIcon');
