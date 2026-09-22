@@ -18,6 +18,7 @@ let user=null,staff=null,jobs=[],filter='active',authEvent='';
 
 const setupMode=()=>new URLSearchParams(window.location.search).get('setup')==='1';
 const recoveryMode=()=>new URLSearchParams(window.location.search).get('recovery')==='1';
+const requestedOrderId=()=>new URLSearchParams(window.location.search).get('order')||'';
 
 const setStatus=(selector,msg='',type='')=>{
   const e=$(selector);
@@ -109,7 +110,14 @@ async function loadJobs(){
   if(error){setStatus('#riderStatus',error.message,'error');return;}
   jobs=data||[];
   render();
-  if(!jobs.length)setStatus('#riderStatus','No delivery jobs are currently assigned to you.');
+  const qrOrder=requestedOrderId();
+  if(qrOrder){
+    const matched=jobs.find(job=>job.order_id===qrOrder);
+    if(matched) setStatus('#riderStatus','Delivery label QR opened '+matched.order_reference+'.','success');
+    else setStatus('#riderStatus','This delivery-label QR is not assigned to your Rider account, or the job is no longer available.','error');
+  }else if(!jobs.length){
+    setStatus('#riderStatus','No delivery jobs are currently assigned to you.');
+  }
 }
 
 function render(){
@@ -118,11 +126,14 @@ function render(){
   $('#riderTransitCount').textContent=jobs.filter(j=>j.status==='on_the_way').length;
   $('#riderDeliveredCount').textContent=jobs.filter(j=>j.status==='delivered').length;
 
-  const visible=filter==='all'
-    ?jobs
-    :filter==='delivered'
-      ?jobs.filter(j=>j.status==='delivered')
-      :jobs.filter(j=>['assigned','picked_up','on_the_way'].includes(j.status));
+  const qrOrder=requestedOrderId();
+  const visible=qrOrder
+    ?jobs.filter(j=>j.order_id===qrOrder)
+    :filter==='all'
+      ?jobs
+      :filter==='delivered'
+        ?jobs.filter(j=>j.status==='delivered')
+        :jobs.filter(j=>['assigned','picked_up','on_the_way'].includes(j.status));
 
   $('#riderJobList').innerHTML=visible.length?visible.map(job=>{
     const pickups=(job.seller_pickups||[]).map(s=>
@@ -139,7 +150,7 @@ function render(){
           ?['delivered','Mark Delivered']
           :null;
 
-    return '<article class="rider-job"><header><div><strong>'+esc(job.order_reference)+'</strong><small>Assigned '+
+    return '<article class="rider-job'+(qrOrder&&job.order_id===qrOrder?' qr-target':'')+'" data-order-id="'+esc(job.order_id)+'"><header><div><strong>'+esc(job.order_reference)+'</strong>'+(qrOrder&&job.order_id===qrOrder?'<b class="qr-order-chip">QR ORDER</b>':'')+'<small>Assigned '+
       fmt(job.assigned_at)+'</small></div><span class="job-status">'+esc(String(job.status).replaceAll('_',' ').toUpperCase())+
       '</span></header><div class="job-body"><div class="job-grid"><div><small>CUSTOMER</small><strong>'+
       esc(job.customer_name)+'</strong><span>'+esc(job.customer_phone)+'</span></div><div><small>DELIVERY ADDRESS</small><strong>'+
