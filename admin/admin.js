@@ -92,10 +92,35 @@
       ? { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Nairobi' }
       : { dateStyle: 'medium', timeZone: 'Africa/Nairobi' }).format(date);
   };
+  const normaliseErrorMessage = (value) => {
+    if (value == null) return '';
+    if (typeof value === 'string') return value;
+    if (value instanceof Error) return value.message || String(value);
+    if (typeof value === 'object') {
+      const candidates=[
+        value.error_description,
+        value.error?.message,
+        value.error,
+        value.message,
+        value.msg,
+        value.details,
+        value.hint,
+        value.code
+      ];
+      for(const candidate of candidates){
+        const text=normaliseErrorMessage(candidate);
+        if(text) return text;
+      }
+      try{return JSON.stringify(value);}catch{return String(value);}
+    }
+    return String(value);
+  };
+
   const friendlyError = (error) => {
-    const message = String(error?.message || error || 'Something went wrong.');
+    const message = normaliseErrorMessage(error) || 'Something went wrong.';
     if (/invalid login credentials/i.test(message)) return 'The email or password is incorrect.';
     if (/admin access required|permission required/i.test(message)) return 'This account does not have permission for that Admin action.';
+    if (/invalid jwt|jwt.*invalid|unauthorized.*jwt/i.test(message)) return 'Your Admin session could not be verified. Sign out and sign in again, then retry.';
     if (/failed to fetch|network/i.test(message)) return 'Connection failed. Check your internet and try again.';
     return message.replace(/^Error:\s*/i, '');
   };
@@ -977,7 +1002,7 @@
           let message=error.message||'Staff account could not be created.';
           try{
             const payload=await error.context?.json?.();
-            if(payload?.error) message=payload.error;
+            if(payload?.error) message=normaliseErrorMessage(payload.error);
           }catch{}
           setFormStatus(statusBox,message,'error');
           return;
