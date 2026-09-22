@@ -342,6 +342,22 @@
           <div id="adminProductReviewList" class="admin-product-review-list"><div class="loading-card">Loading product reviews…</div></div>
         </section>
 
+        <section class="content-card admin-product-reviews-card admin-order-reviews-card">
+          <div class="card-head">
+            <div><span>ORDER REVIEWS</span><h3>Overall Order Reviews Awaiting Moderation</h3><p>Overall reviews submitted after a verified delivered order appear here separately from individual product reviews.</p></div>
+            <div class="admin-product-review-controls">
+              <select id="adminOrderReviewStatusFilter">
+                <option value="submitted">Pending approval</option>
+                <option value="all">All reviews</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <button id="refreshOrderReviews" class="primary-button" type="button">↻ Refresh Order Reviews</button>
+            </div>
+          </div>
+          <div id="adminOrderReviewList" class="admin-product-review-list"><div class="loading-card">Loading order reviews…</div></div>
+        </section>
+
         <section class="content-card personal-market-admin-card">
           <div class="card-head">
             <div><span>PERSONAL MARKETPLACE</span><h3>Customer one-off item listings</h3><p>Manage approved personal listings and LEOGO-mediated buyer interest requests without exposing private contacts publicly.</p></div>
@@ -735,6 +751,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=admin-v1-50" defer></script>
+  <script src="admin.js?v=admin-v1-51" defer></script>
 </body>
 </html>
