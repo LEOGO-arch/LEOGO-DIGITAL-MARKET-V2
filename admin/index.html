@@ -519,6 +519,17 @@
                 <label class="staff-password-field"><span>Temporary password</span><input id="staffTemporaryPassword" type="text" minlength="8" autocomplete="off" required><button id="generateStaffPassword" type="button">Generate</button></label>
               </div>
 
+              <div class="staff-private-document-section">
+                <div class="staff-private-document-head">
+                  <div><strong>Private staff documents</strong><small>Stored in protected LEOGO records. Only Super Admin can open these files.</small></div>
+                  <span>🔒 Admin only</span>
+                </div>
+                <div class="staff-form-grid">
+                  <label><span>Passport photo <small>(optional)</small></span><input id="staffPassportPhoto" type="file" accept="image/jpeg,image/png,image/webp"></label>
+                  <label><span>ID picture <small>(optional)</small></span><input id="staffIdPicture" type="file" accept="image/jpeg,image/png,image/webp"></label>
+                </div>
+              </div>
+
               <div id="adminStaffFields">
                 <div class="staff-form-grid">
                   <label><span>Staff role</span><select id="staffRole" required></select></label>
@@ -580,6 +591,30 @@
               <label id="staffEditorLicenseWrap" hidden><span>Driving licence</span><input id="staffEditorLicenseNumber" type="text"></label>
               <label id="staffEditorAvailabilityWrap" hidden><span>Rider availability</span><select id="staffEditorAvailability"><option value="available">Available</option><option value="off_duty">Off duty</option><option value="on_delivery">On delivery</option></select></label>
             </div>
+
+            <div class="staff-private-document-section staff-editor-documents">
+              <div class="staff-private-document-head">
+                <div><strong>Private staff documents</strong><small>Passport photo and ID picture are protected and visible only to Super Admin.</small></div>
+                <span>🔒 Admin only</span>
+              </div>
+              <div class="staff-document-preview-grid">
+                <article class="staff-document-preview">
+                  <span>Passport photo</span>
+                  <div id="staffPassportPhotoPreview" class="staff-document-preview-media"><small>Not uploaded</small></div>
+                  <label class="staff-document-replace">Replace<input id="staffEditorPassportPhoto" type="file" accept="image/jpeg,image/png,image/webp"></label>
+                </article>
+                <article class="staff-document-preview">
+                  <span>ID picture</span>
+                  <div id="staffIdPicturePreview" class="staff-document-preview-media"><small>Not uploaded</small></div>
+                  <label class="staff-document-replace">Replace<input id="staffEditorIdPicture" type="file" accept="image/jpeg,image/png,image/webp"></label>
+                </article>
+              </div>
+              <div class="staff-document-actions">
+                <button id="saveStaffDocuments" type="button" class="secondary">Update Private Documents</button>
+                <div id="staffDocumentStatus" class="form-status" aria-live="polite"></div>
+              </div>
+            </div>
+
             <div id="staffEditorPermissionSection" class="staff-permission-section">
               <div class="staff-permission-head"><div><strong>Permissions</strong><small>Changes take effect the next time the staff member opens or refreshes Admin Center.</small></div><button id="resetEditorPermissions" type="button">Reset to Role Defaults</button></div>
               <div id="staffEditorPermissionGrid" class="staff-permission-grid"></div>
