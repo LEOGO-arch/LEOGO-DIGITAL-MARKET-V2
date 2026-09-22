@@ -2243,14 +2243,30 @@
     if (customerActivityFilter === 'products') rows = customerMarketplaceOrders;
 
     container.innerHTML = rows.map(order => {
-      const items=(Array.isArray(order.items)?order.items:[]).map(i=>'<li>'+receiptEscape(i.product_name)+(i.variant_name?' — <b>'+receiptEscape(i.variant_name)+'</b>':'')+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
+      const orderItems=Array.isArray(order.items)?order.items:[];
+      const items=orderItems.map(i=>'<li>'+receiptEscape(i.product_name)+(i.variant_name?' — <b>'+receiptEscape(i.variant_name)+'</b>':'')+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
       const sellers=(Array.isArray(order.seller_fulfilments)?order.seller_fulfilments:[]).map(s=>'<span>'+receiptEscape(s.seller_name)+' — <b>'+receiptEscape(String(s.fulfilment_status).replaceAll('_',' '))+'</b></span>').join('');
       const rider = order.rider_name ? '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>'+receiptEscape(order.rider_name)+'</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>' : '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>Awaiting assignment</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>';
-      return '<article class="customer-order-card" data-customer-order-id="'+receiptEscape(order.id)+'"><header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+customerOrderFormatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header>'+
-        '<ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+
-        '<div class="customer-order-history-wrap"><div class="customer-order-history-title"><span>ORDER HISTORY</span><strong>'+customerOrderHistory(order).length+' updates</strong></div>'+customerOrderTimelineHtml(order,false)+'</div>'+
-        '<div class="customer-order-total"><span>Total</span><strong>'+money(order.grand_total_kes)+'</strong></div>'+
-        customerCompletedActionsHtml(order)+
+      const firstItem=orderItems[0];
+      const itemSummary=firstItem
+        ? receiptEscape(firstItem.product_name)+(firstItem.variant_name?' · '+receiptEscape(firstItem.variant_name):'')+' × '+Number(firstItem.quantity)+(orderItems.length>1?' · +'+(orderItems.length-1)+' more':'')
+        : 'Order items';
+      const completed=order.order_status==='delivered';
+      const actionButtons=
+        '<button type="button" class="customer-order-update-toggle" data-toggle-order-updates="'+receiptEscape(order.id)+'" aria-expanded="false">View Order Updates <span>⌄</span></button>'+
+        (completed?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(order.review?'Edit Review':'Review Order')+'</button>'+
+          '<button type="button" class="secondary" data-aftersales-order="'+receiptEscape(order.id)+'">'+(order.aftersales_case?'Aftersales · '+receiptEscape(customerAftersalesStatusText(order.aftersales_case.status)):'Apply for Aftersales')+'</button>':'');
+
+      return '<article class="customer-order-card customer-order-card-compact" data-customer-order-id="'+receiptEscape(order.id)+'">'+
+        '<header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+customerOrderFormatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header>'+
+        '<div class="customer-order-compact-body"><div><small>ITEM</small><strong>'+itemSummary+'</strong></div><div><small>TOTAL</small><strong>'+money(order.grand_total_kes)+'</strong></div></div>'+
+        '<div class="customer-order-compact-actions">'+actionButtons+'</div>'+
+        '<div class="customer-order-expanded" data-order-expanded hidden>'+
+          '<div class="customer-order-expanded-head"><span>ORDER DETAILS & UPDATES</span><small>'+customerOrderHistory(order).length+' updates</small></div>'+
+          '<ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+
+          '<div class="customer-order-history-wrap"><div class="customer-order-history-title"><span>ORDER HISTORY</span><strong>'+customerOrderHistory(order).length+' updates</strong></div>'+customerOrderTimelineHtml(order,false)+'</div>'+
+          customerCompletedActionsHtml(order)+
+        '</div>'+
       '</article>';
     }).join('');
     if (empty) empty.hidden = rows.length > 0;
@@ -2321,6 +2337,13 @@
       if(!card) return;
       card.scrollIntoView({behavior:'smooth',block:'start'});
       if(review){
+        const expanded=card.querySelector('[data-order-expanded]');
+        const toggle=card.querySelector('[data-toggle-order-updates]');
+        if(expanded) expanded.hidden=false;
+        if(toggle){
+          toggle.setAttribute('aria-expanded','true');
+          toggle.innerHTML='Hide Order Updates <span>⌃</span>';
+        }
         const box=card.querySelector('[data-order-review-box]');
         if(box){box.hidden=false;box.querySelector('select')?.focus();}
       }
@@ -2346,6 +2369,18 @@
   };
 
   customerShellModal?.addEventListener('click',(event)=>{
+    const toggleButton=event.target.closest?.('[data-toggle-order-updates]');
+    if(toggleButton){
+      const card=toggleButton.closest('[data-customer-order-id]');
+      const expanded=card?.querySelector('[data-order-expanded]');
+      if(!expanded) return;
+      const willOpen=expanded.hidden;
+      expanded.hidden=!willOpen;
+      toggleButton.setAttribute('aria-expanded',String(willOpen));
+      toggleButton.innerHTML=willOpen?'Hide Order Updates <span>⌃</span>':'View Order Updates <span>⌄</span>';
+      if(willOpen) window.setTimeout(()=>expanded.scrollIntoView({behavior:'smooth',block:'nearest'}),40);
+      return;
+    }
     const historyButton=event.target.closest?.('[data-view-order-history]');
     if(historyButton){
       showCustomerOrderInActivity(historyButton.dataset.viewOrderHistory);
