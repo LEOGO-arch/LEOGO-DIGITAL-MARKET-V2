@@ -487,3 +487,14 @@
   .staff-card-permissions{flex-direction:column}
   .staff-card-permissions>span{justify-content:flex-start}
 }
+
+
+/* Delivery summary / QR label actions */
+.admin-order-detail-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.admin-order-detail-actions button{white-space:nowrap}
+.admin-order-detail-actions .primary-button{background:#ff7800;color:#fff;border:0}
+.admin-order-detail-actions button:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:760px){
+  .admin-order-detail-actions{width:100%;justify-content:flex-start}
+  .admin-order-detail-actions button{flex:1 1 180px}
+}
