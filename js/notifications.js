@@ -92,6 +92,12 @@
           closePanel();
           document.getElementById('premium')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           window.location.hash = 'premium';
+        } else if (action === 'orders') {
+          closePanel();
+          window.leogoOpenCustomerView?.('orders');
+          document.dispatchEvent(new CustomEvent('leogo:customer-data-refresh',{
+            detail:{source:'notification-open'}
+          }));
         }
       });
     });
@@ -115,6 +121,9 @@
     }
     notifications = data || [];
     render();
+    document.dispatchEvent(new CustomEvent('leogo:customer-data-refresh',{
+      detail:{source:'notifications'}
+    }));
   };
 
   const markRead = async (id) => {
