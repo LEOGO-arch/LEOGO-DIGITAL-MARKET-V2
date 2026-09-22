@@ -2477,19 +2477,23 @@
         categoryBox.innerHTML = '<div class="loading-card">Loading categories…</div>';
       }
 
-      const [productsResult,categoriesResult] = await Promise.all([
+      const [productsResult,categoriesResult,reviewsResult] = await Promise.all([
         db.rpc('admin_list_catalogue_products'),
-        db.rpc('admin_list_catalogue_categories')
+        db.rpc('admin_list_catalogue_categories'),
+        db.rpc('admin_list_product_reviews')
       ]);
 
       if (productsResult.error) throw productsResult.error;
       if (categoriesResult.error) throw categoriesResult.error;
+      if (reviewsResult.error) throw reviewsResult.error;
 
       state.catalogueProducts = Array.isArray(productsResult.data) ? productsResult.data : [];
       state.catalogueCategories = Array.isArray(categoriesResult.data) ? categoriesResult.data : [];
+      state.productReviews = Array.isArray(reviewsResult.data) ? reviewsResult.data : [];
 
       renderCatalogueProducts();
       renderCatalogueCategories();
+      renderProductReviews();
       return state.catalogueProducts;
     } catch (error) {
       console.error('Admin catalogue load failed:', error);
