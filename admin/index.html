@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-v1-30">
+  <link rel="stylesheet" href="admin.css?v=admin-v1-31">
 </head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
@@ -44,6 +44,7 @@
         <button class="active" data-admin-view="dashboard"><i>▦</i><span>Dashboard</span></button>
         <button data-admin-view="approvals"><i>✓</i><span>Approval Center</span><em id="sidebarApprovalCount">0</em></button>
         <button data-admin-view="orders"><i>▤</i><span>Orders</span></button>
+        <button data-admin-view="aftersales"><i>↺</i><span>Aftersales</span><em id="sidebarAftersalesCount">0</em></button>
         <button data-admin-view="customers"><i>♙</i><span>Customers</span></button>
         <button data-admin-view="products"><i>□</i><span>Products &amp; Categories</span></button>
         <button data-admin-view="sellers"><i>▣</i><span>Sellers</span></button>
@@ -220,6 +221,69 @@
           <article class="admin-order-detail-card">
             <div class="admin-order-card-head"><div><span>DELIVERY ASSIGNMENT</span><h4>Assign LEOGO rider</h4><p>Rider assignment is controlled by Admin. Rider accounts will be created from the Staff module next.</p></div></div>
             <div id="adminOrderDeliveryDetail" class="admin-order-delivery-detail"><div class="loading-card">Loading delivery state…</div></div>
+          </article>
+        </section>
+      </section>
+
+      <section class="admin-panel" data-admin-panel="aftersales">
+        <div class="section-head">
+          <div><span>CUSTOMER CARE</span><h2>Aftersales Cases</h2><p>Review support requests raised from completed marketplace orders and keep the customer updated through resolution.</p></div>
+          <button id="refreshAftersalesCases" class="primary-button" type="button">↻ Refresh Cases</button>
+        </div>
+
+        <div class="seller-admin-summary">
+          <article><span>Open Cases</span><strong id="aftersalesOpenCount">0</strong><small>Submitted, under review or contacted</small></article>
+          <article><span>New</span><strong id="aftersalesNewCount">0</strong><small>Awaiting first review</small></article>
+          <article><span>In Review</span><strong id="aftersalesReviewCount">0</strong><small>Customer Care handling</small></article>
+          <article><span>Resolved</span><strong id="aftersalesResolvedCount">0</strong><small>Completed cases</small></article>
+        </div>
+
+        <div class="seller-admin-toolbar admin-aftersales-toolbar">
+          <input id="adminAftersalesSearch" type="search" placeholder="Search case, order, customer or issue…">
+          <select id="adminAftersalesStatusFilter">
+            <option value="all">All case statuses</option>
+            <option value="submitted">Submitted</option>
+            <option value="in_review">Under review</option>
+            <option value="contacted">Customer contacted</option>
+            <option value="resolved">Resolved</option>
+            <option value="rejected">Closed — not approved</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        <div class="table-card">
+          <div class="responsive-table">
+            <table>
+              <thead><tr><th>Case</th><th>Order</th><th>Customer</th><th>Issue</th><th>Submitted</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="adminAftersalesBody"><tr><td colspan="7">Loading Aftersales cases…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <section id="adminAftersalesDetail" class="admin-order-detail-panel" hidden>
+          <div class="admin-order-detail-head">
+            <div><span>AFTERSALES CASE</span><h3 id="adminAftersalesTitle">Case Details</h3><p id="adminAftersalesSubtitle">Customer Care workflow</p></div>
+            <button id="closeAdminAftersalesDetail" type="button" class="secondary">Close</button>
+          </div>
+          <div id="adminAftersalesStatus" class="form-status"></div>
+
+          <div class="admin-order-detail-grid">
+            <article class="admin-order-detail-card"><span>CUSTOMER & ORDER</span><div id="adminAftersalesCustomer" class="admin-order-detail-content"></div></article>
+            <article class="admin-order-detail-card"><span>CASE STATUS</span><div id="adminAftersalesState" class="admin-order-detail-content"></div></article>
+          </div>
+
+          <article class="admin-order-detail-card">
+            <div class="admin-order-card-head"><div><span>CUSTOMER REQUEST</span><h4>Issue and requested solution</h4></div></div>
+            <div id="adminAftersalesRequest" class="admin-aftersales-request"></div>
+          </article>
+
+          <article class="admin-order-detail-card">
+            <div class="admin-order-card-head"><div><span>CUSTOMER CARE ACTION</span><h4>Update the case</h4></div></div>
+            <div class="admin-aftersales-editor">
+              <label><span>Status</span><select id="adminAftersalesCaseStatus"><option value="submitted">Submitted</option><option value="in_review">Under review</option><option value="contacted">Customer contacted</option><option value="resolved">Resolved</option><option value="rejected">Closed — not approved</option><option value="cancelled">Cancelled</option></select></label>
+              <label><span>Admin / Customer Care notes</span><textarea id="adminAftersalesNotes" maxlength="3000" rows="5" placeholder="Record calls, Seller response, replacement/refund action or resolution details…"></textarea></label>
+              <div class="admin-aftersales-actions"><button type="button" id="openAftersalesEvidence" class="secondary">View Customer Evidence</button><button type="button" id="saveAftersalesCase" class="primary-button">Save & Notify Customer</button></div>
+            </div>
           </article>
         </section>
       </section>
@@ -654,6 +718,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=admin-v1-45" defer></script>
+  <script src="admin.js?v=admin-v1-46" defer></script>
 </body>
 </html>
