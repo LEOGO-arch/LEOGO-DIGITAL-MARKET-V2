@@ -104,10 +104,12 @@ async function handleSession(session,event=''){
 }
 
 async function loadJobs(){
+  setStatus('#riderStatus');
   const {data,error}=await client.rpc('rider_list_delivery_jobs');
   if(error){setStatus('#riderStatus',error.message,'error');return;}
   jobs=data||[];
   render();
+  if(!jobs.length)setStatus('#riderStatus','No delivery jobs are currently assigned to you.');
 }
 
 function render(){
