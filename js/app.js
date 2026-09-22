@@ -2265,7 +2265,9 @@
           '<div class="customer-order-expanded-head"><span>ORDER DETAILS & UPDATES</span><small>'+customerOrderHistory(order).length+' updates</small></div>'+
           '<ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+
           '<div class="customer-order-history-wrap"><div class="customer-order-history-title"><span>ORDER HISTORY</span><strong>'+customerOrderHistory(order).length+' updates</strong></div>'+customerOrderTimelineHtml(order,false)+'</div>'+
-          customerCompletedActionsHtml(order)+
+          (completed
+            ? (order.review?'<div class="customer-review-summary"><strong>'+customerReviewStars(order.review.rating)+'</strong><span>'+receiptEscape(order.review.comment||'Review submitted')+'</span></div>':'')+customerReviewBoxHtml(order)
+            : '')+
         '</div>'+
       '</article>';
     }).join('');
