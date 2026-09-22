@@ -16,9 +16,8 @@ const fmt=v=>v?new Intl.DateTimeFormat('en-KE',{dateStyle:'medium',timeStyle:'sh
 
 let user=null,staff=null,jobs=[],filter='active',authEvent='';
 
-const query=new URLSearchParams(window.location.search);
-const setupMode=()=>query.get('setup')==='1';
-const recoveryMode=()=>query.get('recovery')==='1';
+const setupMode=()=>new URLSearchParams(window.location.search).get('setup')==='1';
+const recoveryMode=()=>new URLSearchParams(window.location.search).get('recovery')==='1';
 
 const setStatus=(selector,msg='',type='')=>{
   const e=$(selector);
