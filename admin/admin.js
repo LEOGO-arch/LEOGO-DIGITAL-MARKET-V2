@@ -680,7 +680,7 @@
       '</article>';
     }).join(''):'<div class="loading-card">No staff match the current filters.</div>';
 
-    $('[data-manage-staff]',list).forEach((button)=>button.addEventListener('click',()=>{
+    Array.from(list.querySelectorAll('[data-manage-staff]')).forEach((button)=>button.addEventListener('click',()=>{
       openStaffEditor(button.dataset.manageStaff,button.dataset.staffKind);
     }));
   };
@@ -1652,7 +1652,7 @@
       </article>`;
     }).join('') : '<div class="loading-card">No customer interest requests yet.</div>';
 
-    $('[data-personal-sale-status]',listingBox).forEach((button)=>button.addEventListener('click',async()=>{
+    Array.from(listingBox.querySelectorAll('[data-personal-sale-status]')).forEach((button)=>button.addEventListener('click',async()=>{
       const status=button.dataset.personalSaleStatus;
       const listing=state.personalSales.find((item)=>item.id===button.dataset.personalSaleId);
       if(!listing) return;
@@ -1672,7 +1672,7 @@
       });
     }));
 
-    $('[data-personal-interest-status]',interestBox).forEach((button)=>button.addEventListener('click',async()=>{
+    Array.from(interestBox.querySelectorAll('[data-personal-interest-status]')).forEach((button)=>button.addEventListener('click',async()=>{
       const status=button.dataset.personalInterestStatus;
       await withButtonLock(button,status==='contacted'?'Updating…':'Closing…',async()=>{
         const {error}=await db.rpc('admin_update_personal_sale_interest',{
