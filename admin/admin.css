@@ -368,6 +368,11 @@
 .admin-order-no-rider button{border:0;border-radius:8px;padding:8px 11px;opacity:.55}
 .admin-order-assignment-locked{font-size:9px;font-weight:800}
 
+@media(max-width:650px){
+  .staff-document-preview-grid{grid-template-columns:1fr}
+  .staff-private-document-head{flex-direction:column}
+}
+
 @media(max-width:850px){
   .admin-order-toolbar{grid-template-columns:1fr}
   .admin-order-detail-grid{grid-template-columns:1fr}
@@ -418,6 +423,23 @@
 .staff-rider-note{display:grid;gap:3px;padding:10px 11px;border-radius:10px;background:#eef7ff;border:1px solid #cfe4f8}
 .staff-rider-note strong{font-size:10px;color:#0d416c}
 .staff-rider-note span{font-size:9px;color:#46627c}
+.staff-private-document-section{display:grid;gap:10px;padding:11px;border:1px solid #d9e1eb;border-radius:12px;background:#fbfcfe}
+.staff-private-document-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.staff-private-document-head>div{display:grid;gap:3px}
+.staff-private-document-head strong{font-size:11px;color:#07152f}
+.staff-private-document-head small{font-size:8.5px;line-height:1.45;color:#6d788a}
+.staff-private-document-head>span{white-space:nowrap;border-radius:999px;padding:5px 8px;background:#eef3f8;color:#40516b;font-size:8px;font-weight:900}
+.staff-private-document-section input[type="file"]{padding:8px;background:#fff}
+.staff-document-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.staff-document-preview{display:grid;gap:7px;padding:9px;border:1px solid #e0e6ee;border-radius:11px;background:#fff}
+.staff-document-preview>span{font-size:9px;font-weight:900;color:#536078;text-transform:uppercase}
+.staff-document-preview-media{min-height:120px;border-radius:9px;background:#f3f6fa;border:1px dashed #cbd5e1;display:grid;place-items:center;overflow:hidden}
+.staff-document-preview-media img{display:block;width:100%;height:150px;object-fit:contain;background:#f8fafc}
+.staff-document-preview-media small{font-size:8.5px;color:#7a8697}
+.staff-document-replace{display:grid;gap:5px;font-size:8.5px;font-weight:800;color:#536078}
+.staff-document-replace input{font-size:8.5px}
+.staff-document-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.staff-document-actions .form-status{flex:1;min-width:180px}
 .staff-security-note{display:flex;gap:9px;padding:10px 11px;border-radius:10px;background:#f6f8fb;border:1px solid #dfe5ed}
 .staff-security-note>span{font-size:18px}
 .staff-security-note p{margin:0;font-size:9px;line-height:1.5;color:#556277}
