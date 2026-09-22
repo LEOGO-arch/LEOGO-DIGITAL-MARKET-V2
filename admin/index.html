@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-v1-29">
+  <link rel="stylesheet" href="admin.css?v=admin-v1-30">
 </head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
@@ -188,6 +188,7 @@
             <div><span>ORDER CONTROL</span><h3 id="adminOrderDetailTitle">Order Details</h3><p id="adminOrderDetailSubtitle">Loading order information…</p></div>
             <div class="admin-order-detail-actions">
               <button id="downloadOrderDeliverySummary" type="button" class="primary-button" disabled>⬇ Download Order Summary + QR</button>
+              <label class="order-summary-paper-select"><span>Paper</span><select id="orderSummaryPaperSize"><option value="a6">A6</option><option value="80mm">80 mm Thermal</option></select></label>
               <button id="printOrderDeliverySummary" type="button" class="secondary" disabled>🖨 Print Order Summary</button>
               <button id="closeAdminOrderDetail" type="button" class="secondary">Close</button>
             </div>
@@ -653,6 +654,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=admin-v1-42" defer></script>
+  <script src="admin.js?v=admin-v1-43" defer></script>
 </body>
 </html>
