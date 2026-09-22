@@ -2278,7 +2278,7 @@
     renderCustomerMarketplaceOrders();
     openCustomerShell('orders');
     window.setTimeout(()=>{
-      const card=document.querySelector('[data-customer-order-id="'+CSS.escape(orderId)+'"]');
+      const card=[...document.querySelectorAll('[data-customer-order-id]')].find((item)=>item.dataset.customerOrderId===orderId);
       if(!card) return;
       card.scrollIntoView({behavior:'smooth',block:'start'});
       if(review){
