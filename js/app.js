@@ -1330,6 +1330,22 @@
     });
   };
 
+  const productRatingStars = (rating) => {
+    const rounded=Math.max(0,Math.min(5,Math.round(Number(rating||0))));
+    return '★'.repeat(rounded)+'☆'.repeat(5-rounded);
+  };
+
+  const publicProductReviewsHtml = (product) => {
+    const reviews=Array.isArray(product.approved_reviews)?product.approved_reviews:[];
+    if(!reviews.length) return '<div class="live-product-reviews" data-product-review-list hidden><p>No approved reviews yet.</p></div>';
+    return '<div class="live-product-reviews" data-product-review-list hidden>'+
+      reviews.map((review)=>'<article><div><strong>'+productRatingStars(review.rating)+'</strong><span>'+Number(review.rating)+'/5</span></div>'+
+        (review.variant_name?'<small>Variant: '+receiptEscape(review.variant_name)+'</small>':'')+
+        (review.comment?'<p>'+receiptEscape(review.comment)+'</p>':'<p>Rating only.</p>')+
+        '<footer><b>✓ Verified Purchase</b><span>'+receiptEscape(customerOrderFormatDate(review.created_at,false))+'</span></footer></article>').join('')+
+      '</div>';
+  };
+
   const renderSellerProductCard = (product) => {
     const variants = Array.isArray(product.variants) ? product.variants : [];
     const activeVariants = variants.filter((variant) => variant.is_active !== false);
@@ -1362,6 +1378,8 @@
         '</div>'+
         '<h3>'+receiptEscape(product.product_name)+'</h3>'+
         '<p class="live-product-seller">'+receiptEscape(product.seller_name || 'LEOGO Seller')+'</p>'+
+        '<div class="live-product-rating"><strong>'+productRatingStars(product.rating_average)+'</strong><span>'+Number(product.rating_average||0).toFixed(1)+' · '+Number(product.review_count||0)+' review'+(Number(product.review_count||0)===1?'':'s')+'</span><button type="button" data-product-reviews-toggle>'+(Number(product.review_count||0)?'View Reviews':'Reviews')+'</button></div>'+
+        publicProductReviewsHtml(product)+
         '<div class="live-product-price-row"><strong data-live-product-price>'+money(product.price_kes)+'</strong><span data-live-product-stock>Qty '+Number(hasVariants?variantStock:product.quantity_available || 0)+' '+receiptEscape(product.measurement_unit || 'item')+'</span></div>'+
         '<p class="live-product-description">'+receiptEscape(String(product.product_details || '').slice(0,180))+'</p>'+
         variantMarkup+
@@ -1555,6 +1573,17 @@
   };
 
   liveProductGrid?.addEventListener('click', (event) => {
+    const reviewsButton=event.target.closest('[data-product-reviews-toggle]');
+    if(reviewsButton){
+      const card=reviewsButton.closest('[data-live-product-card]');
+      const list=card?.querySelector('[data-product-review-list]');
+      if(!list) return;
+      const opening=list.hidden;
+      list.hidden=!opening;
+      reviewsButton.textContent=opening?'Hide Reviews':'View Reviews';
+      return;
+    }
+
     const variantButton = event.target.closest('[data-product-variant]');
     if (variantButton) {
       const product = marketplaceProducts.find((item) => item.id === variantButton.dataset.productId);
@@ -2117,31 +2146,43 @@
   };
 
   const customerReviewStars = (rating) => '★'.repeat(Number(rating||0))+'☆'.repeat(Math.max(0,5-Number(rating||0)));
+  const productReviewStatusText = (status) => ({
+    submitted:'Pending Admin approval',
+    approved:'Approved · Public on product',
+    rejected:'Not published'
+  }[status]||'Not reviewed');
+
+  const orderHasProductReviews = (order) =>
+    (Array.isArray(order?.items)?order.items:[]).some((item)=>item.review);
 
   const customerReviewBoxHtml = (order) => {
-    const review=order.review||null;
-    const options=[5,4,3,2,1].map((rating)=>'<option value="'+rating+'" '+(Number(review?.rating)===rating?'selected':'')+'>'+rating+' / 5 — '+customerReviewStars(rating)+'</option>').join('');
-    return '<div class="customer-order-review-box" data-order-review-box hidden>'+
-      '<form data-order-review-form data-order-id="'+receiptEscape(order.id)+'">'+
-        '<label><span>Your rating</span><select name="rating" required>'+options+'</select></label>'+
-        '<label><span>Review <small>(optional)</small></span><textarea name="comment" maxlength="1500" rows="3" placeholder="Tell LEOGO how this order experience went…">'+receiptEscape(review?.comment||'')+'</textarea></label>'+
-        '<button type="submit">'+(review?'Update Review':'Submit Review')+'</button>'+
-        '<div class="customer-order-action-status" data-review-status></div>'+
-      '</form></div>';
-  };
-
-  const customerCompletedActionsHtml = (order) => {
-    if(order.order_status!=='delivered') return '';
-    const review=order.review||null;
-    const aftersales=order.aftersales_case||null;
-    return '<div class="customer-order-complete-actions">'+
-      '<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(review?'Edit Review':'Review Order')+'</button>'+
-      '<button type="button" class="secondary" data-aftersales-order="'+receiptEscape(order.id)+'">'+
-        (aftersales?'Aftersales · '+receiptEscape(customerAftersalesStatusText(aftersales.status)):'Apply for Aftersales')+
-      '</button>'+
-    '</div>'+
-    (review?'<div class="customer-review-summary"><strong>'+customerReviewStars(review.rating)+'</strong><span>'+receiptEscape(review.comment||'Review submitted')+'</span></div>':'')+
-    customerReviewBoxHtml(order);
+    const items=Array.isArray(order.items)?order.items:[];
+    return '<div class="customer-order-review-box customer-product-review-box" data-order-review-box hidden>'+
+      '<div class="customer-product-review-intro"><strong>Review purchased products</strong><span>Each product is reviewed separately. Reviews are sent to LEOGO Admin and appear publicly only after approval.</span></div>'+
+      (items.length?items.map((item)=>{
+        const review=item.review||null;
+        const options=[5,4,3,2,1].map((rating)=>'<option value="'+rating+'" '+(Number(review?.rating)===rating?'selected':'')+'>'+rating+' / 5 — '+customerReviewStars(rating)+'</option>').join('');
+        const status=review?.moderation_status||null;
+        const statusHtml=review
+          ? '<div class="customer-product-review-state status-'+receiptEscape(status)+'"><strong>'+receiptEscape(productReviewStatusText(status))+'</strong>'+
+              (status==='rejected'&&review.admin_notes?'<span>Admin note: '+receiptEscape(review.admin_notes)+'</span>':'')+
+              (status==='approved'?'<span>Your rating is included in this product’s public rating.</span>':'')+
+              (status==='submitted'?'<span>LEOGO Admin will review this before it appears publicly.</span>':'')+
+            '</div>'
+          : '<div class="customer-product-review-state"><strong>Not reviewed yet</strong><span>Only verified purchases can be reviewed.</span></div>';
+        return '<form data-product-review-form data-order-item-id="'+receiptEscape(item.order_item_id||'')+'" class="customer-product-review-form">'+
+          '<div class="customer-product-review-product"><strong>'+receiptEscape(item.product_name)+'</strong>'+
+            (item.variant_name?'<span>Variant: '+receiptEscape(item.variant_name)+'</span>':'')+
+            '<small>Verified purchase · '+receiptEscape(order.order_reference)+'</small></div>'+
+          statusHtml+
+          '<label><span>Your rating</span><select name="rating" required>'+options+'</select></label>'+
+          '<label><span>Product review <small>(optional)</small></span><textarea name="comment" maxlength="1500" rows="3" placeholder="What did you think about this product?">'+receiptEscape(review?.comment||'')+'</textarea></label>'+
+          (review?.moderation_status==='approved'?'<p class="customer-review-edit-note">Editing an approved review sends the updated version back to Admin for approval.</p>':'')+
+          '<button type="submit">'+(review?'Update Product Review':'Submit Product Review')+'</button>'+
+          '<div class="customer-order-action-status" data-review-status></div>'+
+        '</form>';
+      }).join(''):'<p>No reviewable product items were found in this order.</p>')+
+    '</div>';
   };
 
   const renderCustomerAftersalesCases = () => {
@@ -2201,7 +2242,7 @@
         customerOrderTimelineHtml(order,true)+
         '<div class="customer-dashboard-order-bottom"><strong>'+receiptEscape(money(order.grand_total_kes))+'</strong><div>'+
           '<button type="button" data-view-order-history="'+receiptEscape(order.id)+'">View History</button>'+
-          (completed?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">Review</button><button type="button" class="secondary" data-aftersales-order="'+receiptEscape(order.id)+'">'+(order.aftersales_case?'Aftersales':'Aftersales')+'</button>':'')+
+          (completed?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(orderHasProductReviews(order)?'Product Reviews':'Review Products')+'</button><button type="button" class="secondary" data-aftersales-order="'+receiptEscape(order.id)+'">'+(order.aftersales_case?'Aftersales':'Aftersales')+'</button>':'')+
         '</div></div>'+
       '</article>';
     }).join('');
@@ -2254,7 +2295,7 @@
       const completed=order.order_status==='delivered';
       const actionButtons=
         '<button type="button" class="customer-order-update-toggle" data-toggle-order-updates="'+receiptEscape(order.id)+'" aria-expanded="false">View Order Updates <span>⌄</span></button>'+
-        (completed?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(order.review?'Edit Review':'Review Order')+'</button>'+
+        (completed?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(orderHasProductReviews(order)?'Product Reviews':'Review Products')+'</button>'+
           '<button type="button" class="secondary" data-aftersales-order="'+receiptEscape(order.id)+'">'+(order.aftersales_case?'Aftersales · '+receiptEscape(customerAftersalesStatusText(order.aftersales_case.status)):'Apply for Aftersales')+'</button>':'');
 
       return '<article class="customer-order-card customer-order-card-compact" data-customer-order-id="'+receiptEscape(order.id)+'">'+
@@ -2265,9 +2306,7 @@
           '<div class="customer-order-expanded-head"><span>ORDER DETAILS & UPDATES</span><small>'+customerOrderHistory(order).length+' updates</small></div>'+
           '<ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+
           '<div class="customer-order-history-wrap"><div class="customer-order-history-title"><span>ORDER HISTORY</span><strong>'+customerOrderHistory(order).length+' updates</strong></div>'+customerOrderTimelineHtml(order,false)+'</div>'+
-          (completed
-            ? (order.review?'<div class="customer-review-summary"><strong>'+customerReviewStars(order.review.rating)+'</strong><span>'+receiptEscape(order.review.comment||'Review submitted')+'</span></div>':'')+customerReviewBoxHtml(order)
-            : '')+
+          (completed ? customerReviewBoxHtml(order) : '')+
         '</div>'+
       '</article>';
     }).join('');
@@ -2403,27 +2442,36 @@
   });
 
   document.addEventListener('submit',async(event)=>{
-    const form=event.target.closest?.('[data-order-review-form]');
+    const form=event.target.closest?.('[data-product-review-form]');
     if(!form) return;
     event.preventDefault();
-    const orderId=form.dataset.orderId;
+    const orderItemId=form.dataset.orderItemId;
     const button=form.querySelector('button[type="submit"]');
     const status=form.querySelector('[data-review-status]');
-    const original=button?.textContent||'Submit Review';
-    if(button){button.disabled=true;button.textContent='Saving…';}
-    if(status) status.textContent='';
+    const original=button?.textContent||'Submit Product Review';
+    if(button){button.disabled=true;button.textContent='Sending to Admin…';}
+    if(status){
+      status.textContent='';
+      status.classList.remove('is-error','is-success');
+    }
     try{
-      const {data,error}=await window.leogoAuth.client.rpc('customer_submit_order_review',{
-        p_order_id:orderId,
+      const {data,error}=await window.leogoAuth.client.rpc('customer_submit_product_review',{
+        p_order_item_id:orderItemId,
         p_rating:Number(form.elements.rating.value),
         p_comment:form.elements.comment.value.trim()||null
       });
       if(error) throw error;
       if(data?.error) throw new Error(data.error);
-      if(status){status.textContent='✓ Review saved. Thank you for your feedback.';status.classList.add('is-success');}
-      await loadCustomerMarketplaceOrders();
+      if(status){
+        status.textContent='✓ Product review sent to LEOGO Admin. It will appear publicly after approval.';
+        status.classList.add('is-success');
+      }
+      await Promise.all([loadCustomerMarketplaceOrders(),loadMarketplaceProducts()]);
     }catch(error){
-      if(status){status.textContent=error?.message||'Review could not be saved.';status.classList.add('is-error');}
+      if(status){
+        status.textContent=error?.message||'Product review could not be submitted.';
+        status.classList.add('is-error');
+      }
     }finally{
       if(button){button.disabled=false;button.textContent=original;}
     }
