@@ -1705,7 +1705,7 @@
         : assignmentLocked
           ? '<div class="admin-order-assignment-locked">Rider assignment is locked because delivery has already started.</div>'
           : activeRiders.length
-            ? '<div class="admin-order-rider-assign"><select id="adminOrderRiderSelect">'+riderOptions+'</select><button type="button" id="assignRiderFromOrder">'+(delivery?.rider_id?'Reassign Rider':'Assign Rider')+'</button></div>'
+            ? '<div class="admin-order-rider-assign"><select id="adminOrderRiderSelect">'+riderOptions+'</select><button type="button" id="assignRiderFromOrder">'+(delivery?.rider_id?'Reassign Rider':'Assign Rider')+'</button></div><div id="adminOrderDeliveryStatus" class="form-status" aria-live="polite"></div>'
             : '<div class="admin-order-no-rider"><strong>No active LEOGO rider account exists yet.</strong><p>Create a Rider from Staff Management and the Rider will become selectable here automatically.</p><button type="button" disabled>Assign Rider</button></div>'
       );
 
@@ -1713,27 +1713,44 @@
       verifyMarketplaceOrderPayment(button,order.id,button.dataset.detailPayment==='paid');
     }));
 
-    $('#assignRiderFromOrder')?.addEventListener('click',async(event)=>{
-      const riderId=$('#adminOrderRiderSelect')?.value;
-      if(!riderId){
-        setFormStatus($('#adminOrderDetailStatus'),'Choose an active LEOGO rider first.','error');
-        return;
-      }
 
-      await withButtonLock(event.currentTarget,'Assigning…',async()=>{
-        const {error}=await db.rpc('admin_assign_rider_to_order',{
+  };
+
+  const showOrderDeliveryStatus = (message='',type='') => {
+    setFormStatus($('#adminOrderDetailStatus'),message,type);
+    setFormStatus($('#adminOrderDeliveryStatus'),message,type);
+  };
+
+  const assignActiveOrderRider = async (button) => {
+    const detail=state.activeMarketplaceOrderDetail;
+    const order=detail?.order;
+    const riderId=$('#adminOrderRiderSelect')?.value;
+
+    if(!order?.id){
+      showOrderDeliveryStatus('The open order could not be identified. Refresh the order and try again.','error');
+      return;
+    }
+    if(!riderId){
+      showOrderDeliveryStatus('Choose an active LEOGO rider first.','error');
+      return;
+    }
+
+    await withButtonLock(button,'Assigning…',async()=>{
+      showOrderDeliveryStatus('Assigning rider…');
+      try{
+        const {data,error}=await db.rpc('admin_assign_rider_to_order',{
           p_order_id:order.id,
           p_rider_id:riderId
         });
-        if(error){
-          setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
-          return;
-        }
+        if(error) throw error;
+        if(data?.error) throw new Error(data.error);
 
-        setFormStatus($('#adminOrderDetailStatus'),'Rider assigned. Customer and Seller were notified.','success');
+        showOrderDeliveryStatus('Rider assigned successfully. Customer, Seller and Rider were notified.','success');
         await Promise.all([loadDeliveryOps(),loadMarketplaceOrders(),loadAuditLog()]);
         await loadMarketplaceOrderDetail(order.id,{scroll:false});
-      });
+      }catch(error){
+        showOrderDeliveryStatus(friendlyError(error),'error');
+      }
     });
   };
 
@@ -2983,6 +3000,10 @@
     $('#downloadOrderDeliverySummary')?.addEventListener('click', downloadOrderDeliverySummary);
     $('#printOrderDeliverySummary')?.addEventListener('click', printOrderDeliverySummary);
     $('#closeAdminOrderDetail')?.addEventListener('click', closeMarketplaceOrderDetail);
+    $('#adminOrderDeliveryDetail')?.addEventListener('click',(event)=>{
+      const button=event.target.closest?.('#assignRiderFromOrder');
+      if(button) assignActiveOrderRider(button);
+    });
     $('#refreshDeliveryOps').addEventListener('click', () => withButtonLock($('#refreshDeliveryOps'), 'Refreshing…', loadDeliveryOps));
     $('#adminAddRiderForm').addEventListener('submit', addRider);
     $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
