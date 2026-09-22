@@ -974,12 +974,23 @@
       return;
     }
 
+    const temporaryPassword=$('#staffTemporaryPassword')?.value||'';
+    const passwordStrong=temporaryPassword.length>=10
+      && /[A-Z]/.test(temporaryPassword)
+      && /[a-z]/.test(temporaryPassword)
+      && /[0-9]/.test(temporaryPassword)
+      && /[^A-Za-z0-9]/.test(temporaryPassword);
+    if(!passwordStrong){
+      setFormStatus(statusBox,'Temporary password is too weak. Use at least 10 characters with uppercase, lowercase, a number and a symbol — or click Generate.','error');
+      return;
+    }
+
     const body={
       account_kind:kind,
       display_name:($('#staffDisplayName')?.value||'').trim(),
       email:($('#staffEmail')?.value||'').trim(),
       phone:($('#staffPhone')?.value||'').trim(),
-      temporary_password:$('#staffTemporaryPassword')?.value||'',
+      temporary_password:temporaryPassword,
       role_code:kind==='admin_staff'?$('#staffRole')?.value:'rider',
       department:kind==='admin_staff'?($('#staffDepartment')?.value||'').trim():'Delivery',
       job_title:kind==='admin_staff'?($('#staffJobTitle')?.value||'').trim():'LEOGO Rider',
@@ -994,21 +1005,31 @@
       try{
         setFormStatus(statusBox,'Creating secure staff login…');
 
-        const invokeResult=await db.functions.invoke('admin-create-staff',{body});
-        const data=invokeResult?.data;
-        const error=invokeResult?.error;
-
-        if(error){
-          let message=error.message||'Staff account could not be created.';
-          try{
-            const payload=await error.context?.json?.();
-            if(payload?.error) message=normaliseErrorMessage(payload.error);
-          }catch{}
-          setFormStatus(statusBox,message,'error');
+        const {data:{session},error:sessionError}=await db.auth.getSession();
+        if(sessionError||!session?.access_token){
+          setFormStatus(statusBox,'Your Admin session is not available. Sign out, sign in again, and retry.','error');
           return;
         }
-        if(!data?.ok){
-          setFormStatus(statusBox,data?.error||'Staff account could not be created. No account was saved.','error');
+
+        const response=await fetch(PROJECT_URL+'/functions/v1/admin-create-staff',{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'apikey':PUBLISHABLE_KEY,
+            'Authorization':'Bearer '+session.access_token
+          },
+          body:JSON.stringify(body)
+        });
+
+        const rawText=await response.text();
+        let data=null;
+        try{ data=rawText?JSON.parse(rawText):null; }
+        catch{ data={ok:false,error:rawText||('Staff service returned HTTP '+response.status),stage:'response'}; }
+
+        if(!response.ok||!data?.ok){
+          const stage=data?.stage?String(data.stage).replaceAll('_',' '):'creation';
+          const message=normaliseErrorMessage(data?.error||data?.message||data||('HTTP '+response.status));
+          setFormStatus(statusBox,'Staff account was not created ('+stage+'): '+message,'error');
           return;
         }
 
