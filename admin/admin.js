@@ -2514,6 +2514,14 @@
   $('#refreshAdminCatalogue')?.addEventListener('click', () =>
     withButtonLock($('#refreshAdminCatalogue'), 'Refreshing…', loadCatalogue)
   );
+  $('#refreshProductReviews')?.addEventListener('click', () =>
+    withButtonLock($('#refreshProductReviews'), 'Refreshing…', loadCatalogue)
+  );
+  $('#adminProductReviewStatusFilter')?.addEventListener('change', renderProductReviews);
+  $('#adminProductReviewList')?.addEventListener('click',(event)=>{
+    const button=event.target.closest?.('[data-product-review-action]');
+    if(button) moderateProductReview(button);
+  });
   $('#adminCatalogueSearch')?.addEventListener('input', renderCatalogueProducts);
   $('#adminCatalogueStatusFilter')?.addEventListener('change', renderCatalogueProducts);
   $('#adminCatalogueSellerFilter')?.addEventListener('change', renderCatalogueProducts);
