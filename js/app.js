@@ -2040,6 +2040,14 @@
 
   let customerMarketplaceOrders = [];
   let customerActivityFilter = 'all';
+  const customerOrderFormatDate = (value, withTime = true) => {
+    if(!value) return '—';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime())) return '—';
+    return new Intl.DateTimeFormat('en-KE',withTime
+      ? {dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Nairobi'}
+      : {dateStyle:'medium',timeZone:'Africa/Nairobi'}).format(date);
+  };
   const customerOrderStatusText = (status) => ({
     placed:'Order placed',processing:'Seller preparing order',with_rider:'Delivery in progress',delivered:'Delivered',cancelled:'Cancelled'
   }[status] || String(status || '').replaceAll('_',' '));
@@ -2102,7 +2110,7 @@
     return '<div class="customer-order-history '+(compact?'compact':'')+'">'+
       visible.map((event,index)=>'<div class="customer-order-history-event done">'+
         '<i></i><div><strong>'+receiptEscape(event.label)+'</strong>'+
-        '<small>'+receiptEscape(formatDate(event.at))+'</small>'+
+        '<small>'+receiptEscape(customerOrderFormatDate(event.at))+'</small>'+
         (!compact&&event.detail?'<span>'+receiptEscape(event.detail)+'</span>':'')+
         '</div></div>').join('')+
       '</div>';
@@ -2142,7 +2150,7 @@
     const current=select.value;
     const delivered=customerMarketplaceOrders.filter((order)=>order.order_status==='delivered');
     select.innerHTML='<option value="">Select a delivered order</option>'+delivered.map((order)=>
-      '<option value="'+receiptEscape(order.id)+'">'+receiptEscape(order.order_reference)+' · '+receiptEscape(formatDate(order.delivered_at||order.delivery_delivered_at||order.created_at))+'</option>'
+      '<option value="'+receiptEscape(order.id)+'">'+receiptEscape(order.order_reference)+' · '+receiptEscape(customerOrderFormatDate(order.delivered_at||order.delivery_delivered_at||order.created_at))+'</option>'
     ).join('');
     if(current&&delivered.some((order)=>order.id===current)) select.value=current;
   };
@@ -2158,7 +2166,7 @@
     container.innerHTML=rows.map((order)=>{
       const completed=order.order_status==='delivered';
       return '<article class="customer-dashboard-order-card">'+
-        '<div class="customer-dashboard-order-top"><div><small>ORDER</small><strong>'+receiptEscape(order.order_reference)+'</strong><span>'+receiptEscape(formatDate(order.created_at))+'</span></div>'+
+        '<div class="customer-dashboard-order-top"><div><small>ORDER</small><strong>'+receiptEscape(order.order_reference)+'</strong><span>'+receiptEscape(customerOrderFormatDate(order.created_at))+'</span></div>'+
         '<b class="'+(completed?'complete':'active')+'">'+receiptEscape(customerDeliveryStatusText(order.delivery_status||order.order_status))+'</b></div>'+
         customerOrderTimelineHtml(order,true)+
         '<div class="customer-dashboard-order-bottom"><strong>'+receiptEscape(money(order.grand_total_kes))+'</strong><div>'+
@@ -2207,7 +2215,7 @@
       const items=(Array.isArray(order.items)?order.items:[]).map(i=>'<li>'+receiptEscape(i.product_name)+(i.variant_name?' — <b>'+receiptEscape(i.variant_name)+'</b>':'')+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
       const sellers=(Array.isArray(order.seller_fulfilments)?order.seller_fulfilments:[]).map(s=>'<span>'+receiptEscape(s.seller_name)+' — <b>'+receiptEscape(String(s.fulfilment_status).replaceAll('_',' '))+'</b></span>').join('');
       const rider = order.rider_name ? '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>'+receiptEscape(order.rider_name)+'</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>' : '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>Awaiting assignment</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>';
-      return '<article class="customer-order-card" data-customer-order-id="'+receiptEscape(order.id)+'"><header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+formatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header>'+
+      return '<article class="customer-order-card" data-customer-order-id="'+receiptEscape(order.id)+'"><header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+customerOrderFormatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header>'+
         '<ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+
         '<div class="customer-order-history-wrap"><div class="customer-order-history-title"><span>ORDER HISTORY</span><strong>'+customerOrderHistory(order).length+' updates</strong></div>'+customerOrderTimelineHtml(order,false)+'</div>'+
         '<div class="customer-order-total"><span>Total</span><strong>'+money(order.grand_total_kes)+'</strong></div>'+
