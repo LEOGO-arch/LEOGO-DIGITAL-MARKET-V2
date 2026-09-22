@@ -2041,7 +2041,7 @@
   let customerMarketplaceOrders = [];
   let customerActivityFilter = 'all';
   const customerOrderStatusText = (status) => ({
-    placed:'Order placed',processing:'Seller preparing order',with_rider:'Handed to rider',delivered:'Delivered',cancelled:'Cancelled'
+    placed:'Order placed',processing:'Seller preparing order',with_rider:'Delivery in progress',delivered:'Delivered',cancelled:'Cancelled'
   }[status] || String(status || '').replaceAll('_',' '));
   const customerPaymentText = (status) => ({
     submitted:'Payment submitted — verifying',verified_paid:'Paid',cod_due:'COD — due on delivery',cod_paid:'Paid on delivery',rejected:'Payment rejected'
@@ -2058,12 +2058,124 @@
     failed:'Delivery issue',
     cancelled:'Cancelled'
   }[status] || String(status || '').replaceAll('_',' '));
+  const customerAftersalesStatusText = (status) => ({
+    submitted:'Submitted',
+    in_review:'Under review',
+    contacted:'Customer contacted',
+    resolved:'Resolved',
+    rejected:'Closed — not approved',
+    cancelled:'Cancelled'
+  }[status] || String(status || '').replaceAll('_',' '));
+
+  const customerOrderHistory = (order) => {
+    const events = [];
+    const add=(label,at,detail='')=>{ if(at) events.push({label,at,detail}); };
+    add('Order placed',order.created_at,'Order '+order.order_reference+' was created.');
+    if(order.payment_verified_at){
+      add('Payment verified',order.payment_verified_at,customerPaymentText(order.payment_status));
+    }else if(order.payment_status==='submitted'){
+      add('Payment submitted',order.created_at,'Payment is awaiting LEOGO verification.');
+    }else if(order.payment_status==='cod_due'){
+      add('Cash on Delivery selected',order.created_at,'Payment will be collected before customer handover.');
+    }
+
+    (Array.isArray(order.seller_fulfilments)?order.seller_fulfilments:[]).forEach((seller)=>{
+      const name=seller.seller_name||'Seller';
+      add(name+' received the order',seller.received_at,'Seller accepted this order portion.');
+      add(name+' packed & ready',seller.packed_ready_at,'Order portion prepared for Rider pickup.');
+    });
+
+    add('Rider assigned',order.delivery_assigned_at,order.rider_name?order.rider_name+' was assigned to the order.':'LEOGO Rider assigned.');
+    add('Picked up from Seller',order.delivery_picked_up_at,'Rider collected the order from the Seller.');
+    add('Arrived at LEOGO Sorting Center',order.arrived_sorting_center_at,'Rider arrived with the order at the Sorting Center.');
+    add('Order Received at LEOGO Sorting Center',order.sorting_received_at,'LEOGO staff confirmed physical receipt.');
+    add('Ready for Dispatch',order.ready_for_dispatch_at,'Order cleared for final delivery from the Sorting Center.');
+    add('On the way to you',order.on_the_way_at,'Rider left the Sorting Center for final delivery.');
+    add('Delivered',order.delivery_delivered_at||order.delivered_at,'Order delivery was completed.');
+    return events.sort((a,b)=>new Date(a.at)-new Date(b.at));
+  };
+
+  const customerOrderTimelineHtml = (order,compact=false) => {
+    const events=customerOrderHistory(order);
+    if(!events.length) return '';
+    const visible=compact?events.slice(-4):events;
+    return '<div class="customer-order-history '+(compact?'compact':'')+'">'+
+      visible.map((event,index)=>'<div class="customer-order-history-event done">'+
+        '<i></i><div><strong>'+receiptEscape(event.label)+'</strong>'+
+        '<small>'+receiptEscape(formatDate(event.at))+'</small>'+
+        (!compact&&event.detail?'<span>'+receiptEscape(event.detail)+'</span>':'')+
+        '</div></div>').join('')+
+      '</div>';
+  };
+
+  const customerReviewStars = (rating) => '★'.repeat(Number(rating||0))+'☆'.repeat(Math.max(0,5-Number(rating||0)));
+
+  const customerReviewBoxHtml = (order) => {
+    const review=order.review||null;
+    const options=[5,4,3,2,1].map((rating)=>'<option value="'+rating+'" '+(Number(review?.rating)===rating?'selected':'')+'>'+rating+' / 5 — '+customerReviewStars(rating)+'</option>').join('');
+    return '<div class="customer-order-review-box" data-order-review-box hidden>'+
+      '<form data-order-review-form data-order-id="'+receiptEscape(order.id)+'">'+
+        '<label><span>Your rating</span><select name="rating" required>'+options+'</select></label>'+
+        '<label><span>Review <small>(optional)</small></span><textarea name="comment" maxlength="1500" rows="3" placeholder="Tell LEOGO how this order experience went…">'+receiptEscape(review?.comment||'')+'</textarea></label>'+
+        '<button type="submit">'+(review?'Update Review':'Submit Review')+'</button>'+
+        '<div class="customer-order-action-status" data-review-status></div>'+
+      '</form></div>';
+  };
+
+  const customerCompletedActionsHtml = (order) => {
+    if(order.order_status!=='delivered') return '';
+    const review=order.review||null;
+    const aftersales=order.aftersales_case||null;
+    return '<div class="customer-order-complete-actions">'+
+      '<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(review?'Edit Review':'Review Order')+'</button>'+
+      '<button type="button" class="secondary" data-aftersales-order="'+receiptEscape(order.id)+'">'+
+        (aftersales?'Aftersales · '+receiptEscape(customerAftersalesStatusText(aftersales.status)):'Apply for Aftersales')+
+      '</button>'+
+    '</div>'+
+    (review?'<div class="customer-review-summary"><strong>'+customerReviewStars(review.rating)+'</strong><span>'+receiptEscape(review.comment||'Review submitted')+'</span></div>':'')+
+    customerReviewBoxHtml(order);
+  };
+
+  const populateCustomerAftersalesOrders = () => {
+    const select=document.getElementById('aftersalesOrderId');
+    if(!select) return;
+    const current=select.value;
+    const delivered=customerMarketplaceOrders.filter((order)=>order.order_status==='delivered');
+    select.innerHTML='<option value="">Select a delivered order</option>'+delivered.map((order)=>
+      '<option value="'+receiptEscape(order.id)+'">'+receiptEscape(order.order_reference)+' · '+receiptEscape(formatDate(order.delivered_at||order.delivery_delivered_at||order.created_at))+'</option>'
+    ).join('');
+    if(current&&delivered.some((order)=>order.id===current)) select.value=current;
+  };
+
+  const renderCustomerDashboardOrders = () => {
+    const container=document.getElementById('customerDashboardOrders');
+    if(!container) return;
+    const rows=customerMarketplaceOrders.slice(0,3);
+    if(!rows.length){
+      container.innerHTML='<div class="customer-dashboard-order-empty">Your latest product orders will appear here.</div>';
+      return;
+    }
+    container.innerHTML=rows.map((order)=>{
+      const completed=order.order_status==='delivered';
+      return '<article class="customer-dashboard-order-card">'+
+        '<div class="customer-dashboard-order-top"><div><small>ORDER</small><strong>'+receiptEscape(order.order_reference)+'</strong><span>'+receiptEscape(formatDate(order.created_at))+'</span></div>'+
+        '<b class="'+(completed?'complete':'active')+'">'+receiptEscape(customerDeliveryStatusText(order.delivery_status||order.order_status))+'</b></div>'+
+        customerOrderTimelineHtml(order,true)+
+        '<div class="customer-dashboard-order-bottom"><strong>'+receiptEscape(money(order.grand_total_kes))+'</strong><div>'+
+          '<button type="button" data-view-order-history="'+receiptEscape(order.id)+'">View History</button>'+
+          (completed?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">Review</button><button type="button" class="secondary" data-aftersales-order="'+receiptEscape(order.id)+'">'+(order.aftersales_case?'Aftersales':'Aftersales')+'</button>':'')+
+        '</div></div>'+
+      '</article>';
+    }).join('');
+  };
+
   let customerOrderLoadPromise = null;
   const renderCustomerMarketplaceOrders = () => {
     const container = document.getElementById('customerMarketplaceOrders');
     const empty = document.getElementById('customerActivityEmpty');
 
     const active = customerMarketplaceOrders.filter(o=>!['delivered','cancelled'].includes(o.order_status)).length;
+    const openAftersales=customerMarketplaceOrders.filter((order)=>order.aftersales_case&&['submitted','in_review','contacted'].includes(order.aftersales_case.status)).length;
     const latest = customerMarketplaceOrders[0] || null;
     const ac=document.getElementById('customerActiveOrderCount');
     if(ac) ac.textContent=active;
@@ -2075,6 +2187,13 @@
         : 'No active orders';
     const pc=document.getElementById('customerProductOrderCount');
     if(pc) pc.textContent=customerMarketplaceOrders.length;
+    const afc=document.getElementById('customerAftersalesCount');
+    if(afc) afc.textContent=openAftersales;
+    const aft=document.getElementById('customerAftersalesText');
+    if(aft) aft.textContent=openAftersales?openAftersales+' case(s) open':'No open cases';
+
+    renderCustomerDashboardOrders();
+    populateCustomerAftersalesOrders();
 
     if (!container) return;
     let rows = customerMarketplaceOrders;
@@ -2088,7 +2207,12 @@
       const items=(Array.isArray(order.items)?order.items:[]).map(i=>'<li>'+receiptEscape(i.product_name)+(i.variant_name?' — <b>'+receiptEscape(i.variant_name)+'</b>':'')+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
       const sellers=(Array.isArray(order.seller_fulfilments)?order.seller_fulfilments:[]).map(s=>'<span>'+receiptEscape(s.seller_name)+' — <b>'+receiptEscape(String(s.fulfilment_status).replaceAll('_',' '))+'</b></span>').join('');
       const rider = order.rider_name ? '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>'+receiptEscape(order.rider_name)+'</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>' : '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>Awaiting assignment</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>';
-      return '<article class="customer-order-card"><header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+formatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header><ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+'<div class="customer-order-total"><span>Total</span><strong>'+money(order.grand_total_kes)+'</strong></div></article>';
+      return '<article class="customer-order-card" data-customer-order-id="'+receiptEscape(order.id)+'"><header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+formatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header>'+
+        '<ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+
+        '<div class="customer-order-history-wrap"><div class="customer-order-history-title"><span>ORDER HISTORY</span><strong>'+customerOrderHistory(order).length+' updates</strong></div>'+customerOrderTimelineHtml(order,false)+'</div>'+
+        '<div class="customer-order-total"><span>Total</span><strong>'+money(order.grand_total_kes)+'</strong></div>'+
+        customerCompletedActionsHtml(order)+
+      '</article>';
     }).join('');
     if (empty) empty.hidden = rows.length > 0;
   };
@@ -2111,7 +2235,7 @@
         return;
       }
 
-      const {data,error}=await client.rpc('customer_list_marketplace_orders');
+      const {data,error}=await client.rpc('customer_list_marketplace_orders_v2');
       if(error){
         console.error('LEOGO customer orders could not load:',error.message||error);
         const empty=document.getElementById('customerActivityEmpty');
@@ -2144,6 +2268,89 @@
   });
   window.setTimeout(loadCustomerMarketplaceOrders,500);
 
+  const showCustomerOrderInActivity = (orderId,{review=false}={}) => {
+    customerActivityFilter='all';
+    activityFilterButtons?.forEach((button)=>{
+      const selected=button.dataset.activityFilter==='all';
+      button.classList.toggle('active',selected);
+      button.setAttribute('aria-pressed',String(selected));
+    });
+    renderCustomerMarketplaceOrders();
+    openCustomerShell('orders');
+    window.setTimeout(()=>{
+      const card=document.querySelector('[data-customer-order-id="'+CSS.escape(orderId)+'"]');
+      if(!card) return;
+      card.scrollIntoView({behavior:'smooth',block:'start'});
+      if(review){
+        const box=card.querySelector('[data-order-review-box]');
+        if(box){box.hidden=false;box.querySelector('select')?.focus();}
+      }
+    },100);
+  };
+
+  const prepareAftersalesOrder = (orderId) => {
+    const order=customerMarketplaceOrders.find((item)=>item.id===orderId);
+    const select=document.getElementById('aftersalesOrderId');
+    const form=document.getElementById('marketplaceAftersalesForm');
+    const status=document.getElementById('aftersalesPreviewStatus');
+    if(select) select.value=orderId||'';
+    if(status){
+      status.classList.remove('is-error','is-success');
+      if(order?.aftersales_case){
+        status.textContent='Existing case '+order.aftersales_case.case_reference+' — '+customerAftersalesStatusText(order.aftersales_case.status)+'.';
+      }else{
+        status.textContent=order?'Aftersales request for '+order.order_reference+'.':'';
+      }
+    }
+    const submit=form?.querySelector('button[type="submit"]');
+    if(submit) submit.disabled=Boolean(order?.aftersales_case&&['submitted','in_review','contacted'].includes(order.aftersales_case.status));
+  };
+
+  customerShellModal?.addEventListener('click',(event)=>{
+    const historyButton=event.target.closest?.('[data-view-order-history]');
+    if(historyButton){
+      showCustomerOrderInActivity(historyButton.dataset.viewOrderHistory);
+      return;
+    }
+    const reviewButton=event.target.closest?.('[data-review-order]');
+    if(reviewButton){
+      showCustomerOrderInActivity(reviewButton.dataset.reviewOrder,{review:true});
+      return;
+    }
+    const aftersalesButton=event.target.closest?.('[data-aftersales-order]');
+    if(aftersalesButton){
+      openCustomerShell('aftersales');
+      prepareAftersalesOrder(aftersalesButton.dataset.aftersalesOrder);
+    }
+  });
+
+  document.addEventListener('submit',async(event)=>{
+    const form=event.target.closest?.('[data-order-review-form]');
+    if(!form) return;
+    event.preventDefault();
+    const orderId=form.dataset.orderId;
+    const button=form.querySelector('button[type="submit"]');
+    const status=form.querySelector('[data-review-status]');
+    const original=button?.textContent||'Submit Review';
+    if(button){button.disabled=true;button.textContent='Saving…';}
+    if(status) status.textContent='';
+    try{
+      const {data,error}=await window.leogoAuth.client.rpc('customer_submit_order_review',{
+        p_order_id:orderId,
+        p_rating:Number(form.elements.rating.value),
+        p_comment:form.elements.comment.value.trim()||null
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+      if(status){status.textContent='✓ Review saved. Thank you for your feedback.';status.classList.add('is-success');}
+      await loadCustomerMarketplaceOrders();
+    }catch(error){
+      if(status){status.textContent=error?.message||'Review could not be saved.';status.classList.add('is-error');}
+    }finally{
+      if(button){button.disabled=false;button.textContent=original;}
+    }
+  });
+
   const activityFilterButtons = customerShellModal?.querySelectorAll('[data-activity-filter]');
   const activityEmptyIcon = document.getElementById('activityEmptyIcon');
   const activityEmptyTitle = document.getElementById('activityEmptyTitle');
@@ -2173,12 +2380,92 @@
     });
   });
 
-  const aftersalesPreviewForm = customerShellModal?.querySelector('.aftersales-preview-form');
+  const aftersalesPreviewForm = document.getElementById('marketplaceAftersalesForm');
   const aftersalesPreviewStatus = document.getElementById('aftersalesPreviewStatus');
-  aftersalesPreviewForm?.addEventListener('submit', (event) => {
+  const aftersalesOrderSelect = document.getElementById('aftersalesOrderId');
+
+  aftersalesOrderSelect?.addEventListener('change',()=>prepareAftersalesOrder(aftersalesOrderSelect.value));
+
+  aftersalesPreviewForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!aftersalesPreviewForm.reportValidity()) return;
-    aftersalesPreviewStatus.textContent = 'Visual preview only — your support case will be securely submitted and tracked when the backend workflow is connected.';
+    const orderId=aftersalesOrderSelect?.value;
+    const order=customerMarketplaceOrders.find((item)=>item.id===orderId);
+    if(!order||order.order_status!=='delivered'){
+      aftersalesPreviewStatus.textContent='Select a completed product order first.';
+      aftersalesPreviewStatus.classList.add('is-error');
+      return;
+    }
+    if(order.aftersales_case&&['submitted','in_review','contacted'].includes(order.aftersales_case.status)){
+      aftersalesPreviewStatus.textContent='This order already has active case '+order.aftersales_case.case_reference+'.';
+      aftersalesPreviewStatus.classList.add('is-error');
+      return;
+    }
+
+    const file=document.getElementById('aftersalesEvidenceFile')?.files?.[0]||null;
+    const allowed=new Set(['image/jpeg','image/png','image/webp','application/pdf']);
+    if(file&&!allowed.has(file.type)){
+      aftersalesPreviewStatus.textContent='Evidence must be JPG, PNG, WEBP or PDF.';
+      aftersalesPreviewStatus.classList.add('is-error');
+      return;
+    }
+    if(file&&file.size>10*1024*1024){
+      aftersalesPreviewStatus.textContent='Evidence file must be 10 MB or smaller.';
+      aftersalesPreviewStatus.classList.add('is-error');
+      return;
+    }
+
+    const submit=aftersalesPreviewForm.querySelector('button[type="submit"]');
+    const original=submit.textContent;
+    let evidencePath=null;
+    submit.disabled=true;
+    submit.textContent='Submitting…';
+    aftersalesPreviewStatus.classList.remove('is-error','is-success');
+    aftersalesPreviewStatus.textContent='Submitting your Aftersales case to LEOGO Customer Care…';
+
+    try{
+      if(file){
+        const user=window.leogoAuth.getUser?.();
+        if(!user) throw new Error('Login required');
+        const ext=file.type==='application/pdf'?'pdf':file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+        evidencePath=user.id+'/'+orderId+'/'+Date.now()+'-'+(crypto.randomUUID?.()||'evidence')+'.'+ext;
+        const upload=await window.leogoAuth.client.storage.from('marketplace-aftersales-evidence').upload(evidencePath,file,{
+          upsert:false,
+          contentType:file.type
+        });
+        if(upload.error) throw upload.error;
+      }
+
+      const {data,error}=await window.leogoAuth.client.rpc('customer_submit_marketplace_aftersales',{
+        p_order_id:orderId,
+        p_issue_type:document.getElementById('aftersalesIssueType').value,
+        p_preferred_solution:document.getElementById('aftersalesPreferredSolution').value,
+        p_details:document.getElementById('aftersalesDetails').value.trim(),
+        p_evidence_path:evidencePath
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+
+      aftersalesPreviewStatus.textContent='✓ Aftersales case '+data.case_reference+' submitted successfully. LEOGO Customer Care will review it.';
+      aftersalesPreviewStatus.classList.add('is-success');
+      document.getElementById('aftersalesIssueType').value='';
+      document.getElementById('aftersalesPreferredSolution').value='';
+      document.getElementById('aftersalesDetails').value='';
+      document.getElementById('aftersalesEvidenceFile').value='';
+      await loadCustomerMarketplaceOrders();
+      prepareAftersalesOrder(orderId);
+    }catch(error){
+      if(evidencePath){
+        try{await window.leogoAuth.client.storage.from('marketplace-aftersales-evidence').remove([evidencePath]);}catch(_){}
+      }
+      aftersalesPreviewStatus.textContent=error?.message||'Aftersales case could not be submitted.';
+      aftersalesPreviewStatus.classList.add('is-error');
+    }finally{
+      submit.disabled=false;
+      submit.textContent=original;
+      const updated=customerMarketplaceOrders.find((item)=>item.id===orderId);
+      if(updated?.aftersales_case&&['submitted','in_review','contacted'].includes(updated.aftersales_case.status)) submit.disabled=true;
+    }
   });
 
   document.addEventListener('keydown', (event) => {
