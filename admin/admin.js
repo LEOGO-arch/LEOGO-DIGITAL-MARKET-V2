@@ -17,6 +17,8 @@
     user: null,
     approvals: [],
     marketplaceOrders: [],
+    aftersalesCases: [],
+    activeAftersalesCaseId: null,
     activeMarketplaceOrderId: null,
     activeMarketplaceOrderDetail: null,
     orderDetailLoadToken: 0,
@@ -61,7 +63,7 @@
   };
 
   const viewTitles = {
-    dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', customers: 'Customers',
+    dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', aftersales: 'Aftersales', customers: 'Customers',
     products: 'Products & Categories', sellers: 'Sellers', settlements: 'Seller Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
     accommodation: 'Accommodation', loyalty: 'Loyalty & Rewards', reports: 'Reports',
@@ -181,6 +183,7 @@
       dashboard: () => adminHas('dashboard.read'),
       approvals: () => adminHas('approvals.read'),
       orders: () => adminHas('orders.read'),
+      aftersales: () => adminHas('orders.read') || adminHas('approvals.read'),
       customers: () => adminHas('customers.read'),
       products: () => adminHas('products.read'),
       sellers: () => adminHas('sellers.read'),
@@ -270,6 +273,7 @@
       [loadDashboard, () => adminHas('dashboard.read')],
       [loadApprovals, () => adminHas('approvals.read')],
       [loadMarketplaceOrders, () => adminHas('orders.read')],
+      [loadAftersalesCases, () => adminHas('orders.read') || adminHas('approvals.read')],
       [loadCatalogue, () => adminHas('products.read')],
       [loadPersonalMarketplace, () => adminHas('products.read')],
       [loadCustomers, () => adminHas('customers.read')],
@@ -1161,6 +1165,146 @@
     if(refreshActiveDetail && state.activeMarketplaceOrderId && !$('#adminOrderDetailPanel')?.hidden){
       await loadMarketplaceOrderDetail(state.activeMarketplaceOrderId,{scroll:false});
     }
+  };
+
+  const aftersalesStatusLabel=(status)=>({
+    submitted:'Submitted',
+    in_review:'Under review',
+    contacted:'Customer contacted',
+    resolved:'Resolved',
+    rejected:'Closed — not approved',
+    cancelled:'Cancelled'
+  }[status]||String(status||'').replaceAll('_',' '));
+
+  const aftersalesIssueLabel=(value)=>({
+    wrong_or_missing_item:'Wrong or missing item',
+    damaged_item:'Damaged item',
+    return_or_refund:'Return or refund request',
+    warranty:'Warranty assistance',
+    delivery_problem:'Delivery complaint',
+    other:'Other follow-up'
+  }[value]||String(value||'').replaceAll('_',' '));
+
+  const aftersalesSolutionLabel=(value)=>({
+    replacement:'Replacement',
+    refund_review:'Refund review',
+    repair_or_warranty:'Repair or warranty help',
+    seller_follow_up:'Seller follow-up',
+    customer_care_call:'Customer-care call'
+  }[value]||String(value||'').replaceAll('_',' '));
+
+  const filteredAftersalesCases=()=>{
+    const term=($('#adminAftersalesSearch')?.value||'').trim().toLowerCase();
+    const status=$('#adminAftersalesStatusFilter')?.value||'all';
+    return state.aftersalesCases.filter((item)=>{
+      const haystack=[
+        item.case_reference,item.order_reference,item.customer_name,item.customer_phone,
+        item.issue_type,item.preferred_solution,item.details,item.status
+      ].map((value)=>String(value||'').toLowerCase());
+      return (!term||haystack.some((value)=>value.includes(term)))
+        && (status==='all'||item.status===status);
+    });
+  };
+
+  const renderAftersalesCases=()=>{
+    const all=state.aftersalesCases;
+    const rows=filteredAftersalesCases();
+    const openStatuses=['submitted','in_review','contacted'];
+    $('#aftersalesOpenCount').textContent=all.filter((item)=>openStatuses.includes(item.status)).length;
+    $('#aftersalesNewCount').textContent=all.filter((item)=>item.status==='submitted').length;
+    $('#aftersalesReviewCount').textContent=all.filter((item)=>['in_review','contacted'].includes(item.status)).length;
+    $('#aftersalesResolvedCount').textContent=all.filter((item)=>item.status==='resolved').length;
+    $('#sidebarAftersalesCount').textContent=all.filter((item)=>openStatuses.includes(item.status)).length;
+
+    $('#adminAftersalesBody').innerHTML=rows.length?rows.map((item)=>`
+      <tr class="${state.activeAftersalesCaseId===item.case_id?'admin-order-row-active':''}">
+        <td><strong>${escapeHtml(item.case_reference)}</strong><small>${formatDate(item.created_at,true)}</small></td>
+        <td><strong>${escapeHtml(item.order_reference)}</strong><small>${formatMoney(item.grand_total_kes)}</small></td>
+        <td><strong>${escapeHtml(item.customer_name||'Customer')}</strong><small>${escapeHtml(item.customer_phone||'')}</small></td>
+        <td><strong>${escapeHtml(aftersalesIssueLabel(item.issue_type))}</strong><small>${escapeHtml(aftersalesSolutionLabel(item.preferred_solution))}</small></td>
+        <td>${formatDate(item.created_at,true)}</td>
+        <td><span class="status-chip">${escapeHtml(aftersalesStatusLabel(item.status))}</span></td>
+        <td><button type="button" data-open-aftersales-case="${escapeHtml(item.case_id)}">Open Case</button></td>
+      </tr>
+    `).join(''):'<tr><td colspan="7">No Aftersales cases match the current filters.</td></tr>';
+  };
+
+  const renderAftersalesDetail=()=>{
+    const item=state.aftersalesCases.find((row)=>row.case_id===state.activeAftersalesCaseId);
+    const panel=$('#adminAftersalesDetail');
+    if(!item||!panel){ if(panel) panel.hidden=true; return; }
+
+    panel.hidden=false;
+    $('#adminAftersalesTitle').textContent=item.case_reference;
+    $('#adminAftersalesSubtitle').textContent='Order '+item.order_reference+' · submitted '+formatDate(item.created_at,true);
+    $('#adminAftersalesCustomer').innerHTML=
+      '<div><small>Customer</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong></div>'+
+      '<div><small>Phone</small><strong>'+escapeHtml(item.customer_phone||'—')+'</strong></div>'+
+      '<div><small>Order</small><strong>'+escapeHtml(item.order_reference)+'</strong></div>'+
+      '<div><small>Delivered</small><strong>'+escapeHtml(formatDate(item.delivered_at,true))+'</strong></div>';
+    $('#adminAftersalesState').innerHTML=
+      '<div><small>Status</small><strong>'+escapeHtml(aftersalesStatusLabel(item.status))+'</strong></div>'+
+      '<div><small>Case submitted</small><strong>'+escapeHtml(formatDate(item.created_at,true))+'</strong></div>'+
+      '<div><small>Last updated</small><strong>'+escapeHtml(formatDate(item.updated_at,true))+'</strong></div>'+
+      '<div><small>Resolved</small><strong>'+escapeHtml(formatDate(item.resolved_at,true))+'</strong></div>';
+    $('#adminAftersalesRequest').innerHTML=
+      '<div><small>Issue</small><strong>'+escapeHtml(aftersalesIssueLabel(item.issue_type))+'</strong></div>'+
+      '<div><small>Preferred solution</small><strong>'+escapeHtml(aftersalesSolutionLabel(item.preferred_solution))+'</strong></div>'+
+      '<div class="admin-aftersales-details-copy"><small>Customer explanation</small><p>'+escapeHtml(item.details||'—')+'</p></div>';
+
+    $('#adminAftersalesCaseStatus').value=item.status;
+    $('#adminAftersalesNotes').value=item.admin_notes||'';
+    $('#openAftersalesEvidence').disabled=!item.evidence_path;
+    $('#openAftersalesEvidence').textContent=item.evidence_path?'View Customer Evidence':'No Evidence Attached';
+    setFormStatus($('#adminAftersalesStatus'),'');
+  };
+
+  const loadAftersalesCases=async()=>{
+    const {data,error}=await db.rpc('admin_list_marketplace_aftersales');
+    if(error) throw error;
+    state.aftersalesCases=Array.isArray(data)?data:[];
+    if(state.activeAftersalesCaseId&&!state.aftersalesCases.some((item)=>item.case_id===state.activeAftersalesCaseId)){
+      state.activeAftersalesCaseId=null;
+    }
+    renderAftersalesCases();
+    renderAftersalesDetail();
+  };
+
+  const saveActiveAftersalesCase=async(button)=>{
+    const item=state.aftersalesCases.find((row)=>row.case_id===state.activeAftersalesCaseId);
+    if(!item){
+      setFormStatus($('#adminAftersalesStatus'),'Open an Aftersales case first.','error');
+      return;
+    }
+    const nextStatus=$('#adminAftersalesCaseStatus').value;
+    const notes=$('#adminAftersalesNotes').value.trim();
+    if(['resolved','rejected'].includes(nextStatus)&&notes.length<3){
+      setFormStatus($('#adminAftersalesStatus'),'Add Customer Care notes before closing this case.','error');
+      return;
+    }
+    await withButtonLock(button,'Saving…',async()=>{
+      const {data,error}=await db.rpc('admin_update_marketplace_aftersales',{
+        p_case_id:item.case_id,
+        p_status:nextStatus,
+        p_admin_notes:notes||null
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+      await Promise.all([loadAftersalesCases(),loadAuditLog()]);
+      setFormStatus($('#adminAftersalesStatus'),'Case updated and the customer was notified.','success');
+      globalStatus('Aftersales case '+item.case_reference+' updated.');
+    });
+  };
+
+  const openActiveAftersalesEvidence=async(button)=>{
+    const item=state.aftersalesCases.find((row)=>row.case_id===state.activeAftersalesCaseId);
+    if(!item?.evidence_path) return;
+    await withButtonLock(button,'Opening…',async()=>{
+      const {data,error}=await db.storage.from('marketplace-aftersales-evidence').createSignedUrl(item.evidence_path,600);
+      if(error) throw error;
+      if(!data?.signedUrl) throw new Error('Evidence link could not be created');
+      window.open(data.signedUrl,'_blank','noopener');
+    });
   };
 
   const paymentStatusLabel=(status)=>({
@@ -3064,6 +3208,9 @@
 
     // Catalogue is refreshed again when Admin opens it, so a failure in any
     // unrelated dashboard module cannot leave Seller products hidden.
+    if (view === 'aftersales') {
+      loadAftersalesCases().catch((error) => globalStatus('Aftersales cases could not load: '+friendlyError(error), 'error'));
+    }
     if (view === 'products') {
       Promise.all([loadCatalogue(),loadPersonalMarketplace()])
         .catch((error) => globalStatus('Product management data could not load: '+friendlyError(error), 'error'));
@@ -3137,6 +3284,24 @@
     });
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
+    $('#refreshAftersalesCases')?.addEventListener('click', () => withButtonLock($('#refreshAftersalesCases'), 'Refreshing…', loadAftersalesCases));
+    $('#adminAftersalesSearch')?.addEventListener('input', renderAftersalesCases);
+    $('#adminAftersalesStatusFilter')?.addEventListener('change', renderAftersalesCases);
+    $('#adminAftersalesBody')?.addEventListener('click',(event)=>{
+      const button=event.target.closest?.('[data-open-aftersales-case]');
+      if(!button) return;
+      state.activeAftersalesCaseId=button.dataset.openAftersalesCase;
+      renderAftersalesCases();
+      renderAftersalesDetail();
+      $('#adminAftersalesDetail')?.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+    $('#closeAdminAftersalesDetail')?.addEventListener('click',()=>{
+      state.activeAftersalesCaseId=null;
+      $('#adminAftersalesDetail').hidden=true;
+      renderAftersalesCases();
+    });
+    $('#saveAftersalesCase')?.addEventListener('click',(event)=>saveActiveAftersalesCase(event.currentTarget));
+    $('#openAftersalesEvidence')?.addEventListener('click',(event)=>openActiveAftersalesEvidence(event.currentTarget));
     $('#refreshStaffDirectory')?.addEventListener('click', () => withButtonLock($('#refreshStaffDirectory'), 'Refreshing…', loadStaffManagement));
     $('#staffSearch')?.addEventListener('input', renderStaffDirectory);
     $('#staffRoleFilter')?.addEventListener('change', renderStaffDirectory);
