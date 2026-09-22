@@ -1638,6 +1638,7 @@
   personalSalesSeeMore?.addEventListener('click', openGeneralMarketplace);
 
   document.addEventListener('leogo:authchange', () => loadMarketplaceProducts());
+  document.addEventListener('leogo:customer-data-refresh', () => loadMarketplaceProducts());
   window.setTimeout(loadMarketplaceProducts, 500);
 
   const personalInterestModal = document.getElementById('personalInterestModal');
