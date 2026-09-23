@@ -3683,6 +3683,17 @@
     });
     $('#saveAftersalesCase')?.addEventListener('click',(event)=>saveActiveAftersalesCase(event.currentTarget));
     $('#openAftersalesEvidence')?.addEventListener('click',(event)=>openActiveAftersalesEvidence(event.currentTarget));
+    $('#refreshSupportChats')?.addEventListener('click',()=>withButtonLock($('#refreshSupportChats'),'Refreshing…',async()=>loadSupportChats({refreshActive:true})));
+    $('#supportChatSearch')?.addEventListener('input',renderSupportChatThreads);
+    $('#supportChatFilter')?.addEventListener('change',renderSupportChatThreads);
+    $('#supportChatThreadList')?.addEventListener('click',(event)=>{
+      const button=event.target.closest?.('[data-support-thread]');
+      if(!button) return;
+      loadSupportThread(button.dataset.supportThread).catch((error)=>globalStatus(friendlyError(error),'error'));
+    });
+    $('#claimSupportChat')?.addEventListener('click',(event)=>claimActiveSupportChat(event.currentTarget));
+    $('#toggleSupportChatStatus')?.addEventListener('click',(event)=>setActiveSupportChatStatus(event.currentTarget));
+    $('#supportChatReplyForm')?.addEventListener('submit',sendSupportChatReply);
     $('#refreshStaffDirectory')?.addEventListener('click', () => withButtonLock($('#refreshStaffDirectory'), 'Refreshing…', loadStaffManagement));
     $('#staffSearch')?.addEventListener('input', renderStaffDirectory);
     $('#staffRoleFilter')?.addEventListener('change', renderStaffDirectory);
