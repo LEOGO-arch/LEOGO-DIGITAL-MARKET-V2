@@ -1846,13 +1846,14 @@ function renderProviderNotifications(){
 
 $('#providerPhotoForm')?.addEventListener('submit',async(event)=>{
   event.preventDefault();
+  const form=event.currentTarget;
   const profileFile=$('#providerProfilePictureUpdate')?.files?.[0]||null;
   const passportFile=$('#providerPassportPhotoUpdate')?.files?.[0]||null;
   if(!profileFile&&!passportFile){
     status($('#providerPhotoStatus'),'Choose a profile picture or passport photo to save.','error');
     return;
   }
-  const button=event.currentTarget.querySelector('button[type="submit"]');
+  const button=form.querySelector('button[type="submit"]');
   const original=button.textContent;
   button.disabled=true;
   button.textContent='Saving…';
@@ -1868,7 +1869,7 @@ $('#providerPhotoForm')?.addEventListener('submit',async(event)=>{
     });
     if(error)throw error;
     provider=data||provider;
-    event.currentTarget.reset();
+    form.reset();
     renderProviderPhotoManager();
     status($('#providerPhotoStatus'),'Profile photos saved successfully.','success');
   }catch(error){
