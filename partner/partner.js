@@ -293,6 +293,7 @@ function sellerViewDescription(view){
     overview:'Overview of your Seller account.',
     products:'Manage products, stock, pricing and variants.',
     orders:'Receive and fulfil customer orders.',
+    reviews:'Approved product reviews from completed customer orders.',
     flashsale:'Choose an existing product and submit it to Flash Sale.',
     settlements:'Manage approved payout accounts and settlement requests.',
     notifications:'All important Seller and Admin events.',
@@ -306,7 +307,7 @@ function closeSellerSidebar(){
 }
 function openSellerView(view='overview'){
   const allowed=seller?.application_status==='approved'
-    ? ['overview','products','orders','flashsale','settlements','notifications','profile','data']
+    ? ['overview','products','orders','reviews','flashsale','settlements','notifications','profile','data']
     : ['overview','notifications','profile','data'];
   const resolved=allowed.includes(view)?view:'overview';
   $$('[data-seller-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.sellerContent===resolved));
@@ -334,7 +335,7 @@ function renderSeller(){
   sellerPendingArea.hidden=!hasSeller || state==='approved';
   sellerDocsForm.hidden=!hasSeller || !['changes_requested','rejected'].includes(state);
   $('#sellerProfileButton').hidden=!hasSeller;
-  $$('[data-seller-view="products"],[data-seller-view="orders"],[data-seller-view="flashsale"],[data-seller-view="settlements"]').forEach(button=>button.hidden=state!=='approved');
+  $('[data-seller-view="products"],[data-seller-view="orders"],[data-seller-view="reviews"],[data-seller-view="flashsale"],[data-seller-view="settlements"]').forEach(button=>button.hidden=state!=='approved');
 
   if(seller){
     $('#sellerSidebarBusiness').textContent=seller.business_name||'Seller Account';
