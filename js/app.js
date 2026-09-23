@@ -1354,6 +1354,8 @@
     const available = product.availability_status === 'available'
       && (hasVariants ? variantStock > 0 : Number(product.quantity_available || 0) > 0);
     const imageUrl = sellerProductMediaUrl(product.main_image_path);
+    const reviewCount=Number(product.review_count||0);
+    const rating=Number(product.rating_average||0);
 
     const variantMarkup = hasVariants
       ? '<div class="live-product-variant-picker"><small>Choose variant</small><div class="live-product-variants">'+activeVariants.map((variant) => {
@@ -1366,30 +1368,33 @@
         }).join('')+'</div><p class="live-variant-selection-note" data-variant-selection-note>Select one variant before adding to cart.</p></div>'
       : '';
 
-    return '<article class="live-product-card" data-live-product-card="'+receiptEscape(product.id)+'" data-has-variants="'+(hasVariants?'true':'false')+'">'+
+    return '<article class="live-product-card live-product-card-compact" data-live-product-card="'+receiptEscape(product.id)+'" data-has-variants="'+(hasVariants?'true':'false')+'">'+
       '<div class="live-product-image" data-live-product-image>'+
         (imageUrl
           ? '<img src="'+receiptEscape(imageUrl)+'" alt="'+receiptEscape(product.product_name)+'">'
           : '<span>'+categoryIcon(product.category_code)+'</span>')+
       '</div>'+
       '<div class="live-product-body">'+
-        '<div class="live-product-category">'+receiptEscape(categoryDisplayName(product.category_name || product.category_code || 'Marketplace'))+
-          (product.subcategory_name ? ' · '+receiptEscape(product.subcategory_name) : '')+
-        '</div>'+
         '<h3>'+receiptEscape(product.product_name)+'</h3>'+
-        '<p class="live-product-seller">'+receiptEscape(product.seller_name || 'LEOGO Seller')+'</p>'+
-        '<div class="live-product-rating"><strong>'+productRatingStars(product.rating_average)+'</strong><span>'+Number(product.rating_average||0).toFixed(1)+' · '+Number(product.review_count||0)+' review'+(Number(product.review_count||0)===1?'':'s')+'</span><button type="button" data-product-reviews-toggle>'+(Number(product.review_count||0)?'View Reviews':'Reviews')+'</button></div>'+
-        publicProductReviewsHtml(product)+
-        '<div class="live-product-price-row"><strong data-live-product-price>'+money(product.price_kes)+'</strong><span data-live-product-stock>Qty '+Number(hasVariants?variantStock:product.quantity_available || 0)+' '+receiptEscape(product.measurement_unit || 'item')+'</span></div>'+
-        '<p class="live-product-description">'+receiptEscape(String(product.product_details || '').slice(0,180))+'</p>'+
-        variantMarkup+
-        '<button type="button" data-live-add-cart data-product-id="'+receiptEscape(product.id)+'" '+(available ? '' : 'disabled')+'>'+
-          (available ? (hasVariants ? 'Choose Variant' : '＋ Add to Cart') : 'Out of Stock')+
-        '</button>'+
+        '<div class="live-product-compact-price"><strong data-live-product-price>'+money(product.price_kes)+'</strong></div>'+
+        '<div class="live-product-rating live-product-rating-compact"><strong>'+productRatingStars(rating)+'</strong><span>'+rating.toFixed(1)+(reviewCount?' · '+reviewCount+' review'+(reviewCount===1?'':'s'):'')+'</span></div>'+
+        '<button type="button" class="live-product-details-toggle" data-product-details-toggle aria-expanded="false">View Details</button>'+
+        '<div class="live-product-details" data-product-details hidden>'+
+          '<div class="live-product-details-head"><span>'+receiptEscape(categoryDisplayName(product.category_name || product.category_code || 'Marketplace'))+
+            (product.subcategory_name ? ' · '+receiptEscape(product.subcategory_name) : '')+'</span>'+
+            '<small>Seller: '+receiptEscape(product.seller_name || 'LEOGO Seller')+'</small></div>'+
+          '<div class="live-product-detail-stock"><small>Availability</small><strong data-live-product-stock>Qty '+Number(hasVariants?variantStock:product.quantity_available || 0)+' '+receiptEscape(product.measurement_unit || 'item')+'</strong></div>'+
+          (product.product_details?'<div class="live-product-detail-section"><div class="live-product-detail-label">Description</div><p class="live-product-description">'+receiptEscape(String(product.product_details || ''))+'</p></div>':'')+
+          (reviewCount
+            ? '<div class="live-product-detail-section"><button type="button" class="live-product-reviews-button" data-product-reviews-toggle>Reviews & Ratings ('+reviewCount+')</button>'+publicProductReviewsHtml(product)+'</div>'
+            : '<div class="live-product-detail-section live-product-no-reviews"><span>No approved reviews yet.</span></div>')+
+          variantMarkup+
+          '<button type="button" class="live-product-add-cart" data-live-add-cart data-product-id="'+receiptEscape(product.id)+'" '+(available ? '' : 'disabled')+'>'+
+            (available ? (hasVariants ? 'Choose Variant' : '＋ Add to Cart') : 'Out of Stock')+
+        '</div>'+
       '</div>'+
     '</article>';
   };
-
   const renderPersonalSaleCard = (listing) => {
     const imageUrl = personalSaleMediaUrl(listing.item_image_path);
     return '<article class="live-product-card personal-sale-market-card" data-personal-sale-card="'+receiptEscape(listing.id)+'">'+
@@ -1568,11 +1573,35 @@
     const original = button.textContent;
     button.textContent = '✓ Added';
     window.setTimeout(() => {
-      if (button.isConnected) button.textContent = hasVariants ? '＋ Add Selected Variant' : original;
+      if (button.isConnected) button.textContent = original;
     }, 900);
   };
 
   liveProductGrid?.addEventListener('click', (event) => {
+    const detailsButton=event.target.closest('[data-product-details-toggle]');
+    if(detailsButton){
+      const card=detailsButton.closest('[data-live-product-card]');
+      const details=card?.querySelector('[data-product-details]');
+      if(!details) return;
+
+      const opening=details.hidden;
+      liveProductGrid.querySelectorAll('[data-live-product-card]').forEach((otherCard)=>{
+        if(otherCard===card) return;
+        const otherDetails=otherCard.querySelector('[data-product-details]');
+        const otherButton=otherCard.querySelector('[data-product-details-toggle]');
+        if(otherDetails) otherDetails.hidden=true;
+        if(otherButton){
+          otherButton.setAttribute('aria-expanded','false');
+          otherButton.textContent='View Details';
+        }
+      });
+
+      details.hidden=!opening;
+      detailsButton.setAttribute('aria-expanded',String(opening));
+      detailsButton.textContent=opening?'Hide Details':'View Details';
+      return;
+    }
+
     const reviewsButton=event.target.closest('[data-product-reviews-toggle]');
     if(reviewsButton){
       const card=reviewsButton.closest('[data-live-product-card]');
