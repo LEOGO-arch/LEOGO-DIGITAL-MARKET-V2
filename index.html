@@ -26,6 +26,7 @@
       <span class="customer-mobile-menu-label">MY LEOGO</span>
       <button type="button" data-open-customer-view="dashboard" data-mobile-menu-close><i>▦</i><span>Dashboard</span></button>
       <button type="button" data-open-customer-view="orders" data-mobile-menu-close><i>▤</i><span>My Activity &amp; Orders</span></button>
+      <button type="button" data-open-customer-view="chat" data-mobile-menu-close><i>💬</i><span>Customer Care Chat</span></button>
       <button type="button" data-open-customer-view="cart" data-mobile-menu-close><i>🛒</i><span>Cart &amp; Checkout</span></button>
       <button type="button" data-open-customer-view="aftersales" data-mobile-menu-close><i>🛠️</i><span>Aftersales</span></button>
       <button type="button" data-open-customer-view="wallet" data-mobile-menu-close><i>💰</i><span>Savings Wallet</span></button>
@@ -325,6 +326,7 @@
       <nav class="customer-shell-nav" aria-label="Customer area preview">
         <button type="button" data-customer-view="dashboard"><span>▦</span>Dashboard</button>
         <button type="button" data-customer-view="orders"><span>▤</span>My Activity</button>
+        <button type="button" data-customer-view="chat"><span>💬</span>Customer Care Chat</button>
         <button type="button" data-customer-view="aftersales"><span>🛠️</span>Aftersales</button>
         <button type="button" data-customer-view="wallet"><span>💰</span>Savings Wallet</button>
         <button type="button" data-customer-view="lipapolepole"><span>🪙</span>Lipa Pole Pole</button>
@@ -344,7 +346,35 @@
             <div class="customer-dashboard-orders-head"><div><span>PRODUCT ORDERS</span><h4>Recent Orders</h4></div><button type="button" data-customer-view="orders">View Full History</button></div>
             <div id="customerDashboardOrders" class="customer-dashboard-order-list"><div class="customer-dashboard-order-empty">Your latest product orders will appear here.</div></div>
           </section>
-          <div class="dashboard-quick-grid"><button type="button" data-customer-view="cart"><span>🛒</span><strong>View Cart</strong><small>Review items and checkout</small></button><button type="button" data-customer-view="orders"><span>🧾</span><strong>My Activity</strong><small>Orders, services and Transport &amp; Parcel Delivery history</small></button><button type="button" data-customer-view="accommodation"><span>🏨</span><strong>Accommodation</strong><small>View hotel and Airbnb bookings</small></button><button type="button" data-customer-view="aftersales"><span>🛠️</span><strong>Aftersales Support</strong><small>Report an issue or request follow-up</small></button><button type="button" data-customer-view="wallet"><span>💰</span><strong>Savings Wallet</strong><small>Save, view challenges and transactions</small></button><button type="button" data-customer-view="lipapolepole"><span>🪙</span><strong>Lipa Pole Pole</strong><small>View instalments and outstanding balance</small></button><button type="button" data-customer-view="addresses"><span>📍</span><strong>My Addresses</strong><small>Manage saved delivery information</small></button><button type="button" data-customer-view="lookingrequests"><span>🔎</span><strong>My Looking-For Requests</strong><small>Post and later track approved requests</small></button><button type="button" data-customer-view="premiumaccess"><span>🔞</span><strong>Premium Access</strong><small>Review consent and access status</small></button><button type="button" data-customer-view="account"><span>👤</span><strong>My Profile</strong><small>Manage customer information</small></button><button type="button" data-close-customer-shell><span>🛍️</span><strong>Continue Shopping</strong><small>Return to the marketplace</small></button></div>
+          <div class="dashboard-quick-grid"><button type="button" data-customer-view="cart"><span>🛒</span><strong>View Cart</strong><small>Review items and checkout</small></button><button type="button" data-customer-view="orders"><span>🧾</span><strong>My Activity</strong><small>Orders, services and Transport &amp; Parcel Delivery history</small></button><button type="button" data-customer-view="chat"><span>💬</span><strong>Customer Care Chat</strong><small>Chat privately with your assigned LEOGO support desk</small></button><button type="button" data-customer-view="accommodation"><span>🏨</span><strong>Accommodation</strong><small>View hotel and Airbnb bookings</small></button><button type="button" data-customer-view="aftersales"><span>🛠️</span><strong>Aftersales Support</strong><small>Report an issue or request follow-up</small></button><button type="button" data-customer-view="wallet"><span>💰</span><strong>Savings Wallet</strong><small>Save, view challenges and transactions</small></button><button type="button" data-customer-view="lipapolepole"><span>🪙</span><strong>Lipa Pole Pole</strong><small>View instalments and outstanding balance</small></button><button type="button" data-customer-view="addresses"><span>📍</span><strong>My Addresses</strong><small>Manage saved delivery information</small></button><button type="button" data-customer-view="lookingrequests"><span>🔎</span><strong>My Looking-For Requests</strong><small>Post and later track approved requests</small></button><button type="button" data-customer-view="premiumaccess"><span>🔞</span><strong>Premium Access</strong><small>Review consent and access status</small></button><button type="button" data-customer-view="account"><span>👤</span><strong>My Profile</strong><small>Manage customer information</small></button><button type="button" data-close-customer-shell><span>🛍️</span><strong>Continue Shopping</strong><small>Return to the marketplace</small></button></div>
+        </section>
+
+        <section class="customer-view" data-customer-panel="chat">
+          <div class="customer-view-title customer-chat-title">
+            <div><span>LEOGO CUSTOMER CARE</span><h3>Private Support Chat</h3><p>Chat directly with the LEOGO Customer Care officer assigned to your account.</p></div>
+            <span class="customer-chat-secure">🔒 Private</span>
+          </div>
+          <section class="customer-care-chat">
+            <header class="customer-care-chat-head">
+              <div class="customer-care-agent-avatar">🎧</div>
+              <div>
+                <strong id="customerCareAgentName">LEOGO Customer Care</strong>
+                <span id="customerCareAgentStatus">Connecting to Customer Care…</span>
+              </div>
+              <button id="refreshCustomerCareChat" type="button" aria-label="Refresh chat">↻</button>
+            </header>
+            <div class="customer-care-assignment" id="customerCareAssignment">
+              Your conversation is private and visible only to you and the assigned LEOGO Customer Care desk.
+            </div>
+            <div class="customer-care-message-list" id="customerCareMessageList" aria-live="polite">
+              <div class="customer-care-chat-empty"><span>💬</span><strong>Start a conversation</strong><p>Send a message and LEOGO Customer Care will respond here.</p></div>
+            </div>
+            <form class="customer-care-compose" id="customerCareChatForm">
+              <label for="customerCareMessage">Message</label>
+              <div><textarea id="customerCareMessage" rows="2" maxlength="2000" placeholder="Type your message to LEOGO Customer Care…" required></textarea><button id="sendCustomerCareMessage" type="submit">Send</button></div>
+              <small id="customerCareChatStatus" role="status" aria-live="polite"></small>
+            </form>
+          </section>
         </section>
 
         <section class="customer-view" data-customer-panel="orders">
@@ -724,7 +754,7 @@
     </form>
   </section>
 </div>
-</main><nav class="mobile-nav"><a class="active" href="#home"><span>⌂</span>Home</a><a href="#customer-orders" data-open-customer-view="orders"><span>▤</span>Orders</a><a href="#customer-cart" data-open-customer-view="cart"><span>🛒</span>Cart</a><a href="#services"><span>○</span>Chats</a><a href="#customer-account" data-open-customer-view="account"><span>♙</span>Account</a></nav><section class="section customer-support" id="customer-support" data-admin-managed="customer-support-settings">
+</main><nav class="mobile-nav"><a class="active" href="#home"><span>⌂</span>Home</a><a href="#customer-orders" data-open-customer-view="orders"><span>▤</span>Orders</a><a href="#customer-cart" data-open-customer-view="cart"><span>🛒</span>Cart</a><a href="#customer-chat" data-open-customer-view="chat" class="mobile-chat-link"><span>💬</span>Chats<b id="mobileChatUnread" hidden>0</b></a><a href="#customer-account" data-open-customer-view="account"><span>♙</span>Account</a></nav><section class="section customer-support" id="customer-support" data-admin-managed="customer-support-settings">
   <div class="support-card">
     <div class="support-heading"><span>🎧</span><div><strong>LEOGO Customer Care Support</strong><small>Contact us when you need help, want to advertise or have a question.</small></div></div>
     <div class="support-grid">
