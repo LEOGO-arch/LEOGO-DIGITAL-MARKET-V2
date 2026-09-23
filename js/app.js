@@ -435,6 +435,144 @@
   const authPreviewPanels = customerShellModal?.querySelectorAll('[data-auth-panel]');
   const authPreviewStatus = document.getElementById('authPreviewStatus');
 
+  const customerCareAgentName=document.getElementById('customerCareAgentName');
+  const customerCareAgentStatus=document.getElementById('customerCareAgentStatus');
+  const customerCareAssignment=document.getElementById('customerCareAssignment');
+  const customerCareMessageList=document.getElementById('customerCareMessageList');
+  const customerCareChatForm=document.getElementById('customerCareChatForm');
+  const customerCareMessage=document.getElementById('customerCareMessage');
+  const customerCareChatStatus=document.getElementById('customerCareChatStatus');
+  const refreshCustomerCareChat=document.getElementById('refreshCustomerCareChat');
+  const mobileChatUnread=document.getElementById('mobileChatUnread');
+
+  let customerCareThread=null;
+  let customerCareMessages=[];
+  let customerCarePollTimer=null;
+  let customerCareLoading=false;
+
+  const customerChatFormatTime=(value)=>{
+    if(!value) return '';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('en-KE',{
+      day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',
+      timeZone:'Africa/Nairobi'
+    }).format(date);
+  };
+
+  const renderCustomerCareChat=()=>{
+    if(customerCareAgentName){
+      customerCareAgentName.textContent=customerCareThread?.assigned_staff_name||'LEOGO Customer Care';
+    }
+    if(customerCareAgentStatus){
+      customerCareAgentStatus.textContent=customerCareThread?.assigned_staff_name
+        ? (customerCareThread.status==='closed'?'Conversation closed':'Assigned Customer Care Officer')
+        : 'Waiting for Customer Care assignment';
+    }
+    if(customerCareAssignment){
+      if(customerCareThread?.assigned_staff_name){
+        customerCareAssignment.innerHTML='✓ <strong>'+receiptEscape(customerCareThread.assigned_staff_name)+'</strong> is assigned to this private conversation.';
+      }else{
+        customerCareAssignment.innerHTML='⏳ Your message is in the <strong>LEOGO Customer Care queue</strong>. An available Customer Support Officer will be assigned here.';
+      }
+    }
+    if(mobileChatUnread){
+      const unread=Number(customerCareThread?.unread_count||0);
+      mobileChatUnread.textContent=String(unread);
+      mobileChatUnread.hidden=unread<1;
+    }
+    if(!customerCareMessageList) return;
+    if(!customerCareMessages.length){
+      customerCareMessageList.innerHTML='<div class="customer-care-chat-empty"><span>💬</span><strong>Start a conversation</strong><p>Send a message and LEOGO Customer Care will respond here.</p></div>';
+      return;
+    }
+    customerCareMessageList.innerHTML=customerCareMessages.map((message)=>{
+      const mine=message.sender_role==='customer';
+      return '<article class="customer-care-message '+(mine?'customer':'staff')+'">'+
+        '<div class="customer-care-message-meta"><strong>'+(mine?'You':'LEOGO Customer Care')+'</strong><span>'+receiptEscape(customerChatFormatTime(message.created_at))+'</span></div>'+
+        '<p>'+receiptEscape(message.body).replace(/\n/g,'<br>')+'</p>'+
+      '</article>';
+    }).join('');
+  };
+
+  async function loadCustomerSupportChat({scroll=true,silent=false}={}){
+    if(customerCareLoading) return;
+    if(!window.leogoAuth?.isAuthenticated?.()) return;
+    const client=window.leogoAuth?.client;
+    if(!client) return;
+    customerCareLoading=true;
+    if(!silent&&customerCareChatStatus) customerCareChatStatus.textContent='Connecting to LEOGO Customer Care…';
+    try{
+      const [threadResult,messageResult]=await Promise.all([
+        client.rpc('customer_open_support_chat'),
+        client.rpc('customer_list_support_messages')
+      ]);
+      if(threadResult.error) throw threadResult.error;
+      if(messageResult.error) throw messageResult.error;
+      customerCareThread=threadResult.data||null;
+      customerCareMessages=Array.isArray(messageResult.data)?messageResult.data:[];
+      renderCustomerCareChat();
+      await client.rpc('customer_mark_support_chat_read');
+      if(customerCareThread){
+        customerCareThread.unread_count=0;
+        renderCustomerCareChat();
+      }
+      if(customerCareChatStatus) customerCareChatStatus.textContent='';
+      if(scroll&&customerCareMessageList){
+        window.setTimeout(()=>{customerCareMessageList.scrollTop=customerCareMessageList.scrollHeight;},20);
+      }
+    }catch(error){
+      if(customerCareChatStatus) customerCareChatStatus.textContent=error?.message||'Customer Care chat could not load.';
+    }finally{
+      customerCareLoading=false;
+    }
+  }
+
+  const stopCustomerCarePolling=()=>{
+    if(customerCarePollTimer){
+      window.clearInterval(customerCarePollTimer);
+      customerCarePollTimer=null;
+    }
+  };
+
+  const startCustomerCarePolling=()=>{
+    stopCustomerCarePolling();
+    customerCarePollTimer=window.setInterval(()=>{
+      const chatOpen=customerShellModal?.classList.contains('is-open')
+        && customerShellModal?.querySelector('[data-customer-panel="chat"]')?.classList.contains('active');
+      if(chatOpen&&document.visibilityState==='visible') loadCustomerSupportChat({scroll:false,silent:true});
+    },4500);
+  };
+
+  customerCareChatForm?.addEventListener('submit',async(event)=>{
+    event.preventDefault();
+    const text=customerCareMessage?.value.trim()||'';
+    if(!text) return;
+    const client=window.leogoAuth?.client;
+    if(!client||!window.leogoAuth?.isAuthenticated?.()){
+      window.leogoAuth?.requireLogin?.('Please log in to chat with LEOGO Customer Care.');
+      return;
+    }
+    const button=document.getElementById('sendCustomerCareMessage');
+    const original=button?.textContent||'Send';
+    if(button){button.disabled=true;button.textContent='Sending…';}
+    if(customerCareChatStatus) customerCareChatStatus.textContent='';
+    try{
+      const {data,error}=await client.rpc('customer_send_support_message',{p_body:text});
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+      if(customerCareMessage) customerCareMessage.value='';
+      await loadCustomerSupportChat({scroll:true,silent:true});
+    }catch(error){
+      if(customerCareChatStatus) customerCareChatStatus.textContent=error?.message||'Message could not be sent.';
+    }finally{
+      if(button){button.disabled=false;button.textContent=original;}
+      customerCareMessage?.focus();
+    }
+  });
+
+  refreshCustomerCareChat?.addEventListener('click',()=>loadCustomerSupportChat({scroll:true}));
+
   const showCustomerView = (viewName) => {
     customerShellViews?.forEach((panel) => panel.classList.toggle('active', panel.dataset.customerPanel === viewName));
     customerShellNavButtons?.forEach((button) => button.classList.toggle('active', button.dataset.customerView === viewName));
@@ -446,9 +584,10 @@
     customerShellModal.classList.remove('is-open');
     customerShellModal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('customer-shell-open');
+    stopCustomerCarePolling();
   };
 
-  const protectedCustomerViews = new Set(['dashboard', 'orders', 'aftersales', 'wallet', 'lipapolepole', 'accommodation', 'addresses', 'lookingrequests', 'premiumaccess', 'account']);
+  const protectedCustomerViews = new Set(['dashboard', 'orders', 'chat', 'aftersales', 'wallet', 'lipapolepole', 'accommodation', 'addresses', 'lookingrequests', 'premiumaccess', 'account']);
   const openCustomerShell = (viewName = 'dashboard', options = {}) => {
     if (!customerShellModal) return;
     const needsLogin = protectedCustomerViews.has(viewName);
@@ -466,6 +605,12 @@
     customerShellModal.classList.add('is-open');
     customerShellModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('customer-shell-open');
+    if(viewName==='chat'&&window.leogoAuth?.isAuthenticated?.()){
+      loadCustomerSupportChat({scroll:true});
+      startCustomerCarePolling();
+    }else{
+      stopCustomerCarePolling();
+    }
   };
   window.leogoOpenCustomerView = openCustomerShell;
 
