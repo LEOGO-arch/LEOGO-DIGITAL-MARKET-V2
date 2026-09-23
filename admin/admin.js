@@ -492,8 +492,10 @@
       let resolvedConfig = config;
       if (kind === 'service_provider_application' && key === 'profile_picture_path') {
         resolvedConfig = { ...config, bucket: 'service-provider-public-media', publicBucket: true, label: 'Customer Profile Picture' };
+      } else if (kind === 'service_provider_application' && key === 'passport_photo_path') {
+        resolvedConfig = { ...config, bucket: 'service-provider-passport-photo', label: 'Passport-size Photo (Admin Only)' };
       } else if (kind === 'service_provider_application' && providerVerificationFields.has(key)) {
-        resolvedConfig = { ...config, bucket: 'service-provider-verification', label: key === 'passport_photo_path' ? 'Passport-size Photo (Private)' : config.label };
+        resolvedConfig = { ...config, bucket: 'service-provider-verification' };
       }
       const raw = payload?.[key];
       const values = resolvedConfig.multiple ? (Array.isArray(raw) ? raw : []) : (raw ? [raw] : []);
