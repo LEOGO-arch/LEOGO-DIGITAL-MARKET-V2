@@ -708,6 +708,64 @@ sellerDocsForm.addEventListener('submit',async e=>{
   }catch(error){status($('#sellerVerificationDocumentsStatus'),error.message||'Documents could not be saved.','error');}
 });
 
+function sellerReviewStars(rating){
+  const value=Math.max(0,Math.min(5,Number(rating||0)));
+  return '★'.repeat(value)+'☆'.repeat(5-value);
+}
+function filteredSellerReviews(){
+  const term=($('#sellerReviewSearch')?.value||'').trim().toLowerCase();
+  const rating=$('#sellerReviewRatingFilter')?.value||'all';
+  return sellerReviews.filter(review=>{
+    const haystack=[
+      review.product_name,review.variant_name,review.order_reference,
+      review.comment
+    ].map(value=>String(value||'').toLowerCase());
+    return (!term||haystack.some(value=>value.includes(term)))
+      && (rating==='all'||Number(review.rating)===Number(rating));
+  });
+}
+function renderSellerReviews(){
+  const list=$('#sellerReviewList');
+  if(!list)return;
+
+  const rows=filteredSellerReviews();
+  const total=sellerReviews.length;
+  const average=total?sellerReviews.reduce((sum,row)=>sum+Number(row.rating||0),0)/total:0;
+  const fiveStars=sellerReviews.filter(row=>Number(row.rating)===5).length;
+
+  $('#sellerReviewCount').textContent=total;
+  $('#sellerReviewsTotal').textContent=total;
+  $('#sellerReviewsAverage').textContent=average.toFixed(1);
+  $('#sellerFiveStarReviews').textContent=fiveStars;
+  $('#sellerReviewBadge').hidden=!total;
+  $('#sellerReviewBadge').textContent=total>99?'99+':String(total);
+
+  list.innerHTML=rows.length?rows.map(review=>
+    '<article class="seller-review-card" data-seller-review="'+escapeHtml(review.review_id)+'">'+
+      '<header><div><span>VERIFIED PURCHASE REVIEW</span><h4>'+escapeHtml(review.product_name)+(review.variant_name?' · '+escapeHtml(review.variant_name):'')+'</h4><small>Order '+escapeHtml(review.order_reference)+'</small></div>'+
+      '<div class="seller-review-rating"><strong>'+sellerReviewStars(review.rating)+'</strong><span>'+Number(review.rating)+'/5</span></div></header>'+
+      '<div class="seller-review-comment"><p>'+escapeHtml(review.comment||'Customer submitted a rating without a written comment.')+'</p></div>'+
+      '<div class="seller-review-meta">'+
+        '<span><small>Approved</small><strong>'+formatDate(review.approved_at||review.review_created_at)+'</strong></span>'+
+        '<span><small>Product rating</small><strong>'+Number(review.product_rating_average||0).toFixed(1)+' / 5</strong></span>'+
+        '<span><small>Approved reviews</small><strong>'+Number(review.product_review_count||0)+'</strong></span>'+
+      '</div>'+
+      '<footer><b>✓ LEOGO Verified Purchase</b><button type="button" class="secondary" data-review-order-ref="'+escapeHtml(review.order_reference)+'">View Completed Order</button></footer>'+
+    '</article>'
+  ).join(''):'<div class="empty-card">No approved product reviews match this filter.</div>';
+}
+async function loadSellerReviews(){
+  if(!currentUser||seller?.application_status!=='approved')return;
+  const {data,error}=await client.rpc('seller_list_product_reviews');
+  if(error){
+    console.error('Seller product reviews could not load:',error);
+    return;
+  }
+  sellerReviews=Array.isArray(data)?data:[];
+  renderSellerReviews();
+  renderSellerOrders();
+}
+
 async function loadSellerOrders(){
   if(!currentUser||seller?.application_status!=='approved')return;
   const {data,error}=await client.rpc('seller_list_marketplace_orders');
@@ -756,6 +814,25 @@ $$('[data-seller-order-filter]').forEach(button=>button.addEventListener('click'
   renderSellerOrders();
 }));
 $('#refreshSellerOrders').addEventListener('click',async()=>{const b=$('#refreshSellerOrders');b.disabled=true;await loadSellerOrders();b.disabled=false;});
+$('#refreshSellerReviews')?.addEventListener('click',async()=>{
+  const button=$('#refreshSellerReviews');
+  button.disabled=true;
+  await loadSellerReviews();
+  button.disabled=false;
+});
+$('#sellerReviewSearch')?.addEventListener('input',renderSellerReviews);
+$('#sellerReviewRatingFilter')?.addEventListener('change',renderSellerReviews);
+$('#sellerReviewList')?.addEventListener('click',(event)=>{
+  const button=event.target.closest?.('[data-review-order-ref]');
+  if(!button)return;
+  const order=sellerOrders.find(row=>row.order_reference===button.dataset.reviewOrderRef);
+  openSellerView('orders');
+  window.setTimeout(()=>{
+    const card=[...document.querySelectorAll('.seller-order-card')].find(item=>item.dataset.orderReference===button.dataset.reviewOrderRef);
+    card?.scrollIntoView({behavior:'smooth',block:'start'});
+  },80);
+});
+
 
 async function loadTaxonomy(){
   const select=$('#productCategory');
