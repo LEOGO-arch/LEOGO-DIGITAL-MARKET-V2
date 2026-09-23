@@ -224,9 +224,10 @@ async function loadSeller(){
         loadTaxonomy(),
         loadSellerSettlementData(),
         loadSellerOrders(),
+        loadSellerReviews(),
         loadKenyaLocations()
       ]).then(results=>{
-        const labels=['products','taxonomy','settlements','orders','locations'];
+        const labels=['products','taxonomy','settlements','orders','reviews','locations'];
         results.forEach((result,index)=>{
           if(result.status==='rejected')console.error('Seller '+labels[index]+' loader failed:',result.reason);
         });
@@ -313,6 +314,9 @@ function openSellerView(view='overview'){
   $$('[data-seller-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.sellerContent===resolved));
   $$('[data-seller-view]').forEach(button=>button.classList.toggle('active',button.dataset.sellerView===resolved));
   $('#sellerViewDescription').textContent=sellerViewDescription(resolved);
+  if(resolved==='reviews'&&seller?.application_status==='approved'){
+    loadSellerReviews().catch(error=>console.warn('Seller reviews refresh failed:',error));
+  }
   closeSellerSidebar();
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -420,13 +424,14 @@ async function downloadSellerData(){
   const original=button.textContent;button.disabled=true;button.textContent='Preparing…';
   status($('#sellerDataExportStatus'),'Preparing your Seller data…');
   try{
-    await Promise.all([loadProducts(),loadPartnerNotifications(),loadSellerOrders(),loadSellerSettlementData()]);
+    await Promise.all([loadProducts(),loadPartnerNotifications(),loadSellerOrders(),loadSellerReviews(),loadSellerSettlementData()]);
     const exportData={
       export_type:'LEOGO Seller Data',
       generated_at:new Date().toISOString(),
       seller_account:seller,
       products,
       seller_orders:sellerOrders,
+      approved_product_reviews:sellerReviews,
       notifications:partnerNotifications,
       settlement_accounts:settlementAccounts,
       settlement_requests:settlementRequests,
