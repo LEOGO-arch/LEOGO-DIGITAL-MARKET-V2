@@ -118,6 +118,7 @@
             <button data-approval-filter="financial">Financial <b>0</b></button>
             <button data-approval-filter="wallet">Wallet &amp; SACCO <b>0</b></button>
             <button data-approval-filter="sellers">Sellers <b>0</b></button>
+            <button data-approval-filter="providers">Service Providers <b>0</b></button>
             <button data-approval-filter="premium">Premium <b>0</b></button>
             <button data-approval-filter="accommodation">Accommodation <b>0</b></button>
           </div>
@@ -480,7 +481,26 @@
         </section>
       </section>
 
-      <section class="admin-panel" data-admin-panel="providers"><div class="section-head"><div><span>SERVICE NETWORK</span><h2>Service Providers</h2><p>Provider approval, assignment and service quality controls.</p></div></div><div class="reserved-module"><span>⚒</span><h3>Provider administration reserved</h3><p>This is ready to connect when service-provider registration is built.</p></div></section>
+      <section class="admin-panel" data-admin-panel="providers">
+        <div class="section-head">
+          <div><span>SERVICE NETWORK</span><h2>Service Providers</h2><p>Provider registration, approved services and account status. Customer service jobs will connect here in the next workflow stage.</p></div>
+          <button id="refreshServiceProviders" class="primary-button" type="button">↻ Refresh Providers</button>
+        </div>
+        <div class="seller-admin-summary">
+          <article><span>Total Providers</span><strong id="serviceProviderTotal">0</strong><small>Registered accounts</small></article>
+          <article><span>Approved Providers</span><strong id="serviceProviderApproved">0</strong><small>Ready to offer services</small></article>
+          <article><span>Awaiting Review</span><strong id="serviceProviderPending">0</strong><small>Registration decisions needed</small></article>
+          <article><span>Approved Services</span><strong id="serviceProviderApprovedServices">0</strong><small>Admin-approved listings</small></article>
+        </div>
+        <div class="table-card">
+          <div class="responsive-table">
+            <table>
+              <thead><tr><th>Provider</th><th>Primary Service</th><th>Location</th><th>Availability</th><th>Status</th><th>Services</th><th>Action</th></tr></thead>
+              <tbody id="serviceProviderTableBody"><tr><td colspan="7">Loading Service Providers…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
       <section class="admin-panel" data-admin-panel="transport">
         <div class="section-head"><div><span>LOGISTICS</span><h2>LEOGO Delivery Operations</h2><p>Order delivery is handled by authorized LEOGO staff riders. External Transport/Parcel Providers remain a separate future service network.</p></div><button class="primary-button" id="refreshDeliveryOps" type="button">↻ Refresh Delivery</button></div>
