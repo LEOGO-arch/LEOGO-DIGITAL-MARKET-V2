@@ -2612,6 +2612,210 @@
   $('#adminCatalogueSellerFilter')?.addEventListener('change', renderCatalogueProducts);
   $('#adminCatalogueCategoryFilter')?.addEventListener('change', renderCatalogueProducts);
 
+  let supportChatPollTimer=null;
+
+  const supportChatStatusLabel=(status)=>({
+    waiting:'Waiting for assignment',
+    open:'Open',
+    closed:'Closed'
+  }[status]||String(status||'').replaceAll('_',' '));
+
+  const filteredSupportChats=()=>{
+    const term=($('#supportChatSearch')?.value||'').trim().toLowerCase();
+    const filter=$('#supportChatFilter')?.value||'active';
+    const uid=state.user?.id||'';
+    return state.supportThreads.filter((thread)=>{
+      const haystack=[thread.customer_name,thread.customer_phone,thread.last_message_preview,thread.assigned_staff_name]
+        .map((value)=>String(value||'').toLowerCase());
+      if(term&&!haystack.some((value)=>value.includes(term))) return false;
+      if(filter==='mine') return thread.assigned_staff_id===uid && thread.status!=='closed';
+      if(filter==='waiting') return !thread.assigned_staff_id && thread.status!=='closed';
+      if(filter==='closed') return thread.status==='closed';
+      if(filter==='active') return thread.status!=='closed';
+      return true;
+    });
+  };
+
+  const renderSupportChatThreads=()=>{
+    const list=$('#supportChatThreadList');
+    if(!list) return;
+    const uid=state.user?.id||'';
+    const waiting=state.supportThreads.filter((thread)=>!thread.assigned_staff_id&&thread.status!=='closed').length;
+    const mine=state.supportThreads.filter((thread)=>thread.assigned_staff_id===uid&&thread.status!=='closed').length;
+    const unread=state.supportThreads.reduce((sum,thread)=>sum+Number(thread.unread_count||0),0);
+    const attention=state.supportThreads.filter((thread)=>!thread.assigned_staff_id||Number(thread.unread_count||0)>0).length;
+
+    if($('#supportChatWaitingCount')) $('#supportChatWaitingCount').textContent=waiting;
+    if($('#supportChatMineCount')) $('#supportChatMineCount').textContent=mine;
+    if($('#supportChatUnreadCount')) $('#supportChatUnreadCount').textContent=unread;
+    if($('#sidebarChatCount')) $('#sidebarChatCount').textContent=attention;
+
+    const rows=filteredSupportChats();
+    list.innerHTML=rows.length?rows.map((thread)=>{
+      const active=state.activeSupportThreadId===thread.thread_id;
+      const mineThread=thread.assigned_staff_id===uid;
+      const badge=Number(thread.unread_count||0)>0
+        ? '<b class="support-chat-unread">'+Number(thread.unread_count||0)+'</b>'
+        : '';
+      return '<button type="button" class="support-chat-thread'+(active?' active':'')+'" data-support-thread="'+escapeHtml(thread.thread_id)+'">'+
+        '<div class="support-chat-thread-top"><strong>'+escapeHtml(thread.customer_name||'Customer')+'</strong>'+badge+'</div>'+
+        '<span>'+escapeHtml(thread.last_message_preview||'No messages yet')+'</span>'+
+        '<footer><small>'+escapeHtml(thread.assigned_staff_name?('Assigned: '+thread.assigned_staff_name):(thread.status==='closed'?'Closed':'Waiting for assignment'))+'</small>'+
+          '<time>'+escapeHtml(formatDate(thread.last_message_at||thread.created_at,true))+'</time></footer>'+
+        (mineThread?'<i>MY CHAT</i>':'')+
+      '</button>';
+    }).join(''):'<div class="loading-card">No Customer Care chats match this filter.</div>';
+  };
+
+  const renderSupportChatConversation=()=>{
+    const empty=$('#supportChatEmpty');
+    const active=$('#supportChatActive');
+    const thread=state.supportThreads.find((item)=>item.thread_id===state.activeSupportThreadId);
+    if(!thread){
+      if(empty) empty.hidden=false;
+      if(active) active.hidden=true;
+      return;
+    }
+    if(empty) empty.hidden=true;
+    if(active) active.hidden=false;
+
+    const uid=state.user?.id||'';
+    const mine=thread.assigned_staff_id===uid;
+    const elevated=['super_admin','admin'].includes(state.admin?.role||'');
+    $('#supportChatCustomerName').textContent=thread.customer_name||'Customer';
+    $('#supportChatCustomerMeta').textContent=[thread.customer_phone||'',supportChatStatusLabel(thread.status)].filter(Boolean).join(' · ');
+    $('#supportChatAssignment').textContent=thread.assigned_staff_name
+      ? 'Assigned to '+thread.assigned_staff_name
+      : 'Waiting for assignment';
+
+    const claim=$('#claimSupportChat');
+    if(claim){
+      claim.hidden=mine||(thread.assigned_staff_id&&!elevated);
+      claim.textContent=thread.assigned_staff_id?'Assign to Me':'Claim Chat';
+    }
+    const toggle=$('#toggleSupportChatStatus');
+    if(toggle){
+      toggle.disabled=!(mine||elevated);
+      toggle.textContent=thread.status==='closed'?'Reopen Chat':'Close Chat';
+    }
+    const reply=$('#supportChatReply');
+    const send=$('#sendSupportChatReply');
+    if(reply) reply.disabled=!mine||thread.status==='closed';
+    if(send) send.disabled=!mine||thread.status==='closed';
+
+    const box=$('#supportChatMessages');
+    if(box){
+      box.innerHTML=state.supportMessages.length?state.supportMessages.map((message)=>{
+        const staffMessage=message.sender_role==='staff';
+        return '<article class="support-chat-message '+(staffMessage?'staff':'customer')+'">'+
+          '<div><strong>'+(staffMessage?'LEOGO Customer Care':escapeHtml(thread.customer_name||'Customer'))+'</strong><span>'+escapeHtml(formatDate(message.created_at,true))+'</span></div>'+
+          '<p>'+escapeHtml(message.body).replace(/\n/g,'<br>')+'</p>'+
+        '</article>';
+      }).join(''):'<div class="support-chat-empty-message">No messages in this conversation yet.</div>';
+      window.setTimeout(()=>{box.scrollTop=box.scrollHeight;},20);
+    }
+  };
+
+  const loadSupportThread=async(threadId,{silent=false}={})=>{
+    if(!threadId) return;
+    state.activeSupportThreadId=threadId;
+    if(!silent) setFormStatus($('#supportChatStatus'),'Loading conversation…');
+    const {data,error}=await db.rpc('staff_list_support_messages',{p_thread_id:threadId});
+    if(error) throw error;
+    state.supportMessages=Array.isArray(data)?data:[];
+    const current=state.supportThreads.find((thread)=>thread.thread_id===threadId);
+    if(current&&current.assigned_staff_id===state.user?.id) current.unread_count=0;
+    renderSupportChatThreads();
+    renderSupportChatConversation();
+    setFormStatus($('#supportChatStatus'));
+  };
+
+  const loadSupportChats=async({refreshActive=false}={})=>{
+    const {data,error}=await db.rpc('staff_list_support_threads');
+    if(error) throw error;
+    state.supportThreads=Array.isArray(data)?data:[];
+    if(state.activeSupportThreadId&&!state.supportThreads.some((thread)=>thread.thread_id===state.activeSupportThreadId)){
+      state.activeSupportThreadId=null;
+      state.supportMessages=[];
+    }
+    renderSupportChatThreads();
+    renderSupportChatConversation();
+    if(refreshActive&&state.activeSupportThreadId){
+      await loadSupportThread(state.activeSupportThreadId,{silent:true});
+    }
+  };
+
+  const claimActiveSupportChat=async(button)=>{
+    const threadId=state.activeSupportThreadId;
+    if(!threadId) return;
+    await withButtonLock(button,'Assigning…',async()=>{
+      const {data,error}=await db.rpc('staff_claim_support_thread',{p_thread_id:threadId});
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+      await loadSupportChats();
+      await loadSupportThread(threadId,{silent:true});
+      globalStatus('Customer Care chat assigned to your desk.');
+    });
+  };
+
+  const setActiveSupportChatStatus=async(button)=>{
+    const thread=state.supportThreads.find((item)=>item.thread_id===state.activeSupportThreadId);
+    if(!thread) return;
+    const next=thread.status==='closed'?'open':'closed';
+    await withButtonLock(button,next==='closed'?'Closing…':'Reopening…',async()=>{
+      const {data,error}=await db.rpc('staff_set_support_thread_status',{
+        p_thread_id:thread.thread_id,
+        p_status:next
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+      await loadSupportChats();
+      await loadSupportThread(thread.thread_id,{silent:true});
+      globalStatus(next==='closed'?'Customer Care chat closed.':'Customer Care chat reopened.');
+    });
+  };
+
+  const sendSupportChatReply=async(event)=>{
+    event.preventDefault();
+    const thread=state.supportThreads.find((item)=>item.thread_id===state.activeSupportThreadId);
+    const textarea=$('#supportChatReply');
+    const body=textarea?.value.trim()||'';
+    if(!thread||!body) return;
+    const button=$('#sendSupportChatReply');
+    await withButtonLock(button,'Sending…',async()=>{
+      setFormStatus($('#supportChatStatus'),'Sending private reply…');
+      const {data,error}=await db.rpc('staff_send_support_message',{
+        p_thread_id:thread.thread_id,
+        p_body:body
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+      textarea.value='';
+      await Promise.all([
+        loadSupportChats(),
+        loadSupportThread(thread.thread_id,{silent:true})
+      ]);
+      setFormStatus($('#supportChatStatus'),'Reply sent to customer.','success');
+    });
+  };
+
+  const stopSupportChatPolling=()=>{
+    if(supportChatPollTimer){
+      window.clearInterval(supportChatPollTimer);
+      supportChatPollTimer=null;
+    }
+  };
+
+  const startSupportChatPolling=()=>{
+    stopSupportChatPolling();
+    supportChatPollTimer=window.setInterval(()=>{
+      const open=document.querySelector('[data-admin-panel="chat"]')?.classList.contains('active');
+      if(open&&document.visibilityState==='visible'){
+        loadSupportChats({refreshActive:true}).catch(()=>{});
+      }
+    },4500);
+  };
+
   const loadCustomers = async () => {
     const { data, error } = await db.rpc('admin_list_customers');
     if (error) throw error;
