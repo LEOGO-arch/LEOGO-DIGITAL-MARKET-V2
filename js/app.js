@@ -2884,6 +2884,87 @@
     }
   });
 
+
+  const publicServiceProviderList=document.getElementById('publicServiceProviderList');
+
+  const createPublicServiceProviderCard=(provider)=>{
+    const card=document.createElement('article');
+    card.className='service-provider-public-card';
+
+    const photoWrap=document.createElement('div');
+    photoWrap.className='service-provider-public-photo';
+    if(provider.profile_picture_path){
+      const url=window.leogoAuth?.client?.storage
+        .from('service-provider-public-media')
+        .getPublicUrl(provider.profile_picture_path)?.data?.publicUrl;
+      if(url){
+        const img=document.createElement('img');
+        img.src=url;
+        img.alt=(provider.business_name||'Service Provider')+' profile picture';
+        img.loading='lazy';
+        photoWrap.appendChild(img);
+      }
+    }
+    if(!photoWrap.firstChild){
+      const fallback=document.createElement('span');
+      fallback.textContent='🛠️';
+      photoWrap.appendChild(fallback);
+    }
+
+    const body=document.createElement('div');
+    body.className='service-provider-public-body';
+
+    const badge=document.createElement('span');
+    badge.className='service-provider-public-badge';
+    badge.textContent='✓ LEOGO Approved';
+
+    const name=document.createElement('strong');
+    name.textContent=provider.business_name||'Service Provider';
+
+    const service=document.createElement('b');
+    service.textContent=provider.primary_service||provider.service_category||'Professional Service';
+
+    const location=document.createElement('small');
+    location.textContent=[provider.town,provider.sub_county,provider.county].filter(Boolean).join(', ')||'Kenya';
+
+    const count=document.createElement('small');
+    const approvedCount=Number(provider.approved_service_count||0);
+    count.textContent=approvedCount?approvedCount+' approved service'+(approvedCount===1?'':'s'):'Provider profile';
+
+    body.append(badge,name,service,location,count);
+    card.append(photoWrap,body);
+    return card;
+  };
+
+  const loadPublicServiceProviders=async()=>{
+    if(!publicServiceProviderList)return;
+    try{
+      const client=window.leogoAuth?.client;
+      if(!client)throw new Error('Customer connection is not ready.');
+      const {data,error}=await client.rpc('customer_public_service_providers');
+      if(error)throw error;
+      const rows=Array.isArray(data)?data:[];
+      publicServiceProviderList.innerHTML='';
+      if(!rows.length){
+        const empty=document.createElement('div');
+        empty.className='service-provider-public-empty';
+        empty.textContent='Approved Service Providers will appear here.';
+        publicServiceProviderList.appendChild(empty);
+        return;
+      }
+      rows.forEach((provider)=>publicServiceProviderList.appendChild(createPublicServiceProviderCard(provider)));
+    }catch(error){
+      console.warn('Public Service Providers could not load:',error);
+      publicServiceProviderList.innerHTML='';
+      const empty=document.createElement('div');
+      empty.className='service-provider-public-empty';
+      empty.textContent='Service Provider profiles are temporarily unavailable.';
+      publicServiceProviderList.appendChild(empty);
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded',()=>loadPublicServiceProviders(),{once:true});
+
   const customerMobileMenu=document.getElementById('customerMobileMenu');
   const customerMobileMenuScrim=document.getElementById('customerMobileMenuScrim');
   const openCustomerMobileMenu=document.getElementById('openCustomerMobileMenu');
