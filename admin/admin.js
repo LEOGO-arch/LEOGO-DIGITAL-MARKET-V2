@@ -333,10 +333,52 @@
     $('#statOrders').textContent = metricValue(data.top.orders);
     $('#statSales').textContent = metricValue(data.top.gross_sales, true);
     $('#statRevenue').textContent = formatMoney(data.top.leogo_revenue.value);
+    if($('#statOrdersNote')) $('#statOrdersNote').textContent = data.top.orders?.supported ? dashboardLabel() : 'Not connected';
+    if($('#statSalesNote')) $('#statSalesNote').textContent = data.top.gross_sales?.supported ? dashboardLabel() : 'Not connected';
     const liveApprovalCount = state.approvals.length || Number(data.top.pending_approvals.value || 0);
     $('#statApprovals').textContent = liveApprovalCount.toLocaleString('en-KE');
     $('#statDeliveries').textContent = metricValue(data.top.active_deliveries);
+    if($('#statDeliveriesNote')) $('#statDeliveriesNote').textContent = data.top.active_deliveries?.supported ? 'Live delivery jobs' : 'Not connected';
     $('#sidebarApprovalCount').textContent = liveApprovalCount;
+
+    const recentOrders=Array.isArray(data.recent_orders)?data.recent_orders:[];
+    if($('#dashboardRecentOrders')){
+      $('#dashboardRecentOrders').innerHTML=recentOrders.length?recentOrders.map((order)=>`
+        <div class="dashboard-order-row">
+          <div>
+            <b>${escapeHtml(order.order_reference||'Order')}</b>
+            <small>${escapeHtml(order.customer||'Customer')} · ${formatDate(order.created_at,true)}</small>
+          </div>
+          <div class="dashboard-order-row-meta">
+            <strong>${formatMoney(order.amount)}</strong>
+            <small>${escapeHtml(String(order.order_status||'').replaceAll('_',' '))} · ${escapeHtml(String(order.delivery_status||'awaiting_assignment').replaceAll('_',' '))}</small>
+          </div>
+          <button type="button" data-dashboard-order-id="${escapeHtml(order.id)}">View →</button>
+        </div>
+      `).join(''):'<div class="empty-mini">No marketplace orders have been created yet.</div>';
+
+      $('[data-dashboard-order-id]',$('#dashboardRecentOrders')).forEach((button)=>button.addEventListener('click',()=>{
+        changeView('orders');
+        loadMarketplaceOrderDetail(button.dataset.dashboardOrderId,{scroll:true});
+      }));
+    }
+
+    const delivery=data.delivery||{};
+    const deliveryMetrics=[
+      ['dashboardDeliveryAwaiting','awaiting_assignment'],
+      ['dashboardDeliveryAssigned','assigned'],
+      ['dashboardDeliveryPickedUp','picked_up'],
+      ['dashboardDeliverySorting','sorting_center'],
+      ['dashboardDeliveryReady','ready_for_dispatch'],
+      ['dashboardDeliveryOnWay','on_the_way'],
+      ['dashboardDeliveryDelivered','delivered'],
+      ['dashboardDeliveryProblems','problems']
+    ];
+    deliveryMetrics.forEach(([id,key])=>{
+      const node=$('#'+id);
+      if(node) node.textContent=delivery.supported?Number(delivery[key]||0).toLocaleString('en-KE'):'—';
+    });
+    if($('#dashboardDeliveryNote')) $('#dashboardDeliveryNote').textContent=delivery.supported?'Live marketplace delivery jobs.':'Delivery jobs are not connected.';
     $('#financialOverview').innerHTML = [
       ['Gross Order Sales', data.revenue.gross_order_sales, true], ['Platform / Service Fees', data.revenue.platform_fees, true],
       ['Delivery Fees Earned', data.revenue.delivery_fees, true], ['Pickup Station Fees', data.revenue.pickup_fees, true],
