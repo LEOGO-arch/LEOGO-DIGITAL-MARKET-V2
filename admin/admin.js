@@ -45,6 +45,7 @@
     premiumCustomers: [],
     premiumProfiles: [],
     sellers: [],
+    serviceProviders: [],
     sellerSettlementAccounts: [],
     sellerSettlementRequests: [],
     sellerSettlements: [],
@@ -76,6 +77,7 @@
   };
   const kindLabels = {
     seller_application: 'Seller Registration', seller_product: 'Seller Product', customer_personal_sale: 'Customer Item Sale',
+    service_provider_application: 'Service Provider Registration', service_listing: 'Service Listing',
     premium_customer: 'Premium Customer', premium_profile: 'Verified Premium Profile',
     premium_payment: 'Premium Payment', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
@@ -285,6 +287,7 @@
       [loadCustomers, () => adminHas('customers.read')],
       [loadSupportChats, () => adminHas('support.chat')],
       [loadSellers, () => adminHas('sellers.read')],
+      [loadServiceProviders, () => adminHas('approvals.read')],
       [loadSellerSettlements, () => adminHas('settlements.read')],
       [loadDeliveryOps, () => adminHas('orders.read') || adminHas('delivery.manage')],
       [loadServiceLocations, () => adminHas('settings.manage')],
@@ -355,16 +358,19 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult] = await Promise.all([
+    const [coreResult,personalSaleResult,serviceProviderResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
-      db.rpc('admin_list_personal_sale_approvals')
+      db.rpc('admin_list_personal_sale_approvals'),
+      db.rpc('admin_list_service_provider_approvals')
     ]);
     if (coreResult.error) throw coreResult.error;
     if (personalSaleResult.error) throw personalSaleResult.error;
+    if (serviceProviderResult.error) throw serviceProviderResult.error;
 
     state.approvals = [
       ...(Array.isArray(coreResult.data) ? coreResult.data : []),
-      ...(Array.isArray(personalSaleResult.data) ? personalSaleResult.data : [])
+      ...(Array.isArray(personalSaleResult.data) ? personalSaleResult.data : []),
+      ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     renderApprovals();
 
@@ -379,7 +385,7 @@
     $$('[data-dashboard-review]', compact).forEach((button) => button.addEventListener('click', () => openApproval(button.dataset.dashboardKind, button.dataset.dashboardReview)));
   };
 
-  const approvalGroup = (kind) => ['seller_application','seller_product'].includes(kind) ? 'sellers' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalGroup = (kind) => ['seller_application','seller_product'].includes(kind) ? 'sellers' : ['service_provider_application','service_listing'].includes(kind) ? 'providers' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
   const approvalIsFinancial = (item) => item.kind === 'premium_payment' || item.kind.startsWith('wallet');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
@@ -410,6 +416,7 @@
     const wallet = state.approvals.filter((item) => approvalGroup(item.kind) === 'wallet').length;
     const sellers = state.approvals.filter((item) => approvalGroup(item.kind) === 'sellers').length;
     const premium = state.approvals.filter((item) => approvalGroup(item.kind) === 'premium').length;
+    const providers = state.approvals.filter((item) => approvalGroup(item.kind) === 'providers').length;
     const accommodation = state.approvals.filter((item) => approvalGroup(item.kind) === 'accommodation').length;
     const oldest = [...state.approvals].filter((item) => item.submitted_at).sort((a,b) => new Date(a.submitted_at) - new Date(b.submitted_at))[0];
     $('#approvalTotalCount').textContent = state.approvals.length;
@@ -417,7 +424,7 @@
     $('#approvalPremiumCount').textContent = premium;
     $('#approvalAccommodationCount').textContent = accommodation;
     $('#approvalOldestWaiting').textContent = oldest ? waitingAge(oldest.submitted_at) : '—';
-    const counts = { all: state.approvals.length, financial, wallet, sellers, premium, accommodation };
+    const counts = { all: state.approvals.length, financial, wallet, sellers, providers, premium, accommodation };
     Object.entries(counts).forEach(([key, count]) => {
       const target = $(`#approvalFilters [data-approval-filter="${key}"] b`);
       if (target) target.textContent = count;
@@ -465,6 +472,7 @@
     business_licence_path: { label: 'Business Licence', bucket: 'seller-verification' },
     registration_certificate_path: { label: 'CR12 / Registration Certificate', bucket: 'seller-verification' },
     other_permit_paths: { label: 'Other Related Permit', bucket: 'seller-verification', multiple: true },
+    professional_licence_path: { label: 'Professional Licence / Certificate', bucket: 'service-provider-verification' },
 
     main_image_path: { label: 'Product Main Image', bucket: 'seller-product-media' },
     gallery_image_paths: { label: 'Product Gallery Image', bucket: 'seller-product-media', multiple: true },
@@ -476,17 +484,21 @@
     gallery_image_urls: { label: 'Property Gallery Image', directUrl: true, multiple: true }
   };
 
-  const adminMediaEntries = (payload = {}) => {
+  const adminMediaEntries = (payload = {}, kind = '') => {
     const entries = [];
+    const providerVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','other_permit_paths']);
     Object.entries(approvalMediaFields).forEach(([key, config]) => {
+      const resolvedConfig = kind === 'service_provider_application' && providerVerificationFields.has(key)
+        ? { ...config, bucket: 'service-provider-verification' }
+        : config;
       const raw = payload?.[key];
-      const values = config.multiple ? (Array.isArray(raw) ? raw : []) : (raw ? [raw] : []);
+      const values = resolvedConfig.multiple ? (Array.isArray(raw) ? raw : []) : (raw ? [raw] : []);
       values.filter(Boolean).forEach((value, index) => {
         entries.push({
           key,
-          config,
+          config: resolvedConfig,
           value: String(value),
-          label: config.multiple ? `${config.label} ${index + 1}` : config.label
+          label: resolvedConfig.multiple ? `${resolvedConfig.label} ${index + 1}` : resolvedConfig.label
         });
       });
     });
@@ -546,11 +558,11 @@
     return card;
   };
 
-  const approvalMediaPreview = async (payload = {}) => {
+  const approvalMediaPreview = async (payload = {}, kind = '') => {
     const media = $('#reviewMedia');
     if (!media) return;
 
-    const entries = adminMediaEntries(payload);
+    const entries = adminMediaEntries(payload, kind);
     if (!entries.length) {
       media.hidden = true;
       media.innerHTML = '';
@@ -582,9 +594,9 @@
     const requestChanges = $('[data-review-action="changes_requested"]');
     const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
-    const awaitingCorrection = ['seller_application','seller_product'].includes(kind) && item.status === 'changes_requested';
+    const awaitingCorrection = ['seller_application','seller_product','service_provider_application','service_listing'].includes(kind) && item.status === 'changes_requested';
     underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection;
-    requestChanges.hidden = !['seller_application','seller_product','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale';
+    requestChanges.hidden = !['seller_application','seller_product','service_provider_application','service_listing','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale';
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
@@ -594,7 +606,7 @@
       setFormStatus($('#reviewStatus'), 'Waiting for the Seller to correct and resubmit this application. It remains in Approval Center for tracking.', 'info');
     }
     $('#approvalReviewModal').hidden = false;
-    await approvalMediaPreview(item.payload || {});
+    await approvalMediaPreview(item.payload || {}, kind);
   };
 
   const reviewApproval = async (button) => {
@@ -612,8 +624,12 @@
           ? 'admin_review_seller_product'
           : item.kind === 'customer_personal_sale'
             ? 'admin_review_personal_sale'
-            : 'admin_review_approval';
-      const rpcArgs = ['seller_application','seller_product','customer_personal_sale'].includes(item.kind)
+            : item.kind === 'service_provider_application'
+              ? 'admin_review_service_provider_application'
+              : item.kind === 'service_listing'
+                ? 'admin_review_service_listing'
+                : 'admin_review_approval';
+      const rpcArgs = ['seller_application','seller_product','customer_personal_sale','service_provider_application','service_listing'].includes(item.kind)
         ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
       const { error } = await db.rpc(rpcName, rpcArgs);
@@ -626,7 +642,7 @@
             ? 'Correction request saved and audited. The application remains in Approval Center with status CHANGES REQUESTED until the Seller resubmits.'
             : 'Approval decision saved and audited.'
       );
-      await Promise.all([loadApprovals(), loadDashboard(), loadAuditLog(), loadSellers(), loadCatalogue(), loadPremiumCustomers(), loadPremiumProfiles()]);
+      await Promise.all([loadApprovals(), loadDashboard(), loadAuditLog(), loadSellers(), loadServiceProviders(), loadCatalogue(), loadPremiumCustomers(), loadPremiumProfiles()]);
     });
   };
 
@@ -3149,6 +3165,37 @@
     state.sellers=data||[];
     renderSellers();
   };
+
+  const renderServiceProviders = () => {
+    const rows=state.serviceProviders||[];
+    const approved=rows.filter((item)=>item.application_status==='approved').length;
+    const pending=rows.filter((item)=>['submitted','under_review','changes_requested'].includes(item.application_status)).length;
+    const approvedServices=rows.reduce((sum,item)=>sum+Number(item.approved_service_count||0),0);
+    $('#serviceProviderTotal').textContent=rows.length;
+    $('#serviceProviderApproved').textContent=approved;
+    $('#serviceProviderPending').textContent=pending;
+    $('#serviceProviderApprovedServices').textContent=approvedServices;
+    $('#serviceProviderTableBody').innerHTML=rows.length?rows.map((item)=>{
+      const pendingApproval=state.approvals.find((approval)=>approval.kind==='service_provider_application'&&approval.record_id===item.user_id);
+      return '<tr>'+
+        '<td data-label="Provider"><strong>'+escapeHtml(item.business_name||'Service Provider')+'</strong><small>'+escapeHtml(item.owner_name||item.email||'')+'</small></td>'+
+        '<td data-label="Primary Service"><strong>'+escapeHtml(item.primary_service||'—')+'</strong><small>'+escapeHtml(item.service_category||'')+'</small></td>'+
+        '<td data-label="Location"><strong>'+escapeHtml(item.town||'—')+'</strong><small>'+escapeHtml([item.sub_county,item.county].filter(Boolean).join(', '))+'</small></td>'+
+        '<td data-label="Availability"><span class="status-chip">'+escapeHtml(String(item.availability_status||'available').replaceAll('_',' '))+'</span></td>'+
+        '<td data-label="Status"><span class="status-chip">'+escapeHtml(String(item.application_status||'').replaceAll('_',' '))+'</span></td>'+
+        '<td data-label="Services"><strong>'+Number(item.service_count||0)+'</strong><small>'+Number(item.approved_service_count||0)+' approved</small></td>'+
+        '<td data-label="Action">'+(pendingApproval?'<button type="button" data-provider-review="'+escapeHtml(item.user_id)+'">Open Approval →</button>':'<span class="status-chip">'+(item.application_status==='approved'?'Active':'No pending action')+'</span>')+'</td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="7">No Service Provider accounts yet.</td></tr>';
+    $('[data-provider-review]', $('#serviceProviderTableBody')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
+  };
+  const loadServiceProviders = async () => {
+    const {data,error}=await db.rpc('admin_list_service_providers');
+    if(error)throw error;
+    state.serviceProviders=Array.isArray(data)?data:[];
+    renderServiceProviders();
+  };
+
   const sellerDocumentCard = async (label,path) => {
     if(!path) return '<article class="review-media-card"><div class="review-media-card-head"><strong>'+escapeHtml(label)+'</strong><span>Not provided</span></div></article>';
     try{
@@ -3597,6 +3644,9 @@
       Promise.all([loadCatalogue(),loadPersonalMarketplace()])
         .catch((error) => globalStatus('Product management data could not load: '+friendlyError(error), 'error'));
     }
+    if (view === 'providers') {
+      loadServiceProviders().catch((error) => globalStatus('Service Providers could not load: '+friendlyError(error), 'error'));
+    }
     if (view === 'staff' && isSuperAdmin()) {
       loadStaffManagement().catch((error) => globalStatus('Staff directory could not load: '+friendlyError(error), 'error'));
     }
@@ -3666,6 +3716,7 @@
     });
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
+    $('#refreshServiceProviders')?.addEventListener('click', () => withButtonLock($('#refreshServiceProviders'), 'Refreshing…', async () => { await Promise.all([loadServiceProviders(),loadApprovals()]); }));
     $('#refreshAftersalesCases')?.addEventListener('click', () => withButtonLock($('#refreshAftersalesCases'), 'Refreshing…', loadAftersalesCases));
     $('#adminAftersalesSearch')?.addEventListener('input', renderAftersalesCases);
     $('#adminAftersalesStatusFilter')?.addEventListener('change', renderAftersalesCases);
