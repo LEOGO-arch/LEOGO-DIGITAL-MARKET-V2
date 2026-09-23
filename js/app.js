@@ -1378,7 +1378,18 @@
         '<h3>'+receiptEscape(product.product_name)+'</h3>'+
         '<div class="live-product-compact-price"><strong data-live-product-price>'+money(product.price_kes)+'</strong></div>'+
         '<div class="live-product-rating live-product-rating-compact"><strong>'+productRatingStars(rating)+'</strong><span>'+rating.toFixed(1)+(reviewCount?' · '+reviewCount+' review'+(reviewCount===1?'':'s'):'')+'</span></div>'+
-        '<button type="button" class="live-product-details-toggle" data-product-details-toggle aria-expanded="false">View Details</button>'+
+        '<div class="live-product-primary-actions">'+
+          '<button type="button" class="live-product-cart-start" data-live-cart-start data-product-id="'+receiptEscape(product.id)+'" '+(available?'':'disabled')+'>'+
+            (available?'Add to Cart':'Out of Stock')+
+          '</button>'+
+          '<button type="button" class="live-product-details-toggle" data-product-details-toggle aria-expanded="false">View Details</button>'+
+        '</div>'+
+        (hasVariants
+          ? '<div class="live-product-variant-panel" data-product-variant-panel hidden>'+
+              variantMarkup+
+              '<button type="button" class="live-product-add-cart" data-live-add-cart data-product-id="'+receiptEscape(product.id)+'" disabled>Add Selected Variant</button>'+
+            '</div>'
+          : '')+
         '<div class="live-product-details" data-product-details hidden>'+
           '<div class="live-product-details-head"><span>'+receiptEscape(categoryDisplayName(product.category_name || product.category_code || 'Marketplace'))+
             (product.subcategory_name ? ' · '+receiptEscape(product.subcategory_name) : '')+'</span>'+
@@ -1388,9 +1399,6 @@
           (reviewCount
             ? '<div class="live-product-detail-section"><button type="button" class="live-product-reviews-button" data-product-reviews-toggle>Reviews & Ratings ('+reviewCount+')</button>'+publicProductReviewsHtml(product)+'</div>'
             : '<div class="live-product-detail-section live-product-no-reviews"><span>No approved reviews yet.</span></div>')+
-          variantMarkup+
-          '<button type="button" class="live-product-add-cart" data-live-add-cart data-product-id="'+receiptEscape(product.id)+'" '+(available ? '' : 'disabled')+'>'+
-            (available ? (hasVariants ? 'Choose Variant' : '＋ Add to Cart') : 'Out of Stock')+
         '</div>'+
       '</div>'+
     '</article>';
@@ -1578,6 +1586,46 @@
   };
 
   liveProductGrid?.addEventListener('click', (event) => {
+    const cartStart=event.target.closest('[data-live-cart-start]');
+    if(cartStart){
+      if(cartStart.disabled) return;
+      const card=cartStart.closest('[data-live-product-card]');
+      if(!card) return;
+
+      if(card.dataset.hasVariants!=='true'){
+        addLiveProductToCart(cartStart);
+        return;
+      }
+
+      const panel=card.querySelector('[data-product-variant-panel]');
+      const details=card.querySelector('[data-product-details]');
+      const detailsButton=card.querySelector('[data-product-details-toggle]');
+      if(!panel) return;
+
+      liveProductGrid.querySelectorAll('[data-live-product-card]').forEach((otherCard)=>{
+        if(otherCard===card) return;
+        const otherPanel=otherCard.querySelector('[data-product-variant-panel]');
+        const otherDetails=otherCard.querySelector('[data-product-details]');
+        const otherDetailsButton=otherCard.querySelector('[data-product-details-toggle]');
+        if(otherPanel) otherPanel.hidden=true;
+        if(otherDetails) otherDetails.hidden=true;
+        if(otherDetailsButton){
+          otherDetailsButton.setAttribute('aria-expanded','false');
+          otherDetailsButton.textContent='View Details';
+        }
+      });
+
+      if(details) details.hidden=true;
+      if(detailsButton){
+        detailsButton.setAttribute('aria-expanded','false');
+        detailsButton.textContent='View Details';
+      }
+
+      panel.hidden=!panel.hidden;
+      cartStart.textContent=panel.hidden?'Add to Cart':'Hide Variants';
+      return;
+    }
+
     const detailsButton=event.target.closest('[data-product-details-toggle]');
     if(detailsButton){
       const card=detailsButton.closest('[data-live-product-card]');
@@ -1589,12 +1637,21 @@
         if(otherCard===card) return;
         const otherDetails=otherCard.querySelector('[data-product-details]');
         const otherButton=otherCard.querySelector('[data-product-details-toggle]');
+        const otherPanel=otherCard.querySelector('[data-product-variant-panel]');
+        const otherCartStart=otherCard.querySelector('[data-live-cart-start]');
         if(otherDetails) otherDetails.hidden=true;
+        if(otherPanel) otherPanel.hidden=true;
         if(otherButton){
           otherButton.setAttribute('aria-expanded','false');
           otherButton.textContent='View Details';
         }
+        if(otherCartStart && otherCard.dataset.hasVariants==='true') otherCartStart.textContent='Add to Cart';
       });
+
+      const ownPanel=card.querySelector('[data-product-variant-panel]');
+      const ownCartStart=card.querySelector('[data-live-cart-start]');
+      if(ownPanel) ownPanel.hidden=true;
+      if(ownCartStart && card.dataset.hasVariants==='true') ownCartStart.textContent='Add to Cart';
 
       details.hidden=!opening;
       detailsButton.setAttribute('aria-expanded',String(opening));
@@ -1631,7 +1688,10 @@
       if (price) price.textContent = money(Number(variantButton.dataset.variantPrice || 0));
       if (stock) stock.textContent = 'Qty '+Number(variantButton.dataset.variantStock || 0)+' '+(product.measurement_unit || 'item');
       if (note) note.textContent = 'Selected: '+variantButton.dataset.variantName;
-      if (addButton) addButton.textContent = '＋ Add Selected Variant';
+      if (addButton) {
+        addButton.disabled=false;
+        addButton.textContent = 'Add Selected Variant';
+      }
 
       const variantImage = variantButton.dataset.variantImage;
       if (variantImage && imageWrap) {
