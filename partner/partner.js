@@ -12,6 +12,7 @@ const status=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className
 const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
+let provider=null,providerServices=[],providerNotifications=[],editingProviderService=null;
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -24,7 +25,7 @@ const applyInitialServiceAreas=()=>{
   kenyaSubcounties=[];
 };
 
-const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),logout=$('#partnerLogout'),hero=$('.hero');
+const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),providerShell=$('#providerShell'),logout=$('#partnerLogout'),hero=$('.hero');
 const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
 const sellerProfilePanel=$('#sellerProfilePanel'),sellerNotificationPanel=$('#sellerNotificationPanel'),sellerSettlementPanel=$('#sellerSettlementPanel'),sellerPendingArea=$('#sellerPendingArea'),sellerSidebar=$('#sellerSidebar'),sellerBootStatus=$('#sellerBootStatus');
@@ -137,9 +138,10 @@ $('#partnerLoginForm').addEventListener('submit',async e=>{
 $('#partnerRegisterForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Creating account…');const {data,error}=await client.auth.signUp({email:$('#partnerRegisterEmail').value.trim(),password:$('#partnerRegisterPassword').value,options:{data:{full_name:$('#partnerRegisterName').value.trim()}}});if(error){status($('#partnerAuthStatus'),error.message,'error');return;}status($('#partnerAuthStatus'),data.session?'Account created. Choose the partnership you want to register for.':'Account created. Sign in to continue to partnership selection.','success');});
 logout.addEventListener('click',()=>client.auth.signOut());
 $('#backToPartnerships').addEventListener('click',()=>showRolePicker());
-$$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
+$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   if(button.disabled)return;
   if(button.dataset.roleTarget==='seller')openSellerRole();
+  if(button.dataset.roleTarget==='service_provider')openProviderRole();
 }));
 
 async function uploadSellerVerification(file,prefix){
@@ -250,6 +252,7 @@ function showRolePicker(){
   activeRole='';
   rolePicker.hidden=false;
   sellerShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;
   authShell.hidden=true;
   if(hero)hero.hidden=false;
 }
@@ -1484,19 +1487,334 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
   }
 });
 
+
+/* SERVICE PROVIDER MODULE — additive and isolated from Seller / marketplace orders */
+const providerBootStatus=$('#providerBootStatus');
+const providerOnboarding=$('#providerOnboarding');
+const providerReg=$('#providerRegistrationForm');
+const providerPendingArea=$('#providerPendingArea');
+const providerDashboard=$('#providerDashboard');
+
+function showProviderBoot(message='Loading your Service Provider account…',isError=false){
+  if(!providerBootStatus)return;
+  providerBootStatus.hidden=false;
+  $('#providerBootTitle').textContent=isError?'Service Provider Portal needs attention':'Opening your Service Provider dashboard…';
+  $('#providerBootMessage').textContent=message;
+  const spinner=$('.seller-boot-spinner',providerBootStatus);
+  if(spinner)spinner.hidden=isError;
+  $('#retryProviderBoot').hidden=!isError;
+}
+function hideProviderBoot(){if(providerBootStatus)providerBootStatus.hidden=true;}
+function providerStatusCopy(value){
+  if(value==='submitted')return 'Submitted to LEOGO Admin. Your Service Provider application is waiting for review.';
+  if(value==='under_review')return 'LEOGO Admin is reviewing your Service Provider registration.';
+  if(value==='changes_requested')return 'LEOGO Admin requested corrections. Update the application and resubmit it.';
+  if(value==='approved')return 'Approved. You can now create and manage your service listings.';
+  if(value==='rejected')return 'The application was not approved. Review the Admin note and correct it before resubmitting if appropriate.';
+  if(value==='suspended')return 'This Service Provider account is currently suspended. Contact LEOGO Admin.';
+  return 'Complete Service Provider registration to start offering services through LEOGO.';
+}
+async function ensureProviderLocations(preferredCounty='',preferredSubcounty=''){
+  await loadKenyaLocations();
+  const county=$('#providerCounty'),sub=$('#providerSubCounty');
+  if(!county||!sub)return;
+  county.innerHTML='<option value="">Select county</option>'+kenyaCounties.map((item)=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.display_name||item.name)+'</option>').join('');
+  if(preferredCounty&&kenyaCounties.some((item)=>item.code===preferredCounty))county.value=preferredCounty;
+  await renderProviderSubcounties(preferredSubcounty);
+}
+async function renderProviderSubcounties(preferredCode=''){
+  const countyCode=$('#providerCounty')?.value||'';
+  const target=$('#providerSubCounty');
+  if(!target)return;
+  target.disabled=!countyCode;
+  if(!countyCode){target.innerHTML='<option value="">Choose a county first</option>';return;}
+  let options=kenyaSubcounties.filter((item)=>item.county_code===countyCode);
+  if(!options.length){
+    target.innerHTML='<option value="">Loading sub-counties…</option>';
+    const {data,error}=await client.from('kenya_subcounties').select('code,county_code,name').eq('is_active',true).eq('county_code',countyCode).order('name');
+    if(!error&&data?.length){
+      kenyaSubcounties=[...kenyaSubcounties.filter((item)=>item.county_code!==countyCode),...data];
+      options=data;
+    }
+  }
+  target.innerHTML=options.length?'<option value="">Select sub-county</option>'+options.map((item)=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.name)+'</option>').join(''):'<option value="">No active sub-counties configured</option>';
+  target.disabled=!options.length;
+  if(preferredCode&&options.some((item)=>item.code===preferredCode))target.value=preferredCode;
+}
+$('#providerCounty')?.addEventListener('change',()=>renderProviderSubcounties());
+
+async function uploadProviderVerification(file,prefix){
+  if(!file)return null;
+  if(file.size>8388608)throw new Error('Each verification document must be 8 MB or smaller.');
+  const ext=(file.name.split('.').pop()||'pdf').toLowerCase();
+  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('service-provider-verification').upload(path,file,{upsert:false});
+  if(error)throw error;
+  return path;
+}
+function providerSummaryRows(){
+  if(!provider)return [];
+  return [
+    ['Business / Professional Name',provider.business_name],
+    ['Owner / Professional',provider.owner_name],
+    ['Primary Service',provider.primary_service],
+    ['Category',provider.service_category||'—'],
+    ['Experience',provider.experience_years==null?'—':provider.experience_years+' year(s)'],
+    ['Phone',provider.phone],
+    ['Location',[provider.town,provider.sub_county,provider.county].filter(Boolean).join(', ')],
+    ['Service Area',provider.service_area_notes||'—'],
+    ['Application Status',String(provider.application_status||'').replaceAll('_',' ')],
+    ['Admin Note',provider.admin_notes||'—']
+  ];
+}
+function renderProviderApplicationSummary(){
+  const target=$('#providerApplicationSummary');
+  if(!target)return;
+  target.innerHTML=providerSummaryRows().map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
+  const note=$('#providerAdminNote');
+  if(note){
+    note.hidden=!provider?.admin_notes;
+    note.textContent=provider?.admin_notes?'Admin note: '+provider.admin_notes:'';
+  }
+}
+function populateProviderApplication(){
+  if(!provider)return;
+  $('#providerBusinessName').value=provider.business_name||'';
+  $('#providerOwnerName').value=provider.owner_name||'';
+  $('#providerIdNumber').value=provider.id_number||'';
+  $('#providerPhone').value=provider.phone||'';
+  $('#providerPrimaryService').value=provider.primary_service||'';
+  $('#providerServiceCategory').value=provider.service_category||'';
+  $('#providerExperienceYears').value=provider.experience_years??'';
+  $('#providerTown').value=provider.town||'';
+  $('#providerLocation').value=provider.location_details||'';
+  $('#providerDescription').value=provider.business_description||'';
+  $('#providerServiceAreaNotes').value=provider.service_area_notes||'';
+  $('#providerBusinessIdDocument').required=!provider.business_id_document_path;
+  ensureProviderLocations(provider.county_code||'',provider.sub_county_code||'').catch(console.warn);
+}
+function renderProvider(){
+  hideProviderBoot();
+  providerOnboarding.hidden=true;
+  providerReg.hidden=true;
+  providerPendingArea.hidden=true;
+  providerDashboard.hidden=true;
+  if(!provider){providerOnboarding.hidden=false;return;}
+  if(provider.application_status!=='approved'){
+    providerPendingArea.hidden=false;
+    $('#providerPendingTitle').textContent=provider.application_status==='changes_requested'?'Correction requested':provider.application_status==='rejected'?'Application not approved':'Application '+String(provider.application_status||'submitted').replaceAll('_',' ');
+    $('#providerPendingMessage').textContent=providerStatusCopy(provider.application_status);
+    $('#editProviderApplication').hidden=!['changes_requested','rejected'].includes(provider.application_status);
+    renderProviderApplicationSummary();
+    return;
+  }
+  providerDashboard.hidden=false;
+  $('#providerDashboardName').textContent=provider.business_name||'My Service Business';
+  $('#providerDashboardStatus').textContent=providerStatusCopy(provider.application_status);
+  $('#providerAvailability').textContent=(provider.availability_status||'available').replaceAll('_',' ');
+  $('#providerProfileSummary').innerHTML=providerSummaryRows().filter(([label])=>label!=='Admin Note').map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
+  renderProviderServices();
+  renderProviderNotifications();
+}
+async function loadProvider(){
+  if(!currentUser)return;
+  showProviderBoot();
+  try{
+    const result=await Promise.race([
+      client.rpc('service_provider_get_own_account'),
+      waitTimeout(8000,'Service Provider account is taking too long to load. Check your connection and tap Retry.')
+    ]);
+    if(result?.error)throw result.error;
+    provider=result?.data||null;
+    renderProvider();
+    await ensureProviderLocations(provider?.county_code||'',provider?.sub_county_code||'');
+    if(provider?.application_status==='approved')await Promise.allSettled([loadProviderServices(),loadProviderNotifications()]);
+  }catch(error){
+    console.error('Service Provider portal boot failed:',error);
+    showProviderBoot(error?.message||'The Service Provider dashboard could not finish loading.',true);
+    providerOnboarding.hidden=true;providerReg.hidden=true;providerPendingArea.hidden=true;providerDashboard.hidden=true;
+  }
+}
+async function openProviderRole(){
+  activeRole='service_provider';
+  rolePicker.hidden=true;
+  sellerShell.hidden=true;
+  providerShell.hidden=false;
+  authShell.hidden=true;
+  if(hero)hero.hidden=true;
+  showProviderBoot();
+  await loadProvider();
+}
+function openProviderRegistration(editExisting=false){
+  providerOnboarding.hidden=true;
+  providerPendingArea.hidden=true;
+  providerDashboard.hidden=true;
+  providerReg.hidden=false;
+  status($('#providerRegistrationStatus'),'');
+  if(editExisting&&provider)populateProviderApplication();
+  else{
+    providerReg.reset();
+    $('#providerBusinessIdDocument').required=true;
+    ensureProviderLocations().catch(console.warn);
+  }
+  providerReg.scrollIntoView({behavior:'smooth'});
+}
+$('#retryProviderBoot')?.addEventListener('click',()=>openProviderRole());
+$('#showProviderRegistration')?.addEventListener('click',()=>openProviderRegistration(false));
+$('#editProviderApplication')?.addEventListener('click',()=>openProviderRegistration(true));
+$('#cancelProviderRegistration')?.addEventListener('click',()=>provider?renderProvider():openProviderRole());
+$('#providerPendingBack')?.addEventListener('click',showRolePicker);
+$('#providerBackToPartnerships')?.addEventListener('click',showRolePicker);
+$('#refreshProviderDashboard')?.addEventListener('click',()=>loadProvider());
+
+providerReg?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  if(!providerReg.reportValidity())return;
+  const phone=normalisePhone($('#providerPhone').value);
+  if(!/^\+254[17]\d{8}$/.test(phone)){status($('#providerRegistrationStatus'),'Enter a valid Kenyan phone number.','error');return;}
+  const otherFiles=[...$('#providerOtherPermits').files];
+  if(otherFiles.length>4){status($('#providerRegistrationStatus'),'Choose a maximum of 4 other permit files.','error');return;}
+  const submitButton=providerReg.querySelector('button[type="submit"]');
+  const original=submitButton.textContent;submitButton.disabled=true;submitButton.textContent='Submitting…';
+  try{
+    status($('#providerRegistrationStatus'),'Uploading private verification documents…');
+    const businessIdFile=$('#providerBusinessIdDocument').files[0];
+    const businessIdPath=businessIdFile?await uploadProviderVerification(businessIdFile,'business-id'):(provider?.business_id_document_path||null);
+    if(!businessIdPath)throw new Error('Business ID / identification document is required.');
+    const [businessLicencePath,registrationCertificatePath,professionalLicencePath,otherPermitPaths]=await Promise.all([
+      $('#providerBusinessLicence').files[0]?uploadProviderVerification($('#providerBusinessLicence').files[0],'business-licence'):Promise.resolve(provider?.business_licence_path||null),
+      $('#providerRegistrationCertificate').files[0]?uploadProviderVerification($('#providerRegistrationCertificate').files[0],'registration-certificate'):Promise.resolve(provider?.registration_certificate_path||null),
+      $('#providerProfessionalLicence').files[0]?uploadProviderVerification($('#providerProfessionalLicence').files[0],'professional-licence'):Promise.resolve(provider?.professional_licence_path||null),
+      otherFiles.length?Promise.all(otherFiles.map((file,index)=>uploadProviderVerification(file,'permit-'+index))):Promise.resolve(provider?.other_permit_paths||[])
+    ]);
+    status($('#providerRegistrationStatus'),'Sending application to LEOGO Admin…');
+    const {error}=await client.rpc('submit_service_provider_application',{
+      p_business_name:$('#providerBusinessName').value.trim(),p_owner_name:$('#providerOwnerName').value.trim(),
+      p_id_number:$('#providerIdNumber').value.trim(),p_phone:phone,p_primary_service:$('#providerPrimaryService').value.trim(),
+      p_service_category:$('#providerServiceCategory').value.trim()||null,
+      p_experience_years:$('#providerExperienceYears').value===''?null:Number($('#providerExperienceYears').value),
+      p_county_code:$('#providerCounty').value,p_sub_county_code:$('#providerSubCounty').value,p_town:$('#providerTown').value.trim(),
+      p_location_details:$('#providerLocation').value.trim(),p_business_description:$('#providerDescription').value.trim()||null,
+      p_service_area_notes:$('#providerServiceAreaNotes').value.trim()||null,p_business_id_document_path:businessIdPath,
+      p_business_licence_path:businessLicencePath,p_registration_certificate_path:registrationCertificatePath,
+      p_professional_licence_path:professionalLicencePath,p_other_permit_paths:otherPermitPaths
+    });
+    if(error)throw error;
+    status($('#providerRegistrationStatus'),'Service Provider application submitted successfully.','success');
+    await loadProvider();
+  }catch(error){status($('#providerRegistrationStatus'),error?.message||'Service Provider application could not be submitted.','error');}
+  finally{submitButton.disabled=false;submitButton.textContent=original;}
+});
+
+async function loadProviderServices(){
+  const {data,error}=await client.rpc('service_provider_list_own_services');
+  if(error)throw error;
+  providerServices=Array.isArray(data)?data:[];
+  renderProviderServices();
+}
+function providerPriceText(item){
+  if(item.pricing_model==='quote')return 'Quote after request';
+  const from=Number(item.price_from_kes||0);
+  if(item.pricing_model==='fixed')return money(from)+(item.unit_label?' · '+item.unit_label:'');
+  if(item.pricing_model==='hourly')return money(from)+' / hour';
+  if(item.pricing_model==='from')return 'From '+money(from)+(item.unit_label?' · '+item.unit_label:'');
+  return money(from);
+}
+function renderProviderServices(){
+  const list=$('#providerServiceList');
+  if(!list)return;
+  $('#providerServiceTotal').textContent=providerServices.length;
+  $('#providerServiceApproved').textContent=providerServices.filter((item)=>item.approval_status==='approved').length;
+  $('#providerServicePending').textContent=providerServices.filter((item)=>['pending','under_review','changes_requested'].includes(item.approval_status)).length;
+  list.innerHTML=providerServices.length?providerServices.map((item)=>
+    '<article class="product-card">'+
+      '<div class="product-card-main"><div><span class="status-chip">'+escapeHtml(String(item.approval_status||'pending').replaceAll('_',' '))+'</span><h4>'+escapeHtml(item.service_name)+'</h4><p>'+escapeHtml(item.description||'No description added.')+'</p></div><strong>'+escapeHtml(providerPriceText(item))+'</strong></div>'+
+      '<div class="product-meta"><span>'+escapeHtml(item.category_name||provider?.primary_service||'Service')+'</span><span>'+(item.is_available?'Available':'Unavailable')+'</span><span>'+escapeHtml(item.service_area||provider?.town||'')+'</span></div>'+
+      (item.admin_notes?'<div class="restricted-notice">Admin note: '+escapeHtml(item.admin_notes)+'</div>':'')+
+      '<div class="product-actions"><button class="secondary" type="button" data-provider-edit-service="'+escapeHtml(item.id)+'">Edit</button><button class="danger-data-button" type="button" data-provider-delete-service="'+escapeHtml(item.id)+'">Delete</button></div>'+
+    '</article>'
+  ).join(''):'<div class="empty-card">No services added yet. Use the form above to create your first service.</div>';
+  $('[data-provider-edit-service]').forEach((button)=>button.addEventListener('click',()=>editProviderService(button.dataset.providerEditService)));
+  $('[data-provider-delete-service]').forEach((button)=>button.addEventListener('click',()=>deleteProviderService(button.dataset.providerDeleteService,button)));
+}
+function resetProviderServiceForm(){
+  editingProviderService=null;
+  $('#providerServiceForm').reset();
+  $('#providerServiceId').value='';
+  $('#providerIsAvailable').checked=true;
+  $('#providerServiceFormTitle').textContent='Add a Service';
+  $('#providerServiceReset').hidden=true;
+}
+function editProviderService(id){
+  const item=providerServices.find((row)=>row.id===id);
+  if(!item)return;
+  editingProviderService=item;
+  $('#providerServiceId').value=item.id;$('#providerServiceName').value=item.service_name||'';
+  $('#providerServiceCategoryName').value=item.category_name||'';$('#providerServiceDescription').value=item.description||'';
+  $('#providerPricingModel').value=item.pricing_model||'quote';$('#providerPriceFrom').value=item.price_from_kes??'';
+  $('#providerPriceTo').value=item.price_to_kes??'';$('#providerUnitLabel').value=item.unit_label||'';
+  $('#providerServiceArea').value=item.service_area||'';$('#providerAvailabilityNotes').value=item.availability_notes||'';
+  $('#providerIsAvailable').checked=item.is_available!==false;$('#providerServiceFormTitle').textContent='Edit Service';
+  $('#providerServiceReset').hidden=false;$('#providerServiceForm').scrollIntoView({behavior:'smooth'});
+}
+$('#providerServiceReset')?.addEventListener('click',resetProviderServiceForm);
+$('#providerServiceForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();const form=event.currentTarget;if(!form.reportValidity())return;
+  const button=form.querySelector('button[type="submit"]');const original=button.textContent;button.disabled=true;button.textContent='Saving…';
+  try{
+    const {error}=await client.rpc('service_provider_save_service',{
+      p_service_id:$('#providerServiceId').value||null,p_service_name:$('#providerServiceName').value.trim(),
+      p_category_name:$('#providerServiceCategoryName').value.trim()||null,p_description:$('#providerServiceDescription').value.trim()||null,
+      p_pricing_model:$('#providerPricingModel').value,p_price_from_kes:$('#providerPriceFrom').value===''?null:Number($('#providerPriceFrom').value),
+      p_price_to_kes:$('#providerPriceTo').value===''?null:Number($('#providerPriceTo').value),
+      p_unit_label:$('#providerUnitLabel').value.trim()||null,p_service_area:$('#providerServiceArea').value.trim()||null,
+      p_availability_notes:$('#providerAvailabilityNotes').value.trim()||null,p_is_available:$('#providerIsAvailable').checked
+    });
+    if(error)throw error;
+    resetProviderServiceForm();await loadProviderServices();
+    status($('#providerServiceFormStatus'),'Service saved and sent to LEOGO Admin for approval.','success');
+  }catch(error){status($('#providerServiceFormStatus'),error?.message||'Service could not be saved.','error');}
+  finally{button.disabled=false;button.textContent=original;}
+});
+async function deleteProviderService(id,button){
+  const item=providerServices.find((row)=>row.id===id);
+  if(!item||!window.confirm('Delete "'+item.service_name+'"?'))return;
+  const original=button.textContent;button.disabled=true;button.textContent='Deleting…';
+  try{const {data,error}=await client.rpc('service_provider_delete_service',{p_service_id:id});if(error)throw error;if(!data)throw new Error('Service could not be deleted.');await loadProviderServices();}
+  catch(error){status($('#providerServiceFormStatus'),error?.message||'Service could not be deleted.','error');}
+  finally{button.disabled=false;button.textContent=original;}
+}
+async function loadProviderNotifications(){
+  const {data,error}=await client.from('partner_notifications').select('*').eq('partner_type','service_provider').order('created_at',{ascending:false}).limit(50);
+  if(error)throw error;providerNotifications=data||[];renderProviderNotifications();
+}
+function renderProviderNotifications(){
+  const target=$('#providerNotificationList');if(!target)return;
+  target.innerHTML=providerNotifications.length?providerNotifications.map((item)=>
+    '<article class="notification-item '+(item.read_at?'':'unread')+'"><div><strong>'+escapeHtml(item.title)+'</strong><p>'+escapeHtml(item.message)+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div>'+(item.read_at?'':'<span>NEW</span>')+'</article>'
+  ).join(''):'<div class="empty-card">No Service Provider notifications yet.</div>';
+}
+$('#markAllProviderNotificationsRead')?.addEventListener('click',async()=>{
+  const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'service_provider'});
+  if(error){status($('#providerServiceFormStatus'),error.message,'error');return;}
+  await loadProviderNotifications();
+});
+
 async function handleSession(session){
   currentUser=session?.user||null;
   logout.hidden=!currentUser;
   if(!currentUser){
-    seller=null;products=[];activeRole='';
-    authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;if(hero)hero.hidden=false;
+    seller=null;products=[];provider=null;providerServices=[];providerNotifications=[];activeRole='';
+    authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;if(providerShell)providerShell.hidden=true;if(hero)hero.hidden=false;
     return;
   }
   authShell.hidden=true;
   sellerShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;
   rolePicker.hidden=false;
   if(hero)hero.hidden=false;
   if(activeRole==='seller')await openSellerRole();
+  if(activeRole==='service_provider')await openProviderRole();
 }
 
 window.addEventListener('unhandledrejection',event=>{
@@ -1517,6 +1835,7 @@ client.auth.onAuthStateChange((event,s)=>{
     authShell.hidden=false;
     rolePicker.hidden=true;
     sellerShell.hidden=true;
+    if(providerShell)providerShell.hidden=true;
     $('#partnerLoginForm').hidden=true;
     $('#partnerLoginForm').classList.remove('active');
     $('#partnerRegisterForm').hidden=true;
@@ -1532,7 +1851,7 @@ client.auth.onAuthStateChange((event,s)=>{
 client.auth.getSession().then(({data})=>{
   if(new URLSearchParams(location.search).get('mode')==='reset-password'){
     currentUser=data.session?.user||null;
-    authShell.hidden=false; rolePicker.hidden=true; sellerShell.hidden=true; logout.hidden=true;
+    authShell.hidden=false; rolePicker.hidden=true; sellerShell.hidden=true; if(providerShell)providerShell.hidden=true; logout.hidden=true;
     $('#partnerLoginForm').hidden=true; $('#partnerLoginForm').classList.remove('active');
     $('#partnerRegisterForm').hidden=true; $('#partnerRegisterForm').classList.remove('active');
     resetRequestForm.hidden=true; resetUpdateForm.hidden=false; resetUpdateForm.classList.add('active');
