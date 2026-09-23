@@ -722,3 +722,19 @@ body.accommodation-modal-open{overflow:hidden}
   .live-product-card-compact .live-product-image{height:100px}
   .live-product-card-compact .live-product-body{padding:7px}
 }
+
+
+/* Compact product primary actions + purchase-only variant chooser */
+.live-product-primary-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:3px}
+.live-product-primary-actions button{min-width:0;border-radius:8px;padding:8px 6px;font-size:7.8px;font-weight:900;cursor:pointer}
+.live-product-cart-start{border:0;background:#ff7800;color:#fff}
+.live-product-cart-start:disabled{background:#d6dce5;color:#7c8797;cursor:not-allowed}
+.live-product-primary-actions .live-product-details-toggle{margin:0}
+.live-product-variant-panel{display:grid;gap:8px;margin-top:5px;padding-top:9px;border-top:1px solid #e5eaf1}
+.live-product-variant-panel[hidden]{display:none!important}
+.live-product-variant-panel .live-product-variant-picker{padding:0}
+.live-product-card-compact:has(.live-product-variant-panel:not([hidden])){grid-column:span 2}
+@media(max-width:380px){
+  .live-product-primary-actions{gap:5px}
+  .live-product-primary-actions button{font-size:7.3px;padding:7px 5px}
+}
