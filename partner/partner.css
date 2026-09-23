@@ -255,3 +255,24 @@
 @media(max-width:430px){
   .seller-review-summary{grid-template-columns:1fr}
 }
+
+
+/* Service Provider Portal V1 — scoped so Seller layout remains unchanged */
+.provider-shell .seller-portal{display:block;min-height:0}
+.provider-shell #providerBackToPartnerships{margin-bottom:12px}
+.provider-shell .provider-overview-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.provider-service-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff;display:grid;gap:10px}
+.provider-service-card-main{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.provider-service-card-main h4{margin:6px 0 4px;font-size:17px}
+.provider-service-card-main p{margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.provider-service-card-main>strong{white-space:nowrap;color:var(--navy)}
+.provider-service-meta{display:flex;gap:8px;flex-wrap:wrap}
+.provider-service-meta span{display:inline-flex;padding:5px 8px;border-radius:999px;background:#eef3f9;color:#42516a;font-size:10px;font-weight:800}
+.provider-service-card .product-actions{margin-top:2px}
+.provider-service-card .danger-data-button{background:#fff0f0!important;color:#a12424!important}
+@media(max-width:850px){.provider-shell .provider-overview-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){
+  .provider-service-card-main{display:grid}
+  .provider-service-card-main>strong{white-space:normal}
+  .provider-shell .provider-overview-grid{grid-template-columns:1fr 1fr}
+}
