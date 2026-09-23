@@ -3188,7 +3188,7 @@
         '<td data-label="Action">'+(pendingApproval?'<button type="button" data-provider-review="'+escapeHtml(item.user_id)+'">Open Approval →</button>':'<span class="status-chip">'+(item.application_status==='approved'?'Active':'No pending action')+'</span>')+'</td>'+
       '</tr>';
     }).join(''):'<tr><td colspan="7">No Service Provider accounts yet.</td></tr>';
-    $('[data-provider-review]', $('#serviceProviderTableBody')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
+    $$('[data-provider-review]', $('#serviceProviderTableBody')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
   };
   const loadServiceProviders = async () => {
     const {data,error}=await db.rpc('admin_list_service_providers');
