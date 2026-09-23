@@ -487,11 +487,14 @@
 
   const adminMediaEntries = (payload = {}, kind = '') => {
     const entries = [];
-    const providerVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','other_permit_paths']);
+    const providerVerificationFields = new Set(['passport_photo_path','business_id_document_path','business_licence_path','registration_certificate_path','professional_licence_path','other_permit_paths']);
     Object.entries(approvalMediaFields).forEach(([key, config]) => {
-      const resolvedConfig = kind === 'service_provider_application' && providerVerificationFields.has(key)
-        ? { ...config, bucket: 'service-provider-verification' }
-        : config;
+      let resolvedConfig = config;
+      if (kind === 'service_provider_application' && key === 'profile_picture_path') {
+        resolvedConfig = { ...config, bucket: 'service-provider-public-media', publicBucket: true, label: 'Customer Profile Picture' };
+      } else if (kind === 'service_provider_application' && providerVerificationFields.has(key)) {
+        resolvedConfig = { ...config, bucket: 'service-provider-verification', label: key === 'passport_photo_path' ? 'Passport-size Photo (Private)' : config.label };
+      }
       const raw = payload?.[key];
       const values = resolvedConfig.multiple ? (Array.isArray(raw) ? raw : []) : (raw ? [raw] : []);
       values.filter(Boolean).forEach((value, index) => {
@@ -511,6 +514,7 @@
 
   const secureAdminMediaUrl = async (entry) => {
     if (entry.config.directUrl) return entry.value;
+    if (entry.config.publicBucket) return db.storage.from(entry.config.bucket).getPublicUrl(entry.value).data.publicUrl;
     const { data, error } = await db.storage.from(entry.config.bucket).createSignedUrl(entry.value, 900);
     if (error) throw error;
     const url = data?.signedUrl || '';
