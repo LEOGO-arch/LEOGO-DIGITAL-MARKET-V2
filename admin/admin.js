@@ -33,6 +33,9 @@
     selectedApprovals: new Set(),
     activeApproval: null,
     customers: [],
+    supportThreads: [],
+    supportMessages: [],
+    activeSupportThreadId: null,
     business: null,
     paymentAccounts: [],
     paymentAssignments: [],
@@ -66,7 +69,7 @@
 
   const viewTitles = {
     dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', aftersales: 'Aftersales', customers: 'Customers',
-    products: 'Products & Categories', sellers: 'Sellers', settlements: 'Seller Settlements', providers: 'Service Providers',
+    chat: 'Customer Care Chats', products: 'Products & Categories', sellers: 'Sellers', settlements: 'Seller Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
     accommodation: 'Accommodation', loyalty: 'Loyalty & Rewards', reports: 'Reports',
     staff: 'Staff Management', settings: 'System Settings', audit: 'Audit Log'
@@ -187,6 +190,7 @@
       orders: () => adminHas('orders.read'),
       aftersales: () => adminHas('orders.read'),
       customers: () => adminHas('customers.read'),
+      chat: () => adminHas('support.chat'),
       products: () => adminHas('products.read'),
       sellers: () => adminHas('sellers.read'),
       settlements: () => adminHas('settlements.read'),
@@ -279,6 +283,7 @@
       [loadCatalogue, () => adminHas('products.read')],
       [loadPersonalMarketplace, () => adminHas('products.read')],
       [loadCustomers, () => adminHas('customers.read')],
+      [loadSupportChats, () => adminHas('support.chat')],
       [loadSellers, () => adminHas('sellers.read')],
       [loadSellerSettlements, () => adminHas('settlements.read')],
       [loadDeliveryOps, () => adminHas('orders.read') || adminHas('delivery.manage')],
@@ -3376,6 +3381,12 @@
     // unrelated dashboard module cannot leave Seller products hidden.
     if (view === 'aftersales') {
       loadAftersalesCases().catch((error) => globalStatus('Aftersales cases could not load: '+friendlyError(error), 'error'));
+    }
+    if (view === 'chat') {
+      loadSupportChats({refreshActive:true}).catch((error) => globalStatus('Customer Care chats could not load: '+friendlyError(error), 'error'));
+      startSupportChatPolling();
+    } else {
+      stopSupportChatPolling();
     }
     if (view === 'products') {
       Promise.all([loadCatalogue(),loadPersonalMarketplace()])
