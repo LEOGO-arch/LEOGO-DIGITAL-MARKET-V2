@@ -162,7 +162,7 @@ begin
   if char_length(btrim(coalesce(p_business_name,'')))<2 then raise exception 'Business or professional name is required'; end if;
   if char_length(btrim(coalesce(p_owner_name,'')))<2 then raise exception 'Owner or professional name is required'; end if;
   if char_length(btrim(coalesce(p_id_number,'')))<5 then raise exception 'A valid ID number is required'; end if;
-  if coalesce(p_phone,'') !~ '^[+]254[17][0-9]{8}
+  if coalesce(p_phone,'') !~ '^[+]254[17][0-9]{8}$' then raise exception 'A valid Kenyan phone number is required'; end if;
   if char_length(btrim(coalesce(p_primary_service,'')))<2 then raise exception 'Primary service is required'; end if;
   if p_experience_years is not null and (p_experience_years<0 or p_experience_years>80) then raise exception 'Experience years must be between 0 and 80'; end if;
   if nullif(btrim(coalesce(p_business_id_document_path,'')),'') is null then raise exception 'Business ID or identification document is required'; end if;
