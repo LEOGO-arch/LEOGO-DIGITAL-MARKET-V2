@@ -399,12 +399,33 @@ async function loadPartnerNotifications(){
   $('#sellerNotificationList').innerHTML=partnerNotifications.length?partnerNotifications.map(n=>`
     <article class="seller-notification-item ${n.read_at?'':'unread'}" data-notification-id="${escapeHtml(n.id)}">
       <div><strong>${escapeHtml(n.title)}</strong><p>${escapeHtml(n.message)}</p><small>${formatDate(n.created_at)}</small></div>
-      ${n.read_at?'':'<button class="secondary" type="button" data-mark-notification="'+escapeHtml(n.id)+'">Mark read</button>'}
+      <div class="seller-notification-actions">
+        ${n.action_view?'<button type="button" data-open-notification-view="'+escapeHtml(n.action_view)+'" data-open-notification-id="'+escapeHtml(n.id)+'">Open</button>':''}
+        ${n.read_at?'':'<button class="secondary" type="button" data-mark-notification="'+escapeHtml(n.id)+'">Mark read</button>'}
+      </div>
     </article>`).join(''):'<div class="empty-card">No Seller notifications yet.</div>';
   $$('[data-mark-notification]').forEach(button=>button.addEventListener('click',async()=>{
     const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markNotification});
     if(!error)await loadPartnerNotifications();
   }));
+  $$('[data-open-notification-view]').forEach(button=>button.addEventListener('click',async()=>{
+    const notificationId=button.dataset.openNotificationId;
+    const view=button.dataset.openNotificationView;
+    if(notificationId){
+      await client.rpc('mark_partner_notification_read',{p_notification_id:notificationId}).catch?.(()=>{});
+    }
+    if(view==='reviews'){
+      openSellerView('reviews');
+      await loadSellerReviews();
+    }else if(view==='orders'){
+      openSellerView('orders');
+      await loadSellerOrders();
+    }else if(['products','settlements','notifications','profile','data','flashsale'].includes(view)){
+      openSellerView(view);
+    }
+    await loadPartnerNotifications();
+  }));
+
   renderSellerDataSelection();
 }
 
