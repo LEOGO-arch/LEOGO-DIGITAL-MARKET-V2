@@ -373,6 +373,7 @@
       ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     renderApprovals();
+    if (state.serviceProviders.length) renderServiceProviders();
 
     // Keep Dashboard and sidebar counts synchronized with the actual Approval Center queue,
     // including Seller product submissions.
