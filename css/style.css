@@ -858,3 +858,43 @@ body.accommodation-modal-open{overflow:hidden}
   .customer-mobile-menu-group span{min-width:0}
   .menu-button{position:relative;z-index:1}
 }
+
+
+/* Private Customer Care person-to-person chat */
+.customer-chat-title{align-items:flex-start}
+.customer-chat-secure{display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border-radius:999px;background:#edf9f2;color:#17633c;font-size:8px;font-weight:900;white-space:nowrap}
+.customer-care-chat{display:grid;grid-template-rows:auto auto minmax(260px,1fr) auto;min-height:520px;max-height:calc(100vh - 210px);border:1px solid #dce4ee;border-radius:16px;background:#fff;overflow:hidden}
+.customer-care-chat-head{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#07152f;color:#fff}
+.customer-care-agent-avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#fff3e8;font-size:20px;flex:0 0 40px}
+.customer-care-chat-head>div:nth-child(2){display:grid;gap:2px;min-width:0;flex:1}
+.customer-care-chat-head strong{font-size:11px}
+.customer-care-chat-head span{font-size:8px;color:#c9d4e3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.customer-care-chat-head button{width:36px;height:36px;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.08);color:#fff;font-size:17px}
+.customer-care-assignment{padding:9px 12px;border-bottom:1px solid #e6ebf1;background:#f8fafc;color:#5c6a7d;font-size:8.5px;line-height:1.45}
+.customer-care-message-list{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:14px 11px;display:flex;flex-direction:column;gap:9px;background:#f5f7fb}
+.customer-care-chat-empty{margin:auto;max-width:260px;text-align:center;display:grid;gap:5px;color:#6e7a8b;padding:22px 12px}
+.customer-care-chat-empty>span{font-size:30px}
+.customer-care-chat-empty strong{font-size:12px;color:#07152f}
+.customer-care-chat-empty p{margin:0;font-size:9px;line-height:1.45}
+.customer-care-message{max-width:min(82%,520px);display:grid;gap:4px;padding:9px 10px;border-radius:12px;box-shadow:0 2px 5px rgba(7,21,47,.04)}
+.customer-care-message.customer{align-self:flex-end;background:#ff7800;color:#fff;border-bottom-right-radius:4px}
+.customer-care-message.staff{align-self:flex-start;background:#fff;color:#12243d;border:1px solid #dde5ee;border-bottom-left-radius:4px}
+.customer-care-message-meta{display:flex;align-items:center;justify-content:space-between;gap:9px}
+.customer-care-message-meta strong{font-size:7.5px}
+.customer-care-message-meta span{font-size:7px;opacity:.76;white-space:nowrap}
+.customer-care-message p{margin:0;font-size:9.5px;line-height:1.45;overflow-wrap:anywhere}
+.customer-care-compose{display:grid;gap:5px;padding:10px;border-top:1px solid #e2e8f0;background:#fff}
+.customer-care-compose>label{font-size:8px;font-weight:900;color:#637085}
+.customer-care-compose>div{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:end}
+.customer-care-compose textarea{width:100%;min-height:44px;max-height:110px;resize:vertical;border:1px solid #cfd8e4;border-radius:10px;padding:10px;font:inherit;font-size:9.5px;color:#07152f;outline:none}
+.customer-care-compose textarea:focus{border-color:#ff9a42;box-shadow:0 0 0 2px rgba(255,120,0,.09)}
+.customer-care-compose button{height:44px;border:0;border-radius:10px;background:#ff7800;color:#fff;padding:0 14px;font-size:9px;font-weight:900}
+.customer-care-compose button:disabled{opacity:.6}
+#customerCareChatStatus{min-height:13px;font-size:8px;color:#a12626}
+.mobile-chat-link{position:relative}
+.mobile-chat-link>b{position:absolute;top:5px;right:18%;min-width:16px;height:16px;border-radius:999px;background:#ff7800;color:#fff;font-size:8px;display:grid;place-items:center;padding:0 4px}
+@media(max-width:700px){
+  .customer-care-chat{min-height:calc(100vh - 190px);max-height:calc(100vh - 190px);border-radius:12px}
+  .customer-care-message{max-width:88%}
+  .customer-care-compose{padding-bottom:12px}
+}
