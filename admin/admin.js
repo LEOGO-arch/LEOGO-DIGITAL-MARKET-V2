@@ -639,6 +639,7 @@
     ['orders.payment_verify','Finance','Verify or reject customer order payments'],
     ['delivery.manage','Delivery','Assign Riders and manage delivery operations'],
     ['customers.read','Customers','View customer accounts'],
+    ['support.chat','Customer Support','Handle assigned private Customer Care chats'],
     ['sellers.read','Sellers','View Seller accounts'],
     ['settlements.read','Finance','View Seller settlement accounts, requests and payout history'],
     ['settlements.manage','Finance','Approve settlement accounts and process Seller payouts'],
