@@ -573,6 +573,33 @@
 
   refreshCustomerCareChat?.addEventListener('click',()=>loadCustomerSupportChat({scroll:true}));
 
+  const refreshCustomerCareSummary=async()=>{
+    if(!window.leogoAuth?.isAuthenticated?.()){
+      customerCareThread=null;
+      if(mobileChatUnread){mobileChatUnread.textContent='0';mobileChatUnread.hidden=true;}
+      return;
+    }
+    const client=window.leogoAuth?.client;
+    if(!client) return;
+    const {data,error}=await client.rpc('customer_support_chat_summary');
+    if(error) return;
+    if(!data?.exists){
+      if(mobileChatUnread){mobileChatUnread.textContent='0';mobileChatUnread.hidden=true;}
+      return;
+    }
+    customerCareThread={...(customerCareThread||{}),...data};
+    if(mobileChatUnread){
+      const unread=Number(data.unread_count||0);
+      mobileChatUnread.textContent=String(unread);
+      mobileChatUnread.hidden=unread<1;
+    }
+  };
+
+  document.addEventListener('leogo:authchange',()=>window.setTimeout(refreshCustomerCareSummary,80));
+  document.addEventListener('leogo:customer-data-refresh',()=>window.setTimeout(refreshCustomerCareSummary,80));
+  window.addEventListener('focus',()=>refreshCustomerCareSummary());
+  window.setTimeout(refreshCustomerCareSummary,700);
+
   const showCustomerView = (viewName) => {
     customerShellViews?.forEach((panel) => panel.classList.toggle('active', panel.dataset.customerPanel === viewName));
     customerShellNavButtons?.forEach((button) => button.classList.toggle('active', button.dataset.customerView === viewName));
