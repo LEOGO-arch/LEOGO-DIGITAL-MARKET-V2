@@ -1580,6 +1580,16 @@
     if (feedback) feedback.textContent = (variant ? product.product_name+' — '+variant.variant_name : product.product_name) + ' added to cart.';
     const original = button.textContent;
     button.textContent = '✓ Added';
+
+    if(variant && card){
+      const panel=card.querySelector('[data-product-variant-panel]');
+      const start=card.querySelector('[data-live-cart-start]');
+      window.setTimeout(()=>{
+        if(panel) panel.hidden=true;
+        if(start) start.textContent='Add to Cart';
+      },700);
+    }
+
     window.setTimeout(() => {
       if (button.isConnected) button.textContent = original;
     }, 900);
