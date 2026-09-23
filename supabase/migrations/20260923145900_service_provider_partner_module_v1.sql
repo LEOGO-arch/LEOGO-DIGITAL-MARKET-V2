@@ -285,21 +285,37 @@ language plpgsql security definer set search_path=''
 as $$
 begin
   if not private.is_leogo_admin('approvals.read') then raise exception 'Admin access required'; end if;
+
   return query
-  select 'service_provider_application'::text,p.user_id,p.user_id,p.business_name,u.email::text,
-    'Service Provider Registration'::text,concat_ws(' · ',p.primary_service,p.town,p.county),null::numeric,
-    p.application_status,coalesce(p.submitted_at,p.created_at),to_jsonb(p)
-  from public.service_provider_accounts p left join auth.users u on u.id=p.user_id
-  where p.application_status in ('submitted','under_review','changes_requested')
-  union all
-  select 'service_listing'::text,s.id,s.provider_id,p.business_name,u.email::text,s.service_name,
-    concat_ws(' · ',coalesce(s.category_name,p.primary_service),p.town,p.county),s.price_from_kes,
-    s.approval_status,coalesce(s.submitted_at,s.created_at),
-    to_jsonb(s)||jsonb_build_object('provider_name',p.business_name,'provider_primary_service',p.primary_service,'provider_phone',p.phone)
-  from public.service_provider_services s
-  join public.service_provider_accounts p on p.user_id=s.provider_id
-  left join auth.users u on u.id=s.provider_id
-  where s.approval_status in ('pending','under_review','changes_requested')
+  with combined(
+    kind,record_id,applicant_id,applicant_name,applicant_email,
+    title,subtitle,amount_kes,status,submitted_at,payload
+  ) as (
+    select
+      'service_provider_application'::text,p.user_id,p.user_id,p.business_name,u.email::text,
+      'Service Provider Registration'::text,concat_ws(' · ',p.primary_service,p.town,p.county),null::numeric,
+      p.application_status,coalesce(p.submitted_at,p.created_at),to_jsonb(p)
+    from public.service_provider_accounts p
+    left join auth.users u on u.id=p.user_id
+    where p.application_status in ('submitted','under_review','changes_requested')
+
+    union all
+
+    select
+      'service_listing'::text,s.id,s.provider_id,p.business_name,u.email::text,s.service_name,
+      concat_ws(' · ',coalesce(s.category_name,p.primary_service),p.town,p.county),s.price_from_kes,
+      s.approval_status,coalesce(s.submitted_at,s.created_at),
+      to_jsonb(s)||jsonb_build_object(
+        'provider_name',p.business_name,
+        'provider_primary_service',p.primary_service,
+        'provider_phone',p.phone
+      )
+    from public.service_provider_services s
+    join public.service_provider_accounts p on p.user_id=s.provider_id
+    left join auth.users u on u.id=s.provider_id
+    where s.approval_status in ('pending','under_review','changes_requested')
+  )
+  select * from combined
   order by submitted_at desc nulls last;
 end;
 $$;
