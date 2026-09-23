@@ -213,3 +213,45 @@
 .seller-boot-spinner{width:34px;height:34px;border:4px solid #e5ebf2;border-top-color:#ff7200;border-radius:50%;animation:sellerBootSpin .9s linear infinite}
 @keyframes sellerBootSpin{to{transform:rotate(360deg)}}
 @media(max-width:640px){.seller-boot-status{grid-template-columns:auto 1fr}.seller-boot-status>button{grid-column:1/-1;width:100%}}
+
+
+/* Seller approved product reviews */
+.seller-review-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.seller-review-summary article{display:grid;gap:4px;padding:13px;border:1px solid #dfe6ee;border-radius:12px;background:#fff}
+.seller-review-summary span{font-size:8px;font-weight:900;color:#7a8798;text-transform:uppercase}
+.seller-review-summary strong{font-size:20px;color:#07152f}
+.seller-review-summary small{font-size:8px;color:#8691a0}
+.seller-review-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) 190px;gap:8px;margin-bottom:12px}
+.seller-review-toolbar input,.seller-review-toolbar select{width:100%;border:1px solid #d5dde7;border-radius:9px;background:#fff;padding:10px;font:inherit;font-size:9px;color:#07152f}
+.seller-review-list{display:grid;gap:10px}
+.seller-review-card{display:grid;gap:10px;padding:13px;border:1px solid #dfe6ee;border-radius:13px;background:#fff}
+.seller-review-card header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.seller-review-card header>div:first-child{display:grid;gap:3px}
+.seller-review-card header span{font-size:8px;font-weight:900;letter-spacing:.07em;color:#ff7800}
+.seller-review-card header h4{margin:0;font-size:12px;color:#07152f}
+.seller-review-card header small{font-size:8px;color:#7c8798}
+.seller-review-rating{display:grid;gap:2px;text-align:right;white-space:nowrap}
+.seller-review-rating strong{font-size:13px;color:#f59e0b;letter-spacing:.03em}
+.seller-review-rating span{font-size:8px;color:#6d798a}
+.seller-review-comment{padding:10px;border-radius:9px;background:#f8fafc;border:1px solid #e3e8ef}
+.seller-review-comment p{margin:0;white-space:pre-wrap;font-size:9px;line-height:1.5;color:#405066}
+.seller-review-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.seller-review-meta span{display:grid;gap:3px;padding:8px;border-radius:8px;background:#f8fafc}
+.seller-review-meta small{font-size:7.5px;font-weight:900;color:#7c8798;text-transform:uppercase}
+.seller-review-meta strong{font-size:8.5px;color:#26384e}
+.seller-review-card footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.seller-review-card footer>b{font-size:8px;color:#17844a}
+.seller-review-card footer button,.seller-order-review-link{border:1px solid #d1dae6;background:#fff;color:#07152f;border-radius:8px;padding:7px 9px;font-size:8px;font-weight:900;cursor:pointer}
+.seller-notification-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.seller-notification-actions button{border:0;border-radius:8px;background:#07152f;color:#fff;padding:7px 9px;font-size:8px;font-weight:900;cursor:pointer}
+.seller-notification-actions button.secondary{border:1px solid #d1dae6;background:#fff;color:#07152f}
+@media(max-width:700px){
+  .seller-review-summary{grid-template-columns:1fr 1fr}
+  .seller-review-toolbar{grid-template-columns:1fr}
+  .seller-review-card header{flex-direction:column}
+  .seller-review-rating{text-align:left}
+  .seller-review-meta{grid-template-columns:1fr}
+}
+@media(max-width:430px){
+  .seller-review-summary{grid-template-columns:1fr}
+}
