@@ -1494,6 +1494,7 @@ const providerOnboarding=$('#providerOnboarding');
 const providerReg=$('#providerRegistrationForm');
 const providerPendingArea=$('#providerPendingArea');
 const providerDashboard=$('#providerDashboard');
+const providerPhotoManager=$('#providerPhotoManager');
 
 function showProviderBoot(message='Loading your Service Provider account…',isError=false){
   if(!providerBootStatus)return;
@@ -1552,6 +1553,38 @@ async function uploadProviderVerification(file,prefix){
   if(error)throw error;
   return path;
 }
+async function uploadProviderPublicPhoto(file){
+  if(!file)return null;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Profile picture must be JPG, PNG or WEBP.');
+  if(file.size>5242880)throw new Error('Profile picture must be 5 MB or smaller.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/profile-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('service-provider-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+}
+async function uploadProviderPassportPhoto(file){
+  if(!file)return null;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Passport photo must be JPG, PNG or WEBP.');
+  if(file.size>5242880)throw new Error('Passport photo must be 5 MB or smaller.');
+  return uploadProviderVerification(file,'passport-photo');
+}
+function providerPublicPhotoUrl(path){
+  return path?client.storage.from('service-provider-public-media').getPublicUrl(path).data.publicUrl:'';
+}
+function renderProviderPhotoManager(){
+  if(!providerPhotoManager)return;
+  providerPhotoManager.hidden=!provider;
+  if(!provider)return;
+  const preview=$('#providerPublicPhotoPreview');
+  const url=providerPublicPhotoUrl(provider.profile_picture_path);
+  if(preview){
+    preview.innerHTML=url?'<img src="'+escapeHtml(url)+'" alt="Service Provider profile picture">':'<span>👤</span>';
+  }
+  $('#providerPublicPhotoState').textContent=provider.profile_picture_path?'Profile picture added — visible to customers after approval':'No profile picture added';
+  $('#providerPassportPhotoState').textContent=provider.passport_photo_path?'Passport photo: uploaded privately':'Passport photo: not added';
+}
+
 function providerSummaryRows(){
   if(!provider)return [];
   return [
@@ -1599,7 +1632,9 @@ function renderProvider(){
   providerReg.hidden=true;
   providerPendingArea.hidden=true;
   providerDashboard.hidden=true;
+  if(providerPhotoManager)providerPhotoManager.hidden=true;
   if(!provider){providerOnboarding.hidden=false;return;}
+  renderProviderPhotoManager();
   if(provider.application_status!=='approved'){
     providerPendingArea.hidden=false;
     $('#providerPendingTitle').textContent=provider.application_status==='changes_requested'?'Correction requested':provider.application_status==='rejected'?'Application not approved':'Application '+String(provider.application_status||'submitted').replaceAll('_',' ');
@@ -1681,11 +1716,13 @@ providerReg?.addEventListener('submit',async(event)=>{
     const businessIdFile=$('#providerBusinessIdDocument').files[0];
     const businessIdPath=businessIdFile?await uploadProviderVerification(businessIdFile,'business-id'):(provider?.business_id_document_path||null);
     if(!businessIdPath)throw new Error('Business ID / identification document is required.');
-    const [businessLicencePath,registrationCertificatePath,professionalLicencePath,otherPermitPaths]=await Promise.all([
+    const [businessLicencePath,registrationCertificatePath,professionalLicencePath,otherPermitPaths,profilePicturePath,passportPhotoPath]=await Promise.all([
       $('#providerBusinessLicence').files[0]?uploadProviderVerification($('#providerBusinessLicence').files[0],'business-licence'):Promise.resolve(provider?.business_licence_path||null),
       $('#providerRegistrationCertificate').files[0]?uploadProviderVerification($('#providerRegistrationCertificate').files[0],'registration-certificate'):Promise.resolve(provider?.registration_certificate_path||null),
       $('#providerProfessionalLicence').files[0]?uploadProviderVerification($('#providerProfessionalLicence').files[0],'professional-licence'):Promise.resolve(provider?.professional_licence_path||null),
-      otherFiles.length?Promise.all(otherFiles.map((file,index)=>uploadProviderVerification(file,'permit-'+index))):Promise.resolve(provider?.other_permit_paths||[])
+      otherFiles.length?Promise.all(otherFiles.map((file,index)=>uploadProviderVerification(file,'permit-'+index))):Promise.resolve(provider?.other_permit_paths||[]),
+      $('#providerProfilePictureInitial').files[0]?uploadProviderPublicPhoto($('#providerProfilePictureInitial').files[0]):Promise.resolve(provider?.profile_picture_path||null),
+      $('#providerPassportPhotoInitial').files[0]?uploadProviderPassportPhoto($('#providerPassportPhotoInitial').files[0]):Promise.resolve(provider?.passport_photo_path||null)
     ]);
     status($('#providerRegistrationStatus'),'Sending application to LEOGO Admin…');
     const {error}=await client.rpc('submit_service_provider_application',{
@@ -1700,6 +1737,13 @@ providerReg?.addEventListener('submit',async(event)=>{
       p_professional_licence_path:professionalLicencePath,p_other_permit_paths:otherPermitPaths
     });
     if(error)throw error;
+    if(profilePicturePath||passportPhotoPath){
+      const photoUpdate=await client.rpc('service_provider_update_profile_photos',{
+        p_profile_picture_path:profilePicturePath,
+        p_passport_photo_path:passportPhotoPath
+      });
+      if(photoUpdate.error)throw photoUpdate.error;
+    }
     status($('#providerRegistrationStatus'),'Service Provider application submitted successfully.','success');
     await loadProvider();
   }catch(error){status($('#providerRegistrationStatus'),error?.message||'Service Provider application could not be submitted.','error');}
@@ -1794,6 +1838,42 @@ function renderProviderNotifications(){
     '<article class="seller-notification-item '+(item.read_at?'':'unread')+'"><div><strong>'+escapeHtml(item.title)+'</strong><p>'+escapeHtml(item.message)+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div>'+(item.read_at?'':'<span>NEW</span>')+'</article>'
   ).join(''):'<div class="empty-card">No Service Provider notifications yet.</div>';
 }
+
+$('#providerPhotoForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const profileFile=$('#providerProfilePictureUpdate')?.files?.[0]||null;
+  const passportFile=$('#providerPassportPhotoUpdate')?.files?.[0]||null;
+  if(!profileFile&&!passportFile){
+    status($('#providerPhotoStatus'),'Choose a profile picture or passport photo to save.','error');
+    return;
+  }
+  const button=event.currentTarget.querySelector('button[type="submit"]');
+  const original=button.textContent;
+  button.disabled=true;
+  button.textContent='Saving…';
+  try{
+    status($('#providerPhotoStatus'),'Uploading profile photos…');
+    const [profilePath,passportPath]=await Promise.all([
+      profileFile?uploadProviderPublicPhoto(profileFile):Promise.resolve(null),
+      passportFile?uploadProviderPassportPhoto(passportFile):Promise.resolve(null)
+    ]);
+    const {data,error}=await client.rpc('service_provider_update_profile_photos',{
+      p_profile_picture_path:profilePath,
+      p_passport_photo_path:passportPath
+    });
+    if(error)throw error;
+    provider=data||provider;
+    event.currentTarget.reset();
+    renderProviderPhotoManager();
+    status($('#providerPhotoStatus'),'Profile photos saved successfully.','success');
+  }catch(error){
+    status($('#providerPhotoStatus'),error?.message||'Profile photos could not be saved.','error');
+  }finally{
+    button.disabled=false;
+    button.textContent=original;
+  }
+});
+
 $('#markAllProviderNotificationsRead')?.addEventListener('click',async()=>{
   const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'service_provider'});
   if(error){status($('#providerServiceFormStatus'),error.message,'error');return;}
