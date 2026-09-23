@@ -138,7 +138,7 @@ $('#partnerLoginForm').addEventListener('submit',async e=>{
 $('#partnerRegisterForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Creating account…');const {data,error}=await client.auth.signUp({email:$('#partnerRegisterEmail').value.trim(),password:$('#partnerRegisterPassword').value,options:{data:{full_name:$('#partnerRegisterName').value.trim()}}});if(error){status($('#partnerAuthStatus'),error.message,'error');return;}status($('#partnerAuthStatus'),data.session?'Account created. Choose the partnership you want to register for.':'Account created. Sign in to continue to partnership selection.','success');});
 logout.addEventListener('click',()=>client.auth.signOut());
 $('#backToPartnerships').addEventListener('click',()=>showRolePicker());
-$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
+$$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   if(button.disabled)return;
   if(button.dataset.roleTarget==='seller')openSellerRole();
   if(button.dataset.roleTarget==='service_provider')openProviderRole();
@@ -342,7 +342,7 @@ function renderSeller(){
   sellerPendingArea.hidden=!hasSeller || state==='approved';
   sellerDocsForm.hidden=!hasSeller || !['changes_requested','rejected'].includes(state);
   $('#sellerProfileButton').hidden=!hasSeller;
-  $('[data-seller-view="products"],[data-seller-view="orders"],[data-seller-view="reviews"],[data-seller-view="flashsale"],[data-seller-view="settlements"]').forEach(button=>button.hidden=state!=='approved');
+  $$('[data-seller-view="products"],[data-seller-view="orders"],[data-seller-view="reviews"],[data-seller-view="flashsale"],[data-seller-view="settlements"]').forEach(button=>button.hidden=state!=='approved');
 
   if(seller){
     $('#sellerSidebarBusiness').textContent=seller.business_name||'Seller Account';
@@ -1734,8 +1734,8 @@ function renderProviderServices(){
       '<div class="product-actions"><button class="secondary" type="button" data-provider-edit-service="'+escapeHtml(item.id)+'">Edit</button><button class="danger-data-button" type="button" data-provider-delete-service="'+escapeHtml(item.id)+'">Delete</button></div>'+
     '</article>'
   ).join(''):'<div class="empty-card">No services added yet. Use the form above to create your first service.</div>';
-  $('[data-provider-edit-service]').forEach((button)=>button.addEventListener('click',()=>editProviderService(button.dataset.providerEditService)));
-  $('[data-provider-delete-service]').forEach((button)=>button.addEventListener('click',()=>deleteProviderService(button.dataset.providerDeleteService,button)));
+  $$('[data-provider-edit-service]').forEach((button)=>button.addEventListener('click',()=>editProviderService(button.dataset.providerEditService)));
+  $$('[data-provider-delete-service]').forEach((button)=>button.addEventListener('click',()=>deleteProviderService(button.dataset.providerDeleteService,button)));
 }
 function resetProviderServiceForm(){
   editingProviderService=null;
