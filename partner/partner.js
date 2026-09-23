@@ -794,12 +794,16 @@ function renderSellerOrders(){
   $('#sellerOrderCount').textContent=sellerOrders.filter(o=>!['delivered','cancelled'].includes(o.fulfilment_status)).length;
   $('#sellerOrderList').innerHTML=rows.length?rows.map(o=>{
     const items=(o.items||[]).map(i=>'<li>'+escapeHtml(i.product_name)+(i.variant_name?' — <b>'+escapeHtml(i.variant_name)+'</b>':'')+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
+    const reviewsForOrder=sellerReviews.filter(review=>review.order_reference===o.order_reference);
     const next=o.fulfilment_status==='new'
       ? '<button data-order-next="received" data-seller-order-id="'+escapeHtml(o.seller_order_id)+'">Mark Received</button>'
       : o.fulfilment_status==='received'
         ? '<button data-order-next="packed_ready" data-seller-order-id="'+escapeHtml(o.seller_order_id)+'">Packed & Ready for Pickup</button>'
         : '';
-    return '<article class="seller-order-card"><header><div><span>'+escapeHtml(o.order_reference)+'</span><h4>'+escapeHtml(o.receiver_name)+'</h4><small>'+formatDate(o.created_at)+'</small></div><div><b class="order-status '+escapeHtml(o.fulfilment_status)+'">'+escapeHtml(o.fulfilment_status.replaceAll('_',' ').toUpperCase())+'</b><b class="payment-status">'+escapeHtml(orderPaymentLabel(o.payment_status))+'</b></div></header><div class="seller-order-body"><ul>'+items+'</ul><div class="seller-order-meta"><span><small>Seller subtotal</small><strong>'+money(o.seller_subtotal_kes)+'</strong></span><span><small>Customer phone</small><strong>'+escapeHtml(o.contact_number)+'</strong></span><span><small>Delivery</small><strong>'+escapeHtml(sellerOrderAddress(o))+'</strong></span><span><small>Order status</small><strong>'+escapeHtml((o.order_status||'').replaceAll('_',' ').toUpperCase())+'</strong></span><span><small>LEOGO Rider</small><strong>'+escapeHtml(o.rider_name||'Awaiting assignment')+'</strong></span><span><small>Delivery status</small><strong>'+escapeHtml((o.delivery_status||'awaiting_assignment').replaceAll('_',' ').toUpperCase())+'</strong></span></div></div><footer>'+next+(o.fulfilment_status==='packed_ready'&&o.delivery_status!=='picked_up'?'<strong>Waiting for assigned LEOGO rider pickup</strong>':'')+(o.fulfilment_status==='delivered'?'<strong class="delivered-confirmation">✓ Delivered to customer</strong>':'')+'</footer></article>';
+    const reviewSummary=reviewsForOrder.length
+      ? '<button type="button" class="secondary seller-order-review-link" data-open-order-reviews="'+escapeHtml(o.order_reference)+'">★ '+reviewsForOrder.length+' Approved Product Review'+(reviewsForOrder.length===1?'':'s')+'</button>'
+      : '';
+    return '<article class="seller-order-card" data-order-reference="'+escapeHtml(o.order_reference)+'"><header><div><span>'+escapeHtml(o.order_reference)+'</span><h4>'+escapeHtml(o.receiver_name)+'</h4><small>'+formatDate(o.created_at)+'</small></div><div><b class="order-status '+escapeHtml(o.fulfilment_status)+'">'+escapeHtml(o.fulfilment_status.replaceAll('_',' ').toUpperCase())+'</b><b class="payment-status">'+escapeHtml(orderPaymentLabel(o.payment_status))+'</b></div></header><div class="seller-order-body"><ul>'+items+'</ul><div class="seller-order-meta"><span><small>Seller subtotal</small><strong>'+money(o.seller_subtotal_kes)+'</strong></span><span><small>Customer phone</small><strong>'+escapeHtml(o.contact_number)+'</strong></span><span><small>Delivery</small><strong>'+escapeHtml(sellerOrderAddress(o))+'</strong></span><span><small>Order status</small><strong>'+escapeHtml((o.order_status||'').replaceAll('_',' ').toUpperCase())+'</strong></span><span><small>LEOGO Rider</small><strong>'+escapeHtml(o.rider_name||'Awaiting assignment')+'</strong></span><span><small>Delivery status</small><strong>'+escapeHtml((o.delivery_status||'awaiting_assignment').replaceAll('_',' ').toUpperCase())+'</strong></span></div></div><footer>'+next+(o.fulfilment_status==='packed_ready'&&o.delivery_status!=='picked_up'?'<strong>Waiting for assigned LEOGO rider pickup</strong>':'')+(o.fulfilment_status==='delivered'?'<strong class="delivered-confirmation">✓ Delivered to customer</strong>':'')+reviewSummary+'</footer></article>';
   }).join(''):'<div class="empty-card">No orders match this filter.</div>';
   $$('[data-order-next]').forEach(button=>button.addEventListener('click',async()=>{
     const label=button.textContent;button.disabled=true;button.textContent='Updating…';
@@ -807,6 +811,13 @@ function renderSellerOrders(){
     if(error){alert(error.message);button.disabled=false;button.textContent=label;return;}
     await Promise.all([loadSellerOrders(),loadPartnerNotifications()]);
   }));
+  $$('[data-open-order-reviews]').forEach(button=>button.addEventListener('click',()=>{
+    openSellerView('reviews');
+    if($('#sellerReviewSearch')) $('#sellerReviewSearch').value=button.dataset.openOrderReviews;
+    renderSellerReviews();
+    window.setTimeout(()=>$('#sellerReviewList')?.scrollIntoView({behavior:'smooth',block:'start'}),60);
+  }));
+
 }
 $$('[data-seller-order-filter]').forEach(button=>button.addEventListener('click',()=>{
   sellerOrderFilter=button.dataset.sellerOrderFilter;
