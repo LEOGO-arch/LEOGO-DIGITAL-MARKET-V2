@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=seller-v12">
+  <link rel="stylesheet" href="partner.css?v=provider-v1">
 </head>
 <body>
 <header class="partner-header">
@@ -20,13 +20,14 @@
   <section class="hero">
     <span>ONE PARTNER URL</span>
     <h1>Join and manage your LEOGO partner account</h1>
-    <p>This portal is the common entry point for Seller, Transporter, Cyber Services, Premium Profile and Accommodation Provider accounts. Sign in once, then open the partner account you registered.</p>
+    <p>This portal is the common entry point for Seller, Service Provider, Transporter, Cyber Services, Premium Profile and Accommodation Provider accounts. Sign in once, then open the partner account you registered.</p>
   </section>
 
   <section class="partnership-picker" id="partnerRolePicker" hidden>
     <div class="section-title"><span>CHOOSE PARTNERSHIP</span><h2>What would you like to do with LEOGO?</h2><p>Your LEOGO login can hold more than one approved partner role.</p></div>
     <div class="role-grid" id="partnerRoleGrid">
       <button data-role-target="seller"><span>🏪</span><strong>Seller</strong><small>Sell products & manage your shop</small></button>
+      <button data-role-target="service_provider"><span>🛠️</span><strong>Service Provider</strong><small>Offer services & manage customer jobs</small></button>
       <button data-role-target="transport" disabled><span>🚚</span><strong>Transporter</strong><small>Registration module comes next</small></button>
       <button data-role-target="cyber" disabled><span>🖥️</span><strong>Cyber Services</strong><small>Registration module comes next</small></button>
       <button data-role-target="premium" disabled><span>🔞</span><strong>Premium Profile</strong><small>Existing Premium registration will be linked here</small></button>
@@ -64,6 +65,108 @@
       <button type="submit">Create LEOGO Account</button>
     </form>
     <p id="partnerAuthStatus" class="status"></p>
+  </section>
+
+
+  <section class="seller-shell provider-shell" id="providerShell" hidden>
+    <section id="providerBootStatus" class="panel seller-boot-status">
+      <div class="seller-boot-spinner" aria-hidden="true"></div>
+      <div><span>SERVICE PROVIDER PORTAL</span><h2 id="providerBootTitle">Opening your Service Provider dashboard…</h2><p id="providerBootMessage">Loading your Service Provider account.</p></div>
+      <button id="retryProviderBoot" class="secondary" type="button" hidden>Retry</button>
+    </section>
+
+    <section id="providerOnboarding" class="panel seller-onboarding" hidden>
+      <div class="seller-onboarding-icon">🛠️</div>
+      <div><span>BECOME A SERVICE PROVIDER</span><h2>Offer your services through LEOGO</h2><p>Register once. LEOGO Admin reviews your identity and service information before your profile can receive customer work.</p></div>
+      <button id="showProviderRegistration" type="button">Register as Service Provider</button>
+    </section>
+
+    <form id="providerRegistrationForm" class="panel seller-registration" hidden>
+      <div class="section-title"><span>SERVICE PROVIDER REGISTRATION</span><h3>Professional / business details</h3><p>Use this form for your first application, or when Admin asks you to correct and resubmit it.</p></div>
+      <div class="form-grid">
+        <label>Business / professional name<input id="providerBusinessName" type="text" maxlength="120" required></label>
+        <label>Owner / professional full name<input id="providerOwnerName" type="text" maxlength="120" required></label>
+        <label>National ID / identification number<input id="providerIdNumber" type="text" maxlength="30" required></label>
+        <label>Phone number<input id="providerPhone" type="tel" placeholder="+2547XXXXXXXX" required></label>
+        <label>Primary service<input id="providerPrimaryService" type="text" maxlength="120" placeholder="e.g. Plumbing, Electrical, Cleaning" required></label>
+        <label>Service category<input id="providerServiceCategory" type="text" maxlength="120" placeholder="e.g. Home Repair"></label>
+        <label>Years of experience<input id="providerExperienceYears" type="number" min="0" max="80" step="1"></label>
+        <label>County<select id="providerCounty" required><option value="">Select county</option></select></label>
+        <label>Sub-County<select id="providerSubCounty" required disabled><option value="">Choose a county first</option></select></label>
+        <label>Town<input id="providerTown" type="text" maxlength="80" required></label>
+        <label class="wide">Business location / landmark<input id="providerLocation" type="text" maxlength="180" required></label>
+        <label class="wide">About your service<textarea id="providerDescription" rows="3" maxlength="1500" placeholder="Describe your skills, equipment, team or service experience."></textarea></label>
+        <label class="wide">Service areas / coverage<textarea id="providerServiceAreaNotes" rows="2" maxlength="800" placeholder="Where can you provide this service?"></textarea></label>
+        <label class="wide">Business ID / identification document <small>Required. Informal providers may upload their own ID card.</small><input id="providerBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+        <label>Business licence <small>Optional</small><input id="providerBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label>CR12 / Registration Certificate <small>Optional</small><input id="providerRegistrationCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label>Professional licence / certificate <small>Optional</small><input id="providerProfessionalLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label class="wide">Other related permits <small>Optional, up to 4 files</small><input id="providerOtherPermits" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple></label>
+      </div>
+      <div class="private-doc-note">🔒 Verification documents are private and available only to you and authorized LEOGO Admin users.</div>
+      <div class="product-actions"><button id="cancelProviderRegistration" class="secondary" type="button">Cancel</button><button type="submit">Submit Service Provider Application</button></div>
+      <p id="providerRegistrationStatus" class="status"></p>
+    </form>
+
+    <section id="providerPendingArea" class="panel" hidden>
+      <div class="section-title"><span>APPLICATION STATUS</span><h3 id="providerPendingTitle">Application submitted</h3><p id="providerPendingMessage">LEOGO Admin will review your Service Provider registration.</p></div>
+      <div id="providerApplicationSummary" class="summary-grid"></div>
+      <div id="providerAdminNote" class="restricted-notice" hidden></div>
+      <div class="product-actions">
+        <button id="providerPendingBack" class="secondary" type="button">← Partnerships</button>
+        <button id="editProviderApplication" type="button" hidden>Correct & Resubmit</button>
+      </div>
+    </section>
+
+    <section id="providerDashboard" class="seller-portal" hidden>
+      <button id="providerBackToPartnerships" class="secondary" type="button">← Partnerships</button>
+      <div class="seller-view-heading">
+        <div><span>SERVICE PROVIDER PORTAL</span><h2 id="providerDashboardName">My Service Business</h2><p id="providerDashboardStatus">Approved Service Provider</p></div>
+        <button id="refreshProviderDashboard" type="button">↻ Refresh</button>
+      </div>
+
+      <div class="seller-overview-grid">
+        <article><span>My Services</span><strong id="providerServiceTotal">0</strong><small>Listings created</small></article>
+        <article><span>Approved</span><strong id="providerServiceApproved">0</strong><small>Ready for customer visibility</small></article>
+        <article><span>Pending Review</span><strong id="providerServicePending">0</strong><small>Waiting for Admin</small></article>
+        <article><span>Availability</span><strong id="providerAvailability">Available</strong><small>Provider account</small></article>
+      </div>
+
+      <section class="panel">
+        <div class="section-title"><span>MY PROFILE</span><h3>Approved provider details</h3><p>Your verification documents remain private.</p></div>
+        <div id="providerProfileSummary" class="summary-grid"></div>
+      </section>
+
+      <form id="providerServiceForm" class="panel">
+        <input id="providerServiceId" type="hidden">
+        <div class="section-title"><span>SERVICES</span><h3 id="providerServiceFormTitle">Add a Service</h3><p>Each new or edited service is sent to LEOGO Admin for review before it becomes customer-facing.</p></div>
+        <div class="form-grid">
+          <label>Service name<input id="providerServiceName" type="text" maxlength="140" required></label>
+          <label>Category / group<input id="providerServiceCategoryName" type="text" maxlength="120" placeholder="e.g. Plumbing"></label>
+          <label>Pricing model<select id="providerPricingModel" required><option value="quote">Price after quote</option><option value="fixed">Fixed price</option><option value="from">Starting from</option><option value="hourly">Per hour</option></select></label>
+          <label>Price from / fixed (KSh)<input id="providerPriceFrom" type="number" min="0" step="0.01"></label>
+          <label>Maximum price (KSh)<input id="providerPriceTo" type="number" min="0" step="0.01"></label>
+          <label>Unit label<input id="providerUnitLabel" type="text" maxlength="80" placeholder="e.g. per visit, per room"></label>
+          <label class="wide">Service description<textarea id="providerServiceDescription" rows="4" maxlength="2500" required></textarea></label>
+          <label class="wide">Service area<input id="providerServiceArea" type="text" maxlength="300" placeholder="e.g. Siaya Town and nearby estates"></label>
+          <label class="wide">Availability notes<input id="providerAvailabilityNotes" type="text" maxlength="300" placeholder="e.g. Mon-Sat, 8am-6pm"></label>
+        </div>
+        <div class="toggle-card"><label><input id="providerIsAvailable" type="checkbox" checked><span><strong>Currently available</strong><small>Turn this off temporarily without deleting the service.</small></span></label></div>
+        <div class="product-actions"><button id="providerServiceReset" class="secondary" type="button" hidden>Cancel Edit</button><button type="submit">Save & Send for Approval</button></div>
+        <p id="providerServiceFormStatus" class="status"></p>
+      </form>
+
+      <section class="panel">
+        <div class="section-title"><span>MY SERVICES</span><h3>Service listings</h3><p>Track approval status, edit details or remove a listing you no longer offer.</p></div>
+        <div id="providerServiceList" class="product-list"><div class="empty-card">No services added yet.</div></div>
+      </section>
+
+      <section class="panel seller-notification-panel">
+        <div class="section-title compact"><span>NOTIFICATIONS</span><h3>Service Provider activity</h3><p>Admin decisions and future service-job events will appear here.</p></div>
+        <div class="notification-toolbar"><button id="markAllProviderNotificationsRead" class="secondary" type="button">Mark all read</button></div>
+        <div id="providerNotificationList" class="seller-notification-list"><div class="empty-card">No notifications yet.</div></div>
+      </section>
+    </section>
   </section>
 
   <section class="seller-shell" id="sellerShell" hidden>
@@ -395,5 +498,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=seller-v36" defer></script>
+<script src="partner.js?v=provider-v1" defer></script>
 </body></html>
