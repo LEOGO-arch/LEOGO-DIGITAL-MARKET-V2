@@ -46,6 +46,7 @@
         <button data-admin-view="orders"><i>▤</i><span>Orders</span></button>
         <button data-admin-view="aftersales"><i>↺</i><span>Aftersales</span><em id="sidebarAftersalesCount">0</em></button>
         <button data-admin-view="customers"><i>♙</i><span>Customers</span></button>
+        <button data-admin-view="chat"><i>💬</i><span>Customer Care Chats</span><em id="sidebarChatCount">0</em></button>
         <button data-admin-view="products"><i>□</i><span>Products &amp; Categories</span></button>
         <button data-admin-view="sellers"><i>▣</i><span>Sellers</span></button>
         <button data-admin-view="settlements"><i>₿</i><span>Seller Settlements</span><em id="sidebarSettlementCount">0</em></button>
@@ -292,6 +293,57 @@
         <div class="section-head"><div><span>CUSTOMER MANAGEMENT</span><h2>Customers</h2><p>Authenticated customer accounts and saved profile information.</p></div><input class="table-search" id="customerSearch" type="search" placeholder="Search customer…"></div>
         <div class="selection-toolbar" id="customerToolbar"><label><input id="selectAllCustomers" type="checkbox"> Select all on page</label><button id="selectFilteredCustomers" type="button">Select all matching filter</button><span id="customerSelectedCount">0 selected</span><button data-export-table="customers" data-export-scope="selected" type="button">Export Selected</button><button data-export-table="customers" data-export-scope="filtered" type="button">Export All Filtered</button><button id="clearCustomerSelection" type="button">Clear</button></div>
         <div class="table-card"><div class="responsive-table"><table><thead><tr><th aria-label="Select"></th><th>Customer</th><th>Phone</th><th>Location</th><th>Registered</th><th>Last sign in</th></tr></thead><tbody id="customerTableBody"><tr><td colspan="6">Loading customers…</td></tr></tbody></table></div></div>
+      </section>
+
+      <section class="admin-panel" data-admin-panel="chat">
+        <div class="section-head">
+          <div><span>LEOGO CUSTOMER CARE</span><h2>Customer Care Chats</h2><p>Private person-to-person conversations between customers and their assigned LEOGO Customer Support Officer.</p></div>
+          <button id="refreshSupportChats" class="primary-button" type="button">↻ Refresh Chats</button>
+        </div>
+
+        <div class="support-chat-summary">
+          <article><span>Waiting</span><strong id="supportChatWaitingCount">0</strong><small>Needs Customer Care assignment</small></article>
+          <article><span>My Open Chats</span><strong id="supportChatMineCount">0</strong><small>Assigned to this desk</small></article>
+          <article><span>Unread</span><strong id="supportChatUnreadCount">0</strong><small>New customer messages</small></article>
+        </div>
+
+        <div class="support-chat-workspace">
+          <aside class="support-chat-inbox">
+            <div class="support-chat-inbox-tools">
+              <input id="supportChatSearch" type="search" placeholder="Search customer or message…">
+              <select id="supportChatFilter">
+                <option value="active">Active & waiting</option>
+                <option value="mine">Assigned to me</option>
+                <option value="waiting">Waiting for assignment</option>
+                <option value="closed">Closed</option>
+                <option value="all">All chats</option>
+              </select>
+            </div>
+            <div id="supportChatThreadList" class="support-chat-thread-list"><div class="loading-card">Loading Customer Care chats…</div></div>
+          </aside>
+
+          <section class="support-chat-conversation">
+            <div id="supportChatEmpty" class="support-chat-empty">
+              <span>💬</span><h3>Select a customer conversation</h3><p>Waiting conversations can be claimed by an authorized Customer Support Officer.</p>
+            </div>
+            <div id="supportChatActive" class="support-chat-active" hidden>
+              <header class="support-chat-active-head">
+                <div><span>CUSTOMER</span><h3 id="supportChatCustomerName">Customer</h3><p id="supportChatCustomerMeta">—</p></div>
+                <div class="support-chat-active-actions">
+                  <span id="supportChatAssignment">Unassigned</span>
+                  <button id="claimSupportChat" type="button">Claim Chat</button>
+                  <button id="toggleSupportChatStatus" type="button" class="secondary">Close Chat</button>
+                </div>
+              </header>
+              <div id="supportChatMessages" class="support-chat-messages" aria-live="polite"></div>
+              <form id="supportChatReplyForm" class="support-chat-reply">
+                <label for="supportChatReply">Reply as LEOGO Customer Care</label>
+                <div><textarea id="supportChatReply" rows="2" maxlength="2000" placeholder="Write a private reply to the customer…" required></textarea><button id="sendSupportChatReply" type="submit">Send Reply</button></div>
+                <small id="supportChatStatus" role="status" aria-live="polite"></small>
+              </form>
+            </div>
+          </section>
+        </div>
       </section>
 
       <section class="admin-panel" data-admin-panel="products">
