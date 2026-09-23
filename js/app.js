@@ -2712,7 +2712,58 @@
     }
   });
 
+  const customerMobileMenu=document.getElementById('customerMobileMenu');
+  const customerMobileMenuScrim=document.getElementById('customerMobileMenuScrim');
+  const openCustomerMobileMenu=document.getElementById('openCustomerMobileMenu');
+  const closeCustomerMobileMenu=document.getElementById('closeCustomerMobileMenu');
+
+  const hideCustomerMobileMenu=({restoreFocus=false}={})=>{
+    if(!customerMobileMenu) return;
+    customerMobileMenu.classList.remove('open');
+    customerMobileMenu.setAttribute('aria-hidden','true');
+    customerMobileMenuScrim?.classList.remove('open');
+    customerMobileMenuScrim?.setAttribute('aria-hidden','true');
+    openCustomerMobileMenu?.setAttribute('aria-expanded','false');
+    document.body.classList.remove('customer-mobile-menu-open');
+    if(restoreFocus) openCustomerMobileMenu?.focus();
+  };
+
+  const showCustomerMobileMenu=()=>{
+    if(!customerMobileMenu) return;
+    closeCustomerNotifications?.();
+    customerMobileMenu.classList.add('open');
+    customerMobileMenu.setAttribute('aria-hidden','false');
+    customerMobileMenuScrim?.classList.add('open');
+    customerMobileMenuScrim?.setAttribute('aria-hidden','false');
+    openCustomerMobileMenu?.setAttribute('aria-expanded','true');
+    document.body.classList.add('customer-mobile-menu-open');
+    window.setTimeout(()=>closeCustomerMobileMenu?.focus(),40);
+  };
+
+  openCustomerMobileMenu?.addEventListener('click',(event)=>{
+    event.preventDefault();
+    if(customerMobileMenu?.classList.contains('open')) hideCustomerMobileMenu({restoreFocus:true});
+    else showCustomerMobileMenu();
+  });
+  closeCustomerMobileMenu?.addEventListener('click',()=>hideCustomerMobileMenu({restoreFocus:true}));
+  customerMobileMenuScrim?.addEventListener('click',()=>hideCustomerMobileMenu({restoreFocus:true}));
+  customerMobileMenu?.addEventListener('click',(event)=>{
+    if(event.target.closest?.('[data-mobile-menu-close]')){
+      hideCustomerMobileMenu();
+    }
+  });
+
+  window.addEventListener('resize',()=>{
+    if(window.innerWidth>900 && customerMobileMenu?.classList.contains('open')){
+      hideCustomerMobileMenu();
+    }
+  });
+
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && customerMobileMenu?.classList.contains('open')) {
+      hideCustomerMobileMenu({restoreFocus:true});
+      return;
+    }
     if (event.key === 'Escape' && customerShellModal?.classList.contains('is-open')) closeCustomerShell();
   });
 
