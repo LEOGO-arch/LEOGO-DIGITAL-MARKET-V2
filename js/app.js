@@ -1337,8 +1337,8 @@
 
   const publicProductReviewsHtml = (product) => {
     const reviews=Array.isArray(product.approved_reviews)?product.approved_reviews:[];
-    if(!reviews.length) return '<div class="live-product-reviews" data-product-review-list hidden><p>No approved reviews yet.</p></div>';
-    return '<div class="live-product-reviews" data-product-review-list hidden>'+
+    if(!reviews.length) return '<div class="live-product-reviews"><p>No approved reviews yet.</p></div>';
+    return '<div class="live-product-reviews">'+
       reviews.map((review)=>'<article><div><strong>'+productRatingStars(review.rating)+'</strong><span>'+Number(review.rating)+'/5</span></div>'+
         (review.variant_name?'<small>Variant: '+receiptEscape(review.variant_name)+'</small>':'')+
         (review.comment?'<p>'+receiptEscape(review.comment)+'</p>':'<p>Rating only.</p>')+
@@ -1397,7 +1397,7 @@
           '<div class="live-product-detail-stock"><small>Availability</small><strong data-live-product-stock>Qty '+Number(hasVariants?variantStock:product.quantity_available || 0)+' '+receiptEscape(product.measurement_unit || 'item')+'</strong></div>'+
           (product.product_details?'<div class="live-product-detail-section"><div class="live-product-detail-label">Description</div><p class="live-product-description">'+receiptEscape(String(product.product_details || ''))+'</p></div>':'')+
           (reviewCount
-            ? '<div class="live-product-detail-section"><button type="button" class="live-product-reviews-button" data-product-reviews-toggle>Reviews & Ratings ('+reviewCount+')</button>'+publicProductReviewsHtml(product)+'</div>'
+            ? '<div class="live-product-detail-section live-product-review-section"><div class="live-product-detail-label">Reviews & Ratings ('+reviewCount+')</div>'+publicProductReviewsHtml(product)+'</div>'
             : '<div class="live-product-detail-section live-product-no-reviews"><span>No approved reviews yet.</span></div>')+
         '</div>'+
       '</div>'+
@@ -1666,17 +1666,6 @@
       details.hidden=!opening;
       detailsButton.setAttribute('aria-expanded',String(opening));
       detailsButton.textContent=opening?'Hide Details':'View Details';
-      return;
-    }
-
-    const reviewsButton=event.target.closest('[data-product-reviews-toggle]');
-    if(reviewsButton){
-      const card=reviewsButton.closest('[data-live-product-card]');
-      const list=card?.querySelector('[data-product-review-list]');
-      if(!list) return;
-      const opening=list.hidden;
-      list.hidden=!opening;
-      reviewsButton.textContent=opening?'Hide Reviews':'View Reviews';
       return;
     }
 
