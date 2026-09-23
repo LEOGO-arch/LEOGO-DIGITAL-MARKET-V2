@@ -1567,7 +1567,11 @@ async function uploadProviderPassportPhoto(file){
   if(!file)return null;
   if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Passport photo must be JPG, PNG or WEBP.');
   if(file.size>5242880)throw new Error('Passport photo must be 5 MB or smaller.');
-  return uploadProviderVerification(file,'passport-photo');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/passport-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('service-provider-passport-photo').upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
 }
 function providerPublicPhotoUrl(path){
   return path?client.storage.from('service-provider-public-media').getPublicUrl(path).data.publicUrl:'';
