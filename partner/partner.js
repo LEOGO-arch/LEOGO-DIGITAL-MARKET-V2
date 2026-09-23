@@ -1688,6 +1688,7 @@ function openProviderRegistration(editExisting=false){
   providerOnboarding.hidden=true;
   providerPendingArea.hidden=true;
   providerDashboard.hidden=true;
+  if(providerPhotoManager)providerPhotoManager.hidden=true;
   providerReg.hidden=false;
   status($('#providerRegistrationStatus'),'');
   if(editExisting&&provider)populateProviderApplication();
