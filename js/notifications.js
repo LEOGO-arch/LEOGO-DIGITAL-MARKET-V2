@@ -71,7 +71,7 @@
     list.innerHTML = notifications.map((item) => `
       <article class="customer-notification-item ${item.read_at ? '' : 'unread'}" data-notification-id="${escapeHtml(item.id)}">
         <button type="button" class="customer-notification-open" data-notification-id="${escapeHtml(item.id)}" data-action-view="${escapeHtml(item.action_view || '')}">
-          <span class="customer-notification-icon">${item.notification_type === 'payment' ? '💳' : item.notification_type === 'premium' ? '18+' : '🔔'}</span>
+          <span class="customer-notification-icon">${item.notification_type === 'payment' ? '💳' : item.notification_type === 'premium' ? '18+' : item.notification_type === 'support' ? '💬' : '🔔'}</span>
           <span class="customer-notification-copy">
             <strong>${escapeHtml(item.title)}</strong>
             <span>${escapeHtml(item.message)}</span>
@@ -103,6 +103,12 @@
           window.leogoOpenCustomerView?.('aftersales');
           document.dispatchEvent(new CustomEvent('leogo:customer-data-refresh',{
             detail:{source:'aftersales-notification-open'}
+          }));
+        } else if (action === 'chat') {
+          closePanel();
+          window.leogoOpenCustomerView?.('chat');
+          document.dispatchEvent(new CustomEvent('leogo:customer-data-refresh',{
+            detail:{source:'customer-care-notification-open'}
           }));
         }
       });
