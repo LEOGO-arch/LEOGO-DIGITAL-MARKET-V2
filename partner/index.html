@@ -97,6 +97,8 @@
         <label class="wide">Business location / landmark<input id="providerLocation" type="text" maxlength="180" required></label>
         <label class="wide">About your service<textarea id="providerDescription" rows="3" maxlength="1500" placeholder="Describe your skills, equipment, team or service experience."></textarea></label>
         <label class="wide">Service areas / coverage<textarea id="providerServiceAreaNotes" rows="2" maxlength="800" placeholder="Where can you provide this service?"></textarea></label>
+        <label>Profile picture <small>1 image. This is the picture customers will see after your account is approved.</small><input id="providerProfilePictureInitial" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        <label>Passport-size photo <small>1 image. Private — visible only to you and authorized LEOGO Admin.</small><input id="providerPassportPhotoInitial" type="file" accept="image/jpeg,image/png,image/webp"></label>
         <label class="wide">Business ID / identification document <small>Required. Informal providers may upload their own ID card.</small><input id="providerBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
         <label>Business licence <small>Optional</small><input id="providerBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
         <label>CR12 / Registration Certificate <small>Optional</small><input id="providerRegistrationCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
@@ -107,6 +109,26 @@
       <div class="product-actions"><button id="cancelProviderRegistration" class="secondary" type="button">Cancel</button><button type="submit">Submit Service Provider Application</button></div>
       <p id="providerRegistrationStatus" class="status"></p>
     </form>
+
+    <section id="providerPhotoManager" class="panel provider-photo-manager" hidden>
+      <div class="section-title"><span>PROFILE PHOTOS</span><h3>Customer Profile & Private Verification Photo</h3><p>Your profile picture is customer-facing only after approval. Your passport photo stays private for authorized LEOGO Admin review.</p></div>
+      <div class="provider-photo-layout">
+        <div class="provider-public-photo-preview" id="providerPublicPhotoPreview"><span>👤</span></div>
+        <div class="provider-photo-copy">
+          <strong id="providerPublicPhotoState">No profile picture added</strong>
+          <small id="providerPassportPhotoState">Passport photo: not added</small>
+        </div>
+      </div>
+      <form id="providerPhotoForm">
+        <div class="form-grid">
+          <label>Profile picture <small>JPG, PNG or WEBP. Max 5 MB. Replaces the current customer-facing picture.</small><input id="providerProfilePictureUpdate" type="file" accept="image/jpeg,image/png,image/webp"></label>
+          <label>Passport-size photo <small>Private Admin verification image. JPG, PNG or WEBP. Max 5 MB.</small><input id="providerPassportPhotoUpdate" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        </div>
+        <div class="private-doc-note">🔒 Passport-size photo is never returned in public customer Service Provider data.</div>
+        <div class="product-actions"><button type="submit">Save Profile Photos</button></div>
+        <p id="providerPhotoStatus" class="status"></p>
+      </form>
+    </section>
 
     <section id="providerPendingArea" class="panel" hidden>
       <div class="section-title"><span>APPLICATION STATUS</span><h3 id="providerPendingTitle">Application submitted</h3><p id="providerPendingMessage">LEOGO Admin will review your Service Provider registration.</p></div>
