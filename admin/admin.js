@@ -3248,7 +3248,7 @@
         '<td data-label="Action">'+action+'</td>'+
       '</tr>';
     }).join(''):'<tr><td colspan="7">No Service Listings match this filter.</td></tr>';
-    $('[data-open-service-listing-approval]',target).forEach((button)=>button.addEventListener('click',()=>openApproval('service_listing',button.dataset.openServiceListingApproval)));
+    $$('[data-open-service-listing-approval]',target).forEach((button)=>button.addEventListener('click',()=>openApproval('service_listing',button.dataset.openServiceListingApproval)));
   };
   const loadServiceListings=async()=>{
     const {data,error}=await db.rpc('admin_list_service_listings');
