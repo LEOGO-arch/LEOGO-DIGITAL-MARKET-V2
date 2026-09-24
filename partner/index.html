@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=partner-earnings-1">
+  <link rel="stylesheet" href="partner.css?v=transport-foundation-1">
 <style>
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
 </style></head>
@@ -33,7 +33,7 @@
     <div class="role-grid" id="partnerRoleGrid">
       <button data-role-target="seller"><span>🏪</span><strong>Seller</strong><small>Sell products & manage your shop</small></button>
       <button data-role-target="service_provider"><span>🛠️</span><strong>Service Provider</strong><small>Offer services & manage customer jobs</small></button>
-      <button data-role-target="transport" disabled><span>🚚</span><strong>Transporter</strong><small>Registration module comes next</small></button>
+      <button data-role-target="transport"><span>🚚</span><strong>Transport & Parcel</strong><small>Register vehicles and receive transport / parcel work</small></button>
       <button data-role-target="cyber" disabled><span>🖥️</span><strong>Cyber Services</strong><small>Registration module comes next</small></button>
       <button data-role-target="premium" disabled><span>🔞</span><strong>Premium Profile</strong><small>Existing Premium registration will be linked here</small></button>
       <button data-role-target="accommodation" disabled><span>🏨</span><strong>Accommodation Provider</strong><small>Existing provider registration will be linked here</small></button>
@@ -340,6 +340,202 @@
             <div id="providerProfileSummary" class="summary-grid"></div>
           </section>
           <div id="providerProfilePhotoSlot"></div>
+        </section>
+      </div>
+    </section>
+  </section>
+
+  <section class="seller-shell provider-shell transport-shell" id="transportShell" hidden>
+    <section id="transportBootStatus" class="panel seller-boot-status">
+      <div class="seller-boot-spinner" aria-hidden="true"></div>
+      <div><span>TRANSPORT & PARCEL PORTAL</span><h2 id="transportBootTitle">Opening your Transport Provider dashboard…</h2><p id="transportBootMessage">Loading your Transport Provider account.</p></div>
+      <button id="retryTransportBoot" class="secondary" type="button" hidden>Retry</button>
+    </section>
+
+    <section id="transportOnboarding" class="panel seller-onboarding" hidden>
+      <div class="seller-onboarding-icon">🚚</div>
+      <div><span>BECOME A TRANSPORT PROVIDER</span><h2>Offer Transport & Parcel Delivery through LEOGO</h2><p>Register your operator or business details first. LEOGO Admin must approve the account before vehicles can be published or assigned customer transport jobs.</p></div>
+      <button id="showTransportRegistration" type="button">Register Transport Provider</button>
+    </section>
+
+    <form id="transportRegistrationForm" class="panel seller-registration" hidden>
+      <div class="section-title"><span>TRANSPORT PROVIDER REGISTRATION</span><h3>Operator / business details</h3><p>Business ID or personal identification is mandatory. Uploaded verification documents are available only to authorized LEOGO Admin.</p></div>
+      <div class="form-grid">
+        <label>Business / operator name<input id="transportBusinessName" type="text" maxlength="120" required></label>
+        <label>Owner / operator full name<input id="transportOwnerName" type="text" maxlength="120" required></label>
+        <label>National ID / identification number<input id="transportIdNumber" type="text" maxlength="40" required></label>
+        <label>Phone number<input id="transportPhone" type="tel" placeholder="+2547XXXXXXXX" required></label>
+        <label>Provider type<select id="transportProviderType" required>
+          <option value="individual_operator">Individual Operator</option>
+          <option value="transport_company">Transport Company</option>
+          <option value="courier_company">Courier / Parcel Company</option>
+        </select></label>
+        <label>County<select id="transportCounty" required><option value="">Select county</option></select></label>
+        <label>Sub-County<select id="transportSubCounty" required disabled><option value="">Choose a county first</option></select></label>
+        <label>Town<input id="transportTown" type="text" maxlength="100" required></label>
+        <label class="wide">Business / operating location<input id="transportLocation" type="text" maxlength="220" required placeholder="Building, stage, street, landmark or operating base"></label>
+        <label class="wide">Coverage / operating areas<textarea id="transportCoverage" rows="2" maxlength="900" placeholder="Counties, towns or routes you normally cover"></textarea></label>
+        <label class="wide">About the transport business<textarea id="transportDescription" rows="3" maxlength="1500" placeholder="Describe your transport, courier or parcel operation"></textarea></label>
+      </div>
+
+      <fieldset class="transport-service-selector">
+        <legend>Services offered <small>Choose at least one</small></legend>
+        <div class="transport-check-grid">
+          <label><input type="checkbox" name="transportService" value="motorcycle_delivery"> Motorcycle Delivery</label>
+          <label><input type="checkbox" name="transportService" value="parcel_courier"> Parcel / Courier</label>
+          <label><input type="checkbox" name="transportService" value="car_transport"> Car Transport</label>
+          <label><input type="checkbox" name="transportService" value="pickup_transport"> Pickup Transport</label>
+          <label><input type="checkbox" name="transportService" value="van_transport"> Van Transport</label>
+          <label><input type="checkbox" name="transportService" value="truck_lorry"> Lorry / Truck</label>
+          <label><input type="checkbox" name="transportService" value="passenger_transport"> Passenger Transport</label>
+          <label><input type="checkbox" name="transportService" value="other_transport"> Other Transport</label>
+        </div>
+      </fieldset>
+
+      <div class="section-title compact"><span>PRIVATE VERIFICATION</span><h4>Business & Transport Documents</h4><p>These files are never returned in the public customer Transport Provider directory.</p></div>
+      <div class="form-grid">
+        <label class="wide">Business ID / Personal Identification <small>Required</small><input id="transportBusinessIdDocument" type="file" accept=".pdf,image/jpeg,image/png,image/webp"></label>
+        <label>Business Licence <small>Optional</small><input id="transportBusinessLicence" type="file" accept=".pdf,image/jpeg,image/png,image/webp"></label>
+        <label>CR12 / Registration Certificate <small>Optional</small><input id="transportRegistrationCertificate" type="file" accept=".pdf,image/jpeg,image/png,image/webp"></label>
+        <label>Transport / Operator Permit <small>Optional</small><input id="transportOperatorPermit" type="file" accept=".pdf,image/jpeg,image/png,image/webp"></label>
+        <label>Other related permits <small>Optional, multiple</small><input id="transportOtherPermits" type="file" multiple accept=".pdf,image/jpeg,image/png,image/webp"></label>
+      </div>
+      <div class="product-actions"><button id="cancelTransportRegistration" class="secondary" type="button">Cancel</button><button type="submit">Submit Transport Application</button></div>
+      <p id="transportRegistrationStatus" class="status"></p>
+    </form>
+
+    <section id="transportPendingArea" class="panel seller-pending-area" hidden>
+      <div class="section-title"><span>APPLICATION STATUS</span><h3 id="transportPendingTitle">Transport Provider application submitted</h3><p id="transportPendingMessage"></p></div>
+      <div id="transportApplicationSummary" class="summary-grid"></div>
+      <div id="transportAdminNote" class="restricted-notice" hidden></div>
+      <div class="product-actions"><button id="transportPendingBack" class="secondary" type="button">← Partnerships</button><button id="editTransportApplication" type="button" hidden>Correct & Resubmit</button></div>
+    </section>
+
+    <section id="transportDashboard" class="seller-portal transport-portal" hidden>
+      <button id="transportSidebarToggle" class="seller-sidebar-toggle" type="button">☰ Menu</button>
+      <aside id="transportSidebar" class="seller-sidebar transport-sidebar">
+        <div class="seller-sidebar-brand">
+          <span>TRANSPORT PORTAL</span>
+          <strong id="transportSidebarBusiness">My Transport Business</strong>
+          <small id="transportSidebarStatus">APPROVED</small>
+        </div>
+        <nav>
+          <button class="active" data-transport-view="overview" type="button"><span>▦</span>Dashboard / Overview</button>
+          <button data-transport-view="jobs" type="button"><span>📦</span>Received Jobs <b id="transportJobBadge" hidden>0</b></button>
+          <button data-transport-view="vehicles" type="button"><span>🚚</span>Vehicles <b id="transportVehiclePendingBadge" hidden>0</b></button>
+          <button data-transport-view="notifications" type="button"><span>🔔</span>Notifications <b id="transportNotificationBadge" hidden>0</b></button>
+          <button data-transport-view="profile" type="button"><span>♙</span>My Profile</button>
+        </nav>
+        <div class="seller-sidebar-footer"><button id="transportBackToPartnerships" class="secondary" type="button">← Partnerships</button></div>
+      </aside>
+      <button id="transportSidebarScrim" class="seller-sidebar-scrim" type="button" aria-label="Close Transport menu"></button>
+
+      <div class="seller-portal-main">
+        <div class="account-head seller-portal-head">
+          <div><span>TRANSPORT & PARCEL DASHBOARD</span><h2 id="transportDashboardName">My Transport Business</h2><p id="transportViewDescription">Overview of your Transport Provider account.</p></div>
+          <div class="seller-head-actions">
+            <button id="transportNotificationsButton" class="seller-icon-button" type="button" aria-label="Transport notifications">🔔</button>
+            <button id="transportProfileButton" class="secondary" type="button">My Profile</button>
+            <button id="refreshTransportDashboard" type="button">↻ Refresh</button>
+          </div>
+        </div>
+
+        <section class="transport-view active" data-transport-content="overview">
+          <div class="seller-metrics">
+            <article><span>Approved Vehicles</span><strong id="transportApprovedVehicleCount">0</strong><small>Customer-facing vehicles</small></article>
+            <article><span>Pending Vehicles</span><strong id="transportPendingVehicleCount">0</strong><small>Waiting for Admin</small></article>
+            <article><span>Active Jobs</span><strong id="transportActiveJobCount">0</strong><small>Customer jobs</small></article>
+            <article><span>Availability</span><strong id="transportAvailability">available</strong><small>Transport account</small></article>
+          </div>
+          <section class="panel provider-priority-card">
+            <div class="section-title"><span>START HERE</span><h3>Build your approved transport fleet</h3><p>Add each vehicle with its customer-facing profile picture. Driver identity details and passport photos remain private for LEOGO Admin review.</p></div>
+            <div class="seller-overview-actions">
+              <button type="button" data-open-transport-view="vehicles">Add / Manage Vehicles</button>
+              <button type="button" data-open-transport-view="jobs">Received Jobs</button>
+              <button type="button" data-open-transport-view="profile">My Profile</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="transport-view" data-transport-content="jobs">
+          <div class="seller-view-heading"><div><span>RECEIVED JOBS</span><h3>Transport & Parcel Requests</h3><p>Customer job assignment will connect here after the Transport Provider and vehicle approval foundation is verified.</p></div></div>
+          <section class="panel"><div id="transportJobList" class="empty-card">No Transport / Parcel jobs assigned yet.</div></section>
+        </section>
+
+        <section class="transport-view" data-transport-content="vehicles">
+          <div class="seller-view-heading">
+            <div><span>VEHICLES</span><h3>My Transport Vehicles</h3><p>Only Admin-approved vehicles will later be shown to customers or used for job assignment.</p></div>
+            <button id="showTransportVehicleForm" type="button">+ Add Vehicle</button>
+          </div>
+
+          <form id="transportVehicleForm" class="panel" hidden>
+            <input id="transportVehicleId" type="hidden">
+            <div class="section-title"><span>VEHICLE PROFILE</span><h3 id="transportVehicleFormTitle">Add Vehicle</h3><p>The vehicle profile picture is customer-facing after approval. Driver details below remain Admin-only.</p></div>
+            <div class="form-grid">
+              <label>Vehicle type<select id="transportVehicleType" required>
+                <option value="">Choose vehicle type</option>
+                <option>Motorcycle</option><option>Tuk Tuk</option><option>Saloon Car</option><option>SUV</option>
+                <option>Pickup</option><option>Van</option><option>Minibus</option><option>Lorry / Truck</option><option>Other</option>
+              </select></label>
+              <label>Registration / Plate<input id="transportVehiclePlate" type="text" maxlength="40" required></label>
+              <label>Make / Model<input id="transportVehicleMakeModel" type="text" maxlength="120" placeholder="e.g. Toyota Hilux"></label>
+              <label>Colour<input id="transportVehicleColour" type="text" maxlength="60"></label>
+              <label>Capacity description<input id="transportVehicleCapacity" type="text" maxlength="200" placeholder="e.g. 1 tonne, 4 passengers, 3 crates"></label>
+              <label>Maximum parcel weight (kg)<input id="transportVehicleMaxWeight" type="number" min="0.1" step="0.1"></label>
+              <label class="wide">Service area<input id="transportVehicleServiceArea" type="text" maxlength="300" placeholder="e.g. Siaya, Bondo, Kisumu"></label>
+              <label class="wide">Vehicle profile picture <small>Required for a new vehicle; JPG, PNG or WEBP, max 5 MB</small><input id="transportVehiclePicture" type="file" accept="image/jpeg,image/png,image/webp"></label>
+            </div>
+
+            <fieldset class="transport-service-selector">
+              <legend>Services for this vehicle</legend>
+              <div class="transport-check-grid">
+                <label><input type="checkbox" name="transportVehicleService" value="motorcycle_delivery"> Motorcycle Delivery</label>
+                <label><input type="checkbox" name="transportVehicleService" value="parcel_courier"> Parcel / Courier</label>
+                <label><input type="checkbox" name="transportVehicleService" value="car_transport"> Car Transport</label>
+                <label><input type="checkbox" name="transportVehicleService" value="pickup_transport"> Pickup Transport</label>
+                <label><input type="checkbox" name="transportVehicleService" value="van_transport"> Van Transport</label>
+                <label><input type="checkbox" name="transportVehicleService" value="truck_lorry"> Lorry / Truck</label>
+                <label><input type="checkbox" name="transportVehicleService" value="passenger_transport"> Passenger Transport</label>
+                <label><input type="checkbox" name="transportVehicleService" value="other_transport"> Other Transport</label>
+              </div>
+            </fieldset>
+
+            <div class="toggle-card"><label><input id="transportVehicleAvailable" type="checkbox" checked><span><strong>Vehicle available</strong><small>Turn this off temporarily when the vehicle should not receive work.</small></span></label></div>
+
+            <div class="transport-driver-private">
+              <div class="section-title compact"><span>🔒 ADMIN ONLY</span><h4>Driver Details for This Vehicle</h4><p>Driver details and passport photo are private verification information. They must never appear in public Customer Transport Provider data.</p></div>
+              <div class="form-grid">
+                <label>Driver full name<input id="transportDriverName" type="text" maxlength="120"></label>
+                <label>Driver ID number<input id="transportDriverId" type="text" maxlength="40"></label>
+                <label>Driver phone<input id="transportDriverPhone" type="tel" placeholder="+2547XXXXXXXX"></label>
+                <label>Driving licence number<input id="transportDriverLicence" type="text" maxlength="80"></label>
+                <label class="wide">Driver passport photo <small>Private Admin verification image, max 5 MB</small><input id="transportDriverPassport" type="file" accept="image/jpeg,image/png,image/webp"></label>
+              </div>
+            </div>
+
+            <div class="product-actions"><button id="transportVehicleReset" class="secondary" type="button">Close Form</button><button type="submit">Save & Send for Approval</button></div>
+            <p id="transportVehicleStatus" class="status"></p>
+          </form>
+
+          <section class="panel">
+            <div class="section-title"><span>MY VEHICLES</span><h3>Fleet & Approval Status</h3><p>Editing an approved vehicle sends the updated vehicle back to Admin for review.</p></div>
+            <div id="transportVehicleList" class="transport-vehicle-list"><div class="empty-card">No vehicles added yet.</div></div>
+          </section>
+        </section>
+
+        <section class="transport-view" data-transport-content="notifications">
+          <section class="panel seller-notification-panel">
+            <div class="section-title compact"><span>NOTIFICATIONS</span><h3>Transport Provider Activity</h3><p>Application decisions, vehicle approvals and future Transport / Parcel jobs appear here.</p></div>
+            <div class="notification-toolbar"><button id="markAllTransportNotificationsRead" class="secondary" type="button">Mark all read</button></div>
+            <div id="transportNotificationList" class="seller-notification-list"><div class="empty-card">No Transport Provider notifications yet.</div></div>
+          </section>
+        </section>
+
+        <section class="transport-view" data-transport-content="profile">
+          <section class="panel">
+            <div class="section-title"><span>MY PROFILE</span><h3>Transport Provider Registration</h3><p>Your approved business/operator information remains here for later viewing.</p></div>
+            <div id="transportProfileSummary" class="summary-grid"></div>
+          </section>
         </section>
       </div>
     </section>
@@ -710,5 +906,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=partner-earnings-1" defer></script>
+<script src="partner.js?v=transport-foundation-1" defer></script>
 </body></html>
