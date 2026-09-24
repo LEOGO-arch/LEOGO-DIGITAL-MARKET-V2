@@ -11,7 +11,7 @@
   }) : null;
 
   const $ = (selector, root = document) => root.querySelector(selector);
-  const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const $$ = (selector, root = document) => root ? Array.from(root.querySelectorAll(selector)) : [];
   const state = {
     admin: null,
     user: null,
@@ -443,8 +443,8 @@
       ? `<div><div><b>${escapeHtml(item.title)} · ${formatMoney(item.amount_kes)}</b><small>${escapeHtml(item.customer_name||'Customer')} · ${escapeHtml(item.detail||'Payment awaiting verification')} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-payment-view="${escapeHtml(item.view)}" data-dashboard-payment-tab="${escapeHtml(item.tab||'')}">Verify →</button></div>`
       : `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.applicant_name)} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-review="${escapeHtml(item.record_id)}" data-dashboard-kind="${escapeHtml(item.kind)}">Review →</button></div>`
     ).join(''):'<div class="empty-mini">No urgent action required.</div>';
-    $('[data-dashboard-review]',compact).forEach((button)=>button.addEventListener('click',()=>openApproval(button.dataset.dashboardKind,button.dataset.dashboardReview)));
-    $('[data-dashboard-payment-view]',compact).forEach((button)=>button.addEventListener('click',()=>{
+    $$('[data-dashboard-review]',compact).forEach((button)=>button.addEventListener('click',()=>openApproval(button.dataset.dashboardKind,button.dataset.dashboardReview)));
+    $$('[data-dashboard-payment-view]',compact).forEach((button)=>button.addEventListener('click',()=>{
       changeView(button.dataset.dashboardPaymentView);
       if(button.dataset.dashboardPaymentView==='premium')changePremiumAdminTab(button.dataset.dashboardPaymentTab||'subscriptions');
     }));
