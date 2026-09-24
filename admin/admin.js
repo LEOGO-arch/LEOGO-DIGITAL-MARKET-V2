@@ -702,7 +702,7 @@
     approve.textContent = kind === 'wallet_withdrawal' && item.status === 'pending_call' ? 'Mark Customer Called' : 'Approve';
     approve.dataset.reviewAction = kind === 'wallet_withdrawal' && item.status === 'pending_call' ? 'contacted' : 'approve';
     if (awaitingCorrection) {
-      setFormStatus($('#reviewStatus'), 'Waiting for the Seller to correct and resubmit this application. It remains in Approval Center for tracking.', 'info');
+      setFormStatus($('#reviewStatus'), 'Waiting for the partner to correct and resubmit this record. It remains in Approval Center for tracking.', 'info');
     }
     $('#approvalReviewModal').hidden = false;
     await approvalMediaPreview(item.payload || {}, kind);
