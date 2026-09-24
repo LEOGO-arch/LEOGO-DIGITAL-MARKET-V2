@@ -46,6 +46,8 @@
     premiumProfiles: [],
     sellers: [],
     serviceProviders: [],
+    serviceRequests: [],
+    serviceMarketplaceSettings: null,
     sellerSettlementAccounts: [],
     sellerSettlementRequests: [],
     sellerSettlements: [],
@@ -288,6 +290,7 @@
       [loadSupportChats, () => adminHas('support.chat')],
       [loadSellers, () => adminHas('sellers.read')],
       [loadServiceProviders, () => adminHas('approvals.read')],
+      [loadServiceOperations, () => adminHas('approvals.read')],
       [loadSellerSettlements, () => adminHas('settlements.read')],
       [loadDeliveryOps, () => adminHas('orders.read') || adminHas('delivery.manage')],
       [loadServiceLocations, () => adminHas('settings.manage')],
@@ -3245,6 +3248,91 @@
     renderServiceProviders();
   };
 
+  const serviceRequestStatusText=(value)=>({
+    submitted:'Waiting for dispatch',awaiting_payment_verification:'Payment verification',
+    payment_verified:'Payment verified · ready',payment_rejected:'Payment rejected',
+    dispatched:'With provider',accepted:'Accepted',declined:'Provider declined',
+    quoted:'Quote sent to customer',quote_accepted:'Quote accepted',quote_rejected:'Quote rejected',
+    in_progress:'In progress',completed:'Completed',cancelled:'Cancelled'
+  }[value]||String(value||'').replaceAll('_',' '));
+  const renderServiceRequests=()=>{
+    const all=state.serviceRequests||[];
+    $('#adminServiceRequestTotal').textContent=all.length;
+    $('#adminServicePaymentPending').textContent=all.filter(r=>r.request_status==='awaiting_payment_verification').length;
+    $('#adminServiceReadyDispatch').textContent=all.filter(r=>['submitted','payment_verified'].includes(r.request_status)).length;
+    $('#adminServiceActiveJobs').textContent=all.filter(r=>['dispatched','accepted','quoted','quote_accepted','in_progress'].includes(r.request_status)).length;
+    const filter=$('#adminServiceRequestFilter')?.value||'all';
+    let rows=all;
+    if(filter==='awaiting_payment_verification')rows=rows.filter(r=>r.request_status===filter);
+    if(filter==='ready')rows=rows.filter(r=>['submitted','payment_verified'].includes(r.request_status));
+    if(filter==='dispatched')rows=rows.filter(r=>['dispatched','quoted'].includes(r.request_status));
+    if(filter==='active')rows=rows.filter(r=>['accepted','quote_accepted','in_progress'].includes(r.request_status));
+    if(filter==='closed')rows=rows.filter(r=>['completed','cancelled','declined','quote_rejected','payment_rejected'].includes(r.request_status));
+    const target=$('#adminServiceRequestList');if(!target)return;
+    target.innerHTML=rows.length?rows.map(item=>{
+      const actions=[];
+      if(item.request_status==='awaiting_payment_verification'){
+        actions.push('<button class="verify" type="button" data-service-payment="'+escapeHtml(item.id)+'" data-approved="true">Verify Fee</button>');
+        actions.push('<button class="reject" type="button" data-service-payment="'+escapeHtml(item.id)+'" data-approved="false">Reject Fee</button>');
+      }
+      if(['submitted','payment_verified'].includes(item.request_status))actions.push('<button class="dispatch" type="button" data-dispatch-service-request="'+escapeHtml(item.id)+'">Dispatch to Provider</button>');
+      if(!['completed','cancelled'].includes(item.request_status))actions.push('<button class="cancel" type="button" data-cancel-service-request="'+escapeHtml(item.id)+'">Cancel</button>');
+      return '<article class="admin-service-request-card"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at,true))+' · '+escapeHtml(item.service_name||'Service')+'</small></div><b>'+escapeHtml(serviceRequestStatusText(item.request_status))+'</b></header>'+
+        '<div class="admin-service-request-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>PROVIDER</small><strong>'+escapeHtml(item.business_name||'Provider')+'</strong><span>'+escapeHtml(item.provider_phone||'—')+'</span></div><div><small>REQUEST</small><strong>'+(item.request_type==='quotation'?'Paid quotation':'Direct service')+'</strong><span>'+escapeHtml(item.service_location||'—')+'</span></div></div>'+
+        '<p><strong>Job details:</strong> '+escapeHtml(item.request_details||'—')+'</p>'+
+        (item.request_type==='quotation'?'<p><strong>Quotation fee:</strong> '+escapeHtml(formatMoney(item.quotation_fee_kes))+' · '+escapeHtml(String(item.payment_status||'').replaceAll('_',' '))+(item.payment_reference?' · Ref '+escapeHtml(item.payment_reference):'')+'</p>':'')+
+        (item.provider_quote_kes?'<p><strong>Provider quotation:</strong> '+escapeHtml(formatMoney(item.provider_quote_kes))+(item.provider_quote_notes?' · '+escapeHtml(item.provider_quote_notes):'')+'</p>':'')+
+        (item.admin_notes?'<p><strong>Admin note:</strong> '+escapeHtml(item.admin_notes)+'</p>':'')+
+        '<div class="admin-service-request-actions">'+actions.join('')+'</div></article>';
+    }).join(''):'<div class="reserved-module slim"><span>🛠️</span><h3>No matching service requests</h3><p>Requests in this status will appear here.</p></div>';
+  };
+  const loadServiceOperations=async()=>{
+    const [requestsResult,settingsResult]=await Promise.all([
+      db.rpc('admin_list_service_requests'),
+      db.rpc('admin_get_service_marketplace_settings')
+    ]);
+    if(requestsResult.error)throw requestsResult.error;
+    if(settingsResult.error)throw settingsResult.error;
+    state.serviceRequests=Array.isArray(requestsResult.data)?requestsResult.data:[];
+    state.serviceMarketplaceSettings=settingsResult.data||{quotation_fee_kes:50};
+    if($('#adminServiceQuotationFee'))$('#adminServiceQuotationFee').value=Number(state.serviceMarketplaceSettings.quotation_fee_kes??50);
+    renderServiceRequests();
+  };
+  const saveServiceQuotationFee=async(event)=>{
+    event.preventDefault();
+    const button=event.submitter||event.currentTarget.querySelector('button[type="submit"]');
+    await withButtonLock(button,'Saving…',async()=>{
+      const fee=Number($('#adminServiceQuotationFee').value);
+      const {data,error}=await db.rpc('admin_update_service_quotation_fee',{p_fee_kes:fee});
+      if(error){setFormStatus($('#serviceQuotationFeeStatus'),friendlyError(error),'error');return;}
+      state.serviceMarketplaceSettings=data;
+      setFormStatus($('#serviceQuotationFeeStatus'),'Quotation fee saved. New requests will use '+formatMoney(data.quotation_fee_kes)+'.','success');
+      await loadAuditLog().catch(()=>{});
+    });
+  };
+  const handleServiceRequestAction=async(button)=>{
+    const id=button.dataset.servicePayment||button.dataset.dispatchServiceRequest||button.dataset.cancelServiceRequest;
+    if(!id)return;
+    await withButtonLock(button,'Saving…',async()=>{
+      let result;
+      if(button.dataset.servicePayment){
+        const approved=button.dataset.approved==='true';
+        const notes=window.prompt(approved?'Optional verification note:':'Reason payment was rejected:','')||null;
+        result=await db.rpc('admin_verify_service_quotation_payment',{p_request_id:id,p_approved:approved,p_notes:notes});
+      }else if(button.dataset.dispatchServiceRequest){
+        const notes=window.prompt('Optional dispatch note for this request:','')||null;
+        result=await db.rpc('admin_dispatch_service_request',{p_request_id:id,p_notes:notes});
+      }else{
+        const notes=window.prompt('Enter the cancellation reason:','')||'';
+        if(notes.trim().length<3)return;
+        result=await db.rpc('admin_cancel_service_request',{p_request_id:id,p_notes:notes});
+      }
+      if(result.error){globalStatus(friendlyError(result.error),'error');return;}
+      globalStatus('Service request updated successfully.');
+      await Promise.all([loadServiceOperations(),loadAuditLog().catch(()=>{})]);
+    });
+  };
+
   const sellerDocumentCard = async (label,path) => {
     if(!path) return '<article class="review-media-card"><div class="review-media-card-head"><strong>'+escapeHtml(label)+'</strong><span>Not provided</span></div></article>';
     try{
@@ -3694,7 +3782,7 @@
         .catch((error) => globalStatus('Product management data could not load: '+friendlyError(error), 'error'));
     }
     if (view === 'providers') {
-      loadServiceProviders().catch((error) => globalStatus('Service Providers could not load: '+friendlyError(error), 'error'));
+      Promise.all([loadServiceProviders(),loadServiceOperations()]).catch((error) => globalStatus('Service operations could not load: '+friendlyError(error), 'error'));
     }
     if (view === 'staff' && isSuperAdmin()) {
       loadStaffManagement().catch((error) => globalStatus('Staff directory could not load: '+friendlyError(error), 'error'));
@@ -3765,7 +3853,10 @@
     });
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
-    $('#refreshServiceProviders')?.addEventListener('click', () => withButtonLock($('#refreshServiceProviders'), 'Refreshing…', async () => { await Promise.all([loadServiceProviders(),loadApprovals()]); }));
+    $('#refreshServiceProviders')?.addEventListener('click', () => withButtonLock($('#refreshServiceProviders'), 'Refreshing…', async () => { await Promise.all([loadServiceProviders(),loadServiceOperations(),loadApprovals()]); }));
+    $('#serviceQuotationFeeForm')?.addEventListener('submit',saveServiceQuotationFee);
+    $('#adminServiceRequestFilter')?.addEventListener('change',renderServiceRequests);
+    $('#adminServiceRequestList')?.addEventListener('click',(event)=>{const button=event.target.closest?.('[data-service-payment],[data-dispatch-service-request],[data-cancel-service-request]');if(button)handleServiceRequestAction(button);});
     $('#refreshAftersalesCases')?.addEventListener('click', () => withButtonLock($('#refreshAftersalesCases'), 'Refreshing…', loadAftersalesCases));
     $('#adminAftersalesSearch')?.addEventListener('input', renderAftersalesCases);
     $('#adminAftersalesStatusFilter')?.addEventListener('change', renderAftersalesCases);
