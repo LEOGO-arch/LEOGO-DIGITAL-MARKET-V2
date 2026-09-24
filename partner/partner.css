@@ -288,3 +288,6 @@
 .provider-photo-copy strong{font-size:14px}
 .provider-photo-copy small{color:var(--muted);font-size:11px}
 @media(max-width:560px){.provider-photo-layout{align-items:flex-start}.provider-public-photo-preview{width:72px;height:72px}}
+
+.provider-quote-form textarea{width:100%;resize:vertical}
+.provider-job-card a{color:#0d5aa7;font-weight:800}
