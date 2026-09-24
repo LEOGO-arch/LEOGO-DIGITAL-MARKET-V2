@@ -3316,10 +3316,12 @@
       }
       if(['submitted','payment_verified'].includes(item.request_status))actions.push('<button class="dispatch" type="button" data-dispatch-service-request="'+escapeHtml(item.id)+'">Dispatch to Provider</button>');
       if(!['completed','cancelled'].includes(item.request_status))actions.push('<button class="cancel" type="button" data-cancel-service-request="'+escapeHtml(item.id)+'">Cancel</button>');
+      const feeAmount=item.request_type==='direct'?Number(item.direct_request_fee_kes||0):Number(item.quotation_fee_kes||0);
+      const feeLabel=item.request_type==='direct'?'Direct request fee':'Quotation fee';
       return '<article class="admin-service-request-card"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at,true))+' · '+escapeHtml(item.service_name||'Service')+'</small></div><b>'+escapeHtml(serviceRequestStatusText(item.request_status))+'</b></header>'+
         '<div class="admin-service-request-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>PROVIDER</small><strong>'+escapeHtml(item.business_name||'Provider')+'</strong><span>'+escapeHtml(item.provider_phone||'—')+'</span></div><div><small>REQUEST</small><strong>'+(item.request_type==='quotation'?'Paid quotation':'Direct service')+'</strong><span>'+escapeHtml(item.service_location||'—')+'</span></div></div>'+
         '<p><strong>Job details:</strong> '+escapeHtml(item.request_details||'—')+'</p>'+
-        (item.request_type==='quotation'?'<p><strong>Quotation fee:</strong> '+escapeHtml(formatMoney(item.quotation_fee_kes))+' · '+escapeHtml(String(item.payment_status||'').replaceAll('_',' '))+(item.payment_reference?' · Ref '+escapeHtml(item.payment_reference):'')+'</p>':'')+
+        (feeAmount>0?'<p><strong>'+escapeHtml(feeLabel)+':</strong> '+escapeHtml(formatMoney(feeAmount))+' · '+escapeHtml(String(item.payment_status||'').replaceAll('_',' '))+(item.payment_reference?' · Ref '+escapeHtml(item.payment_reference):'')+'</p>':'')+
         (item.provider_quote_kes?'<p><strong>Provider quotation:</strong> '+escapeHtml(formatMoney(item.provider_quote_kes))+(item.provider_quote_notes?' · '+escapeHtml(item.provider_quote_notes):'')+'</p>':'')+
         (item.admin_notes?'<p><strong>Admin note:</strong> '+escapeHtml(item.admin_notes)+'</p>':'')+
         '<div class="admin-service-request-actions">'+actions.join('')+'</div></article>';
@@ -3333,7 +3335,8 @@
     if(requestsResult.error)throw requestsResult.error;
     if(settingsResult.error)throw settingsResult.error;
     state.serviceRequests=Array.isArray(requestsResult.data)?requestsResult.data:[];
-    state.serviceMarketplaceSettings=settingsResult.data||{quotation_fee_kes:50};
+    state.serviceMarketplaceSettings=settingsResult.data||{direct_request_fee_kes:50,quotation_fee_kes:50};
+    if($('#adminDirectServiceRequestFee'))$('#adminDirectServiceRequestFee').value=Number(state.serviceMarketplaceSettings.direct_request_fee_kes??50);
     if($('#adminServiceQuotationFee'))$('#adminServiceQuotationFee').value=Number(state.serviceMarketplaceSettings.quotation_fee_kes??50);
     renderServiceRequests();
   };
@@ -3341,11 +3344,12 @@
     event.preventDefault();
     const button=event.submitter||event.currentTarget.querySelector('button[type="submit"]');
     await withButtonLock(button,'Saving…',async()=>{
-      const fee=Number($('#adminServiceQuotationFee').value);
-      const {data,error}=await db.rpc('admin_update_service_quotation_fee',{p_fee_kes:fee});
+      const directFee=Number($('#adminDirectServiceRequestFee').value);
+      const quotationFee=Number($('#adminServiceQuotationFee').value);
+      const {data,error}=await db.rpc('admin_update_service_request_fees',{p_direct_request_fee_kes:directFee,p_quotation_fee_kes:quotationFee});
       if(error){setFormStatus($('#serviceQuotationFeeStatus'),friendlyError(error),'error');return;}
       state.serviceMarketplaceSettings=data;
-      setFormStatus($('#serviceQuotationFeeStatus'),'Quotation fee saved. New requests will use '+formatMoney(data.quotation_fee_kes)+'.','success');
+      setFormStatus($('#serviceQuotationFeeStatus'),'Service fees saved. Direct requests: '+formatMoney(data.direct_request_fee_kes)+'; quotation requests: '+formatMoney(data.quotation_fee_kes)+'.','success');
       await loadAuditLog().catch(()=>{});
     });
   };
