@@ -2891,7 +2891,7 @@
   const serviceRequestModal=document.getElementById('serviceRequestModal');
   const serviceRequestForm=document.getElementById('serviceRequestForm');
   let customerPublicServices=[];
-  let customerServiceConfig={quotation_fee_kes:50,payment_destination:null};
+  let customerServiceConfig={direct_request_fee_kes:50,quotation_fee_kes:50,payment_destination:null};
   let customerServiceRequests=[];
 
   const servicePriceText=(item)=>{
@@ -2904,8 +2904,8 @@
     return from?money(from):'Contact for price';
   };
   const serviceRequestStatusText=(value)=>({
-    submitted:'Waiting for Admin dispatch',awaiting_payment_verification:'Quotation fee verification',
-    payment_verified:'Payment verified · ready for dispatch',payment_rejected:'Quotation fee not verified',
+    submitted:'Waiting for Admin dispatch',awaiting_payment_verification:'Service fee verification',
+    payment_verified:'Payment verified · ready for dispatch',payment_rejected:'Service fee not verified',
     dispatched:'Sent to provider',accepted:'Provider accepted',declined:'Provider declined',
     quoted:'Quotation ready',quote_accepted:'Quotation accepted',quote_rejected:'Quotation declined',
     in_progress:'Service in progress',completed:'Completed',cancelled:'Cancelled'
@@ -2921,7 +2921,8 @@
     const photo=item.profile_picture_path
       ? window.leogoAuth?.client?.storage.from('service-provider-public-media').getPublicUrl(item.profile_picture_path)?.data?.publicUrl
       : '';
-    const fee=Number(customerServiceConfig.quotation_fee_kes??50);
+    const directFee=Number(customerServiceConfig.direct_request_fee_kes??50);
+    const quotationFee=Number(customerServiceConfig.quotation_fee_kes??50);
     const card=document.createElement('article');
     card.className='service-provider-public-card';
     card.innerHTML='<div class="service-provider-public-photo">'+(photo?'<img src="'+receiptEscape(photo)+'" alt="'+receiptEscape(item.business_name||'Service Provider')+'" loading="lazy">':'<span>🛠️</span>')+'</div>'+
@@ -2931,8 +2932,8 @@
       '<p>'+receiptEscape(item.description||'Approved professional service available through LEOGO.')+'</p>'+
       '<small>'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
       '<strong class="service-provider-price">'+receiptEscape(servicePriceText(item))+'</strong>'+
-      '<div class="service-provider-actions"><button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="direct">Request Service</button>'+
-      '<button class="quote" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="quotation">Request Quotation · '+receiptEscape(money(fee))+'</button></div></div>';
+      '<div class="service-provider-actions"><button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="direct">Request Service · '+receiptEscape(money(directFee))+'</button>'+
+      '<button class="quote" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="quotation">Request Quotation · '+receiptEscape(money(quotationFee))+'</button></div></div>';
     return card;
   };
 
@@ -2982,14 +2983,20 @@
     document.getElementById('serviceRequestProvider').textContent=(item.service_name||'Service')+' · '+(item.business_name||'Approved Provider');
     document.getElementById('serviceRequestSummary').textContent=requestType==='quotation'
       ? 'Pay the quotation fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.'
-      : 'LEOGO Admin will review and dispatch this request directly to the approved provider.';
+      : 'Pay the direct service request fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.';
     const payment=document.getElementById('serviceQuotationPayment');
-    payment.hidden=requestType!=='quotation';
-    const fee=Number(customerServiceConfig.quotation_fee_kes??50);
-    document.getElementById('serviceQuotationFee').textContent=money(fee);
+    const fee=requestType==='direct'
+      ? Number(customerServiceConfig.direct_request_fee_kes??50)
+      : Number(customerServiceConfig.quotation_fee_kes??50);
+    payment.hidden=fee<=0;
+    document.getElementById('serviceRequestFeeLabel').textContent=requestType==='direct'?'DIRECT REQUEST SERVICE FEE':'REQUEST QUOTATION FEE';
+    document.getElementById('serviceRequestFeeAmount').textContent=money(fee);
+    document.getElementById('serviceRequestFeeDescription').textContent=requestType==='direct'
+      ? 'This fee pays for processing and dispatching your direct service request. It is separate from the provider’s service charge.'
+      : 'This fee pays for preparing and processing your quotation. It is separate from the provider’s quoted service price.';
     document.getElementById('serviceQuotationDestination').innerHTML=servicePaymentDestinationHtml(customerServiceConfig.payment_destination);
-    document.getElementById('serviceQuotationReference').required=requestType==='quotation'&&fee>0;
-    document.getElementById('submitServiceRequest').textContent=requestType==='quotation'?'Submit Paid Quotation Request':'Submit Service Request';
+    document.getElementById('serviceQuotationReference').required=fee>0;
+    document.getElementById('submitServiceRequest').textContent=requestType==='quotation'?'Submit Paid Quotation Request':'Submit Paid Service Request';
     const preferred=document.getElementById('serviceRequestPreferredDate');
     preferred.min=new Date().toISOString().slice(0,10);
     const status=document.getElementById('serviceRequestStatus');status.textContent='';status.className='service-request-status';
@@ -3015,7 +3022,7 @@
         p_service_location:document.getElementById('serviceRequestLocation').value.trim(),
         p_nearest_landmark:document.getElementById('serviceRequestLandmark').value.trim()||null,
         p_preferred_date:document.getElementById('serviceRequestPreferredDate').value||null,
-        p_payment_reference:requestType==='quotation'?document.getElementById('serviceQuotationReference').value.trim():null
+        p_payment_reference:document.getElementById('serviceQuotationReference').value.trim()||null
       });
       if(error)throw error;
       target.textContent='✓ Request '+data.request_reference+' submitted successfully.';target.classList.add('success');
@@ -3053,7 +3060,7 @@
     if(target)target.innerHTML=rows.map((item)=>
       '<article class="customer-service-request-card" data-customer-service-request="'+receiptEscape(item.id)+'"><header><div><strong>'+receiptEscape(item.request_reference)+'</strong><small>'+receiptEscape(customerOrderFormatDate(item.created_at))+' · '+receiptEscape(item.service_name||'Service')+'</small></div><b>'+receiptEscape(serviceRequestStatusText(item.request_status))+'</b></header>'+
       '<div class="customer-service-request-meta"><div><small>PROVIDER</small><strong>'+receiptEscape(item.business_name||'Approved Provider')+'</strong></div><div><small>REQUEST TYPE</small><strong>'+(item.request_type==='quotation'?'Quotation':'Direct service')+'</strong></div><div><small>'+(item.provider_quote_kes?'PROVIDER QUOTE':'LOCATION')+'</small><strong>'+receiptEscape(item.provider_quote_kes?money(item.provider_quote_kes):item.service_location)+'</strong></div></div>'+
-      (item.request_type==='quotation'&&Number(item.quotation_fee_kes)>0?'<small>Quotation fee: '+receiptEscape(money(item.quotation_fee_kes))+' · '+receiptEscape(String(item.payment_status||'').replaceAll('_',' '))+'</small>':'')+
+      ((item.request_type==='direct'?Number(item.direct_request_fee_kes||0):Number(item.quotation_fee_kes||0))>0?'<small>'+(item.request_type==='direct'?'Direct request fee: ':'Quotation fee: ')+receiptEscape(money(item.request_type==='direct'?item.direct_request_fee_kes:item.quotation_fee_kes))+' · '+receiptEscape(String(item.payment_status||'').replaceAll('_',' '))+'</small>':'')+
       (item.provider_quote_notes?'<p>'+receiptEscape(item.provider_quote_notes)+'</p>':'')+
       (item.admin_notes?'<p><strong>Admin note:</strong> '+receiptEscape(item.admin_notes)+'</p>':'')+
       (item.request_status==='quoted'?'<div class="customer-service-quote-actions"><button type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="true">Accept '+receiptEscape(money(item.provider_quote_kes))+'</button><button class="reject" type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="false">Reject Quotation</button></div>':'')+
