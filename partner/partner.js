@@ -12,7 +12,7 @@ const status=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className
 const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
-let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],editingProviderService=null;
+let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],editingProviderService=null;
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -1514,6 +1514,7 @@ function providerViewDescription(view){
     overview:'Overview of your Service Provider account.',
     jobs:'Received customer jobs and quotation requests.',
     services:'Manage your service listings and approval status.',
+    settlements:'Add and manage your Admin-approved Service Provider payout account.',
     notifications:'New jobs, quotation decisions and LEOGO Admin updates.',
     profile:'Your approved profile and profile photos.'
   }[view]||'Service Provider Portal';
@@ -1523,7 +1524,7 @@ function closeProviderSidebar(){
   $('#providerSidebarScrim')?.classList.remove('open');
 }
 function openProviderView(view='overview'){
-  const allowed=['overview','jobs','services','notifications','profile'];
+  const allowed=['overview','jobs','services','settlements','notifications','profile'];
   const resolved=allowed.includes(view)?view:'overview';
   $$('[data-provider-content]').forEach((panel)=>panel.classList.toggle('active',panel.dataset.providerContent===resolved));
   $$('[data-provider-view]').forEach((button)=>button.classList.toggle('active',button.dataset.providerView===resolved));
@@ -1538,6 +1539,7 @@ function openProviderView(view='overview'){
     }else providerPhotoManager.hidden=true;
   }
   if(resolved==='jobs')loadProviderJobs().catch((error)=>console.warn('Provider jobs refresh failed:',error));
+  if(resolved==='settlements')loadProviderSettlementAccounts().catch((error)=>console.warn('Provider settlement accounts refresh failed:',error));
   if(resolved==='notifications')loadProviderNotifications().catch((error)=>console.warn('Provider notifications refresh failed:',error));
   closeProviderSidebar();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -1732,7 +1734,7 @@ async function loadProvider(){
     provider=result?.data||null;
     renderProvider();
     await ensureProviderLocations(provider?.county_code||'',provider?.sub_county_code||'');
-    if(provider?.application_status==='approved')await Promise.allSettled([loadProviderServices(),loadProviderJobs(),loadProviderNotifications()]);
+    if(provider?.application_status==='approved')await Promise.allSettled([loadProviderServices(),loadProviderJobs(),loadProviderNotifications(),loadProviderSettlementAccounts()]);
   }catch(error){
     console.error('Service Provider portal boot failed:',error);
     showProviderBoot(error?.message||'The Service Provider dashboard could not finish loading.',true);
@@ -1985,6 +1987,104 @@ async function deleteProviderService(id,button){
   catch(error){status($('#providerServiceFormStatus'),error?.message||'Service could not be deleted.','error');}
   finally{button.disabled=false;button.textContent=original;}
 }
+function providerSettlementDestination(account){
+  if(account.account_type==='mpesa_mobile')return account.phone_number||'—';
+  if(account.account_type==='mpesa_till')return 'Till '+(account.till_number||'—');
+  if(account.account_type==='mpesa_paybill')return 'Paybill '+(account.paybill_number||'—')+' · A/C '+(account.account_number||'—');
+  return (account.bank_name||'Bank')+' · '+(account.account_number||'—')+(account.bank_branch?' · '+account.bank_branch:'');
+}
+function toggleProviderSettlementFields(){
+  const type=$('#providerSettlementType')?.value||'mpesa_mobile';
+  $$('[data-provider-settlement-field]').forEach((label)=>{
+    label.hidden=!String(label.dataset.providerSettlementField||'').split(' ').includes(type);
+  });
+}
+function resetProviderSettlementForm(){
+  const form=$('#providerSettlementAccountForm');
+  if(!form)return;
+  form.reset();
+  $('#providerSettlementAccountId').value='';
+  $('#providerSettlementPrimary').checked=true;
+  $('#cancelProviderSettlementEdit').hidden=true;
+  toggleProviderSettlementFields();
+  status($('#providerSettlementStatus'),'');
+}
+function editProviderSettlementAccount(id){
+  const account=providerSettlementAccounts.find((item)=>item.id===id);
+  if(!account)return;
+  $('#providerSettlementAccountId').value=account.id;
+  $('#providerSettlementType').value=account.account_type;
+  $('#providerSettlementName').value=account.account_name||'';
+  $('#providerSettlementPhone').value=account.phone_number||'';
+  $('#providerSettlementTill').value=account.till_number||'';
+  $('#providerSettlementPaybill').value=account.paybill_number||'';
+  $('#providerSettlementAccountNumber').value=account.account_number||'';
+  $('#providerSettlementBank').value=account.bank_name||'';
+  $('#providerSettlementBranch').value=account.bank_branch||'';
+  $('#providerSettlementPrimary').checked=Boolean(account.is_primary);
+  $('#cancelProviderSettlementEdit').hidden=false;
+  toggleProviderSettlementFields();
+  openProviderView('settlements');
+  $('#providerSettlementAccountForm')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function renderProviderSettlementAccounts(){
+  const target=$('#providerSettlementAccountList');
+  if(!target)return;
+  const pending=providerSettlementAccounts.filter((account)=>account.status==='pending_review').length;
+  const badge=$('#providerSettlementBadge');
+  if(badge){badge.hidden=!pending;badge.textContent=pending>99?'99+':String(pending);}
+  target.innerHTML=providerSettlementAccounts.length?providerSettlementAccounts.map((account)=>
+    '<article class="settlement-account-card">'+
+      '<div><strong>'+escapeHtml(account.account_name)+'</strong><small>'+escapeHtml(account.account_type.replaceAll('_',' '))+' · '+escapeHtml(providerSettlementDestination(account))+'</small></div>'+
+      '<div><span class="settlement-status '+escapeHtml(account.status)+'">'+escapeHtml(account.status.replaceAll('_',' ').toUpperCase())+'</span>'+(account.is_primary?'<b>PRIMARY</b>':'')+'</div>'+
+      '<p>'+(account.admin_notes?'Admin note: '+escapeHtml(account.admin_notes):(account.status==='pending_review'?'Waiting for LEOGO Admin verification.':'Every change requires Admin verification.'))+'</p>'+
+      (['approved','pending_review','rejected'].includes(account.status)?'<button class="secondary" type="button" data-edit-provider-settlement="'+escapeHtml(account.id)+'">Edit</button>':'')+
+    '</article>'
+  ).join(''):'<div class="empty-card">No settlement account added yet.</div>';
+  $$('[data-edit-provider-settlement]').forEach((button)=>button.addEventListener('click',()=>editProviderSettlementAccount(button.dataset.editProviderSettlement)));
+}
+async function loadProviderSettlementAccounts(){
+  const {data,error}=await client.from('service_provider_settlement_accounts').select('*').order('created_at',{ascending:false});
+  if(error)throw error;
+  providerSettlementAccounts=data||[];
+  renderProviderSettlementAccounts();
+}
+$('#providerSettlementType')?.addEventListener('change',toggleProviderSettlementFields);
+$('#cancelProviderSettlementEdit')?.addEventListener('click',resetProviderSettlementForm);
+$('#providerSettlementAccountForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const form=event.currentTarget;
+  if(!form.reportValidity())return;
+  const type=$('#providerSettlementType').value;
+  const phone=normalisePhone($('#providerSettlementPhone').value);
+  if(type==='mpesa_mobile'&&!/^\+254[17]\d{8}$/.test(phone)){
+    status($('#providerSettlementStatus'),'Enter a valid Kenyan M-Pesa phone number.','error');return;
+  }
+  const button=form.querySelector('button[type="submit"]');
+  const original=button.textContent;button.disabled=true;button.textContent='Sending…';
+  try{
+    status($('#providerSettlementStatus'),'Sending settlement account to LEOGO Admin for verification…');
+    const {error}=await client.rpc('service_provider_submit_settlement_account',{
+      p_account_id:$('#providerSettlementAccountId').value||null,
+      p_account_type:type,
+      p_account_name:$('#providerSettlementName').value.trim(),
+      p_phone_number:type==='mpesa_mobile'?phone:null,
+      p_till_number:type==='mpesa_till'?$('#providerSettlementTill').value.trim():null,
+      p_paybill_number:type==='mpesa_paybill'?$('#providerSettlementPaybill').value.trim():null,
+      p_account_number:['mpesa_paybill','bank'].includes(type)?$('#providerSettlementAccountNumber').value.trim():null,
+      p_bank_name:type==='bank'?$('#providerSettlementBank').value.trim():null,
+      p_bank_branch:type==='bank'?$('#providerSettlementBranch').value.trim():null,
+      p_make_primary:$('#providerSettlementPrimary').checked
+    });
+    if(error)throw error;
+    resetProviderSettlementForm();
+    status($('#providerSettlementStatus'),'Settlement account submitted. LEOGO Admin must approve it before use.','success');
+    await Promise.all([loadProviderSettlementAccounts(),loadProviderNotifications()]);
+  }catch(error){
+    status($('#providerSettlementStatus'),error?.message||'Settlement account could not be submitted.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+});
+toggleProviderSettlementFields();
 async function loadProviderNotifications(){
   const {data,error}=await client.from('partner_notifications').select('*').eq('partner_type','service_provider').order('created_at',{ascending:false}).limit(50);
   if(error)throw error;providerNotifications=data||[];renderProviderNotifications();
@@ -2012,6 +2112,7 @@ function renderProviderNotifications(){
     const view=button.dataset.providerNotificationView;
     if(view==='provider-jobs')openProviderView('jobs');
     else if(view==='provider-services')openProviderView('services');
+    else if(view==='provider-settlements')openProviderView('settlements');
     else if(view==='provider-profile')openProviderView('profile');
     else openProviderView('notifications');
     await loadProviderNotifications();
@@ -2066,7 +2167,7 @@ async function handleSession(session){
   logout.hidden=!currentUser;
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   if(!currentUser){
-    seller=null;products=[];provider=null;providerServices=[];providerNotifications=[];providerJobs=[];activeRole='';
+    seller=null;products=[];provider=null;providerServices=[];providerNotifications=[];providerJobs=[];providerSettlementAccounts=[];activeRole='';
     authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;if(providerShell)providerShell.hidden=true;if(hero)hero.hidden=false;
     return;
   }
