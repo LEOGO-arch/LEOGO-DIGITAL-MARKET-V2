@@ -48,6 +48,8 @@
     serviceProviders: [],
     serviceListings: [],
     serviceRequests: [],
+    transportProviders: [],
+    transportVehicles: [],
     serviceMarketplaceSettings: null,
     paymentActions: [],
     sellerSettlementAccounts: [],
@@ -87,6 +89,8 @@
     seller_settlement_account: 'Seller Settlement Account',
     service_provider_application: 'Service Provider Registration', service_listing: 'Service Listing',
     service_provider_settlement_account: 'Service Provider Settlement Account',
+    transport_provider_application: 'Transport / Parcel Provider Registration',
+    transport_vehicle: 'Transport Vehicle',
     premium_customer: 'Premium Customer', premium_profile: 'Verified Premium Profile',
     premium_payment: 'Premium Payment', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
@@ -300,6 +304,7 @@
       [loadServiceListings, () => adminHas('approvals.read')],
       [loadServiceOperations, () => adminHas('approvals.read')],
       [loadSellerSettlements, () => adminHas('settlements.read')],
+      [loadTransportNetwork, () => adminHas('approvals.read') || adminHas('delivery.manage')],
       [loadDeliveryOps, () => adminHas('orders.read') || adminHas('delivery.manage')],
       [loadServiceLocations, () => adminHas('settings.manage')],
       [loadBusinessSettings, () => adminHas('settings.manage')],
@@ -411,16 +416,18 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,serviceProviderResult,partnerSettlementResult,paymentActionsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,partnerSettlementResult,paymentActionsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
       db.rpc('admin_list_service_provider_approvals'),
+      db.rpc('admin_list_transport_approvals'),
       db.rpc('admin_list_partner_settlement_approvals'),
       db.rpc('admin_list_pending_payment_actions')
     ]);
     if (coreResult.error) throw coreResult.error;
     if (personalSaleResult.error) throw personalSaleResult.error;
     if (serviceProviderResult.error) throw serviceProviderResult.error;
+    if (transportResult.error) throw transportResult.error;
     if (partnerSettlementResult.error) throw partnerSettlementResult.error;
     if (paymentActionsResult.error) throw paymentActionsResult.error;
 
@@ -428,6 +435,7 @@
       ...(Array.isArray(coreResult.data) ? coreResult.data : []),
       ...(Array.isArray(personalSaleResult.data) ? personalSaleResult.data : []),
       ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : []),
+      ...(Array.isArray(transportResult.data) ? transportResult.data : []),
       ...(Array.isArray(partnerSettlementResult.data) ? partnerSettlementResult.data : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     state.paymentActions=Array.isArray(paymentActionsResult.data)?paymentActionsResult.data:[];
@@ -458,7 +466,7 @@
     }));
   };
 
-  const approvalGroup = (kind) => ['seller_application','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalGroup = (kind) => ['seller_application','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_vehicle'].includes(kind) ? 'transport' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
   const approvalIsFinancial = (item) => item.kind === 'premium_payment' || item.kind.startsWith('wallet') || item.kind.endsWith('_settlement_account');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
@@ -490,6 +498,7 @@
     const sellers = state.approvals.filter((item) => approvalGroup(item.kind) === 'sellers').length;
     const premium = state.approvals.filter((item) => approvalGroup(item.kind) === 'premium').length;
     const providers = state.approvals.filter((item) => approvalGroup(item.kind) === 'providers').length;
+    const transport = state.approvals.filter((item) => approvalGroup(item.kind) === 'transport').length;
     const accommodation = state.approvals.filter((item) => approvalGroup(item.kind) === 'accommodation').length;
     const oldest = [...state.approvals].filter((item) => item.submitted_at).sort((a,b) => new Date(a.submitted_at) - new Date(b.submitted_at))[0];
     $('#approvalTotalCount').textContent = state.approvals.length;
@@ -497,7 +506,7 @@
     $('#approvalPremiumCount').textContent = premium;
     $('#approvalAccommodationCount').textContent = accommodation;
     $('#approvalOldestWaiting').textContent = oldest ? waitingAge(oldest.submitted_at) : '—';
-    const counts = { all: state.approvals.length, financial, wallet, sellers, providers, premium, accommodation };
+    const counts = { all: state.approvals.length, financial, wallet, sellers, providers, transport, premium, accommodation };
     Object.entries(counts).forEach(([key, count]) => {
       const target = $(`#approvalFilters [data-approval-filter="${key}"] b`);
       if (target) target.textContent = count;
@@ -546,6 +555,9 @@
     registration_certificate_path: { label: 'CR12 / Registration Certificate', bucket: 'seller-verification' },
     other_permit_paths: { label: 'Other Related Permit', bucket: 'seller-verification', multiple: true },
     professional_licence_path: { label: 'Professional Licence / Certificate', bucket: 'service-provider-verification' },
+    transport_operator_permit_path: { label: 'Transport / Operator Permit', bucket: 'transport-verification' },
+    vehicle_profile_picture_path: { label: 'Vehicle Profile Picture', bucket: 'transport-public-media', publicBucket: true },
+    driver_passport_photo_path: { label: 'Driver Passport Photo — Admin Only', bucket: 'transport-driver-private' },
 
     main_image_path: { label: 'Product Main Image', bucket: 'seller-product-media' },
     gallery_image_paths: { label: 'Product Gallery Image', bucket: 'seller-product-media', multiple: true },
@@ -560,6 +572,7 @@
   const adminMediaEntries = (payload = {}, kind = '') => {
     const entries = [];
     const providerVerificationFields = new Set(['passport_photo_path','business_id_document_path','business_licence_path','registration_certificate_path','professional_licence_path','other_permit_paths']);
+    const transportVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','transport_operator_permit_path','other_permit_paths']);
     Object.entries(approvalMediaFields).forEach(([key, config]) => {
       let resolvedConfig = config;
       if (kind === 'service_provider_application' && key === 'profile_picture_path') {
@@ -568,6 +581,12 @@
         resolvedConfig = { ...config, bucket: 'service-provider-passport-photo', label: 'Passport-size Photo (Admin Only)' };
       } else if (kind === 'service_provider_application' && providerVerificationFields.has(key)) {
         resolvedConfig = { ...config, bucket: 'service-provider-verification' };
+      } else if (kind === 'transport_provider_application' && transportVerificationFields.has(key)) {
+        resolvedConfig = { ...config, bucket: 'transport-verification' };
+      } else if (kind === 'transport_vehicle' && key === 'vehicle_profile_picture_path') {
+        resolvedConfig = { ...config, bucket: 'transport-public-media', publicBucket: true, label: 'Vehicle Profile Picture' };
+      } else if (kind === 'transport_vehicle' && key === 'driver_passport_photo_path') {
+        resolvedConfig = { ...config, bucket: 'transport-driver-private', label: 'Driver Passport Photo — Admin Only' };
       }
       const raw = payload?.[key];
       const values = resolvedConfig.multiple ? (Array.isArray(raw) ? raw : []) : (raw ? [raw] : []);
@@ -673,10 +692,10 @@
     const requestChanges = $('[data-review-action="changes_requested"]');
     const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
-    const awaitingCorrection = ['seller_application','seller_product','service_provider_application','service_listing'].includes(kind) && item.status === 'changes_requested';
+    const awaitingCorrection = ['seller_application','seller_product','service_provider_application','service_listing','transport_provider_application','transport_vehicle'].includes(kind) && item.status === 'changes_requested';
     const settlementAccountApproval = ['seller_settlement_account','service_provider_settlement_account'].includes(kind);
     underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection || settlementAccountApproval;
-    requestChanges.hidden = !['seller_application','seller_product','service_provider_application','service_listing','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
+    requestChanges.hidden = !['seller_application','seller_product','service_provider_application','service_listing','transport_provider_application','transport_vehicle','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
@@ -708,14 +727,18 @@
               ? 'admin_review_service_provider_application'
               : item.kind === 'service_listing'
                 ? 'admin_review_service_listing'
-                : item.kind === 'seller_settlement_account'
+                : item.kind === 'transport_provider_application'
+                  ? 'admin_review_transport_provider_application'
+                  : item.kind === 'transport_vehicle'
+                    ? 'admin_review_transport_vehicle'
+                    : item.kind === 'seller_settlement_account'
                   ? 'admin_review_seller_settlement_account'
                   : item.kind === 'service_provider_settlement_account'
                     ? 'admin_review_service_provider_settlement_account'
                     : 'admin_review_approval';
       const rpcArgs = ['seller_settlement_account','service_provider_settlement_account'].includes(item.kind)
         ? { p_account_id: item.record_id, p_decision: decision, p_notes: notes || null }
-        : ['seller_application','seller_product','customer_personal_sale','service_provider_application','service_listing'].includes(item.kind)
+        : ['seller_application','seller_product','customer_personal_sale','service_provider_application','service_listing','transport_provider_application','transport_vehicle'].includes(item.kind)
           ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
           : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
       const { error } = await db.rpc(rpcName, rpcArgs);
@@ -3083,6 +3106,55 @@
     await Promise.all([loadPaymentSettings(), loadAuditLog()]);
   };
 
+  const renderTransportNetwork = () => {
+    const providers=Array.isArray(state.transportProviders)?state.transportProviders:[];
+    const vehicles=Array.isArray(state.transportVehicles)?state.transportVehicles:[];
+    const approvedProviders=providers.filter(item=>item.application_status==='approved').length;
+    const pendingProviderCount=providers.filter(item=>['submitted','under_review','changes_requested'].includes(item.application_status)).length;
+    const pendingVehicles=vehicles.filter(item=>['pending','under_review','changes_requested'].includes(item.approval_status)).length;
+    const approvedVehicles=vehicles.filter(item=>item.approval_status==='approved').length;
+    if($('#adminTransportProviderCount'))$('#adminTransportProviderCount').textContent=providers.length;
+    if($('#adminTransportApprovedCount'))$('#adminTransportApprovedCount').textContent=approvedProviders;
+    if($('#adminTransportPendingCount'))$('#adminTransportPendingCount').textContent=pendingProviderCount+pendingVehicles;
+    if($('#adminTransportVehicleCount'))$('#adminTransportVehicleCount').textContent=approvedVehicles;
+
+    const providerBody=$('#adminTransportProviderBody');
+    if(providerBody)providerBody.innerHTML=providers.length?providers.map(item=>`
+      <tr>
+        <td><strong>${escapeHtml(item.business_name||'Transport Provider')}</strong><small>${escapeHtml(item.owner_name||'')} · ${escapeHtml(item.phone||'')}</small><small>${escapeHtml(item.email||'')}</small></td>
+        <td>${escapeHtml(String(item.provider_type||'').replaceAll('_',' '))}</td>
+        <td>${escapeHtml((item.services_offered||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'—')}</td>
+        <td><strong>${escapeHtml(item.town||'—')}</strong><small>${escapeHtml([item.sub_county,item.county].filter(Boolean).join(', '))}</small></td>
+        <td><span class="status-chip">${escapeHtml(String(item.application_status||'').replaceAll('_',' '))}</span></td>
+        <td><strong>${Number(item.approved_vehicle_count||0)}</strong><small>${Number(item.vehicle_count||0)} total</small></td>
+      </tr>`).join(''):'<tr><td colspan="6">No Transport / Parcel Provider registrations yet.</td></tr>';
+
+    const vehicleBody=$('#adminTransportVehicleBody');
+    if(vehicleBody)vehicleBody.innerHTML=vehicles.length?vehicles.map(item=>{
+      const photo=item.vehicle_profile_picture_path?db.storage.from('transport-public-media').getPublicUrl(item.vehicle_profile_picture_path).data.publicUrl:'';
+      return `<tr>
+        <td><div class="admin-transport-vehicle-cell">${photo?'<img src="'+escapeHtml(photo)+'" alt="Vehicle">':'<span>🚚</span>'}<div><strong>${escapeHtml(item.vehicle_type||'Vehicle')} · ${escapeHtml(item.registration_number||'')}</strong><small>${escapeHtml([item.make_model,item.colour].filter(Boolean).join(' · ')||'')}</small></div></div></td>
+        <td><strong>${escapeHtml(item.provider_name||'Provider')}</strong></td>
+        <td>${escapeHtml((item.service_types||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'—')}<small>${escapeHtml(item.capacity_description||'')}</small></td>
+        <td><strong>${escapeHtml(item.driver_full_name||'No driver supplied')}</strong><small>${escapeHtml([item.driver_id_number,item.driver_phone,item.driver_licence_number].filter(Boolean).join(' · ')||'Private verification')}</small></td>
+        <td><span class="status-chip">${escapeHtml(String(item.approval_status||'').replaceAll('_',' '))}</span></td>
+        <td>${formatDate(item.submitted_at,true)}</td>
+      </tr>`;
+    }).join(''):'<tr><td colspan="6">No Transport Provider vehicles yet.</td></tr>';
+  };
+
+  const loadTransportNetwork = async () => {
+    const [providersResult,vehiclesResult]=await Promise.all([
+      db.rpc('admin_list_transport_providers'),
+      db.rpc('admin_list_transport_vehicles')
+    ]);
+    if(providersResult.error)throw providersResult.error;
+    if(vehiclesResult.error)throw vehiclesResult.error;
+    state.transportProviders=Array.isArray(providersResult.data)?providersResult.data:[];
+    state.transportVehicles=Array.isArray(vehiclesResult.data)?vehiclesResult.data:[];
+    renderTransportNetwork();
+  };
+
   const loadDeliveryOps = async () => {
     const [ridersResult,jobsResult,sellerStatesResult]=await Promise.all([
       db.rpc('admin_list_riders'),
@@ -4042,7 +4114,15 @@
       const sortingButton=event.target.closest?.('[data-sorting-status]');
       if(sortingButton) updateActiveOrderSortingStatus(sortingButton,sortingButton.dataset.sortingStatus);
     });
-    $('#refreshDeliveryOps').addEventListener('click', () => withButtonLock($('#refreshDeliveryOps'), 'Refreshing…', loadDeliveryOps));
+    $('#refreshDeliveryOps').addEventListener('click', () => withButtonLock($('#refreshDeliveryOps'), 'Refreshing…', async()=>{
+      await Promise.all([loadTransportNetwork(),loadDeliveryOps()]);
+    }));
+    $('#openTransportApprovals')?.addEventListener('click',()=>{
+      changeView('approvals');
+      state.approvalFilter='transport';
+      $$('#approvalFilters [data-approval-filter]').forEach(button=>button.classList.toggle('active',button.dataset.approvalFilter==='transport'));
+      renderApprovals();
+    });
     $('#adminAddRiderForm').addEventListener('submit', addRider);
     $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
     document.querySelectorAll('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.addEventListener('click', () => {
