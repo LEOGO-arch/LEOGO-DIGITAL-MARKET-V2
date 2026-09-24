@@ -3827,6 +3827,11 @@
     $('#adminPageTitle').textContent = viewTitles[view] || 'Admin Control Center';
     $('#adminBreadcrumb').textContent = view === 'settings' ? 'ADMINISTRATION' : 'CONTROL CENTER';
 
+    if(view==='dashboard'){
+      Promise.all([loadDashboard(),loadApprovals()])
+        .catch((error)=>globalStatus('Dashboard actions could not refresh: '+friendlyError(error),'error'));
+    }
+
     // Catalogue is refreshed again when Admin opens it, so a failure in any
     // unrelated dashboard module cannot leave Seller products hidden.
     if (view === 'aftersales') {
