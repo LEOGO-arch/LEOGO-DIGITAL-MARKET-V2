@@ -26,6 +26,7 @@ const applyInitialServiceAreas=()=>{
 };
 
 const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),providerShell=$('#providerShell'),logout=$('#partnerLogout'),hero=$('.hero');
+const partnerNotificationBell=$('#partnerNotificationBell'),partnerNotificationBadge=$('#partnerNotificationBadge');
 const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
 const sellerProfilePanel=$('#sellerProfilePanel'),sellerNotificationPanel=$('#sellerNotificationPanel'),sellerSettlementPanel=$('#sellerSettlementPanel'),sellerPendingArea=$('#sellerPendingArea'),sellerSidebar=$('#sellerSidebar'),sellerBootStatus=$('#sellerBootStatus');
@@ -250,6 +251,7 @@ function formatDate(value){
 }
 function showRolePicker(){
   activeRole='';
+  if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   rolePicker.hidden=false;
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
@@ -258,6 +260,7 @@ function showRolePicker(){
 }
 async function openSellerRole(){
   activeRole='seller';
+  if(partnerNotificationBell)partnerNotificationBell.hidden=false;
   rolePicker.hidden=true;
   sellerShell.hidden=false;
   if(hero)hero.hidden=true;
@@ -399,6 +402,7 @@ async function loadPartnerNotifications(){
   const unread=partnerNotifications.filter(n=>!n.read_at).length;
   $('#sellerNotificationBadge').hidden=!unread;
   $('#sellerNotificationBadge').textContent=unread>99?'99+':String(unread);
+  updateSharedPartnerNotificationBadge(unread);
   $('#sellerNotificationList').innerHTML=partnerNotifications.length?partnerNotifications.map(n=>`
     <article class="seller-notification-item ${n.read_at?'':'unread'}" data-notification-id="${escapeHtml(n.id)}">
       <div><strong>${escapeHtml(n.title)}</strong><p>${escapeHtml(n.message)}</p><small>${formatDate(n.created_at)}</small></div>
@@ -1495,6 +1499,65 @@ const providerReg=$('#providerRegistrationForm');
 const providerPendingArea=$('#providerPendingArea');
 const providerDashboard=$('#providerDashboard');
 const providerPhotoManager=$('#providerPhotoManager');
+const providerSidebar=$('#providerSidebar');
+
+
+function updateSharedPartnerNotificationBadge(count=0){
+  if(!partnerNotificationBell||!partnerNotificationBadge)return;
+  const unread=Number(count||0);
+  partnerNotificationBadge.hidden=!unread;
+  partnerNotificationBadge.textContent=unread>99?'99+':String(unread);
+  partnerNotificationBell.classList.toggle('has-unread',unread>0);
+}
+function providerViewDescription(view){
+  return {
+    overview:'Overview of your Service Provider account.',
+    jobs:'Received customer jobs and quotation requests.',
+    services:'Manage your service listings and approval status.',
+    notifications:'New jobs, quotation decisions and LEOGO Admin updates.',
+    profile:'Your approved profile and profile photos.'
+  }[view]||'Service Provider Portal';
+}
+function closeProviderSidebar(){
+  providerSidebar?.classList.remove('open');
+  $('#providerSidebarScrim')?.classList.remove('open');
+}
+function openProviderView(view='overview'){
+  const allowed=['overview','jobs','services','notifications','profile'];
+  const resolved=allowed.includes(view)?view:'overview';
+  $$('[data-provider-content]').forEach((panel)=>panel.classList.toggle('active',panel.dataset.providerContent===resolved));
+  $$('[data-provider-view]').forEach((button)=>button.classList.toggle('active',button.dataset.providerView===resolved));
+  const description=$('#providerViewDescription');
+  if(description)description.textContent=providerViewDescription(resolved);
+  if(providerPhotoManager){
+    if(resolved==='profile'){
+      const slot=$('#providerProfilePhotoSlot');
+      if(slot&&providerPhotoManager.parentElement!==slot)slot.appendChild(providerPhotoManager);
+      providerPhotoManager.hidden=false;
+      renderProviderPhotoManager();
+    }else providerPhotoManager.hidden=true;
+  }
+  if(resolved==='jobs')loadProviderJobs().catch((error)=>console.warn('Provider jobs refresh failed:',error));
+  if(resolved==='notifications')loadProviderNotifications().catch((error)=>console.warn('Provider notifications refresh failed:',error));
+  closeProviderSidebar();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+$$('[data-provider-view]').forEach((button)=>button.addEventListener('click',()=>openProviderView(button.dataset.providerView)));
+$$('[data-open-provider-view]').forEach((button)=>button.addEventListener('click',()=>openProviderView(button.dataset.openProviderView)));
+$('#providerSidebarToggle')?.addEventListener('click',()=>{providerSidebar?.classList.add('open');$('#providerSidebarScrim')?.classList.add('open');});
+$('#providerSidebarScrim')?.addEventListener('click',closeProviderSidebar);
+$('#providerNotificationsButton')?.addEventListener('click',()=>openProviderView('notifications'));
+$('#providerProfileButton')?.addEventListener('click',()=>openProviderView('profile'));
+$('#refreshProviderJobs')?.addEventListener('click',()=>loadProviderJobs());
+$('#showProviderServiceForm')?.addEventListener('click',()=>{
+  openProviderView('services');
+  const form=$('#providerServiceForm');
+  if(form){form.hidden=false;form.scrollIntoView({behavior:'smooth',block:'start'});}
+});
+partnerNotificationBell?.addEventListener('click',()=>{
+  if(activeRole==='seller')openSellerView('notifications');
+  else if(activeRole==='service_provider')openProviderView('notifications');
+});
 
 function showProviderBoot(message='Loading your Service Provider account…',isError=false){
   if(!providerBootStatus)return;
@@ -1578,8 +1641,7 @@ function providerPublicPhotoUrl(path){
 }
 function renderProviderPhotoManager(){
   if(!providerPhotoManager)return;
-  providerPhotoManager.hidden=!provider;
-  if(!provider)return;
+  if(!provider){providerPhotoManager.hidden=true;return;}
   const preview=$('#providerPublicPhotoPreview');
   const url=providerPublicPhotoUrl(provider.profile_picture_path);
   if(preview){
@@ -1649,12 +1711,14 @@ function renderProvider(){
   }
   providerDashboard.hidden=false;
   $('#providerDashboardName').textContent=provider.business_name||'My Service Business';
-  $('#providerDashboardStatus').textContent=providerStatusCopy(provider.application_status);
+  $('#providerSidebarBusiness').textContent=provider.business_name||'Service Provider';
+  $('#providerSidebarStatus').textContent=String(provider.application_status||'approved').replaceAll('_',' ').toUpperCase();
   $('#providerAvailability').textContent=(provider.availability_status||'available').replaceAll('_',' ');
   $('#providerProfileSummary').innerHTML=providerSummaryRows().filter(([label])=>label!=='Admin Note').map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
   renderProviderServices();
   renderProviderJobs();
   renderProviderNotifications();
+  openProviderView('overview');
 }
 async function loadProvider(){
   if(!currentUser)return;
@@ -1677,6 +1741,7 @@ async function loadProvider(){
 }
 async function openProviderRole(){
   activeRole='service_provider';
+  if(partnerNotificationBell)partnerNotificationBell.hidden=false;
   rolePicker.hidden=true;
   sellerShell.hidden=true;
   providerShell.hidden=false;
@@ -1770,7 +1835,26 @@ async function loadProviderJobs(){
 function renderProviderJobs(){
   const list=$('#providerJobList');if(!list)return;
   const open=providerJobs.filter(item=>!['completed','declined','quote_rejected','cancelled'].includes(item.request_status));
+  const newJobs=providerJobs.filter(item=>item.request_status==='dispatched');
   $('#providerOpenJobs').textContent=open.length;
+  const jobBadge=$('#providerJobBadge');
+  if(jobBadge){jobBadge.hidden=!newJobs.length;jobBadge.textContent=newJobs.length>99?'99+':String(newJobs.length);}
+  const priorityCount=$('#providerPriorityCount');
+  if(priorityCount)priorityCount.textContent=String(newJobs.length);
+  const priorityCard=$('#providerJobPriorityCard');
+  if(priorityCard)priorityCard.classList.toggle('has-new-jobs',newJobs.length>0);
+  const priorityList=$('#providerPriorityJobList');
+  if(priorityList){
+    priorityList.innerHTML=newJobs.length?newJobs.slice(0,3).map((item)=>
+      '<button type="button" data-priority-provider-job="'+escapeHtml(item.id)+'"><span><strong>'+escapeHtml(item.service_name||'Service Request')+'</strong><small>'+escapeHtml(item.request_reference)+' · '+escapeHtml(formatDate(item.created_at))+'</small></span><b>'+escapeHtml(item.request_type==='quotation'?'Quotation':'Direct Job')+' →</b></button>'
+    ).join(''):'<div class="empty-card">No new customer jobs waiting for your response.</div>';
+    $$('[data-priority-provider-job]').forEach((button)=>button.addEventListener('click',()=>{
+      openProviderView('jobs');
+      $('#providerJobFilter').value='open';
+      renderProviderJobs();
+      window.setTimeout(()=>document.querySelector('[data-job-id="'+button.dataset.priorityProviderJob+'"]')?.scrollIntoView({behavior:'smooth',block:'center'}),100);
+    }));
+  }
   const filter=$('#providerJobFilter')?.value||'open';
   let rows=providerJobs;
   if(filter==='open')rows=open;
@@ -1860,6 +1944,7 @@ function resetProviderServiceForm(){
   $('#providerIsAvailable').checked=true;
   $('#providerServiceFormTitle').textContent='Add a Service';
   $('#providerServiceReset').hidden=true;
+  $('#providerServiceForm').hidden=true;
 }
 function editProviderService(id){
   const item=providerServices.find((row)=>row.id===id);
@@ -1871,7 +1956,7 @@ function editProviderService(id){
   $('#providerPriceTo').value=item.price_to_kes??'';$('#providerUnitLabel').value=item.unit_label||'';
   $('#providerServiceArea').value=item.service_area||'';$('#providerAvailabilityNotes').value=item.availability_notes||'';
   $('#providerIsAvailable').checked=item.is_available!==false;$('#providerServiceFormTitle').textContent='Edit Service';
-  $('#providerServiceReset').hidden=false;$('#providerServiceForm').scrollIntoView({behavior:'smooth'});
+  $('#providerServiceReset').hidden=false;openProviderView('services');$('#providerServiceForm').hidden=false;$('#providerServiceForm').scrollIntoView({behavior:'smooth'});
 }
 $('#providerServiceReset')?.addEventListener('click',resetProviderServiceForm);
 $('#providerServiceForm')?.addEventListener('submit',async(event)=>{
@@ -1906,9 +1991,31 @@ async function loadProviderNotifications(){
 }
 function renderProviderNotifications(){
   const target=$('#providerNotificationList');if(!target)return;
+  const unread=providerNotifications.filter((item)=>!item.read_at).length;
+  const sideBadge=$('#providerNotificationBadge');
+  const headBadge=$('#providerHeadNotificationBadge');
+  if(sideBadge){sideBadge.hidden=!unread;sideBadge.textContent=unread>99?'99+':String(unread);}
+  if(headBadge){headBadge.hidden=!unread;headBadge.textContent=unread>99?'99+':String(unread);}
+  updateSharedPartnerNotificationBadge(unread);
   target.innerHTML=providerNotifications.length?providerNotifications.map((item)=>
-    '<article class="seller-notification-item '+(item.read_at?'':'unread')+'"><div><strong>'+escapeHtml(item.title)+'</strong><p>'+escapeHtml(item.message)+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div>'+(item.read_at?'':'<span>NEW</span>')+'</article>'
+    '<article class="seller-notification-item '+(item.read_at?'':'unread')+'" data-provider-notification-id="'+escapeHtml(item.id)+'"><div><strong>'+escapeHtml(item.title)+'</strong><p>'+escapeHtml(item.message)+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div><div class="seller-notification-actions">'+
+      (item.action_view?'<button type="button" data-open-provider-notification="'+escapeHtml(item.id)+'" data-provider-notification-view="'+escapeHtml(item.action_view)+'">Open</button>':'')+
+      (item.read_at?'':'<button class="secondary" type="button" data-mark-provider-notification="'+escapeHtml(item.id)+'">Mark read</button>')+
+    '</div></article>'
   ).join(''):'<div class="empty-card">No Service Provider notifications yet.</div>';
+  $$('[data-mark-provider-notification]').forEach((button)=>button.addEventListener('click',async()=>{
+    const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markProviderNotification});
+    if(!error)await loadProviderNotifications();
+  }));
+  $$('[data-open-provider-notification]').forEach((button)=>button.addEventListener('click',async()=>{
+    await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.openProviderNotification}).catch?.(()=>{});
+    const view=button.dataset.providerNotificationView;
+    if(view==='provider-jobs')openProviderView('jobs');
+    else if(view==='provider-services')openProviderView('services');
+    else if(view==='provider-profile')openProviderView('profile');
+    else openProviderView('notifications');
+    await loadProviderNotifications();
+  }));
 }
 
 $('#providerPhotoForm')?.addEventListener('submit',async(event)=>{
@@ -1939,6 +2046,7 @@ $('#providerPhotoForm')?.addEventListener('submit',async(event)=>{
     form.reset();
     renderProviderPhotoManager();
     status($('#providerPhotoStatus'),'Profile photos saved successfully.','success');
+    window.setTimeout(()=>openProviderView('overview'),700);
   }catch(error){
     status($('#providerPhotoStatus'),error?.message||'Profile photos could not be saved.','error');
   }finally{
@@ -1956,6 +2064,7 @@ $('#markAllProviderNotificationsRead')?.addEventListener('click',async()=>{
 async function handleSession(session){
   currentUser=session?.user||null;
   logout.hidden=!currentUser;
+  if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   if(!currentUser){
     seller=null;products=[];provider=null;providerServices=[];providerNotifications=[];providerJobs=[];activeRole='';
     authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;if(providerShell)providerShell.hidden=true;if(hero)hero.hidden=false;
