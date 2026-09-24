@@ -2556,6 +2556,7 @@
         : 'No active orders';
     const pc=document.getElementById('customerProductOrderCount');
     if(pc) pc.textContent=customerMarketplaceOrders.length;
+    renderCustomerServiceRequests();
     const afc=document.getElementById('customerAftersalesCount');
     if(afc) afc.textContent=openAftersales;
     const aft=document.getElementById('customerAftersalesText');
@@ -2600,7 +2601,7 @@
         '</div>'+
       '</article>';
     }).join('');
-    if (empty) empty.hidden = rows.length > 0;
+    if (empty) empty.hidden = rows.length > 0 || filteredCustomerServiceRequests().length > 0;
   };
 
   async function loadCustomerMarketplaceOrders(){
@@ -2646,6 +2647,7 @@
   document.addEventListener('click',(event)=>{
     if(event.target.closest?.('[data-customer-view="dashboard"],[data-open-customer-view="dashboard"],[data-customer-view="orders"],[data-open-customer-view="orders"]')){
       refreshCustomerOrdersSoon();
+      window.setTimeout(()=>loadCustomerServiceRequests(),45);
     }
   });
   window.addEventListener('focus',()=>{ if(window.leogoAuth?.getUser?.()) loadCustomerMarketplaceOrders(); });
@@ -2774,7 +2776,7 @@
   const activityEmptyMessages = {
     all: ['🧾', 'No previous activity yet', 'Your product orders, service requests and Transport & Parcel Delivery bookings will appear here automatically, including their dates, payment and completion status.'],
     products: ['📦', 'No product orders yet', 'Your current and previous product orders will appear here when the ordering system is connected.'],
-    services: ['🛠️', 'No service activity yet', 'Your requested, assigned and completed service jobs will appear here when services are connected.'],
+    services: ['🛠️', 'No service activity yet', 'Your requested, quoted, active and completed service jobs will appear here.'],
     transport: ['🚚', 'No Transport & Parcel Delivery bookings yet', 'Your Transport & Parcel Delivery bookings will appear here when the records are connected.'],
     active: ['⏳', 'No active activity', 'Orders, services and Transport & Parcel Delivery bookings currently in progress will appear here.'],
     completed: ['✅', 'No completed activity', 'Completed orders, services and Transport & Parcel Delivery bookings will be stored here for your history.'],
@@ -2886,84 +2888,195 @@
 
 
   const publicServiceProviderList=document.getElementById('publicServiceProviderList');
+  const serviceRequestModal=document.getElementById('serviceRequestModal');
+  const serviceRequestForm=document.getElementById('serviceRequestForm');
+  let customerPublicServices=[];
+  let customerServiceConfig={quotation_fee_kes:50,payment_destination:null};
+  let customerServiceRequests=[];
 
-  const createPublicServiceProviderCard=(provider)=>{
+  const servicePriceText=(item)=>{
+    if(item.pricing_model==='quote')return 'Price after quotation';
+    const from=Number(item.price_from_kes||0);
+    const to=Number(item.price_to_kes||0);
+    if(item.pricing_model==='fixed')return money(from)+(item.unit_label?' · '+item.unit_label:'');
+    if(item.pricing_model==='hourly')return money(from)+' / hour';
+    if(item.pricing_model==='from')return 'From '+money(from)+(to?' – '+money(to):'')+(item.unit_label?' · '+item.unit_label:'');
+    return from?money(from):'Contact for price';
+  };
+  const serviceRequestStatusText=(value)=>({
+    submitted:'Waiting for Admin dispatch',awaiting_payment_verification:'Quotation fee verification',
+    payment_verified:'Payment verified · ready for dispatch',payment_rejected:'Quotation fee not verified',
+    dispatched:'Sent to provider',accepted:'Provider accepted',declined:'Provider declined',
+    quoted:'Quotation ready',quote_accepted:'Quotation accepted',quote_rejected:'Quotation declined',
+    in_progress:'Service in progress',completed:'Completed',cancelled:'Cancelled'
+  }[value]||String(value||'').replaceAll('_',' '));
+  const servicePaymentDestinationHtml=(payment)=>{
+    if(!payment)return '<div class="service-payment-destination"><strong>Payment account unavailable</strong><span>Please try again shortly or contact LEOGO Customer Care.</span></div>';
+    let number=payment.till_number||payment.paybill_number||payment.account_number||'';
+    let label=payment.till_number?'Till Number':payment.paybill_number?'PayBill':payment.account_number?'Account Number':'Payment details';
+    return '<div class="service-payment-destination"><span>'+receiptEscape(payment.display_name||'LEOGO Payment Account')+'</span><strong>'+receiptEscape(label+(number?' · '+number:''))+'</strong>'+(payment.business_name?'<small>'+receiptEscape(payment.business_name)+'</small>':'')+(payment.instructions?'<small>'+receiptEscape(payment.instructions)+'</small>':'')+'</div>';
+  };
+
+  const createPublicServiceCard=(item)=>{
+    const photo=item.profile_picture_path
+      ? window.leogoAuth?.client?.storage.from('service-provider-public-media').getPublicUrl(item.profile_picture_path)?.data?.publicUrl
+      : '';
+    const fee=Number(customerServiceConfig.quotation_fee_kes??50);
     const card=document.createElement('article');
     card.className='service-provider-public-card';
-
-    const photoWrap=document.createElement('div');
-    photoWrap.className='service-provider-public-photo';
-    if(provider.profile_picture_path){
-      const url=window.leogoAuth?.client?.storage
-        .from('service-provider-public-media')
-        .getPublicUrl(provider.profile_picture_path)?.data?.publicUrl;
-      if(url){
-        const img=document.createElement('img');
-        img.src=url;
-        img.alt=(provider.business_name||'Service Provider')+' profile picture';
-        img.loading='lazy';
-        photoWrap.appendChild(img);
-      }
-    }
-    if(!photoWrap.firstChild){
-      const fallback=document.createElement('span');
-      fallback.textContent='🛠️';
-      photoWrap.appendChild(fallback);
-    }
-
-    const body=document.createElement('div');
-    body.className='service-provider-public-body';
-
-    const badge=document.createElement('span');
-    badge.className='service-provider-public-badge';
-    badge.textContent='✓ LEOGO Approved';
-
-    const name=document.createElement('strong');
-    name.textContent=provider.business_name||'Service Provider';
-
-    const service=document.createElement('b');
-    service.textContent=provider.primary_service||provider.service_category||'Professional Service';
-
-    const location=document.createElement('small');
-    location.textContent=[provider.town,provider.sub_county,provider.county].filter(Boolean).join(', ')||'Kenya';
-
-    const count=document.createElement('small');
-    const approvedCount=Number(provider.approved_service_count||0);
-    count.textContent=approvedCount?approvedCount+' approved service'+(approvedCount===1?'':'s'):'Provider profile';
-
-    body.append(badge,name,service,location,count);
-    card.append(photoWrap,body);
+    card.innerHTML='<div class="service-provider-public-photo">'+(photo?'<img src="'+receiptEscape(photo)+'" alt="'+receiptEscape(item.business_name||'Service Provider')+'" loading="lazy">':'<span>🛠️</span>')+'</div>'+
+      '<div class="service-provider-public-body"><span class="service-provider-public-badge">✓ LEOGO Approved</span>'+
+      '<strong>'+receiptEscape(item.service_name||'Professional Service')+'</strong>'+
+      '<b>'+receiptEscape(item.business_name||'Service Provider')+'</b>'+
+      '<p>'+receiptEscape(item.description||'Approved professional service available through LEOGO.')+'</p>'+
+      '<small>'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
+      '<strong class="service-provider-price">'+receiptEscape(servicePriceText(item))+'</strong>'+
+      '<div class="service-provider-actions"><button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="direct">Request Service</button>'+
+      '<button class="quote" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="quotation">Request Quotation · '+receiptEscape(money(fee))+'</button></div></div>';
     return card;
   };
 
-  const loadPublicServiceProviders=async()=>{
+  const loadPublicServices=async()=>{
     if(!publicServiceProviderList)return;
     try{
       const client=window.leogoAuth?.client;
       if(!client)throw new Error('Customer connection is not ready.');
-      const {data,error}=await client.rpc('customer_public_service_providers');
-      if(error)throw error;
-      const rows=Array.isArray(data)?data:[];
+      const [servicesResult,configResult]=await Promise.all([
+        client.rpc('customer_public_services'),
+        client.rpc('customer_service_marketplace_config')
+      ]);
+      if(servicesResult.error)throw servicesResult.error;
+      if(configResult.error)throw configResult.error;
+      customerPublicServices=Array.isArray(servicesResult.data)?servicesResult.data:[];
+      customerServiceConfig=configResult.data||customerServiceConfig;
       publicServiceProviderList.innerHTML='';
-      if(!rows.length){
-        const empty=document.createElement('div');
-        empty.className='service-provider-public-empty';
-        empty.textContent='Approved Service Providers will appear here.';
-        publicServiceProviderList.appendChild(empty);
+      if(!customerPublicServices.length){
+        publicServiceProviderList.innerHTML='<div class="service-provider-public-empty">Approved services will appear here after provider listings are approved.</div>';
         return;
       }
-      rows.forEach((provider)=>publicServiceProviderList.appendChild(createPublicServiceProviderCard(provider)));
+      customerPublicServices.forEach((item)=>publicServiceProviderList.appendChild(createPublicServiceCard(item)));
     }catch(error){
-      console.warn('Public Service Providers could not load:',error);
-      publicServiceProviderList.innerHTML='';
-      const empty=document.createElement('div');
-      empty.className='service-provider-public-empty';
-      empty.textContent='Service Provider profiles are temporarily unavailable.';
-      publicServiceProviderList.appendChild(empty);
+      console.warn('Public Services could not load:',error);
+      publicServiceProviderList.innerHTML='<div class="service-provider-public-empty">Approved services are temporarily unavailable.</div>';
     }
   };
 
-  document.addEventListener('DOMContentLoaded',()=>loadPublicServiceProviders(),{once:true});
+  const closeServiceRequestModal=()=>{
+    serviceRequestModal?.classList.remove('open');
+    serviceRequestModal?.setAttribute('aria-hidden','true');
+    document.body.style.overflow='';
+  };
+  const openServiceRequestModal=async(serviceId,requestType)=>{
+    let user=window.leogoAuth?.getUser?.()||null;
+    if(!user){
+      const session=await window.leogoAuth?.client?.auth.getSession();
+      user=session?.data?.session?.user||null;
+    }
+    if(!user){openCustomerShell('auth');return;}
+    const item=customerPublicServices.find((row)=>row.service_id===serviceId);
+    if(!item)return;
+    serviceRequestForm?.reset();
+    document.getElementById('serviceRequestServiceId').value=serviceId;
+    document.getElementById('serviceRequestType').value=requestType;
+    document.getElementById('serviceRequestTitle').textContent=requestType==='quotation'?'Request a Quotation':'Request Service';
+    document.getElementById('serviceRequestProvider').textContent=(item.service_name||'Service')+' · '+(item.business_name||'Approved Provider');
+    document.getElementById('serviceRequestSummary').textContent=requestType==='quotation'
+      ? 'Pay the quotation fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.'
+      : 'LEOGO Admin will review and dispatch this request directly to the approved provider.';
+    const payment=document.getElementById('serviceQuotationPayment');
+    payment.hidden=requestType!=='quotation';
+    const fee=Number(customerServiceConfig.quotation_fee_kes??50);
+    document.getElementById('serviceQuotationFee').textContent=money(fee);
+    document.getElementById('serviceQuotationDestination').innerHTML=servicePaymentDestinationHtml(customerServiceConfig.payment_destination);
+    document.getElementById('serviceQuotationReference').required=requestType==='quotation'&&fee>0;
+    document.getElementById('submitServiceRequest').textContent=requestType==='quotation'?'Submit Paid Quotation Request':'Submit Service Request';
+    const preferred=document.getElementById('serviceRequestPreferredDate');
+    preferred.min=new Date().toISOString().slice(0,10);
+    const status=document.getElementById('serviceRequestStatus');status.textContent='';status.className='service-request-status';
+    serviceRequestModal.classList.add('open');serviceRequestModal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
+  };
+  document.addEventListener('click',(event)=>{
+    const button=event.target.closest?.('[data-request-service]');
+    if(button)openServiceRequestModal(button.dataset.requestService,button.dataset.requestType);
+    if(event.target.closest?.('[data-close-service-request]'))closeServiceRequestModal();
+  });
+  serviceRequestForm?.addEventListener('submit',async(event)=>{
+    event.preventDefault();
+    if(!serviceRequestForm.reportValidity())return;
+    const submit=document.getElementById('submitServiceRequest');
+    const original=submit.textContent;submit.disabled=true;submit.textContent='Submitting…';
+    const target=document.getElementById('serviceRequestStatus');target.textContent='';target.className='service-request-status';
+    try{
+      const requestType=document.getElementById('serviceRequestType').value;
+      const {data,error}=await window.leogoAuth.client.rpc('customer_create_service_request',{
+        p_service_id:document.getElementById('serviceRequestServiceId').value,
+        p_request_type:requestType,
+        p_request_details:document.getElementById('serviceRequestDetails').value.trim(),
+        p_service_location:document.getElementById('serviceRequestLocation').value.trim(),
+        p_nearest_landmark:document.getElementById('serviceRequestLandmark').value.trim()||null,
+        p_preferred_date:document.getElementById('serviceRequestPreferredDate').value||null,
+        p_payment_reference:requestType==='quotation'?document.getElementById('serviceQuotationReference').value.trim():null
+      });
+      if(error)throw error;
+      target.textContent='✓ Request '+data.request_reference+' submitted successfully.';target.classList.add('success');
+      await loadCustomerServiceRequests();
+      window.setTimeout(()=>{closeServiceRequestModal();openCustomerShell('orders');},900);
+    }catch(error){target.textContent=error?.message||'Service request could not be submitted.';target.classList.add('error');}
+    finally{submit.disabled=false;submit.textContent=original;}
+  });
+
+  const loadCustomerServiceRequests=async()=>{
+    const client=window.leogoAuth?.client;if(!client)return;
+    let user=window.leogoAuth?.getUser?.()||null;
+    if(!user){const s=await client.auth.getSession();user=s.data?.session?.user||null;}
+    if(!user){customerServiceRequests=[];renderCustomerServiceRequests();return;}
+    const {data,error}=await client.rpc('customer_list_service_requests');
+    if(error){console.error('Service requests could not load:',error);return;}
+    customerServiceRequests=Array.isArray(data)?data:[];
+    renderCustomerServiceRequests();
+  };
+  const filteredCustomerServiceRequests=()=>{
+    let rows=customerServiceRequests;
+    if(customerActivityFilter==='products'||customerActivityFilter==='transport')return [];
+    if(customerActivityFilter==='active')rows=rows.filter(r=>!['completed','cancelled','declined','quote_rejected','payment_rejected'].includes(r.request_status));
+    if(customerActivityFilter==='completed')rows=rows.filter(r=>r.request_status==='completed');
+    if(customerActivityFilter==='cancelled')rows=rows.filter(r=>['cancelled','declined','quote_rejected','payment_rejected'].includes(r.request_status));
+    return rows;
+  };
+  const renderCustomerServiceRequests=()=>{
+    const target=document.getElementById('customerServiceRequests');
+    const rows=filteredCustomerServiceRequests();
+    const count=document.getElementById('customerServiceRequestCount');if(count)count.textContent=customerServiceRequests.length;
+    const active=customerServiceRequests.filter(r=>!['completed','cancelled','declined','quote_rejected','payment_rejected'].includes(r.request_status)).length;
+    const dashCount=document.getElementById('customerServiceRequestDashboardCount');if(dashCount)dashCount.textContent=active;
+    const dashText=document.getElementById('customerServiceRequestDashboardText');if(dashText)dashText.textContent=active?active+' open request(s)':'No open requests';
+    if(target)target.innerHTML=rows.map((item)=>
+      '<article class="customer-service-request-card" data-customer-service-request="'+receiptEscape(item.id)+'"><header><div><strong>'+receiptEscape(item.request_reference)+'</strong><small>'+receiptEscape(customerOrderFormatDate(item.created_at))+' · '+receiptEscape(item.service_name||'Service')+'</small></div><b>'+receiptEscape(serviceRequestStatusText(item.request_status))+'</b></header>'+
+      '<div class="customer-service-request-meta"><div><small>PROVIDER</small><strong>'+receiptEscape(item.business_name||'Approved Provider')+'</strong></div><div><small>REQUEST TYPE</small><strong>'+(item.request_type==='quotation'?'Quotation':'Direct service')+'</strong></div><div><small>'+(item.provider_quote_kes?'PROVIDER QUOTE':'LOCATION')+'</small><strong>'+receiptEscape(item.provider_quote_kes?money(item.provider_quote_kes):item.service_location)+'</strong></div></div>'+
+      (item.request_type==='quotation'&&Number(item.quotation_fee_kes)>0?'<small>Quotation fee: '+receiptEscape(money(item.quotation_fee_kes))+' · '+receiptEscape(String(item.payment_status||'').replaceAll('_',' '))+'</small>':'')+
+      (item.provider_quote_notes?'<p>'+receiptEscape(item.provider_quote_notes)+'</p>':'')+
+      (item.admin_notes?'<p><strong>Admin note:</strong> '+receiptEscape(item.admin_notes)+'</p>':'')+
+      (item.request_status==='quoted'?'<div class="customer-service-quote-actions"><button type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="true">Accept '+receiptEscape(money(item.provider_quote_kes))+'</button><button class="reject" type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="false">Reject Quotation</button></div>':'')+
+      '</article>'
+    ).join('');
+    const productContainer=document.getElementById('customerMarketplaceOrders');
+    const productVisible=productContainer&&productContainer.innerHTML.trim();
+    const empty=document.getElementById('customerActivityEmpty');
+    if(empty)empty.hidden=Boolean(rows.length||productVisible);
+  };
+  document.addEventListener('click',async(event)=>{
+    const button=event.target.closest?.('[data-service-quote-decision]');if(!button)return;
+    button.disabled=true;
+    try{
+      const accept=button.dataset.accept==='true';
+      const {error}=await window.leogoAuth.client.rpc('customer_decide_service_quote',{p_request_id:button.dataset.serviceQuoteDecision,p_accept:accept});
+      if(error)throw error;
+      await loadCustomerServiceRequests();
+    }catch(error){window.alert(error?.message||'Quotation decision could not be saved.');button.disabled=false;}
+  });
+  document.addEventListener('leogo:authchange',()=>window.setTimeout(()=>{loadPublicServices();loadCustomerServiceRequests();},60));
+  document.addEventListener('leogo:customer-data-refresh',()=>loadCustomerServiceRequests());
+  window.setTimeout(()=>{loadPublicServices();loadCustomerServiceRequests();},550);
 
   const customerMobileMenu=document.getElementById('customerMobileMenu');
   const customerMobileMenuScrim=document.getElementById('customerMobileMenuScrim');
