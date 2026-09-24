@@ -49,6 +49,7 @@
     serviceListings: [],
     serviceRequests: [],
     serviceMarketplaceSettings: null,
+    paymentActions: [],
     sellerSettlementAccounts: [],
     sellerSettlementRequests: [],
     sellerSettlements: [],
@@ -405,20 +406,23 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,serviceProviderResult] = await Promise.all([
+    const [coreResult,personalSaleResult,serviceProviderResult,paymentActionsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
-      db.rpc('admin_list_service_provider_approvals')
+      db.rpc('admin_list_service_provider_approvals'),
+      db.rpc('admin_list_pending_payment_actions')
     ]);
     if (coreResult.error) throw coreResult.error;
     if (personalSaleResult.error) throw personalSaleResult.error;
     if (serviceProviderResult.error) throw serviceProviderResult.error;
+    if (paymentActionsResult.error) throw paymentActionsResult.error;
 
     state.approvals = [
       ...(Array.isArray(coreResult.data) ? coreResult.data : []),
       ...(Array.isArray(personalSaleResult.data) ? personalSaleResult.data : []),
       ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
+    state.paymentActions=Array.isArray(paymentActionsResult.data)?paymentActionsResult.data:[];
     renderApprovals();
     if (state.serviceProviders.length) renderServiceProviders();
 
@@ -428,9 +432,22 @@
     if ($('#sidebarApprovalCount')) $('#sidebarApprovalCount').textContent = state.approvals.length;
 
     const compact = $('#dashboardApprovalList');
-    const recent = state.approvals.slice(0, 5);
-    compact.innerHTML = recent.length ? recent.map((item) => `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.applicant_name)} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-review="${escapeHtml(item.record_id)}" data-dashboard-kind="${escapeHtml(item.kind)}">Review →</button></div>`).join('') : '<div class="empty-mini">No urgent action required.</div>';
-    $$('[data-dashboard-review]', compact).forEach((button) => button.addEventListener('click', () => openApproval(button.dataset.dashboardKind, button.dataset.dashboardReview)));
+    const nonPaymentApprovals=state.approvals
+      .filter((item)=>!['premium_payment','wallet_deposit'].includes(item.kind))
+      .slice(0,5)
+      .map((item)=>({...item,action_type:'approval'}));
+    const pendingPayments=state.paymentActions.map((item)=>({...item,action_type:'payment'}));
+    const actions=[...pendingPayments,...nonPaymentApprovals]
+      .sort((a,b)=>new Date(b.submitted_at||0)-new Date(a.submitted_at||0));
+    compact.innerHTML=actions.length?actions.map((item)=>item.action_type==='payment'
+      ? `<div><div><b>${escapeHtml(item.title)} · ${formatMoney(item.amount_kes)}</b><small>${escapeHtml(item.customer_name||'Customer')} · ${escapeHtml(item.detail||'Payment awaiting verification')} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-payment-view="${escapeHtml(item.view)}" data-dashboard-payment-tab="${escapeHtml(item.tab||'')}">Verify →</button></div>`
+      : `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.applicant_name)} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-review="${escapeHtml(item.record_id)}" data-dashboard-kind="${escapeHtml(item.kind)}">Review →</button></div>`
+    ).join(''):'<div class="empty-mini">No urgent action required.</div>';
+    $('[data-dashboard-review]',compact).forEach((button)=>button.addEventListener('click',()=>openApproval(button.dataset.dashboardKind,button.dataset.dashboardReview)));
+    $('[data-dashboard-payment-view]',compact).forEach((button)=>button.addEventListener('click',()=>{
+      changeView(button.dataset.dashboardPaymentView);
+      if(button.dataset.dashboardPaymentView==='premium')changePremiumAdminTab(button.dataset.dashboardPaymentTab||'subscriptions');
+    }));
   };
 
   const approvalGroup = (kind) => ['seller_application','seller_product'].includes(kind) ? 'sellers' : ['service_provider_application','service_listing'].includes(kind) ? 'providers' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
