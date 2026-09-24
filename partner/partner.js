@@ -13,6 +13,7 @@ const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits
 const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],sellerEarningsReport=null,partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
 let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],providerSettlementRequests=[],providerSettlements=[],providerEarningsReport=null,editingProviderService=null;
+let transportProvider=null,transportVehicles=[],transportNotifications=[],editingTransportVehicle=null;
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -143,6 +144,7 @@ $$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   if(button.disabled)return;
   if(button.dataset.roleTarget==='seller')openSellerRole();
   if(button.dataset.roleTarget==='service_provider')openProviderRole();
+  if(button.dataset.roleTarget==='transport')openTransportRole();
 }));
 
 async function uploadSellerVerification(file,prefix){
@@ -368,7 +370,8 @@ function showRolePicker(){
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   rolePicker.hidden=false;
   sellerShell.hidden=true;
-  if(providerShell)providerShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;
+  if(transportShell)transportShell.hidden=true;
   authShell.hidden=true;
   if(hero)hero.hidden=false;
 }
@@ -377,6 +380,8 @@ async function openSellerRole(){
   if(partnerNotificationBell)partnerNotificationBell.hidden=false;
   rolePicker.hidden=true;
   sellerShell.hidden=false;
+  if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;
+  if(transportShell)transportShell.hidden=true;
   if(hero)hero.hidden=true;
 
   // Show visible feedback synchronously before any network request begins.
@@ -1680,6 +1685,7 @@ $('#showProviderServiceForm')?.addEventListener('click',()=>{
 partnerNotificationBell?.addEventListener('click',()=>{
   if(activeRole==='seller')openSellerView('notifications');
   else if(activeRole==='service_provider')openProviderView('notifications');
+  else if(activeRole==='transport')openTransportView('notifications');
 });
 
 function showProviderBoot(message='Loading your Service Provider account…',isError=false){
@@ -1867,6 +1873,7 @@ async function openProviderRole(){
   if(partnerNotificationBell)partnerNotificationBell.hidden=false;
   rolePicker.hidden=true;
   sellerShell.hidden=true;
+  if(transportShell)transportShell.hidden=true;
   providerShell.hidden=false;
   authShell.hidden=true;
   if(hero)hero.hidden=true;
@@ -2339,22 +2346,499 @@ $('#markAllProviderNotificationsRead')?.addEventListener('click',async()=>{
   await loadProviderNotifications();
 });
 
+
+/* TRANSPORT & PARCEL PROVIDER MODULE — isolated from LEOGO staff rider delivery */
+const transportShell=$('#transportShell');
+const transportBootStatus=$('#transportBootStatus');
+const transportOnboarding=$('#transportOnboarding');
+const transportReg=$('#transportRegistrationForm');
+const transportPendingArea=$('#transportPendingArea');
+const transportDashboard=$('#transportDashboard');
+const transportSidebar=$('#transportSidebar');
+
+function transportStatusCopy(value){
+  if(value==='submitted')return 'Submitted to LEOGO Admin. Your Transport Provider application is waiting for review.';
+  if(value==='under_review')return 'LEOGO Admin is reviewing your Transport Provider registration.';
+  if(value==='changes_requested')return 'LEOGO Admin requested corrections. Update the application and resubmit it.';
+  if(value==='approved')return 'Approved. You can now add vehicles for Admin approval.';
+  if(value==='rejected')return 'The application was not approved. Review the Admin note and correct it before resubmitting if appropriate.';
+  if(value==='suspended')return 'This Transport Provider account is currently suspended. Contact LEOGO Admin.';
+  return 'Complete Transport Provider registration to start offering Transport & Parcel services.';
+}
+function showTransportBoot(message='Loading your Transport Provider account…',isError=false){
+  if(!transportBootStatus)return;
+  transportBootStatus.hidden=false;
+  $('#transportBootTitle').textContent=isError?'Transport Provider Portal needs attention':'Opening your Transport Provider dashboard…';
+  $('#transportBootMessage').textContent=message;
+  const spinner=$('.seller-boot-spinner',transportBootStatus);
+  if(spinner)spinner.hidden=isError;
+  $('#retryTransportBoot').hidden=!isError;
+}
+function hideTransportBoot(){if(transportBootStatus)transportBootStatus.hidden=true;}
+function transportViewDescription(view){
+  return {
+    overview:'Overview of your Transport & Parcel Provider account.',
+    jobs:'Customer Transport & Parcel jobs assigned to this provider.',
+    vehicles:'Add vehicles, customer-facing vehicle pictures and private driver verification details.',
+    notifications:'Application, vehicle and future transport-job notifications.',
+    profile:'Your approved Transport Provider registration details.'
+  }[view]||'Transport & Parcel Portal';
+}
+function closeTransportSidebar(){
+  transportSidebar?.classList.remove('open');
+  $('#transportSidebarScrim')?.classList.remove('open');
+}
+function openTransportView(view='overview'){
+  const allowed=['overview','jobs','vehicles','notifications','profile'];
+  const resolved=allowed.includes(view)?view:'overview';
+  $$('[data-transport-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.transportContent===resolved));
+  $$('[data-transport-view]').forEach(button=>button.classList.toggle('active',button.dataset.transportView===resolved));
+  if($('#transportViewDescription'))$('#transportViewDescription').textContent=transportViewDescription(resolved);
+  if(resolved==='vehicles')loadTransportVehicles().catch(error=>console.warn('Transport vehicle refresh failed:',error));
+  if(resolved==='notifications')loadTransportNotifications().catch(error=>console.warn('Transport notifications refresh failed:',error));
+  closeTransportSidebar();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+$$('[data-transport-view]').forEach(button=>button.addEventListener('click',()=>openTransportView(button.dataset.transportView)));
+$$('[data-open-transport-view]').forEach(button=>button.addEventListener('click',()=>openTransportView(button.dataset.openTransportView)));
+$('#transportSidebarToggle')?.addEventListener('click',()=>{transportSidebar?.classList.add('open');$('#transportSidebarScrim')?.classList.add('open');});
+$('#transportSidebarScrim')?.addEventListener('click',closeTransportSidebar);
+$('#transportNotificationsButton')?.addEventListener('click',()=>openTransportView('notifications'));
+$('#transportProfileButton')?.addEventListener('click',()=>openTransportView('profile'));
+$('#transportBackToPartnerships')?.addEventListener('click',showRolePicker);
+$('#transportPendingBack')?.addEventListener('click',showRolePicker);
+$('#refreshTransportDashboard')?.addEventListener('click',()=>loadTransportProvider());
+$('#retryTransportBoot')?.addEventListener('click',()=>openTransportRole());
+
+async function ensureTransportLocations(preferredCounty='',preferredSubcounty=''){
+  await loadKenyaLocations();
+  const county=$('#transportCounty'),sub=$('#transportSubCounty');
+  if(!county||!sub)return;
+  county.innerHTML='<option value="">Select county</option>'+kenyaCounties.map(item=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.display_name||item.name)+'</option>').join('');
+  if(preferredCounty&&kenyaCounties.some(item=>item.code===preferredCounty))county.value=preferredCounty;
+  await renderTransportSubcounties(preferredSubcounty);
+}
+async function renderTransportSubcounties(preferredCode=''){
+  const countyCode=$('#transportCounty')?.value||'';
+  const target=$('#transportSubCounty');
+  if(!target)return;
+  target.disabled=!countyCode;
+  if(!countyCode){target.innerHTML='<option value="">Choose a county first</option>';return;}
+  let options=kenyaSubcounties.filter(item=>item.county_code===countyCode);
+  if(!options.length){
+    target.innerHTML='<option value="">Loading sub-counties…</option>';
+    const {data,error}=await client.from('kenya_subcounties').select('code,county_code,name').eq('is_active',true).eq('county_code',countyCode).order('name');
+    if(!error&&data?.length){
+      kenyaSubcounties=[...kenyaSubcounties.filter(item=>item.county_code!==countyCode),...data];
+      options=data;
+    }
+  }
+  target.innerHTML=options.length?'<option value="">Select sub-county</option>'+options.map(item=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.name)+'</option>').join(''):'<option value="">No active sub-counties configured</option>';
+  target.disabled=!options.length;
+  if(preferredCode&&options.some(item=>item.code===preferredCode))target.value=preferredCode;
+}
+$('#transportCounty')?.addEventListener('change',()=>renderTransportSubcounties());
+
+async function uploadTransportVerification(file,prefix){
+  if(!file)return null;
+  if(file.size>8388608)throw new Error('Each Transport verification document must be 8 MB or smaller.');
+  const ext=(file.name.split('.').pop()||'pdf').toLowerCase();
+  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('transport-verification').upload(path,file,{upsert:false,contentType:file.type||undefined});
+  if(error)throw error;
+  return path;
+}
+async function uploadTransportVehiclePhoto(file){
+  if(!file)return null;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Vehicle profile picture must be JPG, PNG or WEBP.');
+  if(file.size>5242880)throw new Error('Vehicle profile picture must be 5 MB or smaller.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/vehicle-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('transport-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+}
+async function uploadTransportDriverPassport(file){
+  if(!file)return null;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Driver passport photo must be JPG, PNG or WEBP.');
+  if(file.size>5242880)throw new Error('Driver passport photo must be 5 MB or smaller.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/driver-passport-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('transport-driver-private').upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+}
+function transportVehiclePhotoUrl(path){
+  return path?client.storage.from('transport-public-media').getPublicUrl(path).data.publicUrl:'';
+}
+function selectedTransportServices(name){
+  return $$('input[name="'+name+'"]:checked').map(input=>input.value);
+}
+function setTransportServices(name,values=[]){
+  const chosen=new Set(Array.isArray(values)?values:[]);
+  $$('input[name="'+name+'"]').forEach(input=>{input.checked=chosen.has(input.value);});
+}
+function transportSummaryRows(){
+  if(!transportProvider)return [];
+  return [
+    ['Business / Operator',transportProvider.business_name],
+    ['Owner / Operator',transportProvider.owner_name],
+    ['ID Number',transportProvider.id_number],
+    ['Phone',transportProvider.phone],
+    ['Provider Type',String(transportProvider.provider_type||'').replaceAll('_',' ')],
+    ['Services',(transportProvider.services_offered||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'—'],
+    ['Location',[transportProvider.town,transportProvider.sub_county,transportProvider.county].filter(Boolean).join(', ')],
+    ['Operating Base',transportProvider.location_details],
+    ['Coverage',transportProvider.coverage_notes||'—'],
+    ['Application Status',String(transportProvider.application_status||'').replaceAll('_',' ')],
+    ['Business ID / Identification',transportProvider.business_id_document_path?'Uploaded':'Missing'],
+    ['Business Licence',transportProvider.business_licence_path?'Uploaded':'Not provided'],
+    ['Registration Certificate',transportProvider.registration_certificate_path?'Uploaded':'Not provided'],
+    ['Transport / Operator Permit',transportProvider.transport_operator_permit_path?'Uploaded':'Not provided'],
+    ['Other Permits',(transportProvider.other_permit_paths||[]).length+' file(s)'],
+    ['Admin Note',transportProvider.admin_notes||'—']
+  ];
+}
+function renderTransportApplicationSummary(){
+  const target=$('#transportApplicationSummary');
+  if(target)target.innerHTML=transportSummaryRows().map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
+  const note=$('#transportAdminNote');
+  if(note){note.hidden=!transportProvider?.admin_notes;note.textContent=transportProvider?.admin_notes?'Admin note: '+transportProvider.admin_notes:'';}
+}
+function populateTransportApplication(){
+  if(!transportProvider)return;
+  $('#transportBusinessName').value=transportProvider.business_name||'';
+  $('#transportOwnerName').value=transportProvider.owner_name||'';
+  $('#transportIdNumber').value=transportProvider.id_number||'';
+  $('#transportPhone').value=transportProvider.phone||'';
+  $('#transportProviderType').value=transportProvider.provider_type||'individual_operator';
+  $('#transportTown').value=transportProvider.town||'';
+  $('#transportLocation').value=transportProvider.location_details||'';
+  $('#transportCoverage').value=transportProvider.coverage_notes||'';
+  $('#transportDescription').value=transportProvider.business_description||'';
+  setTransportServices('transportService',transportProvider.services_offered||[]);
+  $('#transportBusinessIdDocument').required=!transportProvider.business_id_document_path;
+  ensureTransportLocations(transportProvider.county_code||'',transportProvider.sub_county_code||'').catch(console.warn);
+}
+function renderTransportProvider(){
+  hideTransportBoot();
+  transportOnboarding.hidden=true;
+  transportReg.hidden=true;
+  transportPendingArea.hidden=true;
+  transportDashboard.hidden=true;
+  if(!transportProvider){transportOnboarding.hidden=false;return;}
+  if(transportProvider.application_status!=='approved'){
+    transportPendingArea.hidden=false;
+    $('#transportPendingTitle').textContent=transportProvider.application_status==='changes_requested'?'Correction requested':transportProvider.application_status==='rejected'?'Application not approved':'Application '+String(transportProvider.application_status||'submitted').replaceAll('_',' ');
+    $('#transportPendingMessage').textContent=transportStatusCopy(transportProvider.application_status);
+    $('#editTransportApplication').hidden=!['changes_requested','rejected'].includes(transportProvider.application_status);
+    renderTransportApplicationSummary();
+    return;
+  }
+  transportDashboard.hidden=false;
+  $('#transportDashboardName').textContent=transportProvider.business_name||'My Transport Business';
+  $('#transportSidebarBusiness').textContent=transportProvider.business_name||'Transport Provider';
+  $('#transportSidebarStatus').textContent=String(transportProvider.application_status||'approved').toUpperCase();
+  $('#transportAvailability').textContent=String(transportProvider.availability_status||'available').replaceAll('_',' ');
+  $('#transportProfileSummary').innerHTML=transportSummaryRows().filter(([label])=>!['Admin Note'].includes(label)).map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
+  renderTransportVehicles();
+  renderTransportNotifications();
+  openTransportView('overview');
+}
+async function loadTransportProvider(){
+  if(!currentUser)return;
+  showTransportBoot();
+  try{
+    const result=await Promise.race([
+      client.rpc('transport_provider_get_own_account'),
+      waitTimeout(8000,'Transport Provider account is taking too long to load. Check your connection and tap Retry.')
+    ]);
+    if(result?.error)throw result.error;
+    transportProvider=result?.data||null;
+    renderTransportProvider();
+    await ensureTransportLocations(transportProvider?.county_code||'',transportProvider?.sub_county_code||'');
+    if(transportProvider?.application_status==='approved'){
+      await Promise.allSettled([loadTransportVehicles(),loadTransportNotifications()]);
+    }else if(transportProvider){
+      await loadTransportNotifications().catch(()=>{});
+    }
+  }catch(error){
+    console.error('Transport Provider portal boot failed:',error);
+    showTransportBoot(error?.message||'The Transport Provider dashboard could not finish loading.',true);
+    transportOnboarding.hidden=true;transportReg.hidden=true;transportPendingArea.hidden=true;transportDashboard.hidden=true;
+  }
+}
+async function openTransportRole(){
+  activeRole='transport';
+  if(partnerNotificationBell)partnerNotificationBell.hidden=false;
+  rolePicker.hidden=true;
+  sellerShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;
+  transportShell.hidden=false;
+  authShell.hidden=true;
+  if(hero)hero.hidden=true;
+  showTransportBoot();
+  await loadTransportProvider();
+}
+function openTransportRegistration(editExisting=false){
+  transportOnboarding.hidden=true;
+  transportPendingArea.hidden=true;
+  transportDashboard.hidden=true;
+  transportReg.hidden=false;
+  status($('#transportRegistrationStatus'),'');
+  if(editExisting&&transportProvider)populateTransportApplication();
+  else{
+    transportReg.reset();
+    $('#transportBusinessIdDocument').required=true;
+    if(currentUser?.user_metadata?.full_name)$('#transportOwnerName').value=currentUser.user_metadata.full_name;
+    ensureTransportLocations().catch(console.warn);
+  }
+  transportReg.scrollIntoView({behavior:'smooth'});
+}
+$('#showTransportRegistration')?.addEventListener('click',()=>openTransportRegistration(false));
+$('#editTransportApplication')?.addEventListener('click',()=>openTransportRegistration(true));
+$('#cancelTransportRegistration')?.addEventListener('click',()=>transportProvider?renderTransportProvider():openTransportRole());
+
+transportReg?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(!transportReg.reportValidity())return;
+  const phone=normalisePhone($('#transportPhone').value);
+  if(!/^\+254[17]\d{8}$/.test(phone)){status($('#transportRegistrationStatus'),'Enter a valid Kenyan phone number.','error');return;}
+  const services=selectedTransportServices('transportService');
+  if(!services.length){status($('#transportRegistrationStatus'),'Choose at least one Transport / Parcel service.','error');return;}
+  const countyCode=$('#transportCounty').value;
+  const subCountyCode=$('#transportSubCounty').value;
+  const county=kenyaCounties.find(item=>item.code===countyCode);
+  const subCounty=kenyaSubcounties.find(item=>item.code===subCountyCode);
+  const businessIdFile=$('#transportBusinessIdDocument').files?.[0]||null;
+  if(!businessIdFile&&!transportProvider?.business_id_document_path){status($('#transportRegistrationStatus'),'Business ID or personal identification document is required.','error');return;}
+  const button=transportReg.querySelector('button[type="submit"]');
+  const original=button.textContent;button.disabled=true;button.textContent='Submitting…';
+  const uploaded=[];
+  try{
+    status($('#transportRegistrationStatus'),'Uploading private verification documents…');
+    const businessId=businessIdFile?await uploadTransportVerification(businessIdFile,'business-id'):transportProvider?.business_id_document_path;
+    if(businessIdFile)uploaded.push(businessId);
+    const licenceFile=$('#transportBusinessLicence').files?.[0]||null;
+    const certFile=$('#transportRegistrationCertificate').files?.[0]||null;
+    const permitFile=$('#transportOperatorPermit').files?.[0]||null;
+    const otherFiles=[...($('#transportOtherPermits').files||[])];
+    const businessLicence=licenceFile?await uploadTransportVerification(licenceFile,'business-licence'):transportProvider?.business_licence_path||null;
+    if(licenceFile)uploaded.push(businessLicence);
+    const registrationCertificate=certFile?await uploadTransportVerification(certFile,'registration-certificate'):transportProvider?.registration_certificate_path||null;
+    if(certFile)uploaded.push(registrationCertificate);
+    const operatorPermit=permitFile?await uploadTransportVerification(permitFile,'operator-permit'):transportProvider?.transport_operator_permit_path||null;
+    if(permitFile)uploaded.push(operatorPermit);
+    let otherPermits=transportProvider?.other_permit_paths||[];
+    if(otherFiles.length){
+      const fresh=[];
+      for(const file of otherFiles){const path=await uploadTransportVerification(file,'other-permit');fresh.push(path);uploaded.push(path);}
+      otherPermits=fresh;
+    }
+    const {error}=await client.rpc('transport_provider_submit_application',{
+      p_business_name:$('#transportBusinessName').value.trim(),
+      p_owner_name:$('#transportOwnerName').value.trim(),
+      p_id_number:$('#transportIdNumber').value.trim(),
+      p_phone:phone,
+      p_provider_type:$('#transportProviderType').value,
+      p_services_offered:services,
+      p_county:county?.display_name||county?.name||$('#transportCounty').selectedOptions[0]?.textContent||'',
+      p_sub_county:subCounty?.name||$('#transportSubCounty').selectedOptions[0]?.textContent||'',
+      p_county_code:countyCode||null,
+      p_sub_county_code:subCountyCode||null,
+      p_town:$('#transportTown').value.trim(),
+      p_location_details:$('#transportLocation').value.trim(),
+      p_coverage_notes:$('#transportCoverage').value.trim()||null,
+      p_business_description:$('#transportDescription').value.trim()||null,
+      p_business_id_document_path:businessId,
+      p_business_licence_path:businessLicence,
+      p_registration_certificate_path:registrationCertificate,
+      p_transport_operator_permit_path:operatorPermit,
+      p_other_permit_paths:otherPermits
+    });
+    if(error)throw error;
+    status($('#transportRegistrationStatus'),'Transport Provider application submitted to LEOGO Admin.','success');
+    await loadTransportProvider();
+  }catch(error){
+    if(uploaded.length){try{await client.storage.from('transport-verification').remove(uploaded);}catch(_e){}}
+    status($('#transportRegistrationStatus'),error?.message||'Transport Provider application could not be submitted.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+});
+
+function resetTransportVehicleForm(){
+  editingTransportVehicle=null;
+  const form=$('#transportVehicleForm');
+  if(!form)return;
+  form.reset();form.hidden=true;
+  $('#transportVehicleId').value='';
+  $('#transportVehicleAvailable').checked=true;
+  $('#transportVehicleFormTitle').textContent='Add Vehicle';
+  status($('#transportVehicleStatus'),'');
+}
+$('#transportVehicleReset')?.addEventListener('click',resetTransportVehicleForm);
+$('#showTransportVehicleForm')?.addEventListener('click',()=>{
+  resetTransportVehicleForm();
+  const form=$('#transportVehicleForm');form.hidden=false;
+  openTransportView('vehicles');
+  form.scrollIntoView({behavior:'smooth',block:'start'});
+});
+function editTransportVehicle(id){
+  const vehicle=transportVehicles.find(item=>item.id===id);if(!vehicle)return;
+  editingTransportVehicle=vehicle;
+  $('#transportVehicleId').value=vehicle.id;
+  $('#transportVehicleType').value=vehicle.vehicle_type||'';
+  $('#transportVehiclePlate').value=vehicle.registration_number||'';
+  $('#transportVehicleMakeModel').value=vehicle.make_model||'';
+  $('#transportVehicleColour').value=vehicle.colour||'';
+  $('#transportVehicleCapacity').value=vehicle.capacity_description||'';
+  $('#transportVehicleMaxWeight').value=vehicle.max_weight_kg??'';
+  $('#transportVehicleServiceArea').value=vehicle.service_area||'';
+  $('#transportVehicleAvailable').checked=vehicle.is_available!==false;
+  $('#transportDriverName').value=vehicle.driver_full_name||'';
+  $('#transportDriverId').value=vehicle.driver_id_number||'';
+  $('#transportDriverPhone').value=vehicle.driver_phone||'';
+  $('#transportDriverLicence').value=vehicle.driver_licence_number||'';
+  setTransportServices('transportVehicleService',vehicle.service_types||[]);
+  $('#transportVehicleFormTitle').textContent='Edit Vehicle';
+  const form=$('#transportVehicleForm');form.hidden=false;
+  openTransportView('vehicles');
+  form.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function renderTransportVehicles(){
+  const target=$('#transportVehicleList');if(!target)return;
+  const approved=transportVehicles.filter(v=>v.approval_status==='approved').length;
+  const pending=transportVehicles.filter(v=>['pending','under_review','changes_requested'].includes(v.approval_status)).length;
+  $('#transportApprovedVehicleCount').textContent=approved;
+  $('#transportPendingVehicleCount').textContent=pending;
+  const badge=$('#transportVehiclePendingBadge');
+  if(badge){badge.hidden=!pending;badge.textContent=String(pending);}
+  target.innerHTML=transportVehicles.length?transportVehicles.map(vehicle=>{
+    const photo=transportVehiclePhotoUrl(vehicle.vehicle_profile_picture_path);
+    const driverSummary=vehicle.driver_full_name?'Driver verification added':'No driver assigned';
+    return '<article class="transport-vehicle-card">'+
+      '<div class="transport-vehicle-photo">'+(photo?'<img src="'+escapeHtml(photo)+'" alt="'+escapeHtml(vehicle.vehicle_type)+'">':'<span>🚚</span>')+'</div>'+
+      '<div class="transport-vehicle-copy"><div><span class="status-chip">'+escapeHtml(String(vehicle.approval_status).replaceAll('_',' '))+'</span><strong>'+escapeHtml(vehicle.vehicle_type)+' · '+escapeHtml(vehicle.registration_number)+'</strong></div>'+
+      '<p>'+escapeHtml([vehicle.make_model,vehicle.colour,vehicle.capacity_description].filter(Boolean).join(' · ')||'Vehicle profile')+'</p>'+
+      '<small>'+escapeHtml((vehicle.service_types||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'No services')+'</small>'+
+      '<small class="private-driver-note">🔒 '+escapeHtml(driverSummary)+' — private details visible only to LEOGO Admin.</small>'+
+      (vehicle.admin_notes?'<p class="admin-note">Admin note: '+escapeHtml(vehicle.admin_notes)+'</p>':'')+
+      '<button type="button" class="secondary" data-edit-transport-vehicle="'+escapeHtml(vehicle.id)+'">Edit Vehicle</button></div></article>';
+  }).join(''):'<div class="empty-card">No vehicles added yet. Add the first vehicle and send it to Admin for approval.</div>';
+  $$('[data-edit-transport-vehicle]').forEach(button=>button.addEventListener('click',()=>editTransportVehicle(button.dataset.editTransportVehicle)));
+}
+async function loadTransportVehicles(){
+  if(!currentUser||transportProvider?.application_status!=='approved')return;
+  const {data,error}=await client.rpc('transport_provider_list_vehicles');
+  if(error)throw error;
+  transportVehicles=Array.isArray(data)?data:[];
+  renderTransportVehicles();
+}
+$('#transportVehicleForm')?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const form=event.currentTarget;if(!form.reportValidity())return;
+  const services=selectedTransportServices('transportVehicleService');
+  if(!services.length){status($('#transportVehicleStatus'),'Choose at least one service for this vehicle.','error');return;}
+  const photoFile=$('#transportVehiclePicture').files?.[0]||null;
+  if(!photoFile&&!editingTransportVehicle?.vehicle_profile_picture_path){status($('#transportVehicleStatus'),'Add a vehicle profile picture.','error');return;}
+  const driverPhoneRaw=$('#transportDriverPhone').value.trim();
+  const driverPhone=driverPhoneRaw?normalisePhone(driverPhoneRaw):null;
+  if(driverPhoneRaw&&!/^\+254[17]\d{8}$/.test(driverPhone)){status($('#transportVehicleStatus'),'Enter a valid Kenyan driver phone number.','error');return;}
+  const passportFile=$('#transportDriverPassport').files?.[0]||null;
+  const button=form.querySelector('button[type="submit"]');
+  const original=button.textContent;button.disabled=true;button.textContent='Saving…';
+  const uploaded=[];
+  try{
+    status($('#transportVehicleStatus'),'Uploading vehicle and private driver verification media…');
+    const vehiclePhoto=photoFile?await uploadTransportVehiclePhoto(photoFile):null;
+    if(vehiclePhoto)uploaded.push({bucket:'transport-public-media',path:vehiclePhoto});
+    const driverPassport=passportFile?await uploadTransportDriverPassport(passportFile):null;
+    if(driverPassport)uploaded.push({bucket:'transport-driver-private',path:driverPassport});
+    const {error}=await client.rpc('transport_provider_submit_vehicle',{
+      p_vehicle_id:editingTransportVehicle?.id||null,
+      p_vehicle_type:$('#transportVehicleType').value,
+      p_registration_number:$('#transportVehiclePlate').value.trim(),
+      p_make_model:$('#transportVehicleMakeModel').value.trim()||null,
+      p_colour:$('#transportVehicleColour').value.trim()||null,
+      p_service_types:services,
+      p_capacity_description:$('#transportVehicleCapacity').value.trim()||null,
+      p_max_weight_kg:$('#transportVehicleMaxWeight').value?Number($('#transportVehicleMaxWeight').value):null,
+      p_service_area:$('#transportVehicleServiceArea').value.trim()||null,
+      p_is_available:$('#transportVehicleAvailable').checked,
+      p_vehicle_profile_picture_path:vehiclePhoto,
+      p_driver_full_name:$('#transportDriverName').value.trim()||null,
+      p_driver_id_number:$('#transportDriverId').value.trim()||null,
+      p_driver_phone:driverPhone,
+      p_driver_licence_number:$('#transportDriverLicence').value.trim()||null,
+      p_driver_passport_photo_path:driverPassport
+    });
+    if(error)throw error;
+    status($('#transportVehicleStatus'),'Vehicle saved and sent to LEOGO Admin for approval.','success');
+    resetTransportVehicleForm();
+    await Promise.all([loadTransportVehicles(),loadTransportNotifications()]);
+  }catch(error){
+    for(const item of uploaded){try{await client.storage.from(item.bucket).remove([item.path]);}catch(_e){}}
+    status($('#transportVehicleStatus'),error?.message||'Vehicle could not be saved.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+});
+
+async function loadTransportNotifications(){
+  if(!currentUser)return;
+  const {data,error}=await client.from('partner_notifications').select('*').eq('partner_type','transport').order('created_at',{ascending:false}).limit(50);
+  if(error)throw error;
+  transportNotifications=data||[];
+  renderTransportNotifications();
+}
+function renderTransportNotifications(){
+  const target=$('#transportNotificationList');if(!target)return;
+  const unread=transportNotifications.filter(item=>!item.read_at).length;
+  const badge=$('#transportNotificationBadge');
+  if(badge){badge.hidden=!unread;badge.textContent=unread>99?'99+':String(unread);}
+  updateSharedPartnerNotificationBadge(unread);
+  target.innerHTML=transportNotifications.length?transportNotifications.map(item=>
+    '<article class="seller-notification-item '+(item.read_at?'':'unread')+'"><div><strong>'+escapeHtml(item.title)+'</strong><p>'+escapeHtml(item.message)+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div><div class="seller-notification-actions">'+
+    (item.action_view?'<button type="button" data-open-transport-notification="'+escapeHtml(item.id)+'" data-transport-notification-view="'+escapeHtml(item.action_view)+'">Open</button>':'')+
+    (item.read_at?'':'<button class="secondary" type="button" data-mark-transport-notification="'+escapeHtml(item.id)+'">Mark read</button>')+
+    '</div></article>'
+  ).join(''):'<div class="empty-card">No Transport Provider notifications yet.</div>';
+  $$('[data-mark-transport-notification]').forEach(button=>button.addEventListener('click',async()=>{
+    const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markTransportNotification});
+    if(!error)await loadTransportNotifications();
+  }));
+  $$('[data-open-transport-notification]').forEach(button=>button.addEventListener('click',async()=>{
+    await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.openTransportNotification}).catch?.(()=>{});
+    const view=button.dataset.transportNotificationView;
+    if(view==='transport-vehicles')openTransportView('vehicles');
+    else if(view==='transport-profile')openTransportView('profile');
+    else if(view==='transport-jobs')openTransportView('jobs');
+    else openTransportView('notifications');
+    await loadTransportNotifications();
+  }));
+}
+$('#markAllTransportNotificationsRead')?.addEventListener('click',async()=>{
+  const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'transport'});
+  if(error){status($('#transportRegistrationStatus'),error.message,'error');return;}
+  await loadTransportNotifications();
+});
+
 async function handleSession(session){
   currentUser=session?.user||null;
   logout.hidden=!currentUser;
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   if(!currentUser){
-    seller=null;products=[];sellerEarningsReport=null;provider=null;providerServices=[];providerNotifications=[];providerJobs=[];providerSettlementAccounts=[];providerSettlementRequests=[];providerSettlements=[];providerEarningsReport=null;activeRole='';
-    authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;if(providerShell)providerShell.hidden=true;if(hero)hero.hidden=false;
+    seller=null;products=[];sellerEarningsReport=null;provider=null;providerServices=[];providerNotifications=[];providerJobs=[];providerSettlementAccounts=[];providerSettlementRequests=[];providerSettlements=[];providerEarningsReport=null;
+    transportProvider=null;transportVehicles=[];transportNotifications=[];editingTransportVehicle=null;activeRole='';
+    authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;if(hero)hero.hidden=false;
     return;
   }
   authShell.hidden=true;
   sellerShell.hidden=true;
-  if(providerShell)providerShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;
+  if(transportShell)transportShell.hidden=true;
   rolePicker.hidden=false;
   if(hero)hero.hidden=false;
   if(activeRole==='seller')await openSellerRole();
   if(activeRole==='service_provider')await openProviderRole();
+  if(activeRole==='transport')await openTransportRole();
 }
 
 window.addEventListener('unhandledrejection',event=>{
@@ -2375,7 +2859,7 @@ client.auth.onAuthStateChange((event,s)=>{
     authShell.hidden=false;
     rolePicker.hidden=true;
     sellerShell.hidden=true;
-    if(providerShell)providerShell.hidden=true;
+    if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;
     $('#partnerLoginForm').hidden=true;
     $('#partnerLoginForm').classList.remove('active');
     $('#partnerRegisterForm').hidden=true;
@@ -2391,7 +2875,7 @@ client.auth.onAuthStateChange((event,s)=>{
 client.auth.getSession().then(({data})=>{
   if(new URLSearchParams(location.search).get('mode')==='reset-password'){
     currentUser=data.session?.user||null;
-    authShell.hidden=false; rolePicker.hidden=true; sellerShell.hidden=true; if(providerShell)providerShell.hidden=true; logout.hidden=true;
+    authShell.hidden=false; rolePicker.hidden=true; sellerShell.hidden=true; if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true; logout.hidden=true;
     $('#partnerLoginForm').hidden=true; $('#partnerLoginForm').classList.remove('active');
     $('#partnerRegisterForm').hidden=true; $('#partnerRegisterForm').classList.remove('active');
     resetRequestForm.hidden=true; resetUpdateForm.hidden=false; resetUpdateForm.classList.add('active');
