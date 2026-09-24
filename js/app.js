@@ -2893,6 +2893,8 @@
   let customerPublicServices=[];
   let customerServiceConfig={direct_request_fee_kes:50,quotation_fee_kes:50,payment_destination:null};
   let customerServiceRequests=[];
+  let serviceLocationCounties=[];
+  let serviceLocationSubCounties=[];
 
   const servicePriceText=(item)=>{
     if(item.pricing_model==='quote')return 'Price after quotation';
@@ -2916,6 +2918,69 @@
     let label=payment.till_number?'Till Number':payment.paybill_number?'PayBill':payment.account_number?'Account Number':'Payment details';
     return '<div class="service-payment-destination"><span>'+receiptEscape(payment.display_name||'LEOGO Payment Account')+'</span><strong>'+receiptEscape(label+(number?' · '+number:''))+'</strong>'+(payment.business_name?'<small>'+receiptEscape(payment.business_name)+'</small>':'')+(payment.instructions?'<small>'+receiptEscape(payment.instructions)+'</small>':'')+'</div>';
   };
+
+  const loadServiceLocationDirectory=async()=>{
+    const client=window.leogoAuth?.client;
+    if(!client)return;
+    if(serviceLocationCounties.length&&serviceLocationSubCounties.length)return;
+    const [countiesResult,subsResult]=await Promise.all([
+      client.from('kenya_counties').select('code,name').eq('is_active',true).order('name'),
+      client.from('kenya_subcounties').select('code,county_code,name').eq('is_active',true).order('name')
+    ]);
+    if(countiesResult.error||subsResult.error)throw countiesResult.error||subsResult.error;
+    serviceLocationCounties=countiesResult.data||[];
+    serviceLocationSubCounties=subsResult.data||[];
+  };
+  const renderServiceLocationCounties=()=>{
+    const county=document.getElementById('serviceRequestCounty');
+    if(!county)return;
+    county.innerHTML='<option value="">Select county</option>'+serviceLocationCounties.map((item)=>'<option value="'+receiptEscape(item.code)+'">'+receiptEscape(item.name)+'</option>').join('');
+  };
+  const renderServiceLocationSubCounties=(preferred='')=>{
+    const county=document.getElementById('serviceRequestCounty');
+    const sub=document.getElementById('serviceRequestSubCounty');
+    if(!county||!sub)return;
+    const options=serviceLocationSubCounties.filter((item)=>item.county_code===county.value);
+    sub.disabled=!county.value;
+    sub.innerHTML=county.value
+      ? '<option value="">Select sub-county</option>'+options.map((item)=>'<option value="'+receiptEscape(item.code)+'">'+receiptEscape(item.name)+'</option>').join('')
+      : '<option value="">Choose a county first</option>';
+    if(preferred&&options.some((item)=>item.code===preferred))sub.value=preferred;
+  };
+  document.getElementById('serviceRequestCounty')?.addEventListener('change',()=>renderServiceLocationSubCounties());
+
+  const serviceCoordinatesFromLink=(value='')=>{
+    const text=String(value).trim();
+    const direct=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+    if(direct)return {lat:Number(direct[1]),lng:Number(direct[2])};
+    const maps=text.match(/(?:@|q=|query=)(-?\d{1,2}(?:\.\d+)?)[,%2C\s]+(-?\d{1,3}(?:\.\d+)?)/i);
+    if(maps)return {lat:Number(maps[1]),lng:Number(maps[2])};
+    return null;
+  };
+  document.getElementById('serviceRequestMapLink')?.addEventListener('change',(event)=>{
+    const coords=serviceCoordinatesFromLink(event.currentTarget.value);
+    if(!coords)return;
+    document.getElementById('serviceRequestLatitude').value=coords.lat.toFixed(7);
+    document.getElementById('serviceRequestLongitude').value=coords.lng.toFixed(7);
+    document.getElementById('serviceLocationStatus').textContent='✓ Coordinates detected from the shared location.';
+  });
+  document.getElementById('useServiceCurrentLocation')?.addEventListener('click',()=>{
+    const target=document.getElementById('serviceLocationStatus');
+    if(!navigator.geolocation){target.textContent='Location sharing is not supported by this browser.';return;}
+    target.textContent='Getting your current location…';
+    navigator.geolocation.getCurrentPosition((position)=>{
+      const lat=Number(position.coords.latitude);
+      const lng=Number(position.coords.longitude);
+      document.getElementById('serviceRequestLatitude').value=lat.toFixed(7);
+      document.getElementById('serviceRequestLongitude').value=lng.toFixed(7);
+      document.getElementById('serviceRequestMapLink').value='https://www.google.com/maps?q='+lat.toFixed(7)+','+lng.toFixed(7);
+      target.textContent='✓ Location pinned. Accuracy approximately '+Math.round(position.coords.accuracy)+' metres.';
+      target.classList.add('success');
+    },(error)=>{
+      target.textContent=error.code===1?'Location permission was not granted. You can paste a Google Maps link or enter coordinates instead.':'Current location could not be retrieved. You can paste a Google Maps link or enter coordinates.';
+      target.classList.remove('success');
+    },{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+  });
 
   const createPublicServiceCard=(item)=>{
     const photo=item.profile_picture_path
@@ -2977,6 +3042,22 @@
     const item=customerPublicServices.find((row)=>row.service_id===serviceId);
     if(!item)return;
     serviceRequestForm?.reset();
+    document.getElementById('serviceLocationStatus').textContent='';
+    try{
+      await loadServiceLocationDirectory();
+      renderServiceLocationCounties();
+      const profileResult=await window.leogoAuth.client.from('customer_profiles').select('county,sub_county,county_code,sub_county_code,estate,nearest_landmark').eq('user_id',user.id).maybeSingle();
+      const profile=profileResult.data||null;
+      if(profile){
+        const countyCode=profile.county_code||serviceLocationCounties.find((row)=>row.name===profile.county)?.code||'';
+        document.getElementById('serviceRequestCounty').value=countyCode;
+        renderServiceLocationSubCounties(profile.sub_county_code||serviceLocationSubCounties.find((row)=>row.county_code===countyCode&&row.name===profile.sub_county)?.code||'');
+        document.getElementById('serviceRequestTownEstate').value=profile.estate||'';
+        document.getElementById('serviceRequestLandmark').value=profile.nearest_landmark||'';
+      }
+    }catch(error){
+      console.warn('Service location directory could not prefill:',error);
+    }
     document.getElementById('serviceRequestServiceId').value=serviceId;
     document.getElementById('serviceRequestType').value=requestType;
     document.getElementById('serviceRequestTitle').textContent=requestType==='quotation'?'Request a Quotation':'Request Service';
@@ -3027,7 +3108,14 @@
         p_nearest_landmark:document.getElementById('serviceRequestLandmark').value.trim()||null,
         p_preferred_date:document.getElementById('serviceRequestPreferredDate').value||null,
         p_payment_reference:document.getElementById('serviceQuotationReference').value.trim()||null,
-        p_preferred_time:document.getElementById('serviceRequestPreferredTime').value||null
+        p_preferred_time:document.getElementById('serviceRequestPreferredTime').value||null,
+        p_service_county:document.getElementById('serviceRequestCounty').selectedOptions[0]?.textContent||null,
+        p_service_sub_county:document.getElementById('serviceRequestSubCounty').selectedOptions[0]?.textContent||null,
+        p_service_town_estate:document.getElementById('serviceRequestTownEstate').value.trim()||null,
+        p_location_description:document.getElementById('serviceRequestLocationDescription').value.trim()||null,
+        p_map_link:document.getElementById('serviceRequestMapLink').value.trim()||null,
+        p_latitude:document.getElementById('serviceRequestLatitude').value===''?null:Number(document.getElementById('serviceRequestLatitude').value),
+        p_longitude:document.getElementById('serviceRequestLongitude').value===''?null:Number(document.getElementById('serviceRequestLongitude').value)
       });
       if(error)throw error;
       target.textContent='✓ Request '+data.request_reference+' submitted successfully.';target.classList.add('success');
