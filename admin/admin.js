@@ -51,6 +51,7 @@
     serviceMarketplaceSettings: null,
     paymentActions: [],
     sellerSettlementAccounts: [],
+    providerSettlementAccounts: [],
     sellerSettlementRequests: [],
     sellerSettlements: [],
     riders: [],
@@ -3446,15 +3447,18 @@
     return (account.bank_name || 'Bank') + ' · ' + (account.account_number || '—') + (account.bank_branch ? ' · ' + account.bank_branch : '');
   };
   const loadSellerSettlements = async () => {
-    const [accountsResult, requestsResult, settlementsResult] = await Promise.all([
+    const [accountsResult, providerAccountsResult, requestsResult, settlementsResult] = await Promise.all([
       db.rpc('admin_list_seller_settlement_accounts'),
+      db.rpc('admin_list_service_provider_settlement_accounts'),
       db.rpc('admin_list_seller_settlement_requests'),
       db.rpc('admin_list_seller_settlements')
     ]);
     if (accountsResult.error) throw accountsResult.error;
+    if (providerAccountsResult.error) throw providerAccountsResult.error;
     if (requestsResult.error) throw requestsResult.error;
     if (settlementsResult.error) throw settlementsResult.error;
     state.sellerSettlementAccounts = accountsResult.data || [];
+    state.providerSettlementAccounts = providerAccountsResult.data || [];
     state.sellerSettlementRequests = requestsResult.data || [];
     state.sellerSettlements = settlementsResult.data || [];
     renderSellerSettlements();
@@ -3467,8 +3471,12 @@
       : '<option value="">No approved settlement account</option>';
   };
   const renderSellerSettlements = () => {
-    const pending = state.sellerSettlementAccounts.filter((account) => account.status === 'pending_review').length;
-    const approved = state.sellerSettlementAccounts.filter((account) => account.status === 'approved').length;
+    const partnerAccounts = [
+      ...state.sellerSettlementAccounts.map((account)=>({...account,partner_type:'seller',partner_id:account.seller_id,partner_name:account.seller_name,partner_email:account.seller_email})),
+      ...state.providerSettlementAccounts.map((account)=>({...account,partner_type:'service_provider',partner_id:account.provider_id,partner_name:account.provider_name,partner_email:account.provider_email}))
+    ];
+    const pending = partnerAccounts.filter((account) => account.status === 'pending_review').length;
+    const approved = partnerAccounts.filter((account) => account.status === 'approved').length;
     const pendingRequests = state.sellerSettlementRequests.filter((request) => ['pending','under_review'].includes(request.status)).length;
     $('#adminSettlementPending').textContent = pending + pendingRequests;
     $('#adminSettlementApproved').textContent = approved;
@@ -3500,21 +3508,23 @@
       </tr>`;
     }).join('') : '<tr><td colspan="6">No Seller settlement requests yet.</td></tr>';
 
-    $('#sellerSettlementAccountTableBody').innerHTML = state.sellerSettlementAccounts.length ? state.sellerSettlementAccounts.map((account) => {
+    $('#sellerSettlementAccountTableBody').innerHTML = partnerAccounts.length ? partnerAccounts.map((account) => {
       const canReview = account.status === 'pending_review';
       const canDisable = account.status === 'approved';
+      const isSeller = account.partner_type === 'seller';
       return `<tr>
-        <td><strong>${escapeHtml(account.seller_name || 'Seller')}</strong><small>${escapeHtml(account.seller_email || '')}</small></td>
+        <td><strong>${escapeHtml(account.partner_name || (isSeller?'Seller':'Service Provider'))}</strong><small>${escapeHtml(account.partner_email || '')}</small><small>${isSeller?'Seller':'Service Provider'}</small></td>
         <td><strong>${escapeHtml(account.account_name)}</strong><small>${escapeHtml(account.account_type.replaceAll('_',' '))} · ${escapeHtml(settlementDestination(account))}${account.is_primary ? ' · PRIMARY' : ''}</small></td>
         <td><span class="status-chip">${escapeHtml(account.status.replaceAll('_',' '))}</span></td>
         <td>${formatDate(account.submitted_at, true)}</td>
         <td>${escapeHtml(account.admin_notes || '—')}</td>
         <td class="settlement-admin-actions">
-          ${canReview ? '<button data-settlement-review="approve" data-settlement-account="'+escapeHtml(account.id)+'">Approve</button><button class="danger" data-settlement-review="reject" data-settlement-account="'+escapeHtml(account.id)+'">Reject</button>' : ''}
-          ${canDisable ? '<button class="danger" data-settlement-review="disable" data-settlement-account="'+escapeHtml(account.id)+'">Disable</button><button data-settle-seller="'+escapeHtml(account.seller_id)+'" data-settle-account="'+escapeHtml(account.id)+'">Settle</button>' : ''}
+          ${canReview ? '<button data-settlement-review="approve" data-settlement-kind="'+escapeHtml(account.partner_type)+'" data-settlement-account="'+escapeHtml(account.id)+'">Approve</button><button class="danger" data-settlement-review="reject" data-settlement-kind="'+escapeHtml(account.partner_type)+'" data-settlement-account="'+escapeHtml(account.id)+'">Reject</button>' : ''}
+          ${canDisable ? '<button class="danger" data-settlement-review="disable" data-settlement-kind="'+escapeHtml(account.partner_type)+'" data-settlement-account="'+escapeHtml(account.id)+'">Disable</button>' : ''}
+          ${canDisable && isSeller ? '<button data-settle-seller="'+escapeHtml(account.seller_id)+'" data-settle-account="'+escapeHtml(account.id)+'">Settle</button>' : ''}
         </td>
       </tr>`;
-    }).join('') : '<tr><td colspan="6">No Seller settlement accounts yet.</td></tr>';
+    }).join('') : '<tr><td colspan="6">No Partner settlement accounts yet.</td></tr>';
 
     $('#sellerSettlementHistoryBody').innerHTML = state.sellerSettlements.length ? state.sellerSettlements.map((item) => `<tr>
       <td>${formatDate(item.paid_at, true)}</td><td><strong>${escapeHtml(item.seller_name || 'Seller')}</strong><small>${escapeHtml(item.seller_email || '')}</small></td>
@@ -3561,7 +3571,10 @@
         if (!window.confirm('Disable this approved settlement account? It will no longer be available for new Seller payouts.')) return;
       }
       await withButtonLock(button,'Saving…',async()=>{
-        const {error}=await db.rpc('admin_review_seller_settlement_account',{p_account_id:button.dataset.settlementAccount,p_decision:decision,p_notes:notes||null});
+        const rpcName=button.dataset.settlementKind==='service_provider'
+          ? 'admin_review_service_provider_settlement_account'
+          : 'admin_review_seller_settlement_account';
+        const {error}=await db.rpc(rpcName,{p_account_id:button.dataset.settlementAccount,p_decision:decision,p_notes:notes||null});
         if(error){globalStatus(friendlyError(error),'error');return;}
         await Promise.all([loadSellerSettlements(),loadAuditLog()]);
         globalStatus(decision==='approve'?'Settlement account approved.':decision==='reject'?'Settlement account rejected.':'Settlement account disabled.');
