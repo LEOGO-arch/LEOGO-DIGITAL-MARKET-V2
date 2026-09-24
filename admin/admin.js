@@ -81,7 +81,9 @@
   };
   const kindLabels = {
     seller_application: 'Seller Registration', seller_product: 'Seller Product', customer_personal_sale: 'Customer Item Sale',
+    seller_settlement_account: 'Seller Settlement Account',
     service_provider_application: 'Service Provider Registration', service_listing: 'Service Listing',
+    service_provider_settlement_account: 'Service Provider Settlement Account',
     premium_customer: 'Premium Customer', premium_profile: 'Verified Premium Profile',
     premium_payment: 'Premium Payment', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
@@ -406,21 +408,24 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,serviceProviderResult,paymentActionsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,serviceProviderResult,partnerSettlementResult,paymentActionsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
       db.rpc('admin_list_service_provider_approvals'),
+      db.rpc('admin_list_partner_settlement_approvals'),
       db.rpc('admin_list_pending_payment_actions')
     ]);
     if (coreResult.error) throw coreResult.error;
     if (personalSaleResult.error) throw personalSaleResult.error;
     if (serviceProviderResult.error) throw serviceProviderResult.error;
+    if (partnerSettlementResult.error) throw partnerSettlementResult.error;
     if (paymentActionsResult.error) throw paymentActionsResult.error;
 
     state.approvals = [
       ...(Array.isArray(coreResult.data) ? coreResult.data : []),
       ...(Array.isArray(personalSaleResult.data) ? personalSaleResult.data : []),
-      ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : [])
+      ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : []),
+      ...(Array.isArray(partnerSettlementResult.data) ? partnerSettlementResult.data : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     state.paymentActions=Array.isArray(paymentActionsResult.data)?paymentActionsResult.data:[];
     renderApprovals();
@@ -450,8 +455,8 @@
     }));
   };
 
-  const approvalGroup = (kind) => ['seller_application','seller_product'].includes(kind) ? 'sellers' : ['service_provider_application','service_listing'].includes(kind) ? 'providers' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
-  const approvalIsFinancial = (item) => item.kind === 'premium_payment' || item.kind.startsWith('wallet');
+  const approvalGroup = (kind) => ['seller_application','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalIsFinancial = (item) => item.kind === 'premium_payment' || item.kind.startsWith('wallet') || item.kind.endsWith('_settlement_account');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
     if (state.approvalFilter === 'all') return true;
@@ -666,8 +671,9 @@
     const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
     const awaitingCorrection = ['seller_application','seller_product','service_provider_application','service_listing'].includes(kind) && item.status === 'changes_requested';
-    underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection;
-    requestChanges.hidden = !['seller_application','seller_product','service_provider_application','service_listing','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale';
+    const settlementAccountApproval = ['seller_settlement_account','service_provider_settlement_account'].includes(kind);
+    underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection || settlementAccountApproval;
+    requestChanges.hidden = !['seller_application','seller_product','service_provider_application','service_listing','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
@@ -699,10 +705,16 @@
               ? 'admin_review_service_provider_application'
               : item.kind === 'service_listing'
                 ? 'admin_review_service_listing'
-                : 'admin_review_approval';
-      const rpcArgs = ['seller_application','seller_product','customer_personal_sale','service_provider_application','service_listing'].includes(item.kind)
-        ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
-        : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
+                : item.kind === 'seller_settlement_account'
+                  ? 'admin_review_seller_settlement_account'
+                  : item.kind === 'service_provider_settlement_account'
+                    ? 'admin_review_service_provider_settlement_account'
+                    : 'admin_review_approval';
+      const rpcArgs = ['seller_settlement_account','service_provider_settlement_account'].includes(item.kind)
+        ? { p_account_id: item.record_id, p_decision: decision, p_notes: notes || null }
+        : ['seller_application','seller_product','customer_personal_sale','service_provider_application','service_listing'].includes(item.kind)
+          ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
+          : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
       const { error } = await db.rpc(rpcName, rpcArgs);
       if (error) { setFormStatus($('#reviewStatus'), friendlyError(error), 'error'); return; }
       closeModals();
@@ -713,7 +725,10 @@
             ? 'Correction request saved and audited. The application remains in Approval Center with status CHANGES REQUESTED until the Seller resubmits.'
             : 'Approval decision saved and audited.'
       );
-      await Promise.all([loadApprovals(), loadDashboard(), loadAuditLog(), loadSellers(), loadServiceProviders(), loadCatalogue(), loadPremiumCustomers(), loadPremiumProfiles()]);
+      const refreshers=[loadApprovals(),loadDashboard(),loadSellers(),loadServiceProviders(),loadCatalogue(),loadPremiumCustomers(),loadPremiumProfiles()];
+      if(isSuperAdmin()) refreshers.push(loadAuditLog());
+      if(adminHas('settlements.read')) refreshers.push(loadSellerSettlements());
+      await Promise.allSettled(refreshers);
     });
   };
 
