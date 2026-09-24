@@ -3026,7 +3026,8 @@
         p_service_location:document.getElementById('serviceRequestLocation').value.trim(),
         p_nearest_landmark:document.getElementById('serviceRequestLandmark').value.trim()||null,
         p_preferred_date:document.getElementById('serviceRequestPreferredDate').value||null,
-        p_payment_reference:document.getElementById('serviceQuotationReference').value.trim()||null
+        p_payment_reference:document.getElementById('serviceQuotationReference').value.trim()||null,
+        p_preferred_time:document.getElementById('serviceRequestPreferredTime').value||null
       });
       if(error)throw error;
       target.textContent='✓ Request '+data.request_reference+' submitted successfully.';target.classList.add('success');
@@ -3064,6 +3065,7 @@
     if(target)target.innerHTML=rows.map((item)=>
       '<article class="customer-service-request-card" data-customer-service-request="'+receiptEscape(item.id)+'"><header><div><strong>'+receiptEscape(item.request_reference)+'</strong><small>'+receiptEscape(customerOrderFormatDate(item.created_at))+' · '+receiptEscape(item.service_name||'Service')+'</small></div><b>'+receiptEscape(serviceRequestStatusText(item.request_status))+'</b></header>'+
       '<div class="customer-service-request-meta"><div><small>PROVIDER</small><strong>'+receiptEscape(item.business_name||'Approved Provider')+'</strong></div><div><small>REQUEST TYPE</small><strong>'+(item.request_type==='quotation'?'Quotation':'Direct service')+'</strong></div><div><small>'+(item.provider_quote_kes?'PROVIDER QUOTE':'LOCATION')+'</small><strong>'+receiptEscape(item.provider_quote_kes?money(item.provider_quote_kes):item.service_location)+'</strong></div></div>'+
+      '<small><strong>Preferred schedule:</strong> '+receiptEscape((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+'</small>'+
       ((item.request_type==='direct'?Number(item.direct_request_fee_kes||0):Number(item.quotation_fee_kes||0))>0?'<small>'+(item.request_type==='direct'?'Direct request fee: ':'Quotation fee: ')+receiptEscape(money(item.request_type==='direct'?item.direct_request_fee_kes:item.quotation_fee_kes))+' · '+receiptEscape(String(item.payment_status||'').replaceAll('_',' '))+'</small>':'')+
       (item.provider_quote_notes?'<p>'+receiptEscape(item.provider_quote_notes)+'</p>':'')+
       (item.admin_notes?'<p><strong>Admin note:</strong> '+receiptEscape(item.admin_notes)+'</p>':'')+
