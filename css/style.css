@@ -918,3 +918,16 @@ body.accommodation-modal-open{overflow:hidden}
 .service-provider-public-empty{grid-column:1/-1;padding:16px;border:1px dashed #cfd7e3;border-radius:14px;background:#fff;color:var(--muted);font-size:11px}
 @media(max-width:1000px){.service-provider-public-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.service-provider-public-grid{grid-template-columns:1fr}.service-provider-public-card{padding:12px}.service-provider-public-photo{width:62px;height:62px}}
+
+.service-location-box{border:1px solid #d8e1ee;border-radius:14px;padding:14px;background:#f8fbff;margin:12px 0}
+.service-location-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}
+.service-location-heading>div{display:grid;gap:3px}
+.service-location-heading span{font-size:9px;font-weight:900;letter-spacing:.1em;color:#ff7200}
+.service-location-heading strong{font-size:14px;color:#07152f}
+.service-location-heading small{font-size:10px;color:#6d7889}
+.service-location-heading button{border:0;border-radius:9px;background:#07152f;color:#fff;padding:9px 11px;font-weight:800;cursor:pointer}
+.service-request-form-grid .wide{grid-column:1/-1}
+.service-location-status{font-size:10px;color:#6d7889;min-height:16px;margin-top:7px}
+.service-location-status.success{color:#16823b}
+.customer-service-quote-actions .download-quote{background:#07152f;color:#fff}
+@media(max-width:640px){.service-location-heading{align-items:stretch;flex-direction:column}.service-location-heading button{width:100%}.service-request-form-grid .wide{grid-column:auto}}
