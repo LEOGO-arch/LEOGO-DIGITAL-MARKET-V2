@@ -121,6 +121,7 @@
             <button data-approval-filter="wallet">Wallet &amp; SACCO <b>0</b></button>
             <button data-approval-filter="sellers">Sellers <b>0</b></button>
             <button data-approval-filter="providers">Service Providers <b>0</b></button>
+            <button data-approval-filter="transport">Transport &amp; Parcel <b>0</b></button>
             <button data-approval-filter="premium">Premium <b>0</b></button>
             <button data-approval-filter="accommodation">Accommodation <b>0</b></button>
           </div>
@@ -514,7 +515,25 @@
       </section>
 
       <section class="admin-panel" data-admin-panel="transport">
-        <div class="section-head"><div><span>LOGISTICS</span><h2>LEOGO Delivery Operations</h2><p>Order delivery is handled by authorized LEOGO staff riders. External Transport/Parcel Providers remain a separate future service network.</p></div><button class="primary-button" id="refreshDeliveryOps" type="button">↻ Refresh Delivery</button></div>
+        <div class="section-head"><div><span>LOGISTICS</span><h2>Transport &amp; Parcel Delivery</h2><p>External Transport/Parcel Providers are managed separately from LEOGO staff riders used for marketplace-order delivery.</p></div><div class="section-head-actions"><button class="secondary-button" id="openTransportApprovals" type="button">Transport Approvals</button><button class="primary-button" id="refreshDeliveryOps" type="button">↻ Refresh Transport &amp; Delivery</button></div></div>
+
+        <section class="content-card transport-network-card">
+          <div class="card-head"><div><span>TRANSPORT / PARCEL PARTNERS</span><h3>Approved &amp; Registered Provider Network</h3><p>Registration details remain available after approval. Driver identity details and passport photos are private Admin-only vehicle verification data.</p></div></div>
+          <div class="module-summary-grid">
+            <article><span>Transport Providers</span><strong id="adminTransportProviderCount">0</strong><small>All retained registrations</small></article>
+            <article><span>Approved Providers</span><strong id="adminTransportApprovedCount">0</strong><small>Active partner accounts</small></article>
+            <article><span>Pending Review</span><strong id="adminTransportPendingCount">0</strong><small>Applications / vehicles</small></article>
+            <article><span>Approved Vehicles</span><strong id="adminTransportVehicleCount">0</strong><small>Customer-facing fleet</small></article>
+          </div>
+
+          <div class="section-title compact"><span>PROVIDERS</span><h4>Transport / Parcel Provider Accounts</h4></div>
+          <div class="responsive-table"><table><thead><tr><th>Provider</th><th>Type</th><th>Services</th><th>Location</th><th>Status</th><th>Vehicles</th></tr></thead><tbody id="adminTransportProviderBody"><tr><td colspan="6">Loading Transport Providers…</td></tr></tbody></table></div>
+
+          <div class="section-title compact transport-vehicle-admin-heading"><span>VEHICLES</span><h4>Provider Vehicles &amp; Driver Verification</h4><p>Vehicle profile photos may be customer-facing after approval. Driver details remain private to Admin.</p></div>
+          <div class="responsive-table"><table><thead><tr><th>Vehicle</th><th>Provider</th><th>Services / Capacity</th><th>Driver — Admin Only</th><th>Status</th><th>Submitted</th></tr></thead><tbody id="adminTransportVehicleBody"><tr><td colspan="6">Loading vehicles…</td></tr></tbody></table></div>
+        </section>
+
+        <div class="section-title transport-staff-divider"><span>LEOGO INTERNAL DELIVERY</span><h3>Marketplace Staff Rider Operations</h3><p>The functions below remain the existing LEOGO staff-rider workflow and are not replaced by external Transport / Parcel Providers.</p></div>
 
         <div class="module-summary-grid">
           <article><span>Active Riders</span><strong id="adminRiderCount">0</strong><small>LEOGO staff riders</small></article>
@@ -834,6 +853,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=admin-v1-73" defer></script>
+  <script src="admin.js?v=admin-v1-74" defer></script>
 </body>
 </html>
