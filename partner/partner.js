@@ -12,7 +12,7 @@ const status=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className
 const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
-let provider=null,providerServices=[],providerNotifications=[],editingProviderService=null;
+let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],editingProviderService=null;
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -1653,6 +1653,7 @@ function renderProvider(){
   $('#providerAvailability').textContent=(provider.availability_status||'available').replaceAll('_',' ');
   $('#providerProfileSummary').innerHTML=providerSummaryRows().filter(([label])=>label!=='Admin Note').map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
   renderProviderServices();
+  renderProviderJobs();
   renderProviderNotifications();
 }
 async function loadProvider(){
@@ -1667,7 +1668,7 @@ async function loadProvider(){
     provider=result?.data||null;
     renderProvider();
     await ensureProviderLocations(provider?.county_code||'',provider?.sub_county_code||'');
-    if(provider?.application_status==='approved')await Promise.allSettled([loadProviderServices(),loadProviderNotifications()]);
+    if(provider?.application_status==='approved')await Promise.allSettled([loadProviderServices(),loadProviderJobs(),loadProviderNotifications()]);
   }catch(error){
     console.error('Service Provider portal boot failed:',error);
     showProviderBoot(error?.message||'The Service Provider dashboard could not finish loading.',true);
@@ -1753,6 +1754,69 @@ providerReg?.addEventListener('submit',async(event)=>{
     await loadProvider();
   }catch(error){status($('#providerRegistrationStatus'),error?.message||'Service Provider application could not be submitted.','error');}
   finally{submitButton.disabled=false;submitButton.textContent=original;}
+});
+
+const providerJobStatusText=(value)=>({
+  dispatched:'New request',accepted:'Accepted',declined:'Declined',quoted:'Quotation sent',
+  quote_accepted:'Quotation accepted',quote_rejected:'Quotation rejected',
+  in_progress:'In progress',completed:'Completed',cancelled:'Cancelled'
+}[value]||String(value||'').replaceAll('_',' '));
+async function loadProviderJobs(){
+  const {data,error}=await client.rpc('service_provider_list_jobs');
+  if(error)throw error;
+  providerJobs=Array.isArray(data)?data:[];
+  renderProviderJobs();
+}
+function renderProviderJobs(){
+  const list=$('#providerJobList');if(!list)return;
+  const open=providerJobs.filter(item=>!['completed','declined','quote_rejected','cancelled'].includes(item.request_status));
+  $('#providerOpenJobs').textContent=open.length;
+  const filter=$('#providerJobFilter')?.value||'open';
+  let rows=providerJobs;
+  if(filter==='open')rows=open;
+  if(filter==='completed')rows=rows.filter(item=>item.request_status==='completed');
+  if(filter==='closed')rows=rows.filter(item=>['declined','quote_rejected','cancelled'].includes(item.request_status));
+  list.innerHTML=rows.length?rows.map(item=>{
+    let actions='';
+    if(item.request_status==='dispatched'&&item.request_type==='direct'){
+      actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="accept" data-job-id="'+escapeHtml(item.id)+'">Accept Job</button><button class="danger" type="button" data-provider-job-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline</button></div>';
+    }else if(item.request_status==='dispatched'&&item.request_type==='quotation'){
+      actions='<form class="provider-quote-form" data-provider-quote-form="'+escapeHtml(item.id)+'"><input name="amount" type="number" min="1" max="100000000" step="0.01" placeholder="Quote amount (KSh)" required><input name="notes" maxlength="1000" placeholder="Quotation notes, scope or conditions"><button type="submit">Send Quotation</button></form><div class="provider-job-actions"><button class="danger" type="button" data-provider-job-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline Request</button></div>';
+    }else if(['accepted','quote_accepted'].includes(item.request_status)){
+      actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="start" data-job-id="'+escapeHtml(item.id)+'">Start Service</button></div>';
+    }else if(item.request_status==='in_progress'){
+      actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="complete" data-job-id="'+escapeHtml(item.id)+'">Mark Completed</button></div>';
+    }
+    return '<article class="provider-job-card"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at))+' · '+escapeHtml(item.service_name||'Service')+'</small></div><b>'+escapeHtml(providerJobStatusText(item.request_status))+'</b></header>'+
+      '<div class="provider-job-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>LOCATION</small><strong>'+escapeHtml(item.service_location||'—')+'</strong><span>'+escapeHtml(item.nearest_landmark||'No landmark supplied')+'</span></div><div><small>REQUEST TYPE</small><strong>'+(item.request_type==='quotation'?'Quotation':'Direct service')+'</strong><span>'+escapeHtml(item.preferred_date||'Flexible date')+'</span></div></div>'+
+      '<p><strong>Customer details:</strong> '+escapeHtml(item.request_details||'—')+'</p>'+
+      (item.provider_quote_kes?'<p><strong>Your quotation:</strong> '+escapeHtml(money(item.provider_quote_kes))+(item.provider_quote_notes?' · '+escapeHtml(item.provider_quote_notes):'')+'</p>':'')+
+      actions+'</article>';
+  }).join(''):'<div class="empty-card">No service jobs match this filter.</div>';
+}
+async function updateProviderJob(id,action,quote=null,notes=null,button=null){
+  const original=button?.textContent;if(button){button.disabled=true;button.textContent='Saving…';}
+  status($('#providerJobStatus'),'');
+  try{
+    if(action==='decline'&&!notes)notes=window.prompt('Why are you declining this service request?','')||'';
+    if(action==='decline'&&notes.trim().length<3)return;
+    const {error}=await client.rpc('service_provider_update_job',{p_request_id:id,p_action:action,p_quote_kes:quote,p_notes:notes||null});
+    if(error)throw error;
+    status($('#providerJobStatus'),'Service job updated successfully.','success');
+    await Promise.all([loadProviderJobs(),loadProviderNotifications()]);
+  }catch(error){status($('#providerJobStatus'),error?.message||'Service job could not be updated.','error');}
+  finally{if(button){button.disabled=false;button.textContent=original;}}
+}
+$('#providerJobFilter')?.addEventListener('change',renderProviderJobs);
+$('#providerJobList')?.addEventListener('click',(event)=>{
+  const button=event.target.closest?.('[data-provider-job-action]');if(!button)return;
+  updateProviderJob(button.dataset.jobId,button.dataset.providerJobAction,null,null,button);
+});
+$('#providerJobList')?.addEventListener('submit',(event)=>{
+  const form=event.target.closest?.('[data-provider-quote-form]');if(!form)return;
+  event.preventDefault();if(!form.reportValidity())return;
+  const button=form.querySelector('button[type="submit"]');
+  updateProviderJob(form.dataset.providerQuoteForm,'quote',Number(form.elements.amount.value),form.elements.notes.value.trim()||null,button);
 });
 
 async function loadProviderServices(){
@@ -1890,7 +1954,7 @@ async function handleSession(session){
   currentUser=session?.user||null;
   logout.hidden=!currentUser;
   if(!currentUser){
-    seller=null;products=[];provider=null;providerServices=[];providerNotifications=[];activeRole='';
+    seller=null;products=[];provider=null;providerServices=[];providerNotifications=[];providerJobs=[];activeRole='';
     authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;if(providerShell)providerShell.hidden=true;if(hero)hero.hidden=false;
     return;
   }
