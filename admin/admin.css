@@ -658,3 +658,21 @@
   .support-chat-inbox{border-right:0;border-bottom:1px solid #e2e8f0;max-height:320px}
   .support-chat-active{min-height:560px}
 }
+
+
+/* External Transport / Parcel Provider network */
+.transport-network-card .section-title.compact{margin-top:18px}
+.transport-staff-divider{margin:24px 0 12px;padding:14px 16px;border-left:4px solid #ff7200;background:#fff8f1;border-radius:10px}
+.transport-staff-divider span{font-size:10px;font-weight:900;letter-spacing:.12em;color:#ff7200}
+.transport-staff-divider h3{margin:4px 0;color:#07152f}
+.transport-staff-divider p{margin:0;color:#718096}
+.admin-transport-vehicle-cell{display:flex;gap:10px;align-items:center;min-width:210px}
+.admin-transport-vehicle-cell img{width:62px;height:48px;object-fit:cover;border-radius:8px;border:1px solid #dbe3ec;background:#eef3f8}
+.admin-transport-vehicle-cell>span{width:62px;height:48px;display:grid;place-items:center;border-radius:8px;background:#eef3f8;font-size:24px}
+.admin-transport-vehicle-cell>div{display:grid;gap:2px}
+.transport-vehicle-admin-heading{margin-top:22px}
+.section-head-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:720px){
+  .section-head-actions{width:100%}
+  .section-head-actions button{flex:1 1 180px}
+}
