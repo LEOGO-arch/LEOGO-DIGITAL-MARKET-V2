@@ -51,7 +51,7 @@
         <button data-admin-view="chat"><i>💬</i><span>Customer Care Chats</span><em id="sidebarChatCount">0</em></button>
         <button data-admin-view="products"><i>□</i><span>Products &amp; Categories</span></button>
         <button data-admin-view="sellers"><i>▣</i><span>Sellers</span></button>
-        <button data-admin-view="settlements"><i>₿</i><span>Seller Settlements</span><em id="sidebarSettlementCount">0</em></button>
+        <button data-admin-view="settlements"><i>₿</i><span>Partner Settlements</span><em id="sidebarSettlementCount">0</em></button>
         <button data-admin-view="providers"><i>⚒</i><span>Service Providers</span></button>
         <button data-admin-view="transport" data-nav-group="transport"><i>🚚</i><span>Transport &amp; Delivery</span><b>⌄</b></button><div class="nav-children" data-nav-children="transport"><button data-admin-view="transport">Transport/Parcel Providers</button><button data-admin-view="transport">Delivery Jobs</button><button data-admin-view="transport">Delivery Zones</button><button data-admin-view="transport">Pickup Stations</button></div>
         <button data-admin-view="wallet" data-nav-group="wallet"><i>💰</i><span>Wallet &amp; SACCO</span><b>⌄</b></button><div class="nav-children" data-nav-children="wallet"><button data-admin-view="wallet">Overview</button><button data-admin-view="approvals" data-filter-target="wallet">Deposits &amp; Withdrawals</button><button data-admin-view="wallet">Savings Challenges</button><button data-admin-view="approvals" data-filter-target="wallet">Loans</button><button data-admin-view="wallet">Transactions</button></div>
@@ -446,7 +446,7 @@
         <div class="table-card seller-admin-table-card"><div class="responsive-table"><table class="seller-admin-table"><thead><tr><th>Business</th><th>Owner</th><th>ID / Phone</th><th>Location</th><th>Status</th><th>Products</th><th>Flash Sale</th><th>Action</th></tr></thead><tbody id="adminSellerTableBody"><tr><td colspan="8">Loading sellers…</td></tr></tbody></table></div></div>
       </section>
       <section class="admin-panel" data-admin-panel="settlements">
-        <div class="section-head"><div><span>SELLER FINANCE</span><h2>Seller Settlement Accounts</h2><p>Verify Seller payout destinations, approve edits, and record money settled to approved accounts.</p></div><button id="refreshSellerSettlements" class="primary-button" type="button">↻ Refresh</button></div>
+        <div class="section-head"><div><span>PARTNER FINANCE</span><h2>Partner Settlement Accounts</h2><p>Verify Seller and Service Provider payout destinations. Seller payout requests and settlement history remain managed here.</p></div><button id="refreshSellerSettlements" class="primary-button" type="button">↻ Refresh</button></div>
         <div class="seller-admin-summary">
           <article><span>Pending Verification</span><strong id="adminSettlementPending">0</strong><small>Needs Admin review</small></article>
           <article><span>Approved Accounts</span><strong id="adminSettlementApproved">0</strong><small>Available for payout</small></article>
@@ -834,6 +834,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=admin-v1-70" defer></script>
+  <script src="admin.js?v=admin-v1-71" defer></script>
 </body>
 </html>
