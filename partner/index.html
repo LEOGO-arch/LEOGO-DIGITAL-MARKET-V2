@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=provider-settlements-1">
+  <link rel="stylesheet" href="partner.css?v=partner-earnings-1">
 <style>
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
 </style></head>
@@ -157,6 +157,7 @@
           <button class="active" data-provider-view="overview" type="button"><span>▦</span>Dashboard / Overview</button>
           <button class="provider-job-priority-nav" data-provider-view="jobs" type="button"><span>🧰</span>Received Jobs <b id="providerJobBadge" hidden>0</b></button>
           <button data-provider-view="services" type="button"><span>🛠️</span>My Services</button>
+          <button data-provider-view="earnings" type="button"><span>↗</span>Earnings</button>
           <button data-provider-view="settlements" type="button"><span>₿</span>Settlements <b id="providerSettlementBadge" hidden>0</b></button>
           <button data-provider-view="notifications" type="button"><span>🔔</span>Notifications <b id="providerNotificationBadge" hidden>0</b></button>
           <button data-provider-view="profile" type="button"><span>♙</span>My Profile</button>
@@ -189,6 +190,9 @@
 
           <div class="seller-metrics provider-overview-grid">
             <article><span>Open Jobs</span><strong id="providerOpenJobs">0</strong><small>Customer requests</small></article>
+            <article class="earnings-highlight"><span>Today's Earnings</span><strong id="providerTodayEarnings">KSh 0</strong><small>Net after LEOGO commission</small></article>
+            <article class="earnings-highlight"><span>Total Earnings</span><strong id="providerTotalEarnings">KSh 0</strong><small>Cumulative net earnings</small></article>
+            <article class="balance-highlight"><span>Available Balance</span><strong id="providerAvailableBalance">KSh 0</strong><small>Available to request</small></article>
             <article><span>My Services</span><strong id="providerServiceTotal">0</strong><small>Listings created</small></article>
             <article><span>Approved</span><strong id="providerServiceApproved">0</strong><small>Customer-facing services</small></article>
             <article><span>Pending Review</span><strong id="providerServicePending">0</strong><small>Waiting for Admin</small></article>
@@ -200,6 +204,7 @@
             <div class="seller-overview-actions">
               <button type="button" data-open-provider-view="jobs">Received Jobs</button>
               <button type="button" data-open-provider-view="services">Manage Services</button>
+              <button type="button" data-open-provider-view="earnings">Earnings Report</button>
               <button type="button" data-open-provider-view="settlements">Settlement Account</button>
               <button type="button" data-open-provider-view="profile">My Profile</button>
             </div>
@@ -249,6 +254,38 @@
           </section>
         </section>
 
+        <section class="provider-view" data-provider-content="earnings">
+          <div class="seller-view-heading">
+            <div><span>EARNINGS</span><h3>Service Provider Earnings & Balance</h3><p>Completed jobs become earnings. LEOGO referral commission is deducted before the net amount becomes settlement-ready.</p></div>
+            <button id="providerDownloadEarnings" class="secondary" type="button">Download CSV</button>
+          </div>
+          <section class="panel partner-earnings-report">
+            <div class="earnings-filter-bar">
+              <div class="earnings-quick-ranges">
+                <button type="button" data-provider-earning-range="today">Today</button>
+                <button type="button" data-provider-earning-range="7">7 Days</button>
+                <button type="button" data-provider-earning-range="30">30 Days</button>
+              </div>
+              <label>From<input id="providerEarningsFrom" type="date"></label>
+              <label>To<input id="providerEarningsTo" type="date"></label>
+              <button id="providerApplyEarningsFilter" type="button">Apply</button>
+            </div>
+            <div class="seller-metrics partner-earnings-metrics">
+              <article><span>Gross Labour / Quotes</span><strong id="providerPeriodGross">KSh 0</strong><small>Selected dates</small></article>
+              <article><span>LEOGO Commission</span><strong id="providerPeriodCommission">KSh 0</strong><small id="providerCommissionRate">10% referral commission</small></article>
+              <article><span>Period Net Earnings</span><strong id="providerPeriodEarnings">KSh 0</strong><small>After commission</small></article>
+              <article><span>Total Earnings</span><strong id="providerCumulativeEarnings">KSh 0</strong><small>All completed earnings</small></article>
+              <article><span>Available Balance</span><strong id="providerReportAvailableBalance">KSh 0</strong><small>Can be requested now</small></article>
+              <article><span>Pending Settlement</span><strong id="providerPendingSettlement">KSh 0</strong><small>Already requested</small></article>
+              <article><span>Settled</span><strong id="providerSettledTotal">KSh 0</strong><small>Paid by LEOGO</small></article>
+            </div>
+            <div class="responsive-table earnings-table-wrap">
+              <table class="earnings-table"><thead><tr><th>Date</th><th>Reference</th><th>Source</th><th>Gross</th><th>Commission</th><th>Net</th></tr></thead><tbody id="providerEarningsTableBody"><tr><td colspan="6">Loading earnings…</td></tr></tbody></table>
+            </div>
+            <p id="providerEarningsStatus" class="status"></p>
+          </section>
+        </section>
+
         <section class="provider-view" data-provider-content="settlements">
           <section class="panel seller-settlement-panel">
             <div class="section-title"><span>SERVICE PROVIDER SETTLEMENT ACCOUNT</span><h3>Where LEOGO sends your service money</h3><p>Add the payout destination LEOGO should use for your Service Provider account. Every new account and every edit must be approved by Admin before use.</p></div>
@@ -270,6 +307,22 @@
             </form>
             <div class="section-title compact"><span>MY SETTLEMENT ACCOUNTS</span><h4>Verification status</h4><p>Pending accounts stay here until Admin approves or rejects them.</p></div>
             <div id="providerSettlementAccountList" class="settlement-account-list"><div class="empty-card">No settlement account added yet.</div></div>
+
+            <div class="settlement-balance-card"><span>AVAILABLE BALANCE</span><strong id="providerSettlementAvailableBalance">KSh 0</strong><small>Completed-job net earnings available for settlement.</small></div>
+            <form id="providerSettlementRequestForm" class="seller-settlement-request-form">
+              <div class="section-title compact"><span>REQUEST SETTLEMENT</span><h4>Request payment from LEOGO</h4><p>Only Admin-approved settlement accounts can receive payouts.</p></div>
+              <div class="form-grid">
+                <label>Approved settlement account<select id="providerSettlementRequestAccount" required><option value="">No approved settlement account yet</option></select></label>
+                <label>Amount requested (KSh)<input id="providerSettlementRequestAmount" type="number" min="1" step="0.01" required></label>
+                <label class="wide">Note to Admin <small>Optional</small><textarea id="providerSettlementRequestNote" rows="2" maxlength="500"></textarea></label>
+              </div>
+              <button id="providerSettlementRequestButton" type="submit">Request Settlement</button>
+              <p id="providerSettlementRequestStatus" class="status"></p>
+            </form>
+            <div class="section-title compact"><span>MY SETTLEMENT REQUESTS</span><h4>Request status</h4></div>
+            <div id="providerSettlementRequestList" class="settlement-history"><div class="empty-card">No settlement requests yet.</div></div>
+            <div class="section-title compact"><span>SETTLEMENT HISTORY</span><h4>Money recorded as sent by LEOGO</h4></div>
+            <div id="providerSettlementHistory" class="settlement-history"><div class="empty-card">No Service Provider settlement has been recorded yet.</div></div>
           </section>
         </section>
 
@@ -340,6 +393,7 @@
           <button data-seller-view="orders" type="button"><span>▤</span>Orders <b id="sellerOrderBadge" hidden>0</b></button>
           <button data-seller-view="reviews" type="button"><span>★</span>Product Reviews <b id="sellerReviewBadge" hidden>0</b></button>
           <button data-seller-view="flashsale" type="button"><span>⚡</span>Flash Sale</button>
+          <button data-seller-view="earnings" type="button"><span>↗</span>Earnings</button>
           <button data-seller-view="settlements" type="button"><span>₿</span>Settlements</button>
           <button data-seller-view="notifications" type="button"><span>🔔</span>Notifications <b id="sellerNotificationBadge" hidden>0</b></button>
           <button data-seller-view="profile" type="button"><span>♙</span>My Profile</button>
@@ -377,6 +431,9 @@
               <article><span>Available</span><strong id="sellerAvailableCount">0</strong><small>Active & in stock</small></article>
               <article><span>Flash Sale</span><strong id="sellerFlashCount">0</strong><small>Requested / active</small></article>
               <article><span>Orders</span><strong id="sellerOrderCount">0</strong><small>Seller orders</small></article>
+              <article class="earnings-highlight"><span>Today's Earnings</span><strong id="sellerTodayEarnings">KSh 0</strong><small>Delivered & paid orders</small></article>
+              <article class="earnings-highlight"><span>Total Earnings</span><strong id="sellerTotalEarnings">KSh 0</strong><small>Cumulative net earnings</small></article>
+              <article class="balance-highlight"><span>Available Balance</span><strong id="sellerAvailableBalance">KSh 0</strong><small>Available to request</small></article>
               <article><span>Product Reviews</span><strong id="sellerReviewCount">0</strong><small>Approved customer reviews</small></article>
               <article><span>Account Status</span><strong id="sellerOverviewStatus">APPROVED</strong><small id="sellerOverviewStatusNote">Ready to sell</small></article>
             </div>
@@ -385,6 +442,7 @@
               <div class="seller-overview-actions">
                 <button type="button" data-open-seller-view="products">Manage Products</button>
                 <button type="button" data-open-seller-view="flashsale">Send to Flash Sale</button>
+                <button type="button" data-open-seller-view="earnings">Earnings Report</button>
                 <button type="button" data-open-seller-view="settlements">Settlements</button>
               </div>
             </section>
@@ -518,6 +576,36 @@
             </section>
           </section>
 
+          <section class="seller-view" data-seller-content="earnings">
+            <div class="seller-view-heading">
+              <div><span>EARNINGS</span><h3>Seller Earnings & Balance</h3><p>Daily earnings, cumulative earnings and settlement-ready balance from completed, verified orders.</p></div>
+              <button id="sellerDownloadEarnings" class="secondary" type="button">Download CSV</button>
+            </div>
+            <section class="panel partner-earnings-report">
+              <div class="earnings-filter-bar">
+                <div class="earnings-quick-ranges">
+                  <button type="button" data-seller-earning-range="today">Today</button>
+                  <button type="button" data-seller-earning-range="7">7 Days</button>
+                  <button type="button" data-seller-earning-range="30">30 Days</button>
+                </div>
+                <label>From<input id="sellerEarningsFrom" type="date"></label>
+                <label>To<input id="sellerEarningsTo" type="date"></label>
+                <button id="sellerApplyEarningsFilter" type="button">Apply</button>
+              </div>
+              <div class="seller-metrics partner-earnings-metrics">
+                <article><span>Period Earnings</span><strong id="sellerPeriodEarnings">KSh 0</strong><small>Selected dates</small></article>
+                <article><span>Total Earnings</span><strong id="sellerCumulativeEarnings">KSh 0</strong><small>All completed earnings</small></article>
+                <article><span>Available Balance</span><strong id="sellerReportAvailableBalance">KSh 0</strong><small>Can be requested now</small></article>
+                <article><span>Pending Settlement</span><strong id="sellerPendingSettlement">KSh 0</strong><small>Already requested</small></article>
+                <article><span>Settled</span><strong id="sellerSettledTotal">KSh 0</strong><small>Paid by LEOGO</small></article>
+              </div>
+              <div class="responsive-table earnings-table-wrap">
+                <table class="earnings-table"><thead><tr><th>Date</th><th>Reference</th><th>Source</th><th>Gross</th><th>Commission</th><th>Net</th></tr></thead><tbody id="sellerEarningsTableBody"><tr><td colspan="6">Loading earnings…</td></tr></tbody></table>
+              </div>
+              <p id="sellerEarningsStatus" class="status"></p>
+            </section>
+          </section>
+
           <section class="seller-view" data-seller-content="settlements">
             <section id="sellerSettlementPanel" class="panel seller-settlement-panel">
               <div class="section-title"><span>SELLER SETTLEMENT ACCOUNTS</span><h3>Where LEOGO sends your money</h3><p>Every new account and every edit must be verified and approved by LEOGO Admin before it can receive settlements.</p></div>
@@ -539,6 +627,7 @@
               </form>
               <div class="section-title compact"><span>MY SETTLEMENT ACCOUNTS</span><h4>Verification status</h4></div>
               <div id="sellerSettlementAccountList" class="settlement-account-list"></div>
+              <div class="settlement-balance-card"><span>AVAILABLE BALANCE</span><strong id="sellerSettlementAvailableBalance">KSh 0</strong><small>Settlement requests cannot exceed this balance.</small></div>
               <form id="sellerSettlementRequestForm" class="seller-settlement-request-form">
                 <div class="section-title compact"><span>REQUEST SETTLEMENT</span><h4>Request payment from LEOGO</h4><p>You can request settlement only to an Admin-approved settlement account.</p></div>
                 <div class="form-grid">
@@ -621,5 +710,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=provider-settlements-1" defer></script>
+<script src="partner.js?v=partner-earnings-1" defer></script>
 </body></html>
