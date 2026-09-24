@@ -53,7 +53,9 @@
     sellerSettlementAccounts: [],
     providerSettlementAccounts: [],
     sellerSettlementRequests: [],
+    providerSettlementRequests: [],
     sellerSettlements: [],
+    providerSettlements: [],
     riders: [],
     staffDirectory: [],
     staffRolePresets: [],
@@ -75,7 +77,7 @@
 
   const viewTitles = {
     dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', aftersales: 'Aftersales', customers: 'Customers',
-    chat: 'Customer Care Chats', products: 'Products & Categories', sellers: 'Sellers', settlements: 'Seller Settlements', providers: 'Service Providers',
+    chat: 'Customer Care Chats', products: 'Products & Categories', sellers: 'Sellers', settlements: 'Partner Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
     accommodation: 'Accommodation', loyalty: 'Loyalty & Rewards', reports: 'Reports',
     staff: 'Staff Management', settings: 'System Settings', audit: 'Audit Log'
@@ -3447,20 +3449,26 @@
     return (account.bank_name || 'Bank') + ' · ' + (account.account_number || '—') + (account.bank_branch ? ' · ' + account.bank_branch : '');
   };
   const loadSellerSettlements = async () => {
-    const [accountsResult, providerAccountsResult, requestsResult, settlementsResult] = await Promise.all([
+    const [accountsResult,providerAccountsResult,requestsResult,providerRequestsResult,settlementsResult,providerSettlementsResult] = await Promise.all([
       db.rpc('admin_list_seller_settlement_accounts'),
       db.rpc('admin_list_service_provider_settlement_accounts'),
       db.rpc('admin_list_seller_settlement_requests'),
-      db.rpc('admin_list_seller_settlements')
+      db.rpc('admin_list_service_provider_settlement_requests'),
+      db.rpc('admin_list_seller_settlements'),
+      db.rpc('admin_list_service_provider_settlements')
     ]);
     if (accountsResult.error) throw accountsResult.error;
     if (providerAccountsResult.error) throw providerAccountsResult.error;
     if (requestsResult.error) throw requestsResult.error;
+    if (providerRequestsResult.error) throw providerRequestsResult.error;
     if (settlementsResult.error) throw settlementsResult.error;
+    if (providerSettlementsResult.error) throw providerSettlementsResult.error;
     state.sellerSettlementAccounts = accountsResult.data || [];
     state.providerSettlementAccounts = providerAccountsResult.data || [];
     state.sellerSettlementRequests = requestsResult.data || [];
+    state.providerSettlementRequests = providerRequestsResult.data || [];
     state.sellerSettlements = settlementsResult.data || [];
+    state.providerSettlements = providerSettlementsResult.data || [];
     renderSellerSettlements();
   };
   const renderSellerSettlementAccountOptions = () => {
@@ -3477,11 +3485,19 @@
     ];
     const pending = partnerAccounts.filter((account) => account.status === 'pending_review').length;
     const approved = partnerAccounts.filter((account) => account.status === 'approved').length;
-    const pendingRequests = state.sellerSettlementRequests.filter((request) => ['pending','under_review'].includes(request.status)).length;
+    const partnerRequests=[
+      ...state.sellerSettlementRequests.map((request)=>({...request,partner_type:'seller',partner_id:request.seller_id,partner_name:request.seller_name,partner_email:request.seller_email,partner_note:request.seller_note})),
+      ...state.providerSettlementRequests.map((request)=>({...request,partner_type:'service_provider',partner_id:request.provider_id,partner_name:request.provider_name,partner_email:request.provider_email,partner_note:request.provider_note}))
+    ];
+    const partnerSettlements=[
+      ...state.sellerSettlements.map((item)=>({...item,partner_type:'seller',partner_name:item.seller_name,partner_email:item.seller_email})),
+      ...state.providerSettlements.map((item)=>({...item,partner_type:'service_provider',partner_name:item.provider_name,partner_email:item.provider_email}))
+    ].sort((a,b)=>new Date(b.paid_at||0)-new Date(a.paid_at||0));
+    const pendingRequests = partnerRequests.filter((request) => ['pending','under_review'].includes(request.status)).length;
     $('#adminSettlementPending').textContent = pending + pendingRequests;
     $('#adminSettlementApproved').textContent = approved;
-    $('#adminSettlementCount').textContent = state.sellerSettlements.length;
-    $('#adminSettlementTotal').textContent = formatMoney(state.sellerSettlements.filter((item) => item.status === 'paid').reduce((sum, item) => sum + Number(item.amount_kes || 0), 0));
+    $('#adminSettlementCount').textContent = partnerSettlements.length;
+    $('#adminSettlementTotal').textContent = formatMoney(partnerSettlements.filter((item) => item.status === 'paid').reduce((sum, item) => sum + Number(item.amount_kes || 0), 0));
     $('#sidebarSettlementCount').textContent = pending + pendingRequests;
 
     const approvedSellerIds = [...new Set(state.sellerSettlementAccounts.filter((account) => account.status === 'approved').map((account) => account.seller_id))];
@@ -3493,20 +3509,22 @@
     }).join('');
     renderSellerSettlementAccountOptions();
 
-    $('#sellerSettlementRequestTableBody').innerHTML = state.sellerSettlementRequests.length ? state.sellerSettlementRequests.map((request) => {
-      const account=state.sellerSettlementAccounts.find((item)=>item.id===request.settlement_account_id);
+    $('#sellerSettlementRequestTableBody').innerHTML = partnerRequests.length ? partnerRequests.map((request) => {
+      const accounts=request.partner_type==='seller'?state.sellerSettlementAccounts:state.providerSettlementAccounts;
+      const account=accounts.find((item)=>item.id===request.settlement_account_id);
       const open=['pending','under_review'].includes(request.status);
+      const partnerLabel=request.partner_type==='seller'?'Seller':'Service Provider';
       return `<tr>
-        <td><strong>${escapeHtml(request.seller_name||'Seller')}</strong><small>${escapeHtml(request.seller_email||'')}</small></td>
+        <td><strong>${escapeHtml(request.partner_name||partnerLabel)}</strong><small>${escapeHtml(request.partner_email||'')}</small><small>${partnerLabel}</small></td>
         <td><strong>${formatMoney(request.requested_amount_kes)}</strong><small>${formatDate(request.submitted_at,true)}</small></td>
         <td>${account?'<strong>'+escapeHtml(account.account_name)+'</strong><small>'+escapeHtml(settlementDestination(account))+'</small>':'—'}</td>
-        <td>${escapeHtml(request.seller_note||'—')}</td>
+        <td>${escapeHtml(request.partner_note||'—')}</td>
         <td><span class="status-chip">${escapeHtml(request.status.replaceAll('_',' '))}</span>${request.admin_notes?'<small>'+escapeHtml(request.admin_notes)+'</small>':''}</td>
         <td class="settlement-admin-actions">
-          ${open?'<button data-request-review="under_review" data-request-id="'+escapeHtml(request.id)+'">Under Review</button><button class="danger" data-request-review="reject" data-request-id="'+escapeHtml(request.id)+'">Reject</button><button data-request-pay="'+escapeHtml(request.id)+'">Pay & Record</button>':''}
+          ${open?'<button data-request-review="under_review" data-request-kind="'+escapeHtml(request.partner_type)+'" data-request-id="'+escapeHtml(request.id)+'">Under Review</button><button class="danger" data-request-review="reject" data-request-kind="'+escapeHtml(request.partner_type)+'" data-request-id="'+escapeHtml(request.id)+'">Reject</button><button data-request-pay="'+escapeHtml(request.id)+'" data-request-kind="'+escapeHtml(request.partner_type)+'">Pay & Record</button>':''}
         </td>
       </tr>`;
-    }).join('') : '<tr><td colspan="6">No Seller settlement requests yet.</td></tr>';
+    }).join('') : '<tr><td colspan="6">No Partner settlement requests yet.</td></tr>';
 
     $('#sellerSettlementAccountTableBody').innerHTML = partnerAccounts.length ? partnerAccounts.map((account) => {
       const canReview = account.status === 'pending_review';
@@ -3526,10 +3544,10 @@
       </tr>`;
     }).join('') : '<tr><td colspan="6">No Partner settlement accounts yet.</td></tr>';
 
-    $('#sellerSettlementHistoryBody').innerHTML = state.sellerSettlements.length ? state.sellerSettlements.map((item) => `<tr>
-      <td>${formatDate(item.paid_at, true)}</td><td><strong>${escapeHtml(item.seller_name || 'Seller')}</strong><small>${escapeHtml(item.seller_email || '')}</small></td>
+    $('#sellerSettlementHistoryBody').innerHTML = partnerSettlements.length ? partnerSettlements.map((item) => `<tr>
+      <td>${formatDate(item.paid_at, true)}</td><td><strong>${escapeHtml(item.partner_name || (item.partner_type==='seller'?'Seller':'Service Provider'))}</strong><small>${escapeHtml(item.partner_email || '')} · ${item.partner_type==='seller'?'Seller':'Service Provider'}</small></td>
       <td><strong>${formatMoney(item.amount_kes)}</strong></td><td>${escapeHtml(item.settlement_reference)}</td><td><span class="status-chip">${escapeHtml(item.status)}</span></td>
-    </tr>`).join('') : '<tr><td colspan="5">No Seller settlements recorded yet.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="5">No Partner settlements recorded yet.</td></tr>';
 
     $$('[data-request-review]').forEach((button)=>button.addEventListener('click',async()=>{
       const decision=button.dataset.requestReview;
@@ -3539,24 +3557,31 @@
         if(notes.trim().length<3){globalStatus('A clear rejection reason is required.','error');return;}
       }
       await withButtonLock(button,'Saving…',async()=>{
-        const {error}=await db.rpc('admin_review_seller_settlement_request',{p_request_id:button.dataset.requestId,p_decision:decision,p_notes:notes||null});
+        const rpcName=button.dataset.requestKind==='service_provider'
+          ? 'admin_review_service_provider_settlement_request'
+          : 'admin_review_seller_settlement_request';
+        const {error}=await db.rpc(rpcName,{p_request_id:button.dataset.requestId,p_decision:decision,p_notes:notes||null});
         if(error){globalStatus(friendlyError(error),'error');return;}
         await Promise.all([loadSellerSettlements(),loadAuditLog()]);
         globalStatus(decision==='reject'?'Settlement request rejected.':'Settlement request marked under review.');
       });
     }));
     $$('[data-request-pay]').forEach((button)=>button.addEventListener('click',async()=>{
-      const request=state.sellerSettlementRequests.find((item)=>item.id===button.dataset.requestPay);
+      const kind=button.dataset.requestKind||'seller';
+      const source=kind==='service_provider'?state.providerSettlementRequests:state.sellerSettlementRequests;
+      const request=source.find((item)=>item.id===button.dataset.requestPay);
       if(!request)return;
+      const partnerLabel=kind==='service_provider'?'Service Provider':'Seller';
       const reference=window.prompt('Enter the actual M-Pesa / bank transaction reference after sending '+formatMoney(request.requested_amount_kes)+':','')||'';
       if(reference.trim().length<3){globalStatus('A payment reference is required before marking the request paid.','error');return;}
       const notes=window.prompt('Settlement note (optional):','')||'';
-      if(!window.confirm('Confirm the money has already been sent to the approved Seller settlement account?'))return;
+      if(!window.confirm('Confirm the money has already been sent to the approved '+partnerLabel+' settlement account?'))return;
       await withButtonLock(button,'Recording…',async()=>{
-        const {error}=await db.rpc('admin_pay_seller_settlement_request',{p_request_id:request.id,p_reference:reference.trim(),p_notes:notes||null});
+        const rpcName=kind==='service_provider'?'admin_pay_service_provider_settlement_request':'admin_pay_seller_settlement_request';
+        const {error}=await db.rpc(rpcName,{p_request_id:request.id,p_reference:reference.trim(),p_notes:notes||null});
         if(error){globalStatus(friendlyError(error),'error');return;}
-        await Promise.all([loadSellerSettlements(),loadAuditLog()]);
-        globalStatus('Settlement request paid and recorded.');
+        await Promise.allSettled([loadSellerSettlements(),loadAuditLog()]);
+        globalStatus(partnerLabel+' settlement request paid and recorded.');
       });
     }));
 
