@@ -46,6 +46,7 @@
     premiumProfiles: [],
     sellers: [],
     serviceProviders: [],
+    serviceListings: [],
     serviceRequests: [],
     serviceMarketplaceSettings: null,
     sellerSettlementAccounts: [],
@@ -290,6 +291,7 @@
       [loadSupportChats, () => adminHas('support.chat')],
       [loadSellers, () => adminHas('sellers.read')],
       [loadServiceProviders, () => adminHas('approvals.read')],
+      [loadServiceListings, () => adminHas('approvals.read')],
       [loadServiceOperations, () => adminHas('approvals.read')],
       [loadSellerSettlements, () => adminHas('settlements.read')],
       [loadDeliveryOps, () => adminHas('orders.read') || adminHas('delivery.manage')],
@@ -3218,6 +3220,43 @@
     renderSellers();
   };
 
+  const serviceListingPriceText=(item)=>{
+    if(item.pricing_model==='quote')return 'Quote after request';
+    const from=Number(item.price_from_kes||0);
+    const to=Number(item.price_to_kes||0);
+    if(item.pricing_model==='fixed')return formatMoney(from)+(item.unit_label?' · '+item.unit_label:'');
+    if(item.pricing_model==='hourly')return formatMoney(from)+' / hour';
+    if(item.pricing_model==='from')return 'From '+formatMoney(from)+(to?' – '+formatMoney(to):'')+(item.unit_label?' · '+item.unit_label:'');
+    return from?formatMoney(from):'—';
+  };
+  const renderServiceListings=()=>{
+    const target=$('#adminServiceListingBody');if(!target)return;
+    const filter=$('#adminServiceListingFilter')?.value||'all';
+    const rows=(state.serviceListings||[]).filter((item)=>filter==='all'||item.approval_status===filter);
+    target.innerHTML=rows.length?rows.map((item)=>{
+      const pending=['pending','under_review','changes_requested'].includes(item.approval_status);
+      const action=pending
+        ? '<button type="button" data-open-service-listing-approval="'+escapeHtml(item.service_id)+'">Open Approval →</button>'
+        : '<span class="status-chip">'+(item.approval_status==='approved'?'Customer visible':'No pending action')+'</span>';
+      return '<tr>'+
+        '<td data-label="Service"><strong>'+escapeHtml(item.service_name||'Service')+'</strong><small>'+escapeHtml(item.category_name||'Uncategorised')+'</small></td>'+
+        '<td data-label="Provider"><strong>'+escapeHtml(item.provider_name||'Service Provider')+'</strong><small>'+escapeHtml(item.provider_email||'')+'</small></td>'+
+        '<td data-label="Pricing"><strong>'+escapeHtml(serviceListingPriceText(item))+'</strong><small>'+escapeHtml(String(item.pricing_model||'').replaceAll('_',' '))+'</small></td>'+
+        '<td data-label="Area"><strong>'+escapeHtml(item.service_area||'—')+'</strong><small>'+escapeHtml(item.availability_notes||'')+'</small></td>'+
+        '<td data-label="Availability"><span class="status-chip">'+(item.is_available?'Available':'Unavailable')+'</span></td>'+
+        '<td data-label="Approval"><span class="status-chip">'+escapeHtml(String(item.approval_status||'').replaceAll('_',' '))+'</span><small>'+escapeHtml(formatDate(item.approved_at||item.submitted_at,true))+'</small></td>'+
+        '<td data-label="Action">'+action+'</td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="7">No Service Listings match this filter.</td></tr>';
+    $('[data-open-service-listing-approval]',target).forEach((button)=>button.addEventListener('click',()=>openApproval('service_listing',button.dataset.openServiceListingApproval)));
+  };
+  const loadServiceListings=async()=>{
+    const {data,error}=await db.rpc('admin_list_service_listings');
+    if(error)throw error;
+    state.serviceListings=Array.isArray(data)?data:[];
+    renderServiceListings();
+  };
+
   const renderServiceProviders = () => {
     const rows=state.serviceProviders||[];
     const approved=rows.filter((item)=>item.application_status==='approved').length;
@@ -3782,7 +3821,7 @@
         .catch((error) => globalStatus('Product management data could not load: '+friendlyError(error), 'error'));
     }
     if (view === 'providers') {
-      Promise.all([loadServiceProviders(),loadServiceOperations()]).catch((error) => globalStatus('Service operations could not load: '+friendlyError(error), 'error'));
+      Promise.all([loadServiceProviders(),loadServiceListings(),loadServiceOperations()]).catch((error) => globalStatus('Service operations could not load: '+friendlyError(error), 'error'));
     }
     if (view === 'staff' && isSuperAdmin()) {
       loadStaffManagement().catch((error) => globalStatus('Staff directory could not load: '+friendlyError(error), 'error'));
@@ -3853,7 +3892,8 @@
     });
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
-    $('#refreshServiceProviders')?.addEventListener('click', () => withButtonLock($('#refreshServiceProviders'), 'Refreshing…', async () => { await Promise.all([loadServiceProviders(),loadServiceOperations(),loadApprovals()]); }));
+    $('#refreshServiceProviders')?.addEventListener('click', () => withButtonLock($('#refreshServiceProviders'), 'Refreshing…', async () => { await Promise.all([loadServiceProviders(),loadServiceListings(),loadServiceOperations(),loadApprovals()]); }));
+    $('#adminServiceListingFilter')?.addEventListener('change',renderServiceListings);
     $('#serviceQuotationFeeForm')?.addEventListener('submit',saveServiceQuotationFee);
     $('#adminServiceRequestFilter')?.addEventListener('change',renderServiceRequests);
     $('#adminServiceRequestList')?.addEventListener('click',(event)=>{const button=event.target.closest?.('[data-service-payment],[data-dispatch-service-request],[data-cancel-service-request]');if(button)handleServiceRequestAction(button);});
