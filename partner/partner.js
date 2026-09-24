@@ -11,8 +11,8 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const status=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className='status'+(type?' '+type:'');};
 const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const uid=()=>currentUser?.id||'';
-let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
-let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],editingProviderService=null;
+let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],sellerEarningsReport=null,partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
+let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],providerSettlementRequests=[],providerSettlements=[],providerEarningsReport=null,editingProviderService=null;
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -226,11 +226,12 @@ async function loadSeller(){
         loadProducts(),
         loadTaxonomy(),
         loadSellerSettlementData(),
+        loadSellerEarnings(),
         loadSellerOrders(),
         loadSellerReviews(),
         loadKenyaLocations()
       ]).then(results=>{
-        const labels=['products','taxonomy','settlements','orders','reviews','locations'];
+        const labels=['products','taxonomy','settlements','earnings','orders','reviews','locations'];
         results.forEach((result,index)=>{
           if(result.status==='rejected')console.error('Seller '+labels[index]+' loader failed:',result.reason);
         });
@@ -249,6 +250,119 @@ function formatDate(value){
   const date=new Date(value);
   return Number.isNaN(date.getTime())?'—':new Intl.DateTimeFormat('en-KE',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Nairobi'}).format(date);
 }
+function nairobiDateISO(date=new Date()){
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+  const map=Object.fromEntries(parts.filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
+  return map.year+'-'+map.month+'-'+map.day;
+}
+function partnerRangeDates(range='today'){
+  const today=new Date();
+  const to=nairobiDateISO(today);
+  if(range==='today')return {from:to,to};
+  const days=Math.max(1,Number(range)||1);
+  const fromDate=new Date(today.getTime()-(days-1)*86400000);
+  return {from:nairobiDateISO(fromDate),to};
+}
+function earningsTableRows(report){
+  const rows=Array.isArray(report?.entries)?report.entries:[];
+  return rows.length?rows.map(entry=>
+    '<tr><td>'+escapeHtml(entry.earning_date||'—')+'</td><td><strong>'+escapeHtml(entry.reference||'—')+'</strong></td><td>'+escapeHtml(entry.source||'Earning')+'</td><td>'+escapeHtml(money(entry.gross_kes))+'</td><td>'+escapeHtml(money(entry.commission_kes))+'</td><td><strong>'+escapeHtml(money(entry.net_kes))+'</strong></td></tr>'
+  ).join(''):'<tr><td colspan="6">No earnings found for the selected dates.</td></tr>';
+}
+function downloadPartnerEarningsCsv(partnerType,report,businessName='partner'){
+  const rows=Array.isArray(report?.entries)?report.entries:[];
+  const lines=[
+    ['Date','Reference','Source','Gross KSh','LEOGO Commission KSh','Net Earnings KSh'],
+    ...rows.map(entry=>[entry.earning_date||'',entry.reference||'',entry.source||'',Number(entry.gross_kes||0),Number(entry.commission_kes||0),Number(entry.net_kes||0)])
+  ];
+  const csv=lines.map(row=>row.map(value=>'"'+String(value??'').replaceAll('"','""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  const safe=String(businessName||partnerType).replace(/[^a-z0-9-_]+/gi,'-').replace(/^-+|-+$/g,'').toLowerCase()||partnerType;
+  link.href=url;
+  link.download='leogo-'+partnerType+'-earnings-'+safe+'-'+String(report?.from||'report')+'-to-'+String(report?.to||'report')+'.csv';
+  document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+async function loadSellerEarnings(from=null,to=null){
+  if(!currentUser||seller?.application_status!=='approved')return;
+  const fallback=partnerRangeDates('today');
+  const selectedFrom=from||$('#sellerEarningsFrom')?.value||fallback.from;
+  const selectedTo=to||$('#sellerEarningsTo')?.value||fallback.to;
+  const {data,error}=await client.rpc('partner_get_earnings_report',{p_partner_type:'seller',p_from:selectedFrom,p_to:selectedTo});
+  if(error)throw error;
+  sellerEarningsReport=data||{};
+  if($('#sellerEarningsFrom'))$('#sellerEarningsFrom').value=String(sellerEarningsReport.from||selectedFrom);
+  if($('#sellerEarningsTo'))$('#sellerEarningsTo').value=String(sellerEarningsReport.to||selectedTo);
+  renderSellerEarnings();
+}
+function renderSellerEarnings(){
+  const report=sellerEarningsReport||{};
+  if($('#sellerTodayEarnings'))$('#sellerTodayEarnings').textContent=money(report.today_net_kes);
+  if($('#sellerTotalEarnings'))$('#sellerTotalEarnings').textContent=money(report.cumulative_net_kes);
+  if($('#sellerAvailableBalance'))$('#sellerAvailableBalance').textContent=money(report.available_balance_kes);
+  if($('#sellerPeriodEarnings'))$('#sellerPeriodEarnings').textContent=money(report.period_net_kes);
+  if($('#sellerCumulativeEarnings'))$('#sellerCumulativeEarnings').textContent=money(report.cumulative_net_kes);
+  if($('#sellerReportAvailableBalance'))$('#sellerReportAvailableBalance').textContent=money(report.available_balance_kes);
+  if($('#sellerPendingSettlement'))$('#sellerPendingSettlement').textContent=money(report.pending_settlement_kes);
+  if($('#sellerSettledTotal'))$('#sellerSettledTotal').textContent=money(report.settled_total_kes);
+  if($('#sellerSettlementAvailableBalance'))$('#sellerSettlementAvailableBalance').textContent=money(report.available_balance_kes);
+  if($('#sellerEarningsTableBody'))$('#sellerEarningsTableBody').innerHTML=earningsTableRows(report);
+  if($('#sellerSettlementRequestAmount')){
+    $('#sellerSettlementRequestAmount').max=String(Math.max(0,Number(report.available_balance_kes||0)));
+    $('#sellerSettlementRequestAmount').placeholder=Number(report.available_balance_kes||0)>0?'Up to '+money(report.available_balance_kes):'No balance available';
+  }
+}
+async function loadProviderEarnings(from=null,to=null){
+  if(!currentUser||provider?.application_status!=='approved')return;
+  const fallback=partnerRangeDates('today');
+  const selectedFrom=from||$('#providerEarningsFrom')?.value||fallback.from;
+  const selectedTo=to||$('#providerEarningsTo')?.value||fallback.to;
+  const {data,error}=await client.rpc('partner_get_earnings_report',{p_partner_type:'service_provider',p_from:selectedFrom,p_to:selectedTo});
+  if(error)throw error;
+  providerEarningsReport=data||{};
+  if($('#providerEarningsFrom'))$('#providerEarningsFrom').value=String(providerEarningsReport.from||selectedFrom);
+  if($('#providerEarningsTo'))$('#providerEarningsTo').value=String(providerEarningsReport.to||selectedTo);
+  renderProviderEarnings();
+}
+function renderProviderEarnings(){
+  const report=providerEarningsReport||{};
+  if($('#providerTodayEarnings'))$('#providerTodayEarnings').textContent=money(report.today_net_kes);
+  if($('#providerTotalEarnings'))$('#providerTotalEarnings').textContent=money(report.cumulative_net_kes);
+  if($('#providerAvailableBalance'))$('#providerAvailableBalance').textContent=money(report.available_balance_kes);
+  if($('#providerPeriodGross'))$('#providerPeriodGross').textContent=money(report.period_gross_kes);
+  if($('#providerPeriodCommission'))$('#providerPeriodCommission').textContent=money(report.period_commission_kes);
+  if($('#providerCommissionRate'))$('#providerCommissionRate').textContent=(Number(report.commission_rate||0)*100).toFixed(0)+'% referral commission';
+  if($('#providerPeriodEarnings'))$('#providerPeriodEarnings').textContent=money(report.period_net_kes);
+  if($('#providerCumulativeEarnings'))$('#providerCumulativeEarnings').textContent=money(report.cumulative_net_kes);
+  if($('#providerReportAvailableBalance'))$('#providerReportAvailableBalance').textContent=money(report.available_balance_kes);
+  if($('#providerPendingSettlement'))$('#providerPendingSettlement').textContent=money(report.pending_settlement_kes);
+  if($('#providerSettledTotal'))$('#providerSettledTotal').textContent=money(report.settled_total_kes);
+  if($('#providerSettlementAvailableBalance'))$('#providerSettlementAvailableBalance').textContent=money(report.available_balance_kes);
+  if($('#providerEarningsTableBody'))$('#providerEarningsTableBody').innerHTML=earningsTableRows(report);
+  if($('#providerSettlementRequestAmount')){
+    $('#providerSettlementRequestAmount').max=String(Math.max(0,Number(report.available_balance_kes||0)));
+    $('#providerSettlementRequestAmount').placeholder=Number(report.available_balance_kes||0)>0?'Up to '+money(report.available_balance_kes):'No balance available';
+  }
+}
+$$('[data-seller-earning-range]').forEach(button=>button.addEventListener('click',async()=>{
+  const range=partnerRangeDates(button.dataset.sellerEarningRange);
+  await loadSellerEarnings(range.from,range.to);
+}));
+$('#sellerApplyEarningsFilter')?.addEventListener('click',()=>loadSellerEarnings($('#sellerEarningsFrom').value,$('#sellerEarningsTo').value));
+$('#sellerDownloadEarnings')?.addEventListener('click',()=>{
+  if(sellerEarningsReport)downloadPartnerEarningsCsv('seller',sellerEarningsReport,seller?.business_name||'seller');
+});
+$$('[data-provider-earning-range]').forEach(button=>button.addEventListener('click',async()=>{
+  const range=partnerRangeDates(button.dataset.providerEarningRange);
+  await loadProviderEarnings(range.from,range.to);
+}));
+$('#providerApplyEarningsFilter')?.addEventListener('click',()=>loadProviderEarnings($('#providerEarningsFrom').value,$('#providerEarningsTo').value));
+$('#providerDownloadEarnings')?.addEventListener('click',()=>{
+  if(providerEarningsReport)downloadPartnerEarningsCsv('service-provider',providerEarningsReport,provider?.business_name||'service-provider');
+});
+
 function showRolePicker(){
   activeRole='';
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
@@ -302,6 +416,7 @@ function sellerViewDescription(view){
     orders:'Receive and fulfil customer orders.',
     reviews:'Approved product reviews from completed customer orders.',
     flashsale:'Choose an existing product and submit it to Flash Sale.',
+    earnings:'View daily earnings, cumulative earnings and your available settlement balance.',
     settlements:'Manage approved payout accounts and settlement requests.',
     notifications:'All important Seller and Admin events.',
     profile:'Your registered Seller information and verification details.',
@@ -314,7 +429,7 @@ function closeSellerSidebar(){
 }
 function openSellerView(view='overview'){
   const allowed=seller?.application_status==='approved'
-    ? ['overview','products','orders','reviews','flashsale','settlements','notifications','profile','data']
+    ? ['overview','products','orders','reviews','flashsale','earnings','settlements','notifications','profile','data']
     : ['overview','notifications','profile','data'];
   const resolved=allowed.includes(view)?view:'overview';
   $$('[data-seller-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.sellerContent===resolved));
@@ -322,6 +437,9 @@ function openSellerView(view='overview'){
   $('#sellerViewDescription').textContent=sellerViewDescription(resolved);
   if(resolved==='reviews'&&seller?.application_status==='approved'){
     loadSellerReviews().catch(error=>console.warn('Seller reviews refresh failed:',error));
+  }
+  if(resolved==='earnings'&&seller?.application_status==='approved'){
+    loadSellerEarnings().catch(error=>console.warn('Seller earnings refresh failed:',error));
   }
   closeSellerSidebar();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -345,7 +463,7 @@ function renderSeller(){
   sellerPendingArea.hidden=!hasSeller || state==='approved';
   sellerDocsForm.hidden=!hasSeller || !['changes_requested','rejected'].includes(state);
   $('#sellerProfileButton').hidden=!hasSeller;
-  $$('[data-seller-view="products"],[data-seller-view="orders"],[data-seller-view="reviews"],[data-seller-view="flashsale"],[data-seller-view="settlements"]').forEach(button=>button.hidden=state!=='approved');
+  $$('[data-seller-view="products"],[data-seller-view="orders"],[data-seller-view="reviews"],[data-seller-view="flashsale"],[data-seller-view="earnings"],[data-seller-view="settlements"]').forEach(button=>button.hidden=state!=='approved');
 
   if(seller){
     $('#sellerSidebarBusiness').textContent=seller.business_name||'Seller Account';
@@ -427,7 +545,7 @@ async function loadPartnerNotifications(){
     }else if(view==='orders'){
       openSellerView('orders');
       await loadSellerOrders();
-    }else if(['products','settlements','notifications','profile','data','flashsale'].includes(view)){
+    }else if(['products','earnings','settlements','notifications','profile','data','flashsale'].includes(view)){
       openSellerView(view);
     }
     await loadPartnerNotifications();
@@ -592,6 +710,7 @@ async function loadSellerSettlementData(){
   sellerSettlements=settlementsResult.data||[];
   settlementRequests=requestsResult.data||[];
   renderSellerSettlementData();
+  loadSellerEarnings().catch(error=>console.warn('Seller balance refresh failed:',error));
 }
 function renderSellerSettlementData(){
   $('#sellerSettlementAccountList').innerHTML=settlementAccounts.length?settlementAccounts.map(a=>`
@@ -667,7 +786,7 @@ $('#sellerSettlementRequestForm').addEventListener('submit',async e=>{
     if(error)throw error;
     e.target.reset();
     status($('#sellerSettlementRequestStatus'),'Settlement request submitted to Admin for review.','success');
-    await Promise.all([loadSellerSettlementData(),loadPartnerNotifications()]);
+    await Promise.all([loadSellerSettlementData(),loadPartnerNotifications(),loadSellerEarnings()]);
   }catch(error){status($('#sellerSettlementRequestStatus'),error.message||'Settlement request could not be submitted.','error');}
   finally{button.disabled=false;button.textContent=original;}
 });
@@ -1514,6 +1633,7 @@ function providerViewDescription(view){
     overview:'Overview of your Service Provider account.',
     jobs:'Received customer jobs and quotation requests.',
     services:'Manage your service listings and approval status.',
+    earnings:'View completed-job earnings, LEOGO commission, cumulative earnings and your available balance.',
     settlements:'Add and manage your Admin-approved Service Provider payout account.',
     notifications:'New jobs, quotation decisions and LEOGO Admin updates.',
     profile:'Your approved profile and profile photos.'
@@ -1524,7 +1644,7 @@ function closeProviderSidebar(){
   $('#providerSidebarScrim')?.classList.remove('open');
 }
 function openProviderView(view='overview'){
-  const allowed=['overview','jobs','services','settlements','notifications','profile'];
+  const allowed=['overview','jobs','services','earnings','settlements','notifications','profile'];
   const resolved=allowed.includes(view)?view:'overview';
   $$('[data-provider-content]').forEach((panel)=>panel.classList.toggle('active',panel.dataset.providerContent===resolved));
   $$('[data-provider-view]').forEach((button)=>button.classList.toggle('active',button.dataset.providerView===resolved));
@@ -1539,6 +1659,7 @@ function openProviderView(view='overview'){
     }else providerPhotoManager.hidden=true;
   }
   if(resolved==='jobs')loadProviderJobs().catch((error)=>console.warn('Provider jobs refresh failed:',error));
+  if(resolved==='earnings')loadProviderEarnings().catch((error)=>console.warn('Provider earnings refresh failed:',error));
   if(resolved==='settlements')loadProviderSettlementAccounts().catch((error)=>console.warn('Provider settlement accounts refresh failed:',error));
   if(resolved==='notifications')loadProviderNotifications().catch((error)=>console.warn('Provider notifications refresh failed:',error));
   closeProviderSidebar();
@@ -1734,7 +1855,7 @@ async function loadProvider(){
     provider=result?.data||null;
     renderProvider();
     await ensureProviderLocations(provider?.county_code||'',provider?.sub_county_code||'');
-    if(provider?.application_status==='approved')await Promise.allSettled([loadProviderServices(),loadProviderJobs(),loadProviderNotifications(),loadProviderSettlementAccounts()]);
+    if(provider?.application_status==='approved')await Promise.allSettled([loadProviderServices(),loadProviderJobs(),loadProviderNotifications(),loadProviderSettlementAccounts(),loadProviderEarnings()]);
   }catch(error){
     console.error('Service Provider portal boot failed:',error);
     showProviderBoot(error?.message||'The Service Provider dashboard could not finish loading.',true);
@@ -1883,23 +2004,32 @@ function renderProviderJobs(){
       actions+'</article>';
   }).join(''):'<div class="empty-card">No service jobs match this filter.</div>';
 }
-async function updateProviderJob(id,action,quote=null,notes=null,button=null,quoteValidUntil=null){
+async function updateProviderJob(id,action,quote=null,notes=null,button=null,quoteValidUntil=null,finalAmount=null){
   const original=button?.textContent;if(button){button.disabled=true;button.textContent='Saving…';}
   status($('#providerJobStatus'),'');
   try{
     if(action==='decline'&&!notes)notes=window.prompt('Why are you declining this service request?','')||'';
     if(action==='decline'&&notes.trim().length<3)return;
-    const {error}=await client.rpc('service_provider_update_job',{p_request_id:id,p_action:action,p_quote_kes:quote,p_notes:notes||null,p_quote_valid_until:quoteValidUntil||null});
+    const {error}=await client.rpc('service_provider_update_job',{p_request_id:id,p_action:action,p_quote_kes:quote,p_notes:notes||null,p_quote_valid_until:quoteValidUntil||null,p_final_amount_kes:finalAmount});
     if(error)throw error;
     status($('#providerJobStatus'),'Service job updated successfully.','success');
-    await Promise.all([loadProviderJobs(),loadProviderNotifications()]);
+    await Promise.all([loadProviderJobs(),loadProviderNotifications(),loadProviderEarnings()]);
   }catch(error){status($('#providerJobStatus'),error?.message||'Service job could not be updated.','error');}
   finally{if(button){button.disabled=false;button.textContent=original;}}
 }
 $('#providerJobFilter')?.addEventListener('change',renderProviderJobs);
 $('#providerJobList')?.addEventListener('click',(event)=>{
   const button=event.target.closest?.('[data-provider-job-action]');if(!button)return;
-  updateProviderJob(button.dataset.jobId,button.dataset.providerJobAction,null,null,button);
+  const action=button.dataset.providerJobAction;
+  const item=providerJobs.find((row)=>row.id===button.dataset.jobId);
+  let finalAmount=null;
+  if(action==='complete'&&item?.request_type==='direct'){
+    const answer=window.prompt('Enter the final agreed labour amount for this completed direct service (KSh):','');
+    if(answer===null)return;
+    finalAmount=Number(answer);
+    if(!Number.isFinite(finalAmount)||finalAmount<=0){status($('#providerJobStatus'),'Enter a valid final labour amount before completing the service.','error');return;}
+  }
+  updateProviderJob(button.dataset.jobId,action,null,null,button,null,finalAmount);
 });
 $('#providerJobList')?.addEventListener('submit',(event)=>{
   const form=event.target.closest?.('[data-provider-quote-form]');if(!form)return;
@@ -2042,12 +2172,34 @@ function renderProviderSettlementAccounts(){
     '</article>'
   ).join(''):'<div class="empty-card">No settlement account added yet.</div>';
   $$('[data-edit-provider-settlement]').forEach((button)=>button.addEventListener('click',()=>editProviderSettlementAccount(button.dataset.editProviderSettlement)));
+  const approved=providerSettlementAccounts.filter((account)=>account.status==='approved');
+  if($('#providerSettlementRequestAccount')){
+    $('#providerSettlementRequestAccount').innerHTML=approved.length
+      ? '<option value="">Choose approved settlement account…</option>'+approved.map((account)=>'<option value="'+escapeHtml(account.id)+'">'+escapeHtml(account.account_name)+' — '+escapeHtml(providerSettlementDestination(account))+(account.is_primary?' (Primary)':'')+'</option>').join('')
+      : '<option value="">No approved settlement account yet</option>';
+  }
+  if($('#providerSettlementRequestButton'))$('#providerSettlementRequestButton').disabled=!approved.length;
+  if($('#providerSettlementRequestList'))$('#providerSettlementRequestList').innerHTML=providerSettlementRequests.length?providerSettlementRequests.map((request)=>
+    '<article class="settlement-history-row"><div><strong>'+money(request.requested_amount_kes)+'</strong><small>'+formatDate(request.submitted_at)+' · '+escapeHtml(request.status.replaceAll('_',' ').toUpperCase())+(request.admin_notes?' · Admin: '+escapeHtml(request.admin_notes):'')+'</small></div><span>'+escapeHtml(request.status.toUpperCase())+'</span></article>'
+  ).join(''):'<div class="empty-card">No settlement requests yet.</div>';
+  if($('#providerSettlementHistory'))$('#providerSettlementHistory').innerHTML=providerSettlements.length?providerSettlements.map((entry)=>
+    '<article class="settlement-history-row"><div><strong>'+money(entry.amount_kes)+'</strong><small>'+escapeHtml(entry.settlement_reference)+' · '+formatDate(entry.paid_at)+'</small></div><span>'+escapeHtml(entry.status.toUpperCase())+'</span></article>'
+  ).join(''):'<div class="empty-card">No Service Provider settlement has been recorded yet.</div>';
 }
 async function loadProviderSettlementAccounts(){
-  const {data,error}=await client.from('service_provider_settlement_accounts').select('*').order('created_at',{ascending:false});
-  if(error)throw error;
-  providerSettlementAccounts=data||[];
+  const [accountsResult,requestsResult,settlementsResult]=await Promise.all([
+    client.from('service_provider_settlement_accounts').select('*').order('created_at',{ascending:false}),
+    client.from('service_provider_settlement_requests').select('*').order('submitted_at',{ascending:false}),
+    client.from('service_provider_settlements').select('*').order('paid_at',{ascending:false})
+  ]);
+  if(accountsResult.error)throw accountsResult.error;
+  if(requestsResult.error)throw requestsResult.error;
+  if(settlementsResult.error)throw settlementsResult.error;
+  providerSettlementAccounts=accountsResult.data||[];
+  providerSettlementRequests=requestsResult.data||[];
+  providerSettlements=settlementsResult.data||[];
   renderProviderSettlementAccounts();
+  loadProviderEarnings().catch(error=>console.warn('Provider balance refresh failed:',error));
 }
 $('#providerSettlementType')?.addEventListener('change',toggleProviderSettlementFields);
 $('#cancelProviderSettlementEdit')?.addEventListener('click',resetProviderSettlementForm);
@@ -2085,6 +2237,30 @@ $('#providerSettlementAccountForm')?.addEventListener('submit',async(event)=>{
   }finally{button.disabled=false;button.textContent=original;}
 });
 toggleProviderSettlementFields();
+
+$('#providerSettlementRequestForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const accountId=$('#providerSettlementRequestAccount').value;
+  const amount=Number($('#providerSettlementRequestAmount').value);
+  const note=$('#providerSettlementRequestNote').value.trim();
+  const available=Number(providerEarningsReport?.available_balance_kes||0);
+  if(!accountId){status($('#providerSettlementRequestStatus'),'Choose an approved settlement account.','error');return;}
+  if(!amount||amount<=0){status($('#providerSettlementRequestStatus'),'Enter the amount you want to request.','error');return;}
+  if(amount>available){status($('#providerSettlementRequestStatus'),'Requested amount exceeds your available balance of '+money(available)+'.','error');return;}
+  const button=$('#providerSettlementRequestButton');
+  const original=button.textContent;button.disabled=true;button.textContent='Submitting…';
+  try{
+    status($('#providerSettlementRequestStatus'),'Sending settlement request to LEOGO Admin…');
+    const {error}=await client.rpc('service_provider_request_settlement',{p_account_id:accountId,p_amount_kes:amount,p_note:note||null});
+    if(error)throw error;
+    event.target.reset();
+    status($('#providerSettlementRequestStatus'),'Settlement request submitted to Admin for review.','success');
+    await Promise.all([loadProviderSettlementAccounts(),loadProviderNotifications(),loadProviderEarnings()]);
+  }catch(error){
+    status($('#providerSettlementRequestStatus'),error?.message||'Settlement request could not be submitted.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+});
+
 async function loadProviderNotifications(){
   const {data,error}=await client.from('partner_notifications').select('*').eq('partner_type','service_provider').order('created_at',{ascending:false}).limit(50);
   if(error)throw error;providerNotifications=data||[];renderProviderNotifications();
@@ -2112,6 +2288,7 @@ function renderProviderNotifications(){
     const view=button.dataset.providerNotificationView;
     if(view==='provider-jobs')openProviderView('jobs');
     else if(view==='provider-services')openProviderView('services');
+    else if(view==='provider-earnings')openProviderView('earnings');
     else if(view==='provider-settlements')openProviderView('settlements');
     else if(view==='provider-profile')openProviderView('profile');
     else openProviderView('notifications');
@@ -2167,7 +2344,7 @@ async function handleSession(session){
   logout.hidden=!currentUser;
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   if(!currentUser){
-    seller=null;products=[];provider=null;providerServices=[];providerNotifications=[];providerJobs=[];providerSettlementAccounts=[];activeRole='';
+    seller=null;products=[];sellerEarningsReport=null;provider=null;providerServices=[];providerNotifications=[];providerJobs=[];providerSettlementAccounts=[];providerSettlementRequests=[];providerSettlements=[];providerEarningsReport=null;activeRole='';
     authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;if(providerShell)providerShell.hidden=true;if(hero)hero.hidden=false;
     return;
   }
