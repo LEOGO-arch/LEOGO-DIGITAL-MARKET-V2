@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=provider-dashboard-2">
+  <link rel="stylesheet" href="partner.css?v=provider-settlements-1">
 <style>
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
 </style></head>
@@ -157,6 +157,7 @@
           <button class="active" data-provider-view="overview" type="button"><span>▦</span>Dashboard / Overview</button>
           <button class="provider-job-priority-nav" data-provider-view="jobs" type="button"><span>🧰</span>Received Jobs <b id="providerJobBadge" hidden>0</b></button>
           <button data-provider-view="services" type="button"><span>🛠️</span>My Services</button>
+          <button data-provider-view="settlements" type="button"><span>₿</span>Settlements <b id="providerSettlementBadge" hidden>0</b></button>
           <button data-provider-view="notifications" type="button"><span>🔔</span>Notifications <b id="providerNotificationBadge" hidden>0</b></button>
           <button data-provider-view="profile" type="button"><span>♙</span>My Profile</button>
         </nav>
@@ -199,6 +200,7 @@
             <div class="seller-overview-actions">
               <button type="button" data-open-provider-view="jobs">Received Jobs</button>
               <button type="button" data-open-provider-view="services">Manage Services</button>
+              <button type="button" data-open-provider-view="settlements">Settlement Account</button>
               <button type="button" data-open-provider-view="profile">My Profile</button>
             </div>
           </section>
@@ -244,6 +246,30 @@
           <section class="panel">
             <div class="section-title"><span>MY SERVICES</span><h3>Your service listings</h3><p>Track approval status, edit details or remove a listing you no longer offer.</p></div>
             <div id="providerServiceList" class="product-list"><div class="empty-card">No services added yet.</div></div>
+          </section>
+        </section>
+
+        <section class="provider-view" data-provider-content="settlements">
+          <section class="panel seller-settlement-panel">
+            <div class="section-title"><span>SERVICE PROVIDER SETTLEMENT ACCOUNT</span><h3>Where LEOGO sends your service money</h3><p>Add the payout destination LEOGO should use for your Service Provider account. Every new account and every edit must be approved by Admin before use.</p></div>
+            <form id="providerSettlementAccountForm">
+              <input id="providerSettlementAccountId" type="hidden">
+              <div class="form-grid">
+                <label>Settlement method<select id="providerSettlementType" required><option value="mpesa_mobile">M-Pesa Number</option><option value="mpesa_till">M-Pesa Till</option><option value="mpesa_paybill">M-Pesa Paybill</option><option value="bank">Bank Account</option></select></label>
+                <label>Account / recipient name<input id="providerSettlementName" type="text" maxlength="120" required></label>
+                <label data-provider-settlement-field="mpesa_mobile">M-Pesa phone<input id="providerSettlementPhone" type="tel" placeholder="+2547XXXXXXXX"></label>
+                <label data-provider-settlement-field="mpesa_till" hidden>Till number<input id="providerSettlementTill" type="text" maxlength="30"></label>
+                <label data-provider-settlement-field="mpesa_paybill" hidden>Paybill number<input id="providerSettlementPaybill" type="text" maxlength="30"></label>
+                <label data-provider-settlement-field="mpesa_paybill bank" hidden>Account number<input id="providerSettlementAccountNumber" type="text" maxlength="80"></label>
+                <label data-provider-settlement-field="bank" hidden>Bank name<input id="providerSettlementBank" type="text" maxlength="120"></label>
+                <label data-provider-settlement-field="bank" hidden>Bank branch<input id="providerSettlementBranch" type="text" maxlength="120"></label>
+              </div>
+              <div class="toggle-card"><label><input id="providerSettlementPrimary" type="checkbox" checked><span><strong>Primary settlement account</strong><small>Use this as the preferred approved destination for Service Provider payouts.</small></span></label></div>
+              <div class="product-actions"><button id="cancelProviderSettlementEdit" type="button" class="secondary" hidden>Cancel Edit</button><button type="submit">Send for Admin Verification</button></div>
+              <p id="providerSettlementStatus" class="status"></p>
+            </form>
+            <div class="section-title compact"><span>MY SETTLEMENT ACCOUNTS</span><h4>Verification status</h4><p>Pending accounts stay here until Admin approves or rejects them.</p></div>
+            <div id="providerSettlementAccountList" class="settlement-account-list"><div class="empty-card">No settlement account added yet.</div></div>
           </section>
         </section>
 
@@ -595,5 +621,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=provider-dashboard-2" defer></script>
+<script src="partner.js?v=provider-settlements-1" defer></script>
 </body></html>
