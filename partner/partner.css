@@ -291,3 +291,60 @@
 
 .provider-quote-form textarea{width:100%;resize:vertical}
 .provider-job-card a{color:#0d5aa7;font-weight:800}
+
+
+/* Service Provider dashboard organization */
+.partner-header-actions{display:flex;align-items:center;gap:10px}
+.partner-notification-bell{position:relative;min-width:44px;height:44px;border:1px solid #d7dfeb;border-radius:12px;background:#fff;color:#07152f;font-size:20px;display:grid;place-items:center;cursor:pointer}
+.partner-notification-bell.has-unread{border-color:#ff7200;background:#fff8f2}
+.partner-notification-bell b,.provider-bell-button b,.provider-sidebar nav b{
+  min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#ff7200;color:#fff;font-size:10px;line-height:18px;text-align:center;font-weight:900
+}
+.partner-notification-bell b{position:absolute;top:-6px;right:-6px}
+.provider-bell-button{position:relative}
+.provider-bell-button b{position:absolute;top:-5px;right:-5px}
+.provider-sidebar nav button{position:relative}
+.provider-sidebar nav button b{margin-left:auto}
+.provider-job-priority-nav b{background:#ff7200}
+
+.provider-view{display:none}
+.provider-view.active{display:block}
+.provider-portal .seller-portal-main{min-width:0}
+.provider-portal-head{align-items:center}
+.provider-overview-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+.provider-priority-card{border:2px solid #ffd9b5;background:linear-gradient(180deg,#fffaf5,#fff)}
+.provider-priority-card.has-new-jobs{border-color:#ff7200;box-shadow:0 10px 24px rgba(255,114,0,.10)}
+.provider-priority-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px}
+.provider-priority-head span{font-size:10px;font-weight:900;letter-spacing:.12em;color:#ff7200}
+.provider-priority-head h3{margin:4px 0 3px}
+.provider-priority-head p{margin:0;color:var(--muted);font-size:12px}
+.provider-priority-count{min-width:72px;border-radius:14px;background:#07152f;color:#fff;padding:10px 12px;text-align:center}
+.provider-priority-count strong{display:block;font-size:24px}
+.provider-priority-count small{font-size:10px;text-transform:uppercase}
+.provider-priority-job-list{display:grid;gap:8px;margin:10px 0 12px}
+.provider-priority-job-list>button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;border:1px solid #e1e6ee;border-radius:11px;background:#fff;padding:11px 12px;text-align:left;color:#07152f;cursor:pointer}
+.provider-priority-job-list>button span{display:grid;gap:3px}
+.provider-priority-job-list>button small{color:var(--muted);font-size:10px}
+.provider-priority-job-list>button b{color:#ff7200;font-size:11px;white-space:nowrap}
+.provider-priority-card>button{border:0;border-radius:9px;background:#ff7200;color:#fff;padding:10px 14px;font-weight:900;cursor:pointer}
+.provider-overview-actions{margin-top:14px}
+#providerProfilePhotoSlot:empty{display:none}
+#providerProfilePhotoSlot .provider-photo-manager{margin-top:14px}
+.provider-photo-manager[hidden]{display:none!important}
+#providerServiceForm[hidden]{display:none!important}
+
+@media(max-width:1050px){
+  .provider-overview-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .partner-header-actions{gap:7px}
+  .partner-notification-bell{min-width:42px;height:42px}
+  .provider-overview-grid{grid-template-columns:1fr 1fr}
+  .provider-priority-head{align-items:stretch}
+  .provider-priority-job-list>button{align-items:flex-start}
+}
+@media(max-width:480px){
+  .provider-overview-grid{grid-template-columns:1fr}
+  .provider-priority-head{flex-direction:column}
+  .provider-priority-count{width:100%}
+}
