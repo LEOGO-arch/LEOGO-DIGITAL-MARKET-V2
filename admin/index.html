@@ -503,6 +503,10 @@
           <div class="seller-admin-summary service-request-summary-grid"><article><span>Total Requests</span><strong id="adminServiceRequestTotal">0</strong><small>All time</small></article><article><span>Payments to Verify</span><strong id="adminServicePaymentPending">0</strong><small>Quotation fees</small></article><article><span>Ready to Dispatch</span><strong id="adminServiceReadyDispatch">0</strong><small>Admin action needed</small></article><article><span>Active Jobs</span><strong id="adminServiceActiveJobs">0</strong><small>Provider workflow</small></article></div>
           <div id="adminServiceRequestList" class="admin-service-request-list"><div class="reserved-module slim"><span>🛠️</span><h3>No service requests yet</h3><p>Customer requests will appear here.</p></div></div>
         </section>
+        <section class="content-card service-operations-card">
+          <div class="card-head"><div><span>SERVICE CATALOGUE</span><h3>All Service Listings</h3><p>Pending listings stay in Approval Center. Approved listings remain visible here for Admin records.</p></div><select id="adminServiceListingFilter"><option value="all">All statuses</option><option value="pending">Pending approval</option><option value="approved">Approved</option><option value="changes_requested">Changes requested</option><option value="rejected">Rejected</option></select></div>
+          <div class="responsive-table"><table><thead><tr><th>Service</th><th>Provider</th><th>Pricing</th><th>Area</th><th>Availability</th><th>Approval</th><th>Action</th></tr></thead><tbody id="adminServiceListingBody"><tr><td colspan="7">Loading Service Listings…</td></tr></tbody></table></div>
+        </section>
         <section class="content-card">
           <div class="card-head"><div><span>PROVIDER DIRECTORY</span><h3>Registered Service Providers</h3></div></div>
           <div class="responsive-table"><table><thead><tr><th>Provider</th><th>Primary Service</th><th>Location</th><th>Availability</th><th>Status</th><th>Services</th><th>Action</th></tr></thead><tbody id="serviceProviderTableBody"><tr><td colspan="7">Loading Service Providers…</td></tr></tbody></table></div>
@@ -830,6 +834,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=admin-v1-62" defer></script>
+  <script src="admin.js?v=admin-v1-63" defer></script>
 </body>
 </html>
