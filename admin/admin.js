@@ -357,7 +357,7 @@
         </div>
       `).join(''):'<div class="empty-mini">No marketplace orders have been created yet.</div>';
 
-      $('[data-dashboard-order-id]',$('#dashboardRecentOrders')).forEach((button)=>button.addEventListener('click',()=>{
+      $$('[data-dashboard-order-id]',$('#dashboardRecentOrders')).forEach((button)=>button.addEventListener('click',()=>{
         changeView('orders');
         loadMarketplaceOrderDetail(button.dataset.dashboardOrderId,{scroll:true});
       }));
