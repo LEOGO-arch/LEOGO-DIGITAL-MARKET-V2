@@ -337,9 +337,24 @@
       <input id="serviceRequestType" type="hidden">
       <div class="service-request-summary" id="serviceRequestSummary"></div>
       <label><span>Describe what you need</span><textarea id="serviceRequestDetails" rows="4" minlength="10" maxlength="2500" required placeholder="Give the provider enough details to understand the work."></textarea></label>
+
+      <div class="service-location-box">
+        <div class="service-location-heading"><div><span>SERVICE LOCATION</span><strong>Where should the service be done?</strong><small>You can enter the address and also pin your exact position or paste a Google Maps link.</small></div><button id="useServiceCurrentLocation" type="button">📍 Use My Current Location</button></div>
+        <div class="service-request-form-grid">
+          <label><span>County</span><select id="serviceRequestCounty" required><option value="">Loading counties…</option></select></label>
+          <label><span>Sub-County</span><select id="serviceRequestSubCounty" required disabled><option value="">Choose a county first</option></select></label>
+          <label><span>Town / Estate / Area</span><input id="serviceRequestTownEstate" maxlength="180" required placeholder="e.g. Siaya Town, Nairobi CBD, Milimani"></label>
+          <label><span>Nearest landmark <small>(optional)</small></span><input id="serviceRequestLandmark" maxlength="300" placeholder="School, stage, shop or known place"></label>
+          <label class="wide"><span>Service location / address</span><input id="serviceRequestLocation" maxlength="500" required placeholder="Building, street, village, house or business name"></label>
+          <label class="wide"><span>Location description <small>(optional)</small></span><textarea id="serviceRequestLocationDescription" rows="2" maxlength="700" placeholder="e.g. Blue gate opposite the market, second floor"></textarea></label>
+          <label class="wide"><span>Google Maps link or shared location <small>(optional)</small></span><input id="serviceRequestMapLink" maxlength="1000" placeholder="Paste Google Maps link here"></label>
+          <label><span>Latitude <small>(auto-filled when pinned)</small></span><input id="serviceRequestLatitude" type="number" step="0.0000001" min="-90" max="90" placeholder="-0.0617"></label>
+          <label><span>Longitude <small>(auto-filled when pinned)</small></span><input id="serviceRequestLongitude" type="number" step="0.0000001" min="-180" max="180" placeholder="34.2881"></label>
+        </div>
+        <div class="service-location-status" id="serviceLocationStatus"></div>
+      </div>
+
       <div class="service-request-form-grid">
-        <label><span>Service location</span><input id="serviceRequestLocation" maxlength="500" required placeholder="Estate, street, building or village"></label>
-        <label><span>Nearest landmark <small>(optional)</small></span><input id="serviceRequestLandmark" maxlength="300" placeholder="School, stage, shop or known place"></label>
         <label><span>Preferred date <small>(optional)</small></span><input id="serviceRequestPreferredDate" type="date"></label>
         <label><span>Preferred service time</span><input id="serviceRequestPreferredTime" type="time" step="900" required></label>
       </div>
@@ -806,4 +821,4 @@
     </div>
   </div>
 </section>
-<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="js/app.js?v=service-preferred-time-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=pickup-station-1" defer></script><script src="js/wallet.js?v=pickup-station-1" defer></script><script src="js/premium.js?v=pickup-station-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
+<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=service-location-quote-pdf-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=pickup-station-1" defer></script><script src="js/wallet.js?v=pickup-station-1" defer></script><script src="js/premium.js?v=pickup-station-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
