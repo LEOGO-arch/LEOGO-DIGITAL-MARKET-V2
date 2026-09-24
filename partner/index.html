@@ -8,14 +8,17 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=service-jobs-1">
+  <link rel="stylesheet" href="partner.css?v=provider-dashboard-2">
 <style>
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
 </style></head>
 <body>
 <header class="partner-header">
   <a href="../" class="brand"><img src="../assets/images/leogo-official-logo.jpg" alt="LEOGO"><span><b>LEOGO DIGITAL MARKET</b><small>Partner Portal</small></span></a>
-  <button id="partnerLogout" type="button" hidden>Sign Out</button>
+  <div class="partner-header-actions">
+    <button id="partnerNotificationBell" class="partner-notification-bell" type="button" hidden aria-label="Partner notifications">🔔<b id="partnerNotificationBadge" hidden>0</b></button>
+    <button id="partnerLogout" type="button" hidden>Sign Out</button>
+  </div>
 </header>
 
 <main>
@@ -142,61 +145,124 @@
       </div>
     </section>
 
-    <section id="providerDashboard" class="seller-portal" hidden>
-      <button id="providerBackToPartnerships" class="secondary" type="button">← Partnerships</button>
-      <div class="seller-view-heading">
-        <div><span>SERVICE PROVIDER PORTAL</span><h2 id="providerDashboardName">My Service Business</h2><p id="providerDashboardStatus">Approved Service Provider</p></div>
-        <button id="refreshProviderDashboard" type="button">↻ Refresh</button>
-      </div>
-
-      <div class="seller-metrics provider-overview-grid">
-        <article><span>My Services</span><strong id="providerServiceTotal">0</strong><small>Listings created</small></article>
-        <article><span>Approved</span><strong id="providerServiceApproved">0</strong><small>Ready for customer visibility</small></article>
-        <article><span>Pending Review</span><strong id="providerServicePending">0</strong><small>Waiting for Admin</small></article>
-        <article><span>Availability</span><strong id="providerAvailability">Available</strong><small>Provider account</small></article><article><span>Open Jobs</span><strong id="providerOpenJobs">0</strong><small>Customer requests</small></article>
-      </div>
-
-      <section class="panel">
-        <div class="section-title"><span>MY PROFILE</span><h3>Approved provider details</h3><p>Your verification documents remain private.</p></div>
-        <div id="providerProfileSummary" class="summary-grid"></div>
-      </section>
-
-      <form id="providerServiceForm" class="panel">
-        <input id="providerServiceId" type="hidden">
-        <div class="section-title"><span>SERVICES</span><h3 id="providerServiceFormTitle">Add a Service</h3><p>Each new or edited service is sent to LEOGO Admin for review before it becomes customer-facing.</p></div>
-        <div class="form-grid">
-          <label>Service name<input id="providerServiceName" type="text" maxlength="140" required></label>
-          <label>Category / group<input id="providerServiceCategoryName" type="text" maxlength="120" placeholder="e.g. Plumbing"></label>
-          <label>Pricing model<select id="providerPricingModel" required><option value="quote">Price after quote</option><option value="fixed">Fixed price</option><option value="from">Starting from</option><option value="hourly">Per hour</option></select></label>
-          <label>Price from / fixed (KSh)<input id="providerPriceFrom" type="number" min="0" step="0.01"></label>
-          <label>Maximum price (KSh)<input id="providerPriceTo" type="number" min="0" step="0.01"></label>
-          <label>Unit label<input id="providerUnitLabel" type="text" maxlength="80" placeholder="e.g. per visit, per room"></label>
-          <label class="wide">Service description<textarea id="providerServiceDescription" rows="4" maxlength="2500" required></textarea></label>
-          <label class="wide">Service area<input id="providerServiceArea" type="text" maxlength="300" placeholder="e.g. Siaya Town and nearby estates"></label>
-          <label class="wide">Availability notes<input id="providerAvailabilityNotes" type="text" maxlength="300" placeholder="e.g. Mon-Sat, 8am-6pm"></label>
+    <section id="providerDashboard" class="seller-portal provider-portal" hidden>
+      <button id="providerSidebarToggle" class="seller-sidebar-toggle" type="button">☰ Menu</button>
+      <aside id="providerSidebar" class="seller-sidebar provider-sidebar">
+        <div class="seller-sidebar-brand">
+          <span>SERVICE PROVIDER</span>
+          <strong id="providerSidebarBusiness">My Service Business</strong>
+          <small id="providerSidebarStatus">APPROVED</small>
         </div>
-        <div class="toggle-card"><label><input id="providerIsAvailable" type="checkbox" checked><span><strong>Currently available</strong><small>Turn this off temporarily without deleting the service.</small></span></label></div>
-        <div class="product-actions"><button id="providerServiceReset" class="secondary" type="button" hidden>Cancel Edit</button><button type="submit">Save & Send for Approval</button></div>
-        <p id="providerServiceFormStatus" class="status"></p>
-      </form>
+        <nav>
+          <button class="active" data-provider-view="overview" type="button"><span>▦</span>Dashboard / Overview</button>
+          <button class="provider-job-priority-nav" data-provider-view="jobs" type="button"><span>🧰</span>Received Jobs <b id="providerJobBadge" hidden>0</b></button>
+          <button data-provider-view="services" type="button"><span>🛠️</span>My Services</button>
+          <button data-provider-view="notifications" type="button"><span>🔔</span>Notifications <b id="providerNotificationBadge" hidden>0</b></button>
+          <button data-provider-view="profile" type="button"><span>♙</span>My Profile</button>
+        </nav>
+        <div class="seller-sidebar-footer">
+          <button id="providerBackToPartnerships" class="secondary" type="button">← Partnerships</button>
+        </div>
+      </aside>
+      <button id="providerSidebarScrim" class="seller-sidebar-scrim" type="button" aria-label="Close Service Provider menu"></button>
 
-      <section class="panel">
-        <div class="section-title"><span>MY SERVICES</span><h3>Service listings</h3><p>Track approval status, edit details or remove a listing you no longer offer.</p></div>
-        <div id="providerServiceList" class="product-list"><div class="empty-card">No services added yet.</div></div>
-      </section>
+      <div class="seller-portal-main">
+        <div class="account-head seller-portal-head provider-portal-head">
+          <div><span>SERVICE PROVIDER DASHBOARD</span><h2 id="providerDashboardName">My Service Business</h2><p id="providerViewDescription">Overview of your Service Provider account.</p></div>
+          <div class="seller-head-actions">
+            <button id="providerNotificationsButton" class="seller-icon-button provider-bell-button" type="button" aria-label="Notifications">🔔<b id="providerHeadNotificationBadge" hidden>0</b></button>
+            <button id="providerProfileButton" class="secondary" type="button">My Profile</button>
+            <button id="refreshProviderDashboard" type="button">↻ Refresh</button>
+          </div>
+        </div>
 
-      <section class="panel provider-jobs-panel" id="provider-jobs">
-        <div class="section-title"><span>CUSTOMER JOBS</span><h3>Incoming Service Requests</h3><p>Requests appear here only after LEOGO Admin verification and dispatch. Customer contact and location stay private until dispatch.</p></div>
-        <div class="provider-job-filter"><label>Status <select id="providerJobFilter"><option value="open">Open jobs</option><option value="all">All jobs</option><option value="completed">Completed</option><option value="closed">Declined / cancelled</option></select></label></div>
-        <div id="providerJobList" class="provider-job-list"><div class="empty-card">No customer jobs have been dispatched yet.</div></div>
-        <p id="providerJobStatus" class="status"></p>
-      </section>
+        <section class="provider-view active" data-provider-content="overview">
+          <section id="providerJobPriorityCard" class="panel provider-priority-card">
+            <div class="provider-priority-head">
+              <div><span>PRIORITY</span><h3>Received Customer Jobs</h3><p>New dispatched customer requests are shown here first so you can respond quickly.</p></div>
+              <div class="provider-priority-count"><strong id="providerPriorityCount">0</strong><small>new</small></div>
+            </div>
+            <div id="providerPriorityJobList" class="provider-priority-job-list"><div class="empty-card">No new customer jobs waiting for your response.</div></div>
+            <button type="button" data-open-provider-view="jobs">Open Received Jobs →</button>
+          </section>
 
-      <section class="panel seller-notification-panel">
-        <div class="section-title compact"><span>NOTIFICATIONS</span><h3>Service Provider activity</h3><p>Admin decisions and future service-job events will appear here.</p></div>
-        <div class="notification-toolbar"><button id="markAllProviderNotificationsRead" class="secondary" type="button">Mark all read</button></div>
-        <div id="providerNotificationList" class="seller-notification-list"><div class="empty-card">No notifications yet.</div></div>
-      </section>
+          <div class="seller-metrics provider-overview-grid">
+            <article><span>Open Jobs</span><strong id="providerOpenJobs">0</strong><small>Customer requests</small></article>
+            <article><span>My Services</span><strong id="providerServiceTotal">0</strong><small>Listings created</small></article>
+            <article><span>Approved</span><strong id="providerServiceApproved">0</strong><small>Customer-facing services</small></article>
+            <article><span>Pending Review</span><strong id="providerServicePending">0</strong><small>Waiting for Admin</small></article>
+            <article><span>Availability</span><strong id="providerAvailability">Available</strong><small>Provider account</small></article>
+          </div>
+
+          <section class="panel provider-overview-actions">
+            <div class="section-title"><span>QUICK ACTIONS</span><h3>Manage your Service Provider account</h3><p>Received jobs are prioritized. Use the side menu for the rest of your account.</p></div>
+            <div class="seller-overview-actions">
+              <button type="button" data-open-provider-view="jobs">Received Jobs</button>
+              <button type="button" data-open-provider-view="services">Manage Services</button>
+              <button type="button" data-open-provider-view="profile">My Profile</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="provider-view" data-provider-content="jobs">
+          <div class="seller-view-heading">
+            <div><span>RECEIVED JOBS</span><h3>Customer Service Requests</h3><p>Respond to new requests, send quotations, start accepted work and mark completed jobs.</p></div>
+            <button id="refreshProviderJobs" type="button">↻ Refresh Jobs</button>
+          </div>
+          <section class="panel provider-jobs-panel" id="provider-jobs">
+            <div class="provider-job-filter"><label>Status <select id="providerJobFilter"><option value="open">Open jobs</option><option value="all">All jobs</option><option value="completed">Completed</option><option value="closed">Declined / cancelled</option></select></label></div>
+            <div id="providerJobList" class="provider-job-list"><div class="empty-card">No customer jobs have been dispatched yet.</div></div>
+            <p id="providerJobStatus" class="status"></p>
+          </section>
+        </section>
+
+        <section class="provider-view" data-provider-content="services">
+          <div class="seller-view-heading">
+            <div><span>MY SERVICES</span><h3>Service Listings</h3><p>Add services, edit details and follow Admin approval status.</p></div>
+            <button id="showProviderServiceForm" type="button">+ Add Service</button>
+          </div>
+
+          <form id="providerServiceForm" class="panel" hidden>
+            <input id="providerServiceId" type="hidden">
+            <div class="section-title"><span>SERVICES</span><h3 id="providerServiceFormTitle">Add a Service</h3><p>Each new or edited service is sent to LEOGO Admin for review before it becomes customer-facing.</p></div>
+            <div class="form-grid">
+              <label>Service name<input id="providerServiceName" type="text" maxlength="140" required></label>
+              <label>Category / group<input id="providerServiceCategoryName" type="text" maxlength="120" placeholder="e.g. Plumbing"></label>
+              <label>Pricing model<select id="providerPricingModel" required><option value="quote">Price after quote</option><option value="fixed">Fixed price</option><option value="from">Starting from</option><option value="hourly">Per hour</option></select></label>
+              <label>Price from / fixed (KSh)<input id="providerPriceFrom" type="number" min="0" step="0.01"></label>
+              <label>Maximum price (KSh)<input id="providerPriceTo" type="number" min="0" step="0.01"></label>
+              <label>Unit label<input id="providerUnitLabel" type="text" maxlength="80" placeholder="e.g. per visit, per room"></label>
+              <label class="wide">Service description<textarea id="providerServiceDescription" rows="4" maxlength="2500" required></textarea></label>
+              <label class="wide">Service area<input id="providerServiceArea" type="text" maxlength="300" placeholder="e.g. Siaya Town and nearby estates"></label>
+              <label class="wide">Availability notes<input id="providerAvailabilityNotes" type="text" maxlength="300" placeholder="e.g. Mon-Sat, 8am-6pm"></label>
+            </div>
+            <div class="toggle-card"><label><input id="providerIsAvailable" type="checkbox" checked><span><strong>Currently available</strong><small>Turn this off temporarily without deleting the service.</small></span></label></div>
+            <div class="product-actions"><button id="providerServiceReset" class="secondary" type="button">Close Form</button><button type="submit">Save & Send for Approval</button></div>
+            <p id="providerServiceFormStatus" class="status"></p>
+          </form>
+
+          <section class="panel">
+            <div class="section-title"><span>MY SERVICES</span><h3>Your service listings</h3><p>Track approval status, edit details or remove a listing you no longer offer.</p></div>
+            <div id="providerServiceList" class="product-list"><div class="empty-card">No services added yet.</div></div>
+          </section>
+        </section>
+
+        <section class="provider-view" data-provider-content="notifications">
+          <section class="panel seller-notification-panel">
+            <div class="section-title compact"><span>NOTIFICATIONS</span><h3>Service Provider Activity</h3><p>New jobs, quotation decisions and Admin actions appear here.</p></div>
+            <div class="notification-toolbar"><button id="markAllProviderNotificationsRead" class="secondary" type="button">Mark all read</button></div>
+            <div id="providerNotificationList" class="seller-notification-list"><div class="empty-card">No notifications yet.</div></div>
+          </section>
+        </section>
+
+        <section class="provider-view" data-provider-content="profile">
+          <section class="panel">
+            <div class="section-title"><span>MY PROFILE</span><h3>Approved Provider Details</h3><p>Your public profile and private verification information are managed here, not on the overview screen.</p></div>
+            <div id="providerProfileSummary" class="summary-grid"></div>
+          </section>
+          <div id="providerProfilePhotoSlot"></div>
+        </section>
+      </div>
     </section>
   </section>
 
@@ -529,5 +595,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=service-preferred-time-1" defer></script>
+<script src="partner.js?v=provider-dashboard-2" defer></script>
 </body></html>
