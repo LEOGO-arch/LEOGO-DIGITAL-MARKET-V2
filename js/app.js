@@ -3157,6 +3157,7 @@
       ((item.request_type==='direct'?Number(item.direct_request_fee_kes||0):Number(item.quotation_fee_kes||0))>0?'<small>'+(item.request_type==='direct'?'Direct request fee: ':'Quotation fee: ')+receiptEscape(money(item.request_type==='direct'?item.direct_request_fee_kes:item.quotation_fee_kes))+' · '+receiptEscape(String(item.payment_status||'').replaceAll('_',' '))+'</small>':'')+
       (item.provider_quote_notes?'<p>'+receiptEscape(item.provider_quote_notes)+'</p>':'')+
       (item.admin_notes?'<p><strong>Admin note:</strong> '+receiptEscape(item.admin_notes)+'</p>':'')+
+      (item.provider_quote_kes?'<div class="customer-service-quote-download"><button class="download-quote" type="button" data-download-service-quote="'+receiptEscape(item.id)+'">⬇ Download LEOGO Quotation PDF</button>'+(item.quote_reference?'<small>'+receiptEscape(item.quote_reference)+(item.quote_valid_until?' · Valid until '+receiptEscape(item.quote_valid_until):'')+'</small>':'')+'</div>':'')+
       (item.request_status==='quoted'?'<div class="customer-service-quote-actions"><button type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="true">Accept '+receiptEscape(money(item.provider_quote_kes))+'</button><button class="reject" type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="false">Reject Quotation</button></div>':'')+
       '</article>'
     ).join('');
@@ -3165,6 +3166,130 @@
     const empty=document.getElementById('customerActivityEmpty');
     if(empty)empty.hidden=Boolean(rows.length||productVisible);
   };
+  const serviceQuoteLocationText=(item)=>[
+    item.service_location,
+    item.service_town_estate,
+    item.service_sub_county,
+    item.service_county
+  ].filter(Boolean).join(', ');
+
+  const downloadServiceQuotationPdf=async(item,button)=>{
+    if(!item?.provider_quote_kes)return;
+    const JsPdf=window.jspdf?.jsPDF;
+    if(!JsPdf){
+      window.alert('PDF generator is still loading. Refresh the page and try again.');
+      return;
+    }
+    const original=button?.textContent;
+    if(button){button.disabled=true;button.textContent='Preparing PDF…';}
+    try{
+      const doc=new JsPdf({unit:'mm',format:'a4'});
+      const pageW=210;
+      const margin=15;
+      const navy=[7,21,47],orange=[255,114,0],muted=[92,105,124],light=[244,247,251];
+
+      doc.setFillColor(...navy);doc.rect(0,0,pageW,41,'F');
+      doc.setFillColor(...orange);doc.rect(0,41,pageW,3,'F');
+
+      const logo=await getReceiptLogoDataUrl();
+      if(logo){
+        doc.setFillColor(255,255,255);doc.roundedRect(margin,8,27,25,3,3,'F');
+        try{doc.addImage(logo,'JPEG',margin+2,10,23,21,undefined,'FAST');}catch(_error){}
+      }
+      doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(15);
+      doc.text('LEOGO DIGITAL MARKET',48,17);
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text('Any market to your Door Step.',48,24);
+      doc.setTextColor(...orange);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('SERVICE QUOTATION',195,16,{align:'right'});
+      doc.setTextColor(255,255,255);doc.setFontSize(9);doc.text(item.quote_reference||('QT-'+item.request_reference),195,24,{align:'right'});
+
+      let y=54;
+      const sectionTitle=(title)=>{
+        doc.setTextColor(...orange);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text(title.toUpperCase(),margin,y);
+        y+=4;
+        doc.setDrawColor(222,228,238);doc.line(margin,y,pageW-margin,y);y+=6;
+      };
+      const field=(label,value,x,w)=>{
+        doc.setTextColor(...muted);doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text(label.toUpperCase(),x,y);
+        doc.setTextColor(...navy);doc.setFont('helvetica','normal');doc.setFontSize(9);
+        const lines=doc.splitTextToSize(String(value||'—'),w);
+        doc.text(lines,x,y+5);
+        return Math.max(10,lines.length*4.2+7);
+      };
+      const twoFields=(aLabel,aValue,bLabel,bValue)=>{
+        const h=Math.max(field(aLabel,aValue,margin,82),field(bLabel,bValue,110,85));
+        y+=h;
+      };
+
+      sectionTitle('Quotation Details');
+      twoFields('Quotation No.',item.quote_reference||('QT-'+item.request_reference),'Date Issued',item.quoted_at?new Date(item.quoted_at).toLocaleDateString('en-KE'):'—');
+      twoFields('Service Request',item.request_reference,'Valid Until',item.quote_valid_until||'Not specified');
+
+      sectionTitle('Customer & Service');
+      twoFields('Customer',item.customer_name||'LEOGO Customer','Phone',item.customer_phone||'—');
+      twoFields('Requested Service',item.service_name||'Service','Preferred Schedule',(item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''));
+
+      sectionTitle('Service Location');
+      const loc=serviceQuoteLocationText(item)||'Not provided';
+      y+=field('Service Location',loc,margin,180);
+      if(item.nearest_landmark)y+=field('Nearest Landmark',item.nearest_landmark,margin,180);
+      if(item.location_description)y+=field('Location Description',item.location_description,margin,180);
+      const coords=(item.latitude!=null&&item.longitude!=null)?String(item.latitude)+', '+String(item.longitude):'';
+      if(coords)y+=field('Coordinates',coords,margin,180);
+
+      sectionTitle('Service Provider');
+      twoFields('Provider / Business',item.business_name||'LEOGO Service Provider','Provider Location',item.provider_location||'—');
+
+      if(y>210){doc.addPage();y=20;}
+      sectionTitle('Quotation');
+      doc.setFillColor(...light);doc.roundedRect(margin,y,180,27,3,3,'F');
+      doc.setTextColor(...muted);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('TOTAL QUOTED AMOUNT',margin+8,y+9);
+      doc.setTextColor(...navy);doc.setFontSize(19);doc.text(money(item.provider_quote_kes),margin+8,y+20);
+      y+=36;
+      if(item.provider_quote_notes){
+        sectionTitle('Scope / Notes / Conditions');
+        doc.setTextColor(...navy);doc.setFont('helvetica','normal');doc.setFontSize(9);
+        const lines=doc.splitTextToSize(item.provider_quote_notes,180);
+        if(y+lines.length*4.2>270){doc.addPage();y=20;}
+        doc.text(lines,margin,y);y+=lines.length*4.2+8;
+      }
+
+      if(y>245){doc.addPage();y=20;}
+      doc.setFillColor(255,247,237);doc.roundedRect(margin,y,180,22,3,3,'F');
+      doc.setTextColor(118,76,20);doc.setFontSize(8);doc.setFont('helvetica','normal');
+      const note='This quotation was generated through LEOGO DIGITAL MARKET from the quotation submitted by the service provider. Acceptance is recorded through the customer account.';
+      doc.text(doc.splitTextToSize(note,166),margin+7,y+7);
+
+      const mapUrl=coords?'https://www.google.com/maps?q='+encodeURIComponent(coords):(item.map_link||'');
+      if(mapUrl){
+        y+=29;doc.setTextColor(13,90,167);doc.setFont('helvetica','bold');doc.setFontSize(8);
+        doc.textWithLink('Open pinned service location in Google Maps',margin,y,{url:mapUrl});
+      }
+
+      const pages=doc.getNumberOfPages();
+      for(let page=1;page<=pages;page++){
+        doc.setPage(page);
+        doc.setFillColor(...navy);doc.rect(0,287,210,10,'F');
+        doc.setTextColor(255,255,255);doc.setFont('helvetica','normal');doc.setFontSize(7);
+        doc.text('LEOGO DIGITAL MARKET · Service Quotation · '+(item.quote_reference||item.request_reference),15,293);
+        doc.text('Page '+page+' of '+pages,195,293,{align:'right'});
+      }
+
+      doc.save((item.quote_reference||item.request_reference||'LEOGO-quotation')+'-service-quotation.pdf');
+    }catch(error){
+      console.error('Quotation PDF error:',error);
+      window.alert(error?.message||'Quotation PDF could not be created.');
+    }finally{
+      if(button){button.disabled=false;button.textContent=original;}
+    }
+  };
+
+  document.addEventListener('click',(event)=>{
+    const button=event.target.closest?.('[data-download-service-quote]');
+    if(!button)return;
+    const item=customerServiceRequests.find((row)=>row.id===button.dataset.downloadServiceQuote);
+    if(item)downloadServiceQuotationPdf(item,button);
+  });
+
   document.addEventListener('click',async(event)=>{
     const button=event.target.closest?.('[data-service-quote-decision]');if(!button)return;
     button.disabled=true;
