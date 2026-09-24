@@ -1781,26 +1781,29 @@ function renderProviderJobs(){
     if(item.request_status==='dispatched'&&item.request_type==='direct'){
       actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="accept" data-job-id="'+escapeHtml(item.id)+'">Accept Job</button><button class="danger" type="button" data-provider-job-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline</button></div>';
     }else if(item.request_status==='dispatched'&&item.request_type==='quotation'){
-      actions='<form class="provider-quote-form" data-provider-quote-form="'+escapeHtml(item.id)+'"><input name="amount" type="number" min="1" max="100000000" step="0.01" placeholder="Quote amount (KSh)" required><input name="notes" maxlength="1000" placeholder="Quotation notes, scope or conditions"><button type="submit">Send Quotation</button></form><div class="provider-job-actions"><button class="danger" type="button" data-provider-job-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline Request</button></div>';
+      actions='<form class="provider-quote-form" data-provider-quote-form="'+escapeHtml(item.id)+'"><input name="amount" type="number" min="1" max="100000000" step="0.01" placeholder="Quote amount (KSh)" required><input name="valid_until" type="date" min="'+new Date().toISOString().slice(0,10)+'" aria-label="Quotation valid until"><textarea name="notes" maxlength="1000" rows="3" placeholder="Quotation scope, work included, materials, conditions or notes"></textarea><button type="submit">Send Quotation</button></form><div class="provider-job-actions"><button class="danger" type="button" data-provider-job-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline Request</button></div>';
     }else if(['accepted','quote_accepted'].includes(item.request_status)){
       actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="start" data-job-id="'+escapeHtml(item.id)+'">Start Service</button></div>';
     }else if(item.request_status==='in_progress'){
       actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="complete" data-job-id="'+escapeHtml(item.id)+'">Mark Completed</button></div>';
     }
     return '<article class="provider-job-card"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at))+' · '+escapeHtml(item.service_name||'Service')+'</small></div><b>'+escapeHtml(providerJobStatusText(item.request_status))+'</b></header>'+
-      '<div class="provider-job-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>LOCATION</small><strong>'+escapeHtml(item.service_location||'—')+'</strong><span>'+escapeHtml(item.nearest_landmark||'No landmark supplied')+'</span></div><div><small>REQUEST TYPE</small><strong>'+(item.request_type==='quotation'?'Quotation':'Direct service')+'</strong><span>'+escapeHtml((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+'</span></div></div>'+
+      '<div class="provider-job-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>LOCATION</small><strong>'+escapeHtml(item.service_location||'—')+'</strong><span>'+escapeHtml([item.service_town_estate,item.service_sub_county,item.service_county].filter(Boolean).join(', ')||item.nearest_landmark||'No detailed location supplied')+'</span></div><div><small>REQUEST TYPE</small><strong>'+(item.request_type==='quotation'?'Quotation':'Direct service')+'</strong><span>'+escapeHtml((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+'</span></div></div>'+
+      (item.location_description?'<p><strong>Location description:</strong> '+escapeHtml(item.location_description)+'</p>':'')+
+      (item.nearest_landmark?'<p><strong>Nearest landmark:</strong> '+escapeHtml(item.nearest_landmark)+'</p>':'')+
+      ((item.latitude!=null&&item.longitude!=null)?'<p><strong>Pinned coordinates:</strong> '+escapeHtml(String(item.latitude))+', '+escapeHtml(String(item.longitude))+' · <a href="https://www.google.com/maps?q='+encodeURIComponent(String(item.latitude)+','+String(item.longitude))+'" target="_blank" rel="noopener">Open in Google Maps ↗</a></p>':(item.map_link?'<p><a href="'+escapeHtml(item.map_link)+'" target="_blank" rel="noopener">Open customer location ↗</a></p>':''))+
       '<p><strong>Customer details:</strong> '+escapeHtml(item.request_details||'—')+'</p>'+
       (item.provider_quote_kes?'<p><strong>Your quotation:</strong> '+escapeHtml(money(item.provider_quote_kes))+(item.provider_quote_notes?' · '+escapeHtml(item.provider_quote_notes):'')+'</p>':'')+
       actions+'</article>';
   }).join(''):'<div class="empty-card">No service jobs match this filter.</div>';
 }
-async function updateProviderJob(id,action,quote=null,notes=null,button=null){
+async function updateProviderJob(id,action,quote=null,notes=null,button=null,quoteValidUntil=null){
   const original=button?.textContent;if(button){button.disabled=true;button.textContent='Saving…';}
   status($('#providerJobStatus'),'');
   try{
     if(action==='decline'&&!notes)notes=window.prompt('Why are you declining this service request?','')||'';
     if(action==='decline'&&notes.trim().length<3)return;
-    const {error}=await client.rpc('service_provider_update_job',{p_request_id:id,p_action:action,p_quote_kes:quote,p_notes:notes||null});
+    const {error}=await client.rpc('service_provider_update_job',{p_request_id:id,p_action:action,p_quote_kes:quote,p_notes:notes||null,p_quote_valid_until:quoteValidUntil||null});
     if(error)throw error;
     status($('#providerJobStatus'),'Service job updated successfully.','success');
     await Promise.all([loadProviderJobs(),loadProviderNotifications()]);
@@ -1816,7 +1819,7 @@ $('#providerJobList')?.addEventListener('submit',(event)=>{
   const form=event.target.closest?.('[data-provider-quote-form]');if(!form)return;
   event.preventDefault();if(!form.reportValidity())return;
   const button=form.querySelector('button[type="submit"]');
-  updateProviderJob(form.dataset.providerQuoteForm,'quote',Number(form.elements.amount.value),form.elements.notes.value.trim()||null,button);
+  updateProviderJob(form.dataset.providerQuoteForm,'quote',Number(form.elements.amount.value),form.elements.notes.value.trim()||null,button,form.elements.valid_until.value||null);
 });
 
 async function loadProviderServices(){
