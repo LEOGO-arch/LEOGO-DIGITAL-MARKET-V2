@@ -2981,13 +2981,15 @@
     document.getElementById('serviceRequestType').value=requestType;
     document.getElementById('serviceRequestTitle').textContent=requestType==='quotation'?'Request a Quotation':'Request Service';
     document.getElementById('serviceRequestProvider').textContent=(item.service_name||'Service')+' · '+(item.business_name||'Approved Provider');
-    document.getElementById('serviceRequestSummary').textContent=requestType==='quotation'
-      ? 'Pay the quotation fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.'
-      : 'Pay the direct service request fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.';
     const payment=document.getElementById('serviceQuotationPayment');
     const fee=requestType==='direct'
       ? Number(customerServiceConfig.direct_request_fee_kes??50)
       : Number(customerServiceConfig.quotation_fee_kes??50);
+    document.getElementById('serviceRequestSummary').textContent=fee>0
+      ? (requestType==='quotation'
+        ? 'Pay the quotation fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.'
+        : 'Pay the direct service request fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.')
+      : 'No request fee is currently required. LEOGO Admin will review and dispatch your request.';
     payment.hidden=fee<=0;
     document.getElementById('serviceRequestFeeLabel').textContent=requestType==='direct'?'DIRECT REQUEST SERVICE FEE':'REQUEST QUOTATION FEE';
     document.getElementById('serviceRequestFeeAmount').textContent=money(fee);
@@ -2996,7 +2998,9 @@
       : 'This fee pays for preparing and processing your quotation. It is separate from the provider’s quoted service price.';
     document.getElementById('serviceQuotationDestination').innerHTML=servicePaymentDestinationHtml(customerServiceConfig.payment_destination);
     document.getElementById('serviceQuotationReference').required=fee>0;
-    document.getElementById('submitServiceRequest').textContent=requestType==='quotation'?'Submit Paid Quotation Request':'Submit Paid Service Request';
+    document.getElementById('submitServiceRequest').textContent=fee>0
+      ? (requestType==='quotation'?'Submit Paid Quotation Request':'Submit Paid Service Request')
+      : (requestType==='quotation'?'Submit Quotation Request':'Submit Service Request');
     const preferred=document.getElementById('serviceRequestPreferredDate');
     preferred.min=new Date().toISOString().slice(0,10);
     const status=document.getElementById('serviceRequestStatus');status.textContent='';status.className='service-request-status';
