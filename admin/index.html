@@ -10,7 +10,9 @@
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
   <link rel="stylesheet" href="admin.css?v=admin-v1-36">
-</head>
+<style>
+.service-operations-card{margin-top:18px}.service-fee-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.service-fee-form label{display:grid;gap:6px;font-weight:800}.service-fee-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px;width:180px}.service-fee-form button,.admin-service-request-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.service-fee-form small{width:100%;font-weight:800}.admin-service-request-list{display:grid;gap:14px}.admin-service-request-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.admin-service-request-card header{display:flex;justify-content:space-between;gap:12px}.admin-service-request-card header strong,.admin-service-request-card header small{display:block}.admin-service-request-card header b{font-size:11px;text-transform:capitalize;background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;height:max-content}.admin-service-request-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.admin-service-request-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.admin-service-request-grid small,.admin-service-request-grid strong{display:block}.admin-service-request-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-service-request-actions .verify{background:#157f3d}.admin-service-request-actions .reject,.admin-service-request-actions .cancel{background:#a42832}.admin-service-request-actions .dispatch{background:#ff7200}.admin-service-request-card p{margin:0;color:#526177}.service-request-summary-grid{margin:14px 0}@media(max-width:720px){.admin-service-request-grid{grid-template-columns:1fr}.admin-service-request-card header{display:grid}}
+</style></head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
     <div class="auth-visual">
@@ -483,8 +485,8 @@
 
       <section class="admin-panel" data-admin-panel="providers">
         <div class="section-head">
-          <div><span>SERVICE NETWORK</span><h2>Service Providers</h2><p>Provider registration, approved services and account status. Customer service jobs will connect here in the next workflow stage.</p></div>
-          <button id="refreshServiceProviders" class="primary-button" type="button">↻ Refresh Providers</button>
+          <div><span>SERVICE NETWORK</span><h2>Service Providers &amp; Requests</h2><p>Approve providers and services, verify quotation fees, then dispatch customer requests to the selected provider.</p></div>
+          <button id="refreshServiceProviders" class="primary-button" type="button">↻ Refresh Services</button>
         </div>
         <div class="seller-admin-summary">
           <article><span>Total Providers</span><strong id="serviceProviderTotal">0</strong><small>Registered accounts</small></article>
@@ -492,14 +494,19 @@
           <article><span>Awaiting Review</span><strong id="serviceProviderPending">0</strong><small>Registration decisions needed</small></article>
           <article><span>Approved Services</span><strong id="serviceProviderApprovedServices">0</strong><small>Admin-approved listings</small></article>
         </div>
-        <div class="table-card">
-          <div class="responsive-table">
-            <table>
-              <thead><tr><th>Provider</th><th>Primary Service</th><th>Location</th><th>Availability</th><th>Status</th><th>Services</th><th>Action</th></tr></thead>
-              <tbody id="serviceProviderTableBody"><tr><td colspan="7">Loading Service Providers…</td></tr></tbody>
-            </table>
-          </div>
-        </div>
+        <section class="content-card service-operations-card">
+          <div class="card-head"><div><span>SERVICE SETTINGS</span><h3>Quotation Fee</h3><p>Customers pay this fee before a quotation request can be verified and dispatched.</p></div></div>
+          <form id="serviceQuotationFeeForm" class="service-fee-form"><label><span>Current fee (KSh)</span><input id="adminServiceQuotationFee" type="number" min="0" max="100000" step="0.01" required value="50"></label><button type="submit">Save Quotation Fee</button><small id="serviceQuotationFeeStatus"></small></form>
+        </section>
+        <section class="content-card service-operations-card">
+          <div class="card-head"><div><span>CUSTOMER REQUESTS</span><h3>Service Request Operations</h3><p>Quotation payments remain pending until verified. Direct requests can be dispatched immediately after review.</p></div><select id="adminServiceRequestFilter"><option value="all">All requests</option><option value="awaiting_payment_verification">Payment verification</option><option value="ready">Ready to dispatch</option><option value="dispatched">With provider</option><option value="active">Active work</option><option value="closed">Closed</option></select></div>
+          <div class="seller-admin-summary service-request-summary-grid"><article><span>Total Requests</span><strong id="adminServiceRequestTotal">0</strong><small>All time</small></article><article><span>Payments to Verify</span><strong id="adminServicePaymentPending">0</strong><small>Quotation fees</small></article><article><span>Ready to Dispatch</span><strong id="adminServiceReadyDispatch">0</strong><small>Admin action needed</small></article><article><span>Active Jobs</span><strong id="adminServiceActiveJobs">0</strong><small>Provider workflow</small></article></div>
+          <div id="adminServiceRequestList" class="admin-service-request-list"><div class="reserved-module slim"><span>🛠️</span><h3>No service requests yet</h3><p>Customer requests will appear here.</p></div></div>
+        </section>
+        <section class="content-card">
+          <div class="card-head"><div><span>PROVIDER DIRECTORY</span><h3>Registered Service Providers</h3></div></div>
+          <div class="responsive-table"><table><thead><tr><th>Provider</th><th>Primary Service</th><th>Location</th><th>Availability</th><th>Status</th><th>Services</th><th>Action</th></tr></thead><tbody id="serviceProviderTableBody"><tr><td colspan="7">Loading Service Providers…</td></tr></tbody></table></div>
+        </section>
       </section>
 
       <section class="admin-panel" data-admin-panel="transport">
@@ -823,6 +830,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=admin-v1-61" defer></script>
+  <script src="admin.js?v=admin-v1-62" defer></script>
 </body>
 </html>
