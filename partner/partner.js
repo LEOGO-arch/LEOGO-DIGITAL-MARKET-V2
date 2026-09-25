@@ -3302,7 +3302,8 @@ function transportJobStatusLabel(value){
   return ({
     submitted:'Waiting for Admin',
     assigned:'New assignment',
-    accepted:'Accepted',
+    quoted:'Price sent · waiting for customer',
+    accepted:'Customer accepted price',
     declined:'Declined',
     picked_up:'Picked up',
     in_transit:'In transit',
@@ -3316,11 +3317,14 @@ function transportJobActions(item){
       '<div><small>YOUR TRANSPORTATION COST</small><input name="amount" type="number" min="1" max="10000000" step="0.01" placeholder="Transport cost (KSh)" required></div>'+
       '<textarea name="notes" maxlength="1000" rows="2" placeholder="Optional transport notes or conditions"></textarea>'+
       '<small>Current LEOGO rules: '+escapeHtml(item.current_partner_commission_percent??10)+'% provider commission deducted · '+escapeHtml(item.current_customer_service_fee_percent??2)+'% customer service fee added.</small>'+
-      '<button type="submit">Send Cost & Accept Job</button>'+
+      '<button type="submit">Send Transport Price</button>'+
     '</form><div class="seller-order-actions"><button class="secondary" type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="declined">Decline Job</button></div>';
   }
+  if(item.request_status==='quoted'){
+    return '<div class="restricted-notice"><strong>Waiting for customer approval.</strong><br>The customer must accept the quoted total before you can mark pickup or start transit.</div>';
+  }
   if(item.request_status==='accepted'){
-    return '<div class="seller-order-actions"><button type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="picked_up">Mark Picked Up</button><button class="secondary" type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="in_transit">Start Transit</button></div>';
+    return '<div class="restricted-notice"><strong>✓ Customer accepted the transport price.</strong><br>You may now begin the job.</div><div class="seller-order-actions"><button type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="picked_up">Mark Picked Up</button><button class="secondary" type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="in_transit">Start Transit</button></div>';
   }
   if(item.request_status==='picked_up'){
     return '<div class="seller-order-actions"><button type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="in_transit">Mark In Transit</button></div>';
@@ -3361,7 +3365,7 @@ function renderTransportJobs(){
         p_provider_notes:form.elements.notes.value.trim()||null
       });
       if(error)throw error;
-      status($('#transportJobStatus'),'Transport cost sent. Customer total: '+money(data.customer_total_kes)+' · Your net earning: '+money(data.partner_net_kes)+'.','success');
+      status($('#transportJobStatus'),'Transport price sent. Customer total: '+money(data.customer_total_kes)+' · Your net earning: '+money(data.partner_net_kes)+'. Waiting for the customer to accept before you can start the job.','success');
       await Promise.all([loadTransportJobs(),loadTransportNotifications()]);
     }catch(error){
       status($('#transportJobStatus'),error?.message||'Transport cost could not be sent.','error');
