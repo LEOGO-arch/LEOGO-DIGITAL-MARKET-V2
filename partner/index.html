@@ -436,6 +436,8 @@
           <button class="transport-priority-nav" data-transport-view="jobs" type="button"><span>📦</span>Received Jobs <b id="transportJobBadge" hidden>0</b></button>
           <button class="active" data-transport-view="overview" type="button"><span>▦</span>Dashboard / Overview</button>
           <button data-transport-view="vehicles" type="button"><span>🚚</span>Vehicles <b id="transportVehiclePendingBadge" hidden>0</b></button>
+          <button data-transport-view="earnings" type="button"><span>↗</span>Earnings</button>
+          <button data-transport-view="settlements" type="button"><span>₿</span>Settlements</button>
           <button data-transport-view="notifications" type="button"><span>🔔</span>Notifications <b id="transportNotificationBadge" hidden>0</b></button>
           <button data-transport-view="profile" type="button"><span>♙</span>My Profile</button>
         </nav>
@@ -557,6 +559,65 @@
           <section class="panel">
             <div class="section-title"><span>MY VEHICLES</span><h3>Fleet & Approval Status</h3><p>Editing an approved vehicle sends the updated vehicle back to Admin for review.</p></div>
             <div id="transportVehicleList" class="transport-vehicle-list"><div class="empty-card">No vehicles added yet.</div></div>
+          </section>
+        </section>
+
+        <section class="transport-view" data-transport-content="earnings">
+          <section class="panel">
+            <div class="section-title"><span>TRANSPORT EARNINGS</span><h3>Completed Job Earnings</h3><p>LEOGO commission is deducted from the transport cost. Your net earning becomes available for settlement after the job is completed.</p></div>
+            <div class="seller-metrics">
+              <article class="earnings-highlight"><span>Today's Earnings</span><strong id="transportTodayEarnings">KSh 0</strong><small>Net completed jobs today</small></article>
+              <article class="earnings-highlight"><span>Total Earnings</span><strong id="transportTotalEarnings">KSh 0</strong><small>Cumulative net earnings</small></article>
+              <article class="balance-highlight"><span>Available Balance</span><strong id="transportAvailableBalance">KSh 0</strong><small>Available to request payout</small></article>
+              <article><span>Pending Settlement</span><strong id="transportPendingSettlement">KSh 0</strong><small>Waiting for Admin</small></article>
+            </div>
+            <form id="transportEarningsFilterForm" class="seller-earnings-filter">
+              <label>From<input id="transportEarningsFrom" type="date"></label>
+              <label>To<input id="transportEarningsTo" type="date"></label>
+              <button type="submit">Apply Period</button>
+            </form>
+            <div class="responsive-table"><table><thead><tr><th>Date</th><th>Reference</th><th>Transport Cost</th><th>LEOGO Commission</th><th>Net</th></tr></thead><tbody id="transportEarningsTableBody"><tr><td colspan="5">No completed transport earnings yet.</td></tr></tbody></table></div>
+            <p id="transportEarningsStatus" class="status"></p>
+          </section>
+        </section>
+
+        <section class="transport-view" data-transport-content="settlements">
+          <section class="panel seller-settlement-panel">
+            <div class="section-title"><span>TRANSPORT SETTLEMENT ACCOUNT</span><h3>Where LEOGO sends your transport earnings</h3><p>Add an M-Pesa or bank payout destination. Every new or edited account must be approved by LEOGO Admin before you can request a payout.</p></div>
+            <form id="transportSettlementAccountForm">
+              <input id="transportSettlementAccountId" type="hidden">
+              <div class="form-grid">
+                <label>Settlement method<select id="transportSettlementType" required><option value="mpesa_mobile">M-Pesa Number</option><option value="mpesa_till">M-Pesa Till</option><option value="mpesa_paybill">M-Pesa Paybill</option><option value="bank">Bank Account</option></select></label>
+                <label>Account / recipient name<input id="transportSettlementName" type="text" maxlength="120" required></label>
+                <label data-transport-settlement-field="mpesa_mobile">M-Pesa phone<input id="transportSettlementPhone" type="tel" placeholder="+2547XXXXXXXX"></label>
+                <label data-transport-settlement-field="mpesa_till" hidden>Till number<input id="transportSettlementTill" type="text" maxlength="30"></label>
+                <label data-transport-settlement-field="mpesa_paybill" hidden>Paybill number<input id="transportSettlementPaybill" type="text" maxlength="30"></label>
+                <label data-transport-settlement-field="mpesa_paybill bank" hidden>Account number<input id="transportSettlementAccountNumber" type="text" maxlength="80"></label>
+                <label data-transport-settlement-field="bank" hidden>Bank name<input id="transportSettlementBank" type="text" maxlength="120"></label>
+                <label data-transport-settlement-field="bank" hidden>Bank branch<input id="transportSettlementBranch" type="text" maxlength="120"></label>
+              </div>
+              <div class="toggle-card"><label><input id="transportSettlementPrimary" type="checkbox" checked><span><strong>Primary settlement account</strong><small>Use this as the preferred destination for Transport Provider payouts.</small></span></label></div>
+              <div class="product-actions"><button id="cancelTransportSettlementEdit" type="button" class="secondary" hidden>Cancel Edit</button><button type="submit">Send for Admin Verification</button></div>
+              <p id="transportSettlementStatus" class="status"></p>
+            </form>
+            <div class="section-title compact"><span>MY SETTLEMENT ACCOUNTS</span><h4>Verification status</h4><p>Only approved accounts can be selected for a payout request.</p></div>
+            <div id="transportSettlementAccountList" class="settlement-account-list"><div class="empty-card">No settlement account added yet.</div></div>
+
+            <div class="settlement-balance-card"><span>AVAILABLE BALANCE</span><strong id="transportSettlementAvailableBalance">KSh 0</strong><small>Completed Transport jobs after LEOGO commission.</small></div>
+            <form id="transportSettlementRequestForm" class="seller-settlement-request-form">
+              <div class="section-title compact"><span>REQUEST PAYOUT</span><h4>Request settlement from LEOGO</h4><p>Your request is sent to Admin. Admin records the actual M-Pesa or bank reference after payment.</p></div>
+              <div class="form-grid">
+                <label>Approved settlement account<select id="transportSettlementRequestAccount" required><option value="">No approved settlement account yet</option></select></label>
+                <label>Amount requested (KSh)<input id="transportSettlementRequestAmount" type="number" min="1" step="0.01" required></label>
+                <label class="wide">Note to Admin <small>Optional</small><textarea id="transportSettlementRequestNote" rows="2" maxlength="500"></textarea></label>
+              </div>
+              <button id="transportSettlementRequestButton" type="submit">Request Payout</button>
+              <p id="transportSettlementRequestStatus" class="status"></p>
+            </form>
+            <div class="section-title compact"><span>MY PAYOUT REQUESTS</span><h4>Request status</h4></div>
+            <div id="transportSettlementRequestList" class="settlement-history"><div class="empty-card">No payout requests yet.</div></div>
+            <div class="section-title compact"><span>SETTLEMENT HISTORY</span><h4>Money recorded as sent by LEOGO</h4></div>
+            <div id="transportSettlementHistory" class="settlement-history"><div class="empty-card">No Transport Provider settlement has been recorded yet.</div></div>
           </section>
         </section>
 
@@ -957,5 +1018,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=transport-customer-accept-1" defer></script>
+<script src="partner.js?v=transport-settlements-1" defer></script>
 </body></html>
