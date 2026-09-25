@@ -2671,8 +2671,8 @@ function renderTransportApplicationProgress(){
       : 'Received Jobs will activate immediately after LEOGO Admin approves your Transport Provider application.';
   }
   if(fleet)fleet.hidden=!approved;
-  $('.seller-metrics',transportDashboard).forEach(block=>block.hidden=!approved);
-  $('[data-transport-view="jobs"],[data-transport-view="vehicles"]',transportSidebar).forEach(button=>button.hidden=!approved);
+  $$('.seller-metrics',transportDashboard).forEach(block=>block.hidden=!approved);
+  $$('[data-transport-view="jobs"],[data-transport-view="vehicles"]',transportSidebar).forEach(button=>button.hidden=!approved);
   if($('#editApprovedTransportProfile'))$('#editApprovedTransportProfile').hidden=!approved;
 }
 
@@ -3046,7 +3046,7 @@ function renderTransportJobs(){
       transportJobActions(item)+
     '</article>'
   ).join(''):'<div class="empty-card">No Transport / Parcel jobs assigned yet.</div>';
-  $('[data-transport-job-status]').forEach((button)=>button.addEventListener('click',async()=>{
+  $$('[data-transport-job-status]').forEach((button)=>button.addEventListener('click',async()=>{
     const requestId=button.dataset.transportJobStatus;
     const nextStatus=button.dataset.status;
     const original=button.textContent;button.disabled=true;button.textContent='Saving…';
