@@ -2919,7 +2919,8 @@
 
   const publicServiceProviderList=document.getElementById('publicServiceProviderList');
   const publicTransportProviderList=document.getElementById('publicTransportProviderList');
-  const publicServiceReviewList=document.getElementById('publicServiceReviewList');
+  const publicPartnerReviewsModal=document.getElementById('publicPartnerReviewsModal');
+  const publicPartnerReviewsList=document.getElementById('publicPartnerReviewsList');
   const serviceReviewModal=document.getElementById('serviceReviewModal');
   const serviceReviewForm=document.getElementById('serviceReviewForm');
   const serviceRequestModal=document.getElementById('serviceRequestModal');
@@ -3049,6 +3050,7 @@
       '<small>'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
       '<strong class="service-provider-price">'+receiptEscape(servicePriceText(item))+'</strong>'+
       '<div class="service-provider-actions"><button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="direct">Request Service · '+receiptEscape(money(directFee))+'</button>'+
+      '<button class="reviews" type="button" data-view-public-reviews="service_provider" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-service-id="'+receiptEscape(item.service_id||'')+'" data-review-title="'+receiptEscape(item.business_name||'Service Provider')+'">Reviews</button>'+
       '<button class="quote" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="quotation">Request Quotation · '+receiptEscape(money(quotationFee))+'</button></div></div>';
     return card;
   };
@@ -3077,22 +3079,56 @@
       '<small>'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
       '<small>'+receiptEscape((item.service_types||item.services_offered||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'Transport & Parcel Delivery')+'</small>'+
       '<small class="transport-own-review-state">Complete a LEOGO booking to leave a verified review.</small>'+
-      '<div class="service-provider-actions"><button class="direct" type="button" data-request-transport="'+receiptEscape(item.vehicle_id||'')+'">Request Transport</button><button class="quote" type="button" data-view-transport-vehicle="'+receiptEscape(item.vehicle_id||'')+'">View Vehicle Details</button></div></div>';
+      '<div class="service-provider-actions"><button class="direct" type="button" data-request-transport="'+receiptEscape(item.vehicle_id||'')+'">Request Transport</button><button class="reviews" type="button" data-view-public-reviews="transport" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-vehicle-id="'+receiptEscape(item.vehicle_id||'')+'" data-review-title="'+receiptEscape(item.provider_name||'Transport Provider')+'">Reviews</button><button class="quote" type="button" data-view-transport-vehicle="'+receiptEscape(item.vehicle_id||'')+'">View Vehicle Details</button></div></div>';
     return card;
   };
 
-  const renderPublicServiceReviews=()=>{
-    if(!publicServiceReviewList)return;
-    publicServiceReviewList.innerHTML=customerPublicServiceReviews.length?customerPublicServiceReviews.map((review)=>{
-      const typeLabel=review.partner_type==='transport'?'Transport & Parcel':'Service Provider';
-      const context=review.service_name||review.vehicle_label||typeLabel;
-      const verified=review.verified_completed_service?'<span class="verified-service-review">✓ Completed through LEOGO</span>':'<span class="verified-service-review neutral">Admin-approved customer review</span>';
+  const closePublicPartnerReviews=()=>{
+    if(!publicPartnerReviewsModal)return;
+    publicPartnerReviewsModal.classList.remove('open');
+    publicPartnerReviewsModal.setAttribute('aria-hidden','true');
+    document.body.style.overflow='';
+  };
+
+  const openPublicPartnerReviews=(button)=>{
+    if(!publicPartnerReviewsModal||!publicPartnerReviewsList)return;
+    const partnerType=button.dataset.viewPublicReviews||'service_provider';
+    const providerId=button.dataset.reviewProviderId||'';
+    const serviceId=button.dataset.reviewServiceId||'';
+    const vehicleId=button.dataset.reviewVehicleId||'';
+    const title=button.dataset.reviewTitle||'Customer Reviews';
+
+    let rows=customerPublicServiceReviews.filter((review)=>review.partner_type===partnerType);
+    if(providerId)rows=rows.filter((review)=>String(review.provider_id||'')===String(providerId));
+    if(partnerType==='service_provider'&&serviceId){
+      const exact=rows.filter((review)=>String(review.service_id||'')===String(serviceId));
+      if(exact.length)rows=exact;
+    }
+    if(partnerType==='transport'&&vehicleId){
+      const exact=rows.filter((review)=>String(review.vehicle_id||'')===String(vehicleId));
+      if(exact.length)rows=exact;
+    }
+
+    document.getElementById('publicPartnerReviewsTitle').textContent=title+' Reviews';
+    document.getElementById('publicPartnerReviewsContext').textContent=rows.length
+      ? rows.length+' customer review'+(rows.length===1?'':'s')+' from completed LEOGO bookings.'
+      : 'No customer reviews have been published for this '+(partnerType==='transport'?'Transport Provider / vehicle':'Service Provider')+' yet.';
+
+    publicPartnerReviewsList.innerHTML=rows.length?rows.map((review)=>{
+      const context=review.service_name||review.vehicle_label||(partnerType==='transport'?'Transport & Parcel':'Service Provider');
+      const verified=review.verified_completed_service
+        ? '<span class="verified-service-review">✓ Completed through LEOGO</span>'
+        : '<span class="verified-service-review neutral">LEOGO moderated review</span>';
       return '<article class="public-service-review-card">'+
-        '<header><div><strong>'+receiptEscape(review.provider_name||typeLabel)+'</strong><small>'+receiptEscape(context)+'</small></div><b>'+receiptEscape(serviceReviewStars(review.rating))+' '+receiptEscape(review.rating)+'/5</b></header>'+
+        '<header><div><strong>'+receiptEscape(review.provider_name||title)+'</strong><small>'+receiptEscape(context)+'</small></div><b>'+receiptEscape(serviceReviewStars(review.rating))+' '+receiptEscape(review.rating)+'/5</b></header>'+
         '<p>'+receiptEscape(review.comment||'Customer rated this service.')+'</p>'+
         '<footer><span>'+receiptEscape(review.customer_name||'LEOGO Customer')+' · '+receiptEscape(customerOrderFormatDate(review.created_at))+'</span>'+verified+'</footer>'+
       '</article>';
-    }).join(''):'<div class="service-provider-public-empty">Approved service reviews will appear here after LEOGO Admin moderation.</div>';
+    }).join(''):'<div class="service-provider-public-empty">No customer reviews yet.</div>';
+
+    publicPartnerReviewsModal.classList.add('open');
+    publicPartnerReviewsModal.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
   };
 
 
@@ -3149,12 +3185,10 @@
           customerPublicTransportVehicles.forEach((item)=>publicTransportProviderList.appendChild(createPublicTransportCard(item)));
         }
       }
-      renderPublicServiceReviews();
     }catch(error){
       console.warn('Public Services could not load:',error);
       publicServiceProviderList.innerHTML='<div class="service-provider-public-empty">Approved services are temporarily unavailable.</div>';
       if(publicTransportProviderList)publicTransportProviderList.innerHTML='<div class="service-provider-public-empty">Approved Transport Providers are temporarily unavailable.</div>';
-      if(publicServiceReviewList)publicServiceReviewList.innerHTML='<div class="service-provider-public-empty">Service Reviews are temporarily unavailable.</div>';
     }
   };
 
@@ -3345,6 +3379,9 @@
   document.addEventListener('click',(event)=>{
     const button=event.target.closest?.('[data-request-service]');
     if(button)openServiceRequestModal(button.dataset.requestService,button.dataset.requestType);
+    const reviewButton=event.target.closest?.('[data-view-public-reviews]');
+    if(reviewButton)openPublicPartnerReviews(reviewButton);
+    if(event.target.closest?.('[data-close-public-partner-reviews]'))closePublicPartnerReviews();
     if(event.target.closest?.('[data-close-service-request]'))closeServiceRequestModal();
   });
   serviceRequestForm?.addEventListener('submit',async(event)=>{
