@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=transport-jobs-1">
+  <link rel="stylesheet" href="partner.css?v=seller-shop-pin-1">
 <style>
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
 </style></head>
@@ -564,6 +564,16 @@
         <label>Sub-County<select id="sellerSubCounty" required disabled><option value="">Choose a county first</option></select></label>
         <label>Town<input id="sellerTown" type="text" maxlength="80" required></label>
         <label>Business location / landmark<input id="sellerLocation" type="text" maxlength="180" required></label>
+        <div class="wide seller-shop-pin-box">
+          <div class="section-title compact"><span>📍 REQUIRED SHOP PIN</span><h4>Pin your exact shop location</h4><p>Every Seller must provide the shop coordinates during registration. Stand at the shop and tap the button below, or paste a Google Maps/shared-location link that contains coordinates.</p></div>
+          <div class="seller-shop-pin-actions"><button id="pinSellerShopLocation" type="button">📍 Pin My Shop Location</button><span id="sellerShopPinStatus">Shop location not pinned yet.</span></div>
+          <label class="wide">Google Maps / shared location link <small>(recommended)</small><input id="sellerShopMapLink" type="url" maxlength="1000" placeholder="Paste Google Maps link or shared coordinates"></label>
+          <div class="form-grid">
+            <label>Shop latitude<input id="sellerShopLatitude" type="number" step="0.0000001" min="-90" max="90" required placeholder="-0.0617000"></label>
+            <label>Shop longitude<input id="sellerShopLongitude" type="number" step="0.0000001" min="-180" max="180" required placeholder="34.2881000"></label>
+          </div>
+          <div class="private-doc-note">The coordinates identify the physical shop location for LEOGO operations and Admin verification.</div>
+        </div>
         <label class="wide">Business description<textarea id="sellerDescription" rows="3" maxlength="1000" placeholder="What do you sell?"></textarea></label>
         <label class="wide">Business ID / identification document <small>Required. Informal sellers may upload the owner's ID card.</small><input id="sellerBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
         <label>Business licence <small>Optional</small><input id="sellerBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
@@ -906,5 +916,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=transport-jobs-1" defer></script>
+<script src="partner.js?v=seller-shop-pin-1" defer></script>
 </body></html>
