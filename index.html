@@ -444,8 +444,14 @@
         <label><span>Passengers <small>(optional)</small></span><input id="transportPassengerCount" type="number" min="1" step="1"></label>
       </div>
       <label><span>Parcel / transport details <small>(optional)</small></span><textarea id="transportParcelDescription" rows="3" maxlength="1500" placeholder="Describe the parcel, goods, passengers, loading needs or special instructions."></textarea></label>
-      <label><span>Pickup Google Maps link <small>(optional)</small></span><input id="transportPickupMapLink" maxlength="1000" placeholder="Paste pickup Google Maps link"></label>
-      <label><span>Destination Google Maps link <small>(optional)</small></span><input id="transportDestinationMapLink" maxlength="1000" placeholder="Paste destination Google Maps link"></label>
+      <div class="transport-pin-location">
+        <label><span>Pickup Google Maps link <small>(optional)</small></span><input id="transportPickupMapLink" maxlength="1000" placeholder="Paste pickup Google Maps link or coordinates"></label>
+        <div class="transport-pin-actions"><button id="pinTransportPickupLocation" type="button">📍 Pin Pickup Location</button><small id="transportPickupPinStatus">Use your current location or paste a Maps link.</small></div>
+      </div>
+      <div class="transport-pin-location">
+        <label><span>Destination Google Maps link <small>(optional)</small></span><input id="transportDestinationMapLink" maxlength="1000" placeholder="Paste destination Google Maps link or coordinates"></label>
+        <div class="transport-pin-actions"><button id="pinTransportDestinationLocation" type="button">📍 Pin Destination Location</button><small id="transportDestinationPinStatus">Pin while at the destination, or paste its Maps link.</small></div>
+      </div>
       <label><span>Additional notes <small>(optional)</small></span><textarea id="transportCustomerNotes" rows="2" maxlength="1200"></textarea></label>
       <div class="service-request-summary">Your request goes to LEOGO Admin first. Admin confirms the approved provider/vehicle assignment, then the Transport Provider receives the job.</div>
       <div class="service-request-status" id="transportRequestStatus" role="status" aria-live="polite"></div>
@@ -905,4 +911,4 @@
     </div>
   </div>
 </section>
-<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=pickup-station-pin-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=pickup-station-1" defer></script><script src="js/wallet.js?v=pickup-station-1" defer></script><script src="js/premium.js?v=pickup-station-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
+<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=transport-customer-pin-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=pickup-station-1" defer></script><script src="js/wallet.js?v=pickup-station-1" defer></script><script src="js/premium.js?v=pickup-station-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
