@@ -3199,10 +3199,10 @@
       </tr>`;
     }).join(''):'<tr><td colspan="7">No Transport Provider vehicles yet.</td></tr>';
 
-    $('[data-view-transport-provider]',providerBody).forEach((button)=>button.addEventListener('click',()=>openTransportProviderRecord(button.dataset.viewTransportProvider)));
-    $('[data-transport-provider-suspend]',providerBody).forEach((button)=>button.addEventListener('click',()=>setTransportProviderSuspended(button,button.dataset.transportProviderId,button.dataset.transportProviderSuspend==='true')));
-    $('[data-view-transport-vehicle]',vehicleBody).forEach((button)=>button.addEventListener('click',()=>openTransportVehicleRecord(button.dataset.viewTransportVehicle)));
-    $('[data-transport-vehicle-active]',vehicleBody).forEach((button)=>button.addEventListener('click',()=>setTransportVehicleActive(button,button.dataset.transportVehicleId,button.dataset.transportVehicleActive==='true')));
+    Array.from(providerBody.querySelectorAll('[data-view-transport-provider]')).forEach((button)=>button.addEventListener('click',()=>openTransportProviderRecord(button.dataset.viewTransportProvider)));
+    Array.from(providerBody.querySelectorAll('[data-transport-provider-suspend]')).forEach((button)=>button.addEventListener('click',()=>setTransportProviderSuspended(button,button.dataset.transportProviderId,button.dataset.transportProviderSuspend==='true')));
+    Array.from(vehicleBody.querySelectorAll('[data-view-transport-vehicle]')).forEach((button)=>button.addEventListener('click',()=>openTransportVehicleRecord(button.dataset.viewTransportVehicle)));
+    Array.from(vehicleBody.querySelectorAll('[data-transport-vehicle-active]')).forEach((button)=>button.addEventListener('click',()=>setTransportVehicleActive(button,button.dataset.transportVehicleId,button.dataset.transportVehicleActive==='true')));
   };
 
   const renderTransportRequests = () => {
@@ -3701,8 +3701,8 @@
       '</tr>';
     }).join(''):'<tr><td colspan="7">No Service Listings match this filter.</td></tr>';
     $('[data-open-service-listing-approval]',target).forEach((button)=>button.addEventListener('click',()=>openApproval('service_listing',button.dataset.openServiceListingApproval)));
-    $('[data-view-service-provider]',target).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
-    $('[data-service-listing-active]',target).forEach((button)=>button.addEventListener('click',()=>setServiceListingActive(button,button.dataset.serviceListingId,button.dataset.serviceListingActive==='true')));
+    Array.from(target.querySelectorAll('[data-view-service-provider]')).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
+    Array.from(target.querySelectorAll('[data-service-listing-active]')).forEach((button)=>button.addEventListener('click',()=>setServiceListingActive(button,button.dataset.serviceListingId,button.dataset.serviceListingActive==='true')));
   };
   const loadServiceListings=async()=>{
     const {data,error}=await db.rpc('admin_list_service_listings');
@@ -3741,8 +3741,8 @@
       '</tr>';
     }).join(''):'<tr><td colspan="7">No Service Provider accounts yet.</td></tr>';
     $('[data-provider-review]', $('#serviceProviderTableBody')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
-    $('[data-view-service-provider]', $('#serviceProviderTableBody')).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
-    $('[data-service-provider-suspend]', $('#serviceProviderTableBody')).forEach((button)=>button.addEventListener('click',()=>setServiceProviderSuspended(button,button.dataset.serviceProviderId,button.dataset.serviceProviderSuspend==='true')));
+    Array.from($('#serviceProviderTableBody').querySelectorAll('[data-view-service-provider]')).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
+    Array.from($('#serviceProviderTableBody').querySelectorAll('[data-service-provider-suspend]')).forEach((button)=>button.addEventListener('click',()=>setServiceProviderSuspended(button,button.dataset.serviceProviderId,button.dataset.serviceProviderSuspend==='true')));
   };
   const loadServiceProviders = async () => {
     const {data,error}=await db.rpc('admin_list_service_providers');
