@@ -11,7 +11,10 @@ let passwordRecoveryMode=
   INITIAL_PARTNER_HASH.get('type')==='recovery';
 const passwordRecoveryUrlHasTokens=
   INITIAL_PARTNER_HASH.get('type')==='recovery' &&
-  Boolean(INITIAL_PARTNER_HASH.get('access_token')||INITIAL_PARTNER_HASH.get('refresh_token'));
+  Boolean(INITIAL_PARTNER_HASH.get('access_token')&&INITIAL_PARTNER_HASH.get('refresh_token'));
+const passwordRecoveryAccessToken=INITIAL_PARTNER_HASH.get('access_token')||'';
+const passwordRecoveryRefreshToken=INITIAL_PARTNER_HASH.get('refresh_token')||'';
+const passwordRecoveryCode=INITIAL_PARTNER_URL.searchParams.get('code')||'';
 const passwordRecoveryUrlError=
   INITIAL_PARTNER_URL.searchParams.get('error') ||
   INITIAL_PARTNER_HASH.get('error') ||
@@ -25,7 +28,8 @@ const passwordRecoveryUrlErrorDescription=(()=>{
     '';
   try{return decodeURIComponent(String(raw).replace(/\+/g,' '));}catch(_error){return String(raw);}
 })();
-let passwordRecoverySessionVerified=passwordRecoveryUrlHasTokens&&!passwordRecoveryUrlError;
+let passwordRecoverySessionVerified=false;
+let passwordRecoverySessionPromise=null;
 const client=window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 if(!client)return;
 
@@ -95,6 +99,61 @@ $('#retrySellerBoot')?.addEventListener('click',()=>openSellerRole());
 
 $$('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('[data-auth-form]').forEach(f=>f.classList.toggle('active',f.dataset.authForm===b.dataset.authTab));}));
 
+async function establishPasswordRecoverySession(){
+  if(passwordRecoverySessionPromise)return passwordRecoverySessionPromise;
+
+  passwordRecoverySessionPromise=(async()=>{
+    if(passwordRecoveryUrlError){
+      throw new Error(passwordRecoveryUrlErrorDescription||'This password reset link is invalid or has expired.');
+    }
+
+    // First accept a session that Supabase has already created from the recovery URL.
+    const current=await client.auth.getSession();
+    if(current.error)throw current.error;
+    if(current.data?.session?.user){
+      currentUser=current.data.session.user;
+      passwordRecoverySessionVerified=true;
+      return current.data.session;
+    }
+
+    // Some mobile/email browsers leave the implicit recovery tokens in the URL
+    // without persisting them quickly enough. Establish that session explicitly.
+    if(passwordRecoveryUrlHasTokens){
+      const recovered=await client.auth.setSession({
+        access_token:passwordRecoveryAccessToken,
+        refresh_token:passwordRecoveryRefreshToken
+      });
+      if(recovered.error)throw recovered.error;
+      if(recovered.data?.session?.user){
+        currentUser=recovered.data.session.user;
+        passwordRecoverySessionVerified=true;
+        return recovered.data.session;
+      }
+    }
+
+    // Also support PKCE-style recovery links that return ?code=...
+    if(passwordRecoveryCode){
+      const exchanged=await client.auth.exchangeCodeForSession(passwordRecoveryCode);
+      if(exchanged.error)throw exchanged.error;
+      if(exchanged.data?.session?.user){
+        currentUser=exchanged.data.session.user;
+        passwordRecoverySessionVerified=true;
+        return exchanged.data.session;
+      }
+    }
+
+    throw new Error('The password reset session could not be created. Request a fresh reset link and open the newest email.');
+  })();
+
+  try{
+    return await passwordRecoverySessionPromise;
+  }catch(error){
+    passwordRecoverySessionVerified=false;
+    passwordRecoverySessionPromise=null;
+    throw error;
+  }
+}
+
 function showPasswordRecoveryScreen({valid=false,message='',type=''}={}){
   passwordRecoveryMode=true;
   authShell.hidden=false;
@@ -160,18 +219,35 @@ resetRequestForm.addEventListener('submit',async e=>{
 resetUpdateForm.addEventListener('submit',async e=>{
   e.preventDefault();
   if(!resetUpdateForm.reportValidity())return;
-  if(!passwordRecoverySessionVerified){
-    showPasswordRecoveryScreen({
-      valid:false,
-      message:'This reset link is not valid for changing a password. Request a fresh password reset link below.',
-      type:'error'
-    });
-    return;
-  }
   const password=$('#partnerRecoveryPassword').value;
   const confirm=$('#partnerRecoveryPasswordConfirm').value;
   if(password.length<8){status($('#partnerAuthStatus'),'Use at least 8 characters.','error');return;}
   if(password!==confirm){status($('#partnerAuthStatus'),'The two passwords do not match.','error');return;}
+  status($('#partnerAuthStatus'),'Verifying secure reset session…');
+  try{
+    await establishPasswordRecoverySession();
+  }catch(error){
+    showPasswordRecoveryScreen({
+      valid:false,
+      message:error?.message||'This reset link is invalid or expired. Request a fresh password reset link below.',
+      type:'error'
+    });
+    return;
+  }
+
+  // Re-check immediately before updateUser. This prevents "Auth session missing"
+  // if the browser did not persist the recovery session from the email redirect.
+  const verified=await client.auth.getSession();
+  if(verified.error||!verified.data?.session?.user){
+    passwordRecoverySessionVerified=false;
+    showPasswordRecoveryScreen({
+      valid:false,
+      message:'The secure reset session was not available. Request a fresh password reset link and open the newest email.',
+      type:'error'
+    });
+    return;
+  }
+
   status($('#partnerAuthStatus'),'Updating password…');
   const {error}=await client.auth.updateUser({password});
   if(error){status($('#partnerAuthStatus'),error.message,'error');return;}
@@ -3341,11 +3417,12 @@ client.auth.onAuthStateChange((event,s)=>{
     currentUser=s?.user||null;
     passwordRecoveryMode=true;
     passwordRecoverySessionVerified=Boolean(s?.user);
+    if(s?.user)passwordRecoverySessionPromise=Promise.resolve(s);
     showPasswordRecoveryScreen({
       valid:passwordRecoverySessionVerified,
       message:passwordRecoverySessionVerified
-        ? 'Create a new password for your LEOGO account.'
-        : 'This password reset session could not be verified. Request a new reset link.'
+        ? 'Secure password reset verified. Create a new password for your LEOGO account.'
+        : 'Verifying your secure password reset link…'
     });
     return;
   }
@@ -3370,7 +3447,7 @@ client.auth.onAuthStateChange((event,s)=>{
 
   setTimeout(()=>{handleSession(s).catch(console.error);},0);
 });
-client.auth.getSession().then(({data,error})=>{
+client.auth.getSession().then(async({data,error})=>{
   if(passwordRecoveryMode){
     if(passwordRecoveryUrlError){
       showPasswordRecoveryScreen({
@@ -3391,22 +3468,27 @@ client.auth.getSession().then(({data,error})=>{
       return;
     }
 
-    if(passwordRecoveryUrlHasTokens&&data.session?.user){
+    if(data.session?.user){
       currentUser=data.session.user;
       passwordRecoverySessionVerified=true;
-      showPasswordRecoveryScreen({valid:true,message:'Create a new password for your LEOGO account.'});
+      passwordRecoverySessionPromise=Promise.resolve(data.session);
+      showPasswordRecoveryScreen({valid:true,message:'Secure password reset verified. Create a new password for your LEOGO account.'});
       return;
     }
 
-    // Give PASSWORD_RECOVERY a brief moment to fire. If it does not, do not use an old
-    // persisted session as permission to change a password.
-    window.setTimeout(()=>{
-      if(passwordRecoverySessionVerified)return;
+    showPasswordRecoveryScreen({valid:false,message:'Verifying your password reset link…',type:''});
+    try{
+      const session=await establishPasswordRecoverySession();
+      if(session?.user){
+        showPasswordRecoveryScreen({valid:true,message:'Secure password reset verified. Create a new password for your LEOGO account.'});
+        return;
+      }
+    }catch(recoveryError){
       showPasswordRecoveryScreen({
         valid:false,
-        message:'This password reset link is invalid, expired, or has already been used. Request a fresh link below and open the newest email only.'
+        message:recoveryError?.message||'This password reset link is invalid, expired, or has already been used. Request a fresh link below.'
       });
-    },700);
+    }
     return;
   }
   handleSession(data.session);
