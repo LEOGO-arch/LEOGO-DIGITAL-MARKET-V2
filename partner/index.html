@@ -8,8 +8,9 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=transport-waiting-point-1">
+  <link rel="stylesheet" href="partner.css?v=transport-dashboard-2">
 <style>
+.transport-priority-nav{order:-1}.transport-application-progress{display:grid;gap:14px}.transport-progress-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.transport-progress-steps span{border:1px solid #dce3ed;border-radius:12px;padding:12px;display:grid;gap:3px;background:#f8fafc}.transport-progress-steps span i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e8edf4;font-style:normal;font-weight:900}.transport-progress-steps span.done i{background:#071a3a;color:#fff}.transport-progress-steps span.current{border-color:#ff7200;background:#fff8f2}.transport-progress-steps span.current i{background:#ff7200;color:#fff}.transport-progress-steps span.alert{border-color:#c98724;background:#fff9ec}.transport-progress-steps span.alert i{background:#c98724;color:#fff}.seller-icon-button{position:relative}.seller-icon-button #transportHeaderNotificationBadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:999px;background:#ff7200;color:#fff;font-size:10px;display:grid;place-items:center;padding:0 4px}.seller-icon-button #transportHeaderNotificationBadge[hidden]{display:none}.transport-view-lock-note{padding:12px;border-radius:10px;background:#fff8f2;color:#7a4108;font-weight:700}@media(max-width:700px){.transport-progress-steps{grid-template-columns:1fr}}
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
 </style></head>
 <body>
@@ -422,8 +423,8 @@
           <small id="transportSidebarStatus">APPROVED</small>
         </div>
         <nav>
+          <button class="transport-priority-nav" data-transport-view="jobs" type="button"><span>📦</span>Received Jobs <b id="transportJobBadge" hidden>0</b></button>
           <button class="active" data-transport-view="overview" type="button"><span>▦</span>Dashboard / Overview</button>
-          <button data-transport-view="jobs" type="button"><span>📦</span>Received Jobs <b id="transportJobBadge" hidden>0</b></button>
           <button data-transport-view="vehicles" type="button"><span>🚚</span>Vehicles <b id="transportVehiclePendingBadge" hidden>0</b></button>
           <button data-transport-view="notifications" type="button"><span>🔔</span>Notifications <b id="transportNotificationBadge" hidden>0</b></button>
           <button data-transport-view="profile" type="button"><span>♙</span>My Profile</button>
@@ -436,26 +437,40 @@
         <div class="account-head seller-portal-head">
           <div><span>TRANSPORT & PARCEL DASHBOARD</span><h2 id="transportDashboardName">My Transport Business</h2><p id="transportViewDescription">Overview of your Transport Provider account.</p></div>
           <div class="seller-head-actions">
-            <button id="transportNotificationsButton" class="seller-icon-button" type="button" aria-label="Transport notifications">🔔</button>
+            <button id="transportNotificationsButton" class="seller-icon-button" type="button" aria-label="Transport notifications">🔔<b id="transportHeaderNotificationBadge" hidden>0</b></button>
             <button id="transportProfileButton" class="secondary" type="button">My Profile</button>
             <button id="refreshTransportDashboard" type="button">↻ Refresh</button>
           </div>
         </div>
 
         <section class="transport-view active" data-transport-content="overview">
+          <section class="panel transport-application-progress" id="transportApplicationProgressCard">
+            <div class="section-title compact"><span>APPLICATION PROCESS</span><h3 id="transportApplicationProgressTitle">Transport Provider Application</h3><p id="transportApplicationProgressMessage">Your application progress will appear here.</p></div>
+            <div class="transport-progress-steps">
+              <span id="transportProgressSubmitted"><i>1</i><b>Submitted</b><small>Application received</small></span>
+              <span id="transportProgressReview"><i>2</i><b>Admin Review</b><small>Verification</small></span>
+              <span id="transportProgressDecision"><i>3</i><b>Decision</b><small id="transportProgressDecisionText">Waiting</small></span>
+            </div>
+            <div id="transportDashboardAdminNote" class="admin-note" hidden></div>
+            <div class="seller-overview-actions" id="transportApplicationActions">
+              <button id="transportDashboardCorrectApplication" type="button" hidden>Correct & Resubmit</button>
+              <button type="button" data-open-transport-view="notifications">View Notifications</button>
+              <button type="button" data-open-transport-view="profile">View Profile</button>
+            </div>
+          </section>
+          <section class="panel provider-priority-card" id="transportJobsPriorityCard">
+            <div class="section-title"><span>PRIORITY</span><h3>Received Jobs</h3><p id="transportJobsPriorityMessage">New Transport & Parcel assignments from LEOGO Admin will appear here first.</p></div>
+            <div class="seller-overview-actions"><button type="button" data-open-transport-view="jobs">Open Received Jobs</button></div>
+          </section>
           <div class="seller-metrics">
             <article><span>Approved Vehicles</span><strong id="transportApprovedVehicleCount">0</strong><small>Customer-facing vehicles</small></article>
             <article><span>Pending Vehicles</span><strong id="transportPendingVehicleCount">0</strong><small>Waiting for Admin</small></article>
             <article><span>Active Jobs</span><strong id="transportActiveJobCount">0</strong><small>Customer jobs</small></article>
             <article><span>Availability</span><strong id="transportAvailability">available</strong><small>Transport account</small></article>
           </div>
-          <section class="panel provider-priority-card">
-            <div class="section-title"><span>START HERE</span><h3>Build your approved transport fleet</h3><p>Add each vehicle with its customer-facing profile picture. Driver identity details and passport photos remain private for LEOGO Admin review.</p></div>
-            <div class="seller-overview-actions">
-              <button type="button" data-open-transport-view="vehicles">Add / Manage Vehicles</button>
-              <button type="button" data-open-transport-view="jobs">Received Jobs</button>
-              <button type="button" data-open-transport-view="profile">My Profile</button>
-            </div>
+          <section class="panel" id="transportFleetQuickCard">
+            <div class="section-title compact"><span>FLEET</span><h3>Vehicles</h3><p>Add and manage your Transport vehicles from the Vehicles menu. Each vehicle is reviewed by Admin before customer use or job assignment.</p></div>
+            <div class="seller-overview-actions"><button type="button" data-open-transport-view="vehicles">Manage Vehicles</button></div>
           </section>
         </section>
 
@@ -931,5 +946,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=partner-profile-edit-1" defer></script>
+<script src="partner.js?v=transport-dashboard-2" defer></script>
 </body></html>
