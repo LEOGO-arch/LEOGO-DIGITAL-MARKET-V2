@@ -704,3 +704,22 @@
 }
 
 .admin-location-link{display:inline-flex;align-items:center;gap:6px;margin-top:7px;font-weight:900;color:#0d5aa7;text-decoration:none;word-break:break-word}.admin-location-link:hover{text-decoration:underline}
+
+
+/* Partner post-approval record & suspension controls */
+.partner-record-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.partner-record-actions button{border:0;border-radius:8px;padding:8px 10px;background:#071a3a;color:#fff;font-weight:850;font-size:.68rem;cursor:pointer}
+.partner-record-actions button.danger{background:#a92f39;color:#fff}
+.partner-record-actions button:disabled{opacity:.58;cursor:wait}
+.partner-record-related{margin-top:18px;display:grid;gap:10px}
+.partner-related-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.partner-related-grid article{border:1px solid var(--line);border-radius:11px;padding:12px;background:#f8fafd;display:grid;gap:6px}
+.partner-related-grid article>div{display:grid;gap:2px}
+.partner-related-grid article small{color:var(--muted);font-size:.68rem}
+.partner-related-grid article p{margin:0;color:#4e5f77;font-size:.72rem;line-height:1.45}
+.partner-record-private-note{padding:12px 14px;border-radius:10px;background:#fff7ec;border-left:3px solid var(--orange);color:#6d4a1f;font-size:.74rem}
+@media(max-width:650px){
+  .partner-record-actions{display:grid;grid-template-columns:1fr;width:100%}
+  .partner-record-actions button{width:100%}
+  .partner-related-grid{grid-template-columns:1fr}
+}
