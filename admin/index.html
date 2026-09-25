@@ -508,13 +508,8 @@
         </section>
         <section class="content-card service-operations-card admin-service-reviews-card">
           <div class="card-head">
-            <div><span>SERVICE REVIEWS</span><h3>Customer Service &amp; Transport Ratings</h3><p>Customer ratings are never published automatically. Review each submission, then approve or reject it. Approved reviews appear on the Customer Front under Service Reviews.</p></div>
+            <div><span>SERVICE PROVIDER REVIEWS</span><h3>Customer Ratings for Service Providers</h3><p>Only Service Provider reviews are managed here. Reviews remain unpublished until Admin approves them.</p></div>
             <div class="admin-product-review-controls">
-              <select id="adminServiceReviewTypeFilter">
-                <option value="all">All partner types</option>
-                <option value="service_provider">Service Providers</option>
-                <option value="transport">Transport &amp; Parcel</option>
-              </select>
               <select id="adminServiceReviewStatusFilter">
                 <option value="submitted">Pending approval</option>
                 <option value="all">All reviews</option>
@@ -524,7 +519,7 @@
               <button id="refreshServiceReviews" class="primary-button" type="button">↻ Refresh Reviews</button>
             </div>
           </div>
-          <div id="adminServiceReviewList" class="admin-product-review-list"><div class="loading-card">Loading service reviews…</div></div>
+          <div id="adminServiceReviewList" class="admin-product-review-list"><div class="loading-card">Loading Service Provider reviews…</div></div>
         </section>
 
         <section class="content-card service-operations-card">
@@ -554,6 +549,25 @@
 
           <div class="section-title compact transport-vehicle-admin-heading"><span>VEHICLES</span><h4>Provider Vehicles &amp; Driver Verification</h4><p>Vehicle profile photos may be customer-facing after approval. Driver details remain private to Admin.</p></div>
           <div class="responsive-table"><table><thead><tr><th>Vehicle</th><th>Provider</th><th>Services / Capacity</th><th>Driver — Admin Only</th><th>Status</th><th>Submitted</th><th>Action</th></tr></thead><tbody id="adminTransportVehicleBody"><tr><td colspan="7">Loading vehicles…</td></tr></tbody></table></div>
+        </section>
+
+        <section class="content-card transport-network-card admin-service-reviews-card" data-transport-section="providers">
+          <div class="card-head">
+            <div><span>TRANSPORT REVIEWS</span><h3>Customer Transport &amp; Parcel Ratings</h3><p>Transporter reviews arrive here for Admin moderation. Approved reviews are published to customers under the related Transport Provider / vehicle.</p></div>
+            <div class="admin-product-review-controls">
+              <select id="adminTransportReviewStatusFilter">
+                <option value="submitted">Pending approval</option>
+                <option value="all">All reviews</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <button id="refreshTransportReviews" class="primary-button" type="button">↻ Refresh Reviews</button>
+            </div>
+          </div>
+          <div class="module-summary-grid transport-review-summary">
+            <article><span>Pending Transport Reviews</span><strong id="adminTransportReviewPending">0</strong><small>Customer ratings awaiting approval</small></article>
+          </div>
+          <div id="adminTransportReviewList" class="admin-product-review-list"><div class="loading-card">Loading Transport reviews…</div></div>
         </section>
 
         <section class="content-card transport-network-card" data-transport-section="jobs">
@@ -896,6 +910,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=partner-account-controls-1" defer></script>
+  <script src="admin.js?v=split-partner-reviews-1" defer></script>
 </body>
 </html>
