@@ -2803,6 +2803,30 @@
     });
   });
 
+  const activityShortcutTargets = {
+    products: 'customerMarketplaceOrders',
+    services: 'customerServiceRequests',
+    transport: 'customerTransportRequests'
+  };
+  const activateActivityShortcut = (shortcut) => {
+    const filterButton = customerShellModal?.querySelector('[data-activity-filter="'+shortcut+'"]');
+    if (!filterButton) return;
+    filterButton.click();
+    window.setTimeout(() => {
+      const targetId = activityShortcutTargets[shortcut];
+      const target = targetId ? document.getElementById(targetId) : null;
+      (target || filterButton).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 40);
+  };
+  customerShellModal?.querySelectorAll('[data-activity-shortcut]').forEach((card) => {
+    card.addEventListener('click', () => activateActivityShortcut(card.dataset.activityShortcut));
+    card.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      activateActivityShortcut(card.dataset.activityShortcut);
+    });
+  });
+
   const aftersalesPreviewForm = document.getElementById('marketplaceAftersalesForm');
   const aftersalesPreviewStatus = document.getElementById('aftersalesPreviewStatus');
   const aftersalesOrderSelect = document.getElementById('aftersalesOrderId');
