@@ -37,7 +37,7 @@
       <button data-role-target="transport"><span>🚚</span><strong>Transport & Parcel</strong><small>Register vehicles and receive transport / parcel work</small></button>
       <button data-role-target="cyber" disabled><span>🖥️</span><strong>Cyber Services</strong><small>Registration module comes next</small></button>
       <button data-role-target="premium" disabled><span>🔞</span><strong>Premium Profile</strong><small>Existing Premium registration will be linked here</small></button>
-      <button data-role-target="accommodation" disabled><span>🏨</span><strong>Accommodation Provider</strong><small>Existing provider registration will be linked here</small></button>
+      <button data-role-target="accommodation"><span>🏨</span><strong>Accommodation Provider</strong><small>Register hotels, Airbnbs, guest houses and other stays</small></button>
     </div>
   </section>
 
@@ -642,6 +642,106 @@
     </section>
   </section>
 
+  <section class="seller-shell provider-shell accommodation-shell" id="accommodationShell" hidden>
+    <section id="accommodationBootStatus" class="panel seller-boot-status">
+      <div class="seller-boot-spinner" aria-hidden="true"></div>
+      <div><span>ACCOMMODATION PROVIDER PORTAL</span><h2 id="accommodationBootTitle">Opening your Accommodation dashboard…</h2><p id="accommodationBootMessage">Loading your Accommodation Provider account.</p></div>
+      <button id="retryAccommodationBoot" class="secondary" type="button" hidden>Retry</button>
+    </section>
+
+    <section id="accommodationOnboarding" class="panel seller-onboarding" hidden>
+      <div class="seller-onboarding-icon">🏨</div>
+      <div><span>BECOME AN ACCOMMODATION PROVIDER</span><h2>List hotels, Airbnbs and other stays on LEOGO</h2><p>Register the property operator first. LEOGO Admin verifies the provider before properties and room/unit listings can be published.</p></div>
+      <button id="showAccommodationRegistration" type="button">Register Accommodation Provider</button>
+    </section>
+
+    <form id="accommodationRegistrationForm" class="panel seller-registration" hidden>
+      <div class="section-title"><span>ACCOMMODATION PROVIDER REGISTRATION</span><h3>Operator / business verification</h3><p>These details identify the person or business responsible for accommodation listings. Verification documents remain private to authorized LEOGO Admin.</p></div>
+      <div class="form-grid">
+        <label>Business / operator name<input id="accommodationBusinessName" type="text" maxlength="140" required></label>
+        <label>Owner / manager full name<input id="accommodationOwnerName" type="text" maxlength="140" required></label>
+        <label>National ID / identification number<input id="accommodationIdNumber" type="text" maxlength="40" required></label>
+        <label>Phone number<input id="accommodationPhone" type="tel" placeholder="+2547XXXXXXXX" required></label>
+        <label>Email<input id="accommodationEmail" type="email"></label>
+        <label>County<select id="accommodationCounty" required><option value="">Select county</option></select></label>
+        <label>Sub-County<select id="accommodationSubCounty" required disabled><option value="">Choose a county first</option></select></label>
+        <label>Town / Area<input id="accommodationTown" type="text" maxlength="120" required></label>
+        <label class="wide">Business / operating location<input id="accommodationLocation" type="text" maxlength="260" placeholder="Road, estate, building, landmark or property office" required></label>
+        <div class="wide seller-shop-pin-box">
+          <div class="section-title compact"><span>📍 REQUIRED LOCATION PIN</span><h4>Pin the accommodation operating base</h4><p>Use the exact location of the main property or accommodation office. This is for Admin verification and later location-based accommodation browsing.</p></div>
+          <div class="seller-shop-pin-actions"><button id="pinAccommodationLocation" type="button">📍 Pin Current Location</button><span id="accommodationPinStatus">Location not pinned yet.</span></div>
+          <label class="wide">Google Maps / shared-location link <small>(optional)</small><input id="accommodationMapLink" type="text" maxlength="1000" placeholder="Paste Google Maps link or coordinates"></label>
+          <div class="form-grid">
+            <label>Latitude<input id="accommodationLatitude" type="number" step="0.0000001" min="-90" max="90" required></label>
+            <label>Longitude<input id="accommodationLongitude" type="number" step="0.0000001" min="-180" max="180" required></label>
+          </div>
+        </div>
+        <label class="wide">About the accommodation business<textarea id="accommodationDescription" rows="3" maxlength="1800" placeholder="Describe the hotel, Airbnb operation, guest house, lodge or accommodation business."></textarea></label>
+        <label>Public profile picture <small>Optional. Customer-facing after approval.</small><input id="accommodationProfilePicture" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        <label>Passport-size photo <small>Private — Admin verification only.</small><input id="accommodationPassportPhoto" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        <label class="wide">Business ID / identification document <small>Required</small><input id="accommodationBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label>Business licence <small>Optional</small><input id="accommodationBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label>Registration certificate / CR12 <small>Optional</small><input id="accommodationRegistrationCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label>Other permits <small>Optional, maximum 4</small><input id="accommodationOtherPermits" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+      </div>
+      <div class="private-doc-note">🔒 Identity and business verification documents are never shown on the customer website.</div>
+      <div class="product-actions"><button id="cancelAccommodationRegistration" class="secondary" type="button">Cancel</button><button type="submit">Submit Accommodation Application</button></div>
+      <p id="accommodationRegistrationStatus" class="status"></p>
+    </form>
+
+    <section id="accommodationPendingArea" class="panel seller-pending-area" hidden>
+      <div class="section-title"><span>APPLICATION STATUS</span><h3 id="accommodationPendingTitle">Accommodation Provider application submitted</h3><p id="accommodationPendingMessage"></p></div>
+      <div id="accommodationApplicationSummary" class="summary-grid"></div>
+      <div id="accommodationAdminNote" class="restricted-notice" hidden></div>
+      <div class="product-actions"><button id="accommodationPendingBack" class="secondary" type="button">← Partnerships</button><button id="editAccommodationApplication" type="button" hidden>Correct &amp; Resubmit</button></div>
+    </section>
+
+    <section id="accommodationDashboard" class="seller-portal accommodation-portal" hidden>
+      <button id="accommodationSidebarToggle" class="seller-sidebar-toggle" type="button">☰ Menu</button>
+      <aside id="accommodationSidebar" class="seller-sidebar">
+        <div class="seller-sidebar-brand"><span>ACCOMMODATION PORTAL</span><strong id="accommodationSidebarBusiness">My Accommodation Business</strong><small id="accommodationSidebarStatus">APPROVED</small></div>
+        <nav>
+          <button class="active" data-accommodation-view="overview" type="button"><span>▦</span>Overview</button>
+          <button data-accommodation-view="properties" type="button"><span>🏨</span>Properties &amp; Rooms</button>
+          <button data-accommodation-view="bookings" type="button"><span>📅</span>Bookings</button>
+          <button data-accommodation-view="availability" type="button"><span>🗓️</span>Availability Calendar</button>
+          <button data-accommodation-view="earnings" type="button"><span>↗</span>Earnings</button>
+          <button data-accommodation-view="settlements" type="button"><span>₿</span>Settlements</button>
+          <button data-accommodation-view="notifications" type="button"><span>🔔</span>Notifications</button>
+          <button data-accommodation-view="profile" type="button"><span>👤</span>My Profile</button>
+        </nav>
+        <button id="accommodationBackToPartnerships" class="seller-sidebar-back" type="button">← Partnerships</button>
+      </aside>
+      <button id="accommodationSidebarScrim" class="seller-sidebar-scrim" type="button" aria-label="Close menu"></button>
+
+      <div class="seller-workspace">
+        <header class="seller-dashboard-head">
+          <div><span>ACCOMMODATION PROVIDER</span><h2 id="accommodationDashboardBusiness">Accommodation Dashboard</h2><p id="accommodationViewDescription">Overview of your Accommodation Provider account.</p></div>
+          <button id="refreshAccommodationDashboard" type="button">↻ Refresh</button>
+        </header>
+
+        <section class="accommodation-view active" data-accommodation-content="overview">
+          <section class="panel">
+            <div class="section-title"><span>APPROVED PROVIDER</span><h3>Accommodation Provider Dashboard</h3><p>Your provider account is verified. Property, room, booking, availability, earnings and settlement tools are being connected in the next build stage without changing this approved registration.</p></div>
+            <div class="seller-metrics">
+              <article><span>Properties</span><strong id="accommodationPropertyMetric">0</strong><small>Registered properties</small></article>
+              <article><span>Bookings</span><strong id="accommodationBookingMetric">0</strong><small>Accommodation requests</small></article>
+              <article><span>Account Status</span><strong id="accommodationAccountMetric">Approved</strong><small>LEOGO verified</small></article>
+            </div>
+          </section>
+        </section>
+
+        <section class="accommodation-view" data-accommodation-content="properties"><section class="panel"><div class="section-title"><span>PHASE B</span><h3>Properties &amp; Rooms</h3><p>Next we will connect property creation, room/unit types, photos, amenities and Admin approval here.</p></div></section></section>
+        <section class="accommodation-view" data-accommodation-content="bookings"><section class="panel"><div class="section-title"><span>BOOKINGS</span><h3>Accommodation Bookings</h3><p>The existing customer accommodation booking records will be connected here in the booking stage.</p></div></section></section>
+        <section class="accommodation-view" data-accommodation-content="availability"><section class="panel"><div class="section-title"><span>CALENDAR</span><h3>Availability Calendar</h3><p>Room/unit availability, blocked dates and confirmed bookings will be managed here.</p></div></section></section>
+        <section class="accommodation-view" data-accommodation-content="earnings"><section class="panel"><div class="section-title"><span>EARNINGS</span><h3>Accommodation Earnings</h3><p>Completed-stay earnings and LEOGO commission reporting will be connected after the booking workflow.</p></div></section></section>
+        <section class="accommodation-view" data-accommodation-content="settlements"><section class="panel"><div class="section-title"><span>SETTLEMENTS</span><h3>Accommodation Payouts</h3><p>Approved payout accounts, payout requests and Admin-initiated settlements will use the same Partner settlement standard already used elsewhere in LEOGO.</p></div></section></section>
+        <section class="accommodation-view" data-accommodation-content="notifications"><section class="panel"><div class="section-title"><span>NOTIFICATIONS</span><h3>Accommodation Activity</h3><p>Application decisions and future listing / booking actions will appear here.</p></div><div id="accommodationNotificationList" class="seller-notification-list"><div class="empty-card">No Accommodation notifications yet.</div></div></section></section>
+        <section class="accommodation-view" data-accommodation-content="profile"><section class="panel"><div class="section-title"><span>MY PROFILE</span><h3>Accommodation Provider Details</h3><p>Your approved provider information and Admin verification status.</p></div><div id="accommodationProfileSummary" class="summary-grid"></div></section></section>
+      </div>
+    </section>
+  </section>
+
   <section class="seller-shell" id="sellerShell" hidden>
     <section id="sellerBootStatus" class="panel seller-boot-status">
       <div class="seller-boot-spinner" aria-hidden="true"></div>
@@ -1018,5 +1118,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=transport-settlements-1" defer></script>
+<script src="partner.js?v=accommodation-phase-a-1" defer></script>
 </body></html>
