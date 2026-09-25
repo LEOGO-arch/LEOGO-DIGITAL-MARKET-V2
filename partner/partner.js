@@ -2591,6 +2591,43 @@ function setTransportServices(name,values=[]){
   const chosen=new Set(Array.isArray(values)?values:[]);
   $$('input[name="'+name+'"]').forEach(input=>{input.checked=chosen.has(input.value);});
 }
+function transportBaseCoordinatesFromText(value=''){
+  const text=String(value||'').trim();
+  const direct=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+  if(direct)return {lat:Number(direct[1]),lng:Number(direct[2])};
+  const maps=text.match(/(?:@|q=|query=)(-?\d{1,2}(?:\.\d+)?)[,%2C\s]+(-?\d{1,3}(?:\.\d+)?)/i);
+  return maps?{lat:Number(maps[1]),lng:Number(maps[2])}:null;
+}
+function setTransportBaseCoordinates(lat,lng,label='Operating base pinned'){
+  const latitude=Number(lat),longitude=Number(lng),target=$('#transportBasePinStatus');
+  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+    if(target){target.textContent='Invalid operating-base coordinates.';target.className='status error';}
+    return false;
+  }
+  $('#transportBaseLatitude').value=latitude.toFixed(7);
+  $('#transportBaseLongitude').value=longitude.toFixed(7);
+  if(!$('#transportBaseMapLink').value.trim())$('#transportBaseMapLink').value='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
+  if(target){target.textContent='✓ '+label+': '+latitude.toFixed(7)+', '+longitude.toFixed(7);target.className='status success';}
+  return true;
+}
+$('#pinTransportBaseLocation')?.addEventListener('click',()=>{
+  const target=$('#transportBasePinStatus');
+  if(!navigator.geolocation){
+    if(target){target.textContent='Location access is unavailable. Paste a Google Maps link or enter coordinates.';target.className='status error';}
+    return;
+  }
+  if(target){target.textContent='Getting operating-base location…';target.className='status';}
+  navigator.geolocation.getCurrentPosition((position)=>{
+    setTransportBaseCoordinates(position.coords.latitude,position.coords.longitude,'Operating base pinned');
+  },(error)=>{
+    if(target){target.textContent=error.code===1?'Location permission was not granted. Paste a Maps link or coordinates instead.':'Operating-base location could not be detected.';target.className='status error';}
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:15000});
+});
+$('#transportBaseMapLink')?.addEventListener('change',(event)=>{
+  const coords=transportBaseCoordinatesFromText(event.currentTarget.value);
+  if(coords)setTransportBaseCoordinates(coords.lat,coords.lng,'Coordinates detected');
+});
+
 function transportSummaryRows(){
   if(!transportProvider)return [];
   return [
@@ -2602,6 +2639,8 @@ function transportSummaryRows(){
     ['Services',(transportProvider.services_offered||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'—'],
     ['Location',[transportProvider.town,transportProvider.sub_county,transportProvider.county].filter(Boolean).join(', ')],
     ['Operating Base',transportProvider.location_details],
+    ['Base Coordinates',(transportProvider.base_latitude!=null&&transportProvider.base_longitude!=null)?(transportProvider.base_latitude+', '+transportProvider.base_longitude):'Not pinned'],
+    ['Base Map Link',transportProvider.base_map_link||'—'],
     ['Coverage',transportProvider.coverage_notes||'—'],
     ['Application Status',String(transportProvider.application_status||'').replaceAll('_',' ')],
     ['Business ID / Identification',transportProvider.business_id_document_path?'Uploaded':'Missing'],
@@ -2627,6 +2666,11 @@ function populateTransportApplication(){
   $('#transportProviderType').value=transportProvider.provider_type||'individual_operator';
   $('#transportTown').value=transportProvider.town||'';
   $('#transportLocation').value=transportProvider.location_details||'';
+  $('#transportBaseLatitude').value=transportProvider.base_latitude??'';
+  $('#transportBaseLongitude').value=transportProvider.base_longitude??'';
+  $('#transportBaseMapLink').value=transportProvider.base_map_link||'';
+  const basePinStatus=$('#transportBasePinStatus');
+  if(basePinStatus){basePinStatus.textContent=(transportProvider.base_latitude!=null&&transportProvider.base_longitude!=null)?'✓ Operating base pinned: '+transportProvider.base_latitude+', '+transportProvider.base_longitude:'Operating base not pinned yet.';}
   $('#transportCoverage').value=transportProvider.coverage_notes||'';
   $('#transportDescription').value=transportProvider.business_description||'';
   setTransportServices('transportService',transportProvider.services_offered||[]);
@@ -2771,6 +2815,8 @@ transportReg?.addEventListener('submit',async event=>{
   const county=kenyaCounties.find(item=>item.code===countyCode);
   const subCounty=kenyaSubcounties.find(item=>item.code===subCountyCode);
   const businessIdFile=$('#transportBusinessIdDocument').files?.[0]||null;
+  const baseLatitude=Number($('#transportBaseLatitude').value),baseLongitude=Number($('#transportBaseLongitude').value);
+  if(!Number.isFinite(baseLatitude)||baseLatitude<-90||baseLatitude>90||!Number.isFinite(baseLongitude)||baseLongitude<-180||baseLongitude>180){status($('#transportRegistrationStatus'),'Pin the exact operating base and confirm valid latitude and longitude before submitting.','error');return;}
   if(!businessIdFile&&!transportProvider?.business_id_document_path){status($('#transportRegistrationStatus'),'Business ID or personal identification document is required.','error');return;}
   const button=transportReg.querySelector('button[type="submit"]');
   const original=button.textContent;button.disabled=true;button.textContent='Submitting…';
@@ -2800,6 +2846,7 @@ transportReg?.addEventListener('submit',async event=>{
       id_number:$('#transportIdNumber').value.trim(),phone,provider_type:$('#transportProviderType').value,
       services_offered:services,county_code:countyCode||null,sub_county_code:subCountyCode||null,
       town:$('#transportTown').value.trim(),location_details:$('#transportLocation').value.trim(),
+      base_latitude:baseLatitude,base_longitude:baseLongitude,base_map_link:$('#transportBaseMapLink').value.trim()||null,
       coverage_notes:$('#transportCoverage').value.trim()||null,business_description:$('#transportDescription').value.trim()||null,
       business_id_document_path:businessId,business_licence_path:businessLicence,
       registration_certificate_path:registrationCertificate,transport_operator_permit_path:operatorPermit,
@@ -2816,6 +2863,7 @@ transportReg?.addEventListener('submit',async event=>{
           p_county_code:countyCode||null,p_sub_county_code:subCountyCode||null,p_town:transportProfilePayload.town,
           p_location_details:transportProfilePayload.location_details,p_coverage_notes:transportProfilePayload.coverage_notes,
           p_business_description:transportProfilePayload.business_description,p_business_id_document_path:businessId,
+          p_base_latitude:baseLatitude,p_base_longitude:baseLongitude,p_base_map_link:transportProfilePayload.base_map_link,
           p_business_licence_path:businessLicence,p_registration_certificate_path:registrationCertificate,
           p_transport_operator_permit_path:operatorPermit,p_other_permit_paths:otherPermits
         });
