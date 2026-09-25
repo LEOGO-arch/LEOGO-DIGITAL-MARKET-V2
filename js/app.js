@@ -2800,6 +2800,7 @@
       activityEmptyTitle.textContent = message[1];
       activityEmptyText.textContent = message[2];
       renderCustomerMarketplaceOrders();
+      renderCustomerTransportRequests();
     });
   });
 
