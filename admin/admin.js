@@ -426,13 +426,14 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,profileChangesResult,partnerSettlementResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
       db.rpc('admin_list_service_provider_approvals'),
       db.rpc('admin_list_transport_approvals'),
       db.rpc('admin_list_partner_profile_changes'),
       db.rpc('admin_list_partner_settlement_approvals'),
+      db.rpc('admin_list_accommodation_corrections'),
       db.rpc('admin_list_pending_payment_actions'),
       db.rpc('admin_list_transport_requests')
     ]);
@@ -442,6 +443,7 @@
     if (transportResult.error) throw transportResult.error;
     if (profileChangesResult.error) throw profileChangesResult.error;
     if (partnerSettlementResult.error) throw partnerSettlementResult.error;
+    if (accommodationCorrectionsResult.error) throw accommodationCorrectionsResult.error;
     if (paymentActionsResult.error) throw paymentActionsResult.error;
     if (transportRequestsResult.error) throw transportRequestsResult.error;
 
@@ -451,7 +453,8 @@
       ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : []),
       ...(Array.isArray(transportResult.data) ? transportResult.data : []),
       ...(Array.isArray(profileChangesResult.data) ? profileChangesResult.data : []),
-      ...(Array.isArray(partnerSettlementResult.data) ? partnerSettlementResult.data : [])
+      ...(Array.isArray(partnerSettlementResult.data) ? partnerSettlementResult.data : []),
+      ...(Array.isArray(accommodationCorrectionsResult.data) ? accommodationCorrectionsResult.data : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     state.paymentActions=Array.isArray(paymentActionsResult.data)?paymentActionsResult.data:[];
     state.transportRequests=Array.isArray(transportRequestsResult.data)?transportRequestsResult.data:state.transportRequests;
