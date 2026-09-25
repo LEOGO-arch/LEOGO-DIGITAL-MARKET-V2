@@ -742,7 +742,10 @@
     if (!checkoutPickupStationDetails) return;
     checkoutPickupStationDetails.hidden = !station;
     checkoutPickupStationDetails.innerHTML = station
-      ? '<strong>' + escapePickupText(station.station_name) + '</strong><span>' + escapePickupText(pickupStationAddress(station)) + '</span><span>Pickup service fee: <b>' + Number(station.service_fee_percent || 0).toLocaleString() + '%</b> of the items subtotal</span>'
+      ? '<strong>' + escapePickupText(station.station_name) + '</strong><span>' + escapePickupText(pickupStationAddress(station)) + '</span>' +
+        (station.latitude!=null&&station.longitude!=null?'<span>Coordinates: <b>'+escapePickupText(station.latitude)+', '+escapePickupText(station.longitude)+'</b></span>':'') +
+        (station.map_link?'<span><a href="'+escapePickupText(station.map_link)+'" target="_blank" rel="noopener noreferrer">📍 Open Pickup Station Location ↗</a></span>':'') +
+        '<span>Pickup service fee: <b>' + Number(station.service_fee_percent || 0).toLocaleString() + '%</b> of the items subtotal</span>'
       : '';
   };
 
@@ -775,7 +778,7 @@
     if (checkoutPickupStationStatus) checkoutPickupStationStatus.textContent = 'Loading active pickup stations…';
     const { data, error } = await window.leogoAuth.client
       .from('pickup_stations')
-      .select('id,station_name,county,sub_county,town,address_line,landmark,door_number,service_fee_percent,display_order')
+      .select('id,station_name,county,sub_county,town,address_line,landmark,door_number,service_fee_percent,display_order,latitude,longitude,map_link')
       .eq('is_active', true)
       .order('display_order', { ascending: true })
       .order('station_name', { ascending: true });
