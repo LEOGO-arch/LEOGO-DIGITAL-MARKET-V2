@@ -4145,6 +4145,7 @@
     if($('#transportSectionDescription'))$('#transportSectionDescription').textContent=meta.description;
     if($('#openTransportApprovals'))$('#openTransportApprovals').hidden=resolved!=='providers';
     $('.admin-nav [data-admin-view="transport"]').forEach(button=>{
+      if(button.dataset.navGroup==='transport'){button.classList.add('active');return;}
       const buttonTarget=button.dataset.transportTarget||'providers';
       button.classList.toggle('active',buttonTarget===resolved);
     });
