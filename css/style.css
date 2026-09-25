@@ -931,3 +931,72 @@ body.accommodation-modal-open{overflow:hidden}
 .service-location-status.success{color:#16823b}
 .customer-service-quote-actions .download-quote{background:#07152f;color:#fff}
 @media(max-width:640px){.service-location-heading{align-items:stretch;flex-direction:column}.service-location-heading button{width:100%}.service-request-form-grid .wide{grid-column:auto}}
+
+
+/* Service Provider + Transport reviews */
+.service-provider-rating-summary{display:flex;align-items:center;gap:8px;margin:2px 0 4px}
+.service-provider-rating-summary span{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border-radius:999px;background:#fff5e9;color:#9b5100;font-size:12px;font-weight:900}
+.transport-provider-public-heading,.service-reviews-public-heading{margin-top:32px}
+.transport-own-review-state{display:block;margin-top:4px;padding:8px 10px;border-radius:10px;background:#f3f6fb;color:#526177!important;font-weight:700}
+.transport-rate-button{width:100%}
+.public-service-review-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
+.public-service-review-card{display:grid;gap:12px;padding:17px;border:1px solid #e2e8f0;border-radius:17px;background:#fff;box-shadow:0 9px 24px rgba(7,21,47,.06)}
+.public-service-review-card header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.public-service-review-card header>div{display:grid;gap:3px}
+.public-service-review-card header strong{font-size:15px;color:#07152f}
+.public-service-review-card header small{color:#68758a}
+.public-service-review-card header b{white-space:nowrap;color:#e67a00;font-size:13px}
+.public-service-review-card p{margin:0;color:#34445d;line-height:1.55}
+.public-service-review-card footer{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;padding-top:9px;border-top:1px solid #edf1f5;color:#748095;font-size:11px}
+.verified-service-review{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;background:#e9f7ef;color:#167843;font-weight:900}
+.verified-service-review.neutral{background:#edf3fb;color:#31587f}
+
+.customer-service-review-action,.customer-service-review-state{margin-top:12px;padding:12px;border-radius:12px;border:1px solid #dfe7f0;background:#f8fbff;display:grid;gap:7px}
+.customer-service-review-action button,.customer-service-review-state button{justify-self:start;border:0;border-radius:10px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}
+.customer-service-review-action small,.customer-service-review-state small{color:#67758a}
+.customer-service-review-state strong{color:#07152f}
+.customer-service-review-state.approved{background:#effaf4;border-color:#cfead9}
+.customer-service-review-state.pending{background:#fff8e9;border-color:#f4dfad}
+.customer-service-review-state.rejected{background:#fff3f3;border-color:#efcccc}
+
+.service-review-modal{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:18px}
+.service-review-modal.open{display:flex}
+.service-review-modal-backdrop{position:absolute;inset:0;background:rgba(4,14,33,.72)}
+.service-review-modal-card{position:relative;width:min(560px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 28px 75px rgba(0,0,0,.28);padding:0}
+.service-review-modal-head{display:flex;justify-content:space-between;gap:18px;padding:22px 22px 17px;background:#071b3d;color:#fff}
+.service-review-modal-head>div{display:grid;gap:5px}
+.service-review-modal-head span{font-size:10px;font-weight:900;letter-spacing:.12em;color:#ff8a2b}
+.service-review-modal-head h2{margin:0;font-size:23px}
+.service-review-modal-head p{margin:0;color:#ccd7e7;font-size:13px;line-height:1.45}
+.service-review-modal-head>button{width:38px;height:38px;border:1px solid rgba(255,255,255,.25);border-radius:12px;background:rgba(255,255,255,.08);color:#fff;font-size:24px}
+#serviceReviewForm{display:grid;gap:15px;padding:22px}
+#serviceReviewForm label{display:grid;gap:7px;font-weight:800;color:#25344c}
+#serviceReviewForm textarea{width:100%;resize:vertical;border:1px solid #d5dde8;border-radius:12px;padding:12px;font:inherit}
+.service-review-rating-field{display:grid;gap:8px}
+.service-review-rating-field>span{font-weight:900;color:#25344c}
+.service-review-stars{display:flex;gap:6px}
+.service-review-stars button{border:0;background:#edf1f6;color:#a7b0be;font-size:30px;line-height:1;padding:8px;border-radius:10px;cursor:pointer}
+.service-review-stars button.active{background:#fff1dd;color:#f28a00}
+.service-review-admin-note{padding:11px 12px;border-left:4px solid #c73737;background:#fff2f2;color:#8b2f2f;border-radius:9px;font-size:13px}
+.service-review-status{min-height:18px;font-size:13px;font-weight:800}
+.service-review-status.success{color:#137243}
+.service-review-status.error{color:#b52d2d}
+.service-review-actions{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+.service-review-actions button{border:0;border-radius:11px;padding:11px 15px;font-weight:900}
+.service-review-actions button:not(.secondary){background:#ff7200;color:#fff}
+.service-review-actions .secondary{background:#edf1f6;color:#07152f}
+
+@media(max-width:900px){
+  .public-service-review-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .public-service-review-list{grid-template-columns:1fr}
+  .public-service-review-card header{display:grid}
+  .public-service-review-card header b{white-space:normal}
+  .service-review-modal{padding:8px}
+  .service-review-modal-card{max-height:96vh;border-radius:16px}
+  .service-review-stars{justify-content:space-between}
+  .service-review-stars button{font-size:27px;flex:1}
+  .service-review-actions{display:grid;grid-template-columns:1fr}
+  .service-review-actions button{width:100%}
+}
