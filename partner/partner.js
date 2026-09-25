@@ -2495,8 +2495,13 @@ function closeTransportSidebar(){
   $('#transportSidebarScrim')?.classList.remove('open');
 }
 function openTransportView(view='overview'){
-  const allowed=['overview','jobs','vehicles','notifications','profile'];
+  const approved=transportProvider?.application_status==='approved';
+  const allowed=approved?['overview','jobs','vehicles','notifications','profile']:['overview','notifications','profile'];
   const resolved=allowed.includes(view)?view:'overview';
+  if(transportProvider){
+    transportPendingArea.hidden=true;
+    transportDashboard.hidden=false;
+  }
   $$('[data-transport-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.transportContent===resolved));
   $$('[data-transport-view]').forEach(button=>button.classList.toggle('active',button.dataset.transportView===resolved));
   if($('#transportViewDescription'))$('#transportViewDescription').textContent=transportViewDescription(resolved);
@@ -2511,6 +2516,7 @@ $$('[data-open-transport-view]').forEach(button=>button.addEventListener('click'
 $('#transportSidebarToggle')?.addEventListener('click',()=>{transportSidebar?.classList.add('open');$('#transportSidebarScrim')?.classList.add('open');});
 $('#transportSidebarScrim')?.addEventListener('click',closeTransportSidebar);
 $('#transportNotificationsButton')?.addEventListener('click',()=>openTransportView('notifications'));
+$('#transportDashboardCorrectApplication')?.addEventListener('click',()=>openTransportRegistration(true));
 $('#transportProfileButton')?.addEventListener('click',()=>openTransportView('profile'));
 $('#transportBackToPartnerships')?.addEventListener('click',showRolePicker);
 $('#transportPendingBack')?.addEventListener('click',showRolePicker);
@@ -2627,6 +2633,49 @@ function populateTransportApplication(){
   $('#transportBusinessIdDocument').required=!transportProvider.business_id_document_path;
   ensureTransportLocations(transportProvider.county_code||'',transportProvider.sub_county_code||'').catch(console.warn);
 }
+function renderTransportApplicationProgress(){
+  if(!transportProvider)return;
+  const state=String(transportProvider.application_status||'submitted');
+  const submitted=$('#transportProgressSubmitted'),review=$('#transportProgressReview'),decision=$('#transportProgressDecision');
+  [submitted,review,decision].forEach(step=>step?.classList.remove('done','current','alert'));
+  submitted?.classList.add('done');
+  if(['submitted','under_review'].includes(state)){
+    review?.classList.add(state==='submitted'?'current':'done');
+    decision?.classList.add(state==='under_review'?'current':'');
+  }else if(state==='approved'){
+    review?.classList.add('done');decision?.classList.add('done');
+  }else if(['changes_requested','rejected'].includes(state)){
+    review?.classList.add('done');decision?.classList.add('alert');
+  }
+  if($('#transportApplicationProgressTitle'))$('#transportApplicationProgressTitle').textContent=
+    state==='approved'?'Transport Provider Approved':
+    state==='changes_requested'?'Application Needs Correction':
+    state==='rejected'?'Application Not Approved':
+    state==='under_review'?'Application Under Review':'Application Submitted';
+  if($('#transportApplicationProgressMessage'))$('#transportApplicationProgressMessage').textContent=transportStatusCopy(state);
+  if($('#transportProgressDecisionText'))$('#transportProgressDecisionText').textContent=
+    state==='approved'?'Approved':state==='changes_requested'?'Changes requested':state==='rejected'?'Not approved':state==='under_review'?'Reviewing':'Waiting';
+  const note=$('#transportDashboardAdminNote');
+  if(note){note.hidden=!transportProvider.admin_notes;note.textContent=transportProvider.admin_notes?'Admin note: '+transportProvider.admin_notes:'';}
+  const correction=$('#transportDashboardCorrectApplication');
+  if(correction)correction.hidden=!['changes_requested','rejected'].includes(state);
+  const approved=state==='approved';
+  const priority=$('#transportJobsPriorityCard');
+  const fleet=$('#transportFleetQuickCard');
+  if(priority){
+    const button=$('[data-open-transport-view="jobs"]',priority);
+    if(button)button.hidden=!approved;
+    const message=$('#transportJobsPriorityMessage');
+    if(message)message.textContent=approved
+      ? 'New Transport & Parcel assignments from LEOGO Admin appear here first. Respond to received jobs before other account tasks.'
+      : 'Received Jobs will activate immediately after LEOGO Admin approves your Transport Provider application.';
+  }
+  if(fleet)fleet.hidden=!approved;
+  $('.seller-metrics',transportDashboard).forEach(block=>block.hidden=!approved);
+  $('[data-transport-view="jobs"],[data-transport-view="vehicles"]',transportSidebar).forEach(button=>button.hidden=!approved);
+  if($('#editApprovedTransportProfile'))$('#editApprovedTransportProfile').hidden=!approved;
+}
+
 function renderTransportProvider(){
   hideTransportBoot();
   transportOnboarding.hidden=true;
@@ -2634,21 +2683,19 @@ function renderTransportProvider(){
   transportPendingArea.hidden=true;
   transportDashboard.hidden=true;
   if(!transportProvider){transportOnboarding.hidden=false;return;}
-  if(transportProvider.application_status!=='approved'){
-    transportPendingArea.hidden=false;
-    $('#transportPendingTitle').textContent=transportProvider.application_status==='changes_requested'?'Correction requested':transportProvider.application_status==='rejected'?'Application not approved':'Application '+String(transportProvider.application_status||'submitted').replaceAll('_',' ');
-    $('#transportPendingMessage').textContent=transportStatusCopy(transportProvider.application_status);
-    $('#editTransportApplication').hidden=!['changes_requested','rejected'].includes(transportProvider.application_status);
-    renderTransportApplicationSummary();
-    return;
-  }
   transportDashboard.hidden=false;
+  const state=String(transportProvider.application_status||'submitted');
   $('#transportDashboardName').textContent=transportProvider.business_name||'My Transport Business';
   $('#transportSidebarBusiness').textContent=transportProvider.business_name||'Transport Provider';
-  $('#transportSidebarStatus').textContent=String(transportProvider.application_status||'approved').toUpperCase();
-  $('#transportAvailability').textContent=String(transportProvider.availability_status||'available').replaceAll('_',' ');
+  $('#transportSidebarStatus').textContent=state.replaceAll('_',' ').toUpperCase();
+  $('#transportAvailability').textContent=state==='approved'
+    ? String(transportProvider.availability_status||'available').replaceAll('_',' ')
+    : 'awaiting approval';
   $('#transportProfileSummary').innerHTML=transportSummaryRows().filter(([label])=>!['Admin Note'].includes(label)).map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
+  renderTransportApplicationSummary();
+  renderTransportApplicationProgress();
   renderTransportVehicles();
+  renderTransportJobs();
   renderTransportNotifications();
   openTransportView('overview');
 }
@@ -2668,6 +2715,7 @@ async function loadTransportProvider(){
       await Promise.allSettled([loadTransportVehicles(),loadTransportJobs(),loadTransportNotifications()]);
     }else if(transportProvider){
       await loadTransportNotifications().catch(()=>{});
+      renderTransportApplicationProgress();
     }
   }catch(error){
     console.error('Transport Provider portal boot failed:',error);
@@ -3033,6 +3081,8 @@ function renderTransportNotifications(){
   const unread=transportNotifications.filter(item=>!item.read_at).length;
   const badge=$('#transportNotificationBadge');
   if(badge){badge.hidden=!unread;badge.textContent=unread>99?'99+':String(unread);}
+  const headerBadge=$('#transportHeaderNotificationBadge');
+  if(headerBadge){headerBadge.hidden=!unread;headerBadge.textContent=unread>99?'99+':String(unread);}
   updateSharedPartnerNotificationBadge(unread);
   target.innerHTML=transportNotifications.length?transportNotifications.map(item=>
     '<article class="seller-notification-item '+(item.read_at?'':'unread')+'"><div><strong>'+escapeHtml(item.title)+'</strong><p>'+escapeHtml(item.message)+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div><div class="seller-notification-actions">'+
