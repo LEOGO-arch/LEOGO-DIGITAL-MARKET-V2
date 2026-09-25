@@ -2002,13 +2002,17 @@
         ['Handed to Rider',seller.handed_to_rider_at],
         ['Delivered',seller.delivered_at]
       ];
+      const sellerItems=(seller.items||[]).map((item)=>'<li><strong>'+escapeHtml(item.product_name||'Product')+'</strong>'+(item.variant_name?' · '+escapeHtml(item.variant_name):'')+' · '+Number(item.quantity)+(item.measurement_unit?' '+escapeHtml(item.measurement_unit):'')+'</li>').join('');
       return '<article class="admin-order-seller-card">'+
         '<header><div><span>SELLER</span><h5>'+escapeHtml(seller.business_name||'Seller')+'</h5><p>'+escapeHtml(seller.seller_phone||'')+(seller.seller_email?' · '+escapeHtml(seller.seller_email):'')+'</p></div>'+
           '<span class="status-chip">'+escapeHtml(sellerFulfilmentLabel(seller.fulfilment_status))+'</span></header>'+
         '<div class="admin-order-seller-facts">'+
           '<span><small>Seller subtotal</small><strong>'+formatMoney(seller.seller_subtotal_kes)+'</strong></span>'+
           '<span><small>Pickup location</small><strong>'+escapeHtml(seller.seller_location||'Not supplied')+'</strong></span>'+
+          '<span><small>Shop coordinates</small><strong>'+(seller.seller_latitude!=null&&seller.seller_longitude!=null?escapeHtml(seller.seller_latitude+', '+seller.seller_longitude):'Not pinned')+'</strong></span>'+
         '</div>'+
+        (seller.seller_map_link?'<p><a class="download-quote" href="'+escapeHtml(seller.seller_map_link)+'" target="_blank" rel="noopener noreferrer">📍 Open Seller Shop in Google Maps ↗</a></p>':'')+
+        (sellerItems?'<div class="admin-order-seller-products"><small>PRODUCTS FROM THIS SELLER</small><ul>'+sellerItems+'</ul></div>':'')+
         '<div class="admin-order-timeline">'+stages.map(([label,date])=>'<span class="'+(date?'done':'')+'"><i></i><b>'+escapeHtml(label)+'</b><small>'+escapeHtml(date?formatDate(date,true):'Pending')+'</small></span>').join('')+'</div>'+
       '</article>';
     }).join(''):'<div class="loading-card">No Seller fulfilment records found.</div>';
