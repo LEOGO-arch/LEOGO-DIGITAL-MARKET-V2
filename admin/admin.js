@@ -3977,9 +3977,37 @@
     state.transportSettlements = transportSettlementsResult.data || [];
     renderSellerSettlements();
   };
+  const settlementAccountsForType = (partnerType) => partnerType === 'seller'
+    ? state.sellerSettlementAccounts
+    : partnerType === 'service_provider'
+      ? state.providerSettlementAccounts
+      : state.transportSettlementAccounts;
+  const settlementPartnerId = (account,partnerType) => partnerType === 'seller' ? account.seller_id : account.provider_id;
+  const settlementPartnerName = (account,partnerType) => partnerType === 'seller'
+    ? (account.seller_name || 'Seller')
+    : (account.provider_name || (partnerType === 'transport' ? 'Transport Provider' : 'Service Provider'));
+
+  const renderManualSettlementPartners = (preservePartnerId = '') => {
+    const type = $('#adminSettlementPartnerType')?.value || 'seller';
+    const accounts = settlementAccountsForType(type).filter((account)=>account.status==='approved');
+    const partnerIds = [...new Set(accounts.map((account)=>settlementPartnerId(account,type)).filter(Boolean))];
+    const current = preservePartnerId || $('#adminSettlementSeller')?.value || '';
+    $('#adminSettlementSeller').innerHTML = partnerIds.length
+      ? '<option value="">Choose Partner…</option>' + partnerIds.map((partnerId)=>{
+          const account=accounts.find((item)=>settlementPartnerId(item,type)===partnerId);
+          const label=settlementPartnerName(account||{},type);
+          return '<option value="'+escapeHtml(partnerId)+'" '+(partnerId===current?'selected':'')+'>'+escapeHtml(label)+'</option>';
+        }).join('')
+      : '<option value="">No approved settlement account holders</option>';
+    renderSellerSettlementAccountOptions();
+  };
+
   const renderSellerSettlementAccountOptions = () => {
-    const sellerId = $('#adminSettlementSeller')?.value || '';
-    const approved = state.sellerSettlementAccounts.filter((account) => account.seller_id === sellerId && account.status === 'approved');
+    const type = $('#adminSettlementPartnerType')?.value || 'seller';
+    const partnerId = $('#adminSettlementSeller')?.value || '';
+    const approved = settlementAccountsForType(type).filter((account) =>
+      settlementPartnerId(account,type) === partnerId && account.status === 'approved'
+    );
     $('#adminSettlementAccount').innerHTML = approved.length
       ? '<option value="">Choose approved account…</option>' + approved.map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.account_name)} — ${escapeHtml(settlementDestination(account))}${account.is_primary ? ' (Primary)' : ''}</option>`).join('')
       : '<option value="">No approved settlement account</option>';
@@ -4009,14 +4037,7 @@
     $('#adminSettlementTotal').textContent = formatMoney(partnerSettlements.filter((item) => item.status === 'paid').reduce((sum, item) => sum + Number(item.amount_kes || 0), 0));
     $('#sidebarSettlementCount').textContent = pending + pendingRequests;
 
-    const approvedSellerIds = [...new Set(state.sellerSettlementAccounts.filter((account) => account.status === 'approved').map((account) => account.seller_id))];
-    const currentSeller = $('#adminSettlementSeller')?.value || '';
-    $('#adminSettlementSeller').innerHTML = '<option value="">Choose approved Seller…</option>' + approvedSellerIds.map((sellerId) => {
-      const account = state.sellerSettlementAccounts.find((item) => item.seller_id === sellerId);
-      const seller = state.sellers.find((item) => item.user_id === sellerId);
-      return `<option value="${escapeHtml(sellerId)}" ${sellerId === currentSeller ? 'selected' : ''}>${escapeHtml(seller?.business_name || account?.seller_name || 'Seller')} — ${escapeHtml(seller?.owner_name || account?.seller_email || '')}</option>`;
-    }).join('');
-    renderSellerSettlementAccountOptions();
+    renderManualSettlementPartners($('#adminSettlementSeller')?.value || '');
 
     $('#sellerSettlementRequestTableBody').innerHTML = partnerRequests.length ? partnerRequests.map((request) => {
       const accounts=request.partner_type==='seller'?state.sellerSettlementAccounts:request.partner_type==='transport'?state.transportSettlementAccounts:state.providerSettlementAccounts;
@@ -4049,7 +4070,7 @@
         <td class="settlement-admin-actions">
           ${canReview ? '<button data-settlement-review="approve" data-settlement-kind="'+escapeHtml(account.partner_type)+'" data-settlement-account="'+escapeHtml(account.id)+'">Approve</button><button class="danger" data-settlement-review="reject" data-settlement-kind="'+escapeHtml(account.partner_type)+'" data-settlement-account="'+escapeHtml(account.id)+'">Reject</button>' : ''}
           ${canDisable ? '<button class="danger" data-settlement-review="disable" data-settlement-kind="'+escapeHtml(account.partner_type)+'" data-settlement-account="'+escapeHtml(account.id)+'">Disable</button>' : ''}
-          ${canDisable && isSeller ? '<button data-settle-seller="'+escapeHtml(account.seller_id)+'" data-settle-account="'+escapeHtml(account.id)+'">Settle</button>' : ''}
+          ${canDisable ? '<button data-settle-partner="'+escapeHtml(account.partner_id)+'" data-settle-partner-type="'+escapeHtml(account.partner_type)+'" data-settle-account="'+escapeHtml(account.id)+'">Settle</button>' : ''}
         </td>
       </tr>`;
     }).join('') : '<tr><td colspan="6">No Partner settlement accounts yet.</td></tr>';
@@ -4119,9 +4140,11 @@
         globalStatus(decision==='approve'?'Settlement account approved.':decision==='reject'?'Settlement account rejected.':'Settlement account disabled.');
       });
     }));
-    $$('[data-settle-seller]').forEach((button) => button.addEventListener('click', () => {
+    $('[data-settle-partner]').forEach((button) => button.addEventListener('click', () => {
       changeView('settlements');
-      $('#adminSettlementSeller').value = button.dataset.settleSeller;
+      $('#adminSettlementPartnerType').value = button.dataset.settlePartnerType || 'seller';
+      renderManualSettlementPartners(button.dataset.settlePartner);
+      $('#adminSettlementSeller').value = button.dataset.settlePartner;
       renderSellerSettlementAccountOptions();
       $('#adminSettlementAccount').value = button.dataset.settleAccount;
       $('#adminSettlementAmount').focus();
@@ -4130,26 +4153,35 @@
   };
   const recordSellerSettlement = async (event) => {
     event.preventDefault();
-    const sellerId = $('#adminSettlementSeller').value;
+    const partnerType = $('#adminSettlementPartnerType').value;
+    const partnerId = $('#adminSettlementSeller').value;
     const accountId = $('#adminSettlementAccount').value;
     const amount = Number($('#adminSettlementAmount').value);
     const reference = $('#adminSettlementReference').value.trim();
-    if (!sellerId || !accountId || !amount || amount <= 0 || reference.length < 3) {
-      setFormStatus($('#adminSettlementStatus'),'Choose a Seller, approved settlement account, amount and payment reference.','error');
+    const label = partnerType === 'seller' ? 'Seller' : partnerType === 'service_provider' ? 'Service Provider' : 'Transport Provider';
+    if (!partnerId || !accountId || !amount || amount <= 0 || reference.length < 3) {
+      setFormStatus($('#adminSettlementStatus'),'Choose a Partner, approved settlement account, amount and payment reference.','error');
       return;
     }
-    if (!window.confirm(`Confirm that KSh ${amount.toLocaleString('en-KE')} has been sent to this approved Seller settlement account?`)) return;
+    if (!window.confirm(`Confirm that KSh ${amount.toLocaleString('en-KE')} has already been sent to this approved ${label} settlement account? This does not require a Partner payout request.`)) return;
     const button = $('#adminSellerSettlementForm button[type="submit"]');
     await withButtonLock(button,'Recording…',async()=>{
-      const {error}=await db.rpc('admin_record_seller_settlement',{
-        p_seller_id:sellerId,p_account_id:accountId,p_amount_kes:amount,p_reference:reference,
-        p_notes:$('#adminSettlementNotes').value.trim()||null
-      });
+      const rpcName = partnerType === 'seller'
+        ? 'admin_record_seller_settlement'
+        : partnerType === 'service_provider'
+          ? 'admin_record_service_provider_settlement'
+          : 'admin_record_transport_provider_settlement';
+      const args = partnerType === 'seller'
+        ? {p_seller_id:partnerId,p_account_id:accountId,p_amount_kes:amount,p_reference:reference,p_notes:$('#adminSettlementNotes').value.trim()||null}
+        : {p_provider_id:partnerId,p_account_id:accountId,p_amount_kes:amount,p_reference:reference,p_notes:$('#adminSettlementNotes').value.trim()||null};
+      const {error}=await db.rpc(rpcName,args);
       if(error){setFormStatus($('#adminSettlementStatus'),friendlyError(error),'error');return;}
       event.target.reset();
-      setFormStatus($('#adminSettlementStatus'),'Settlement recorded successfully and the Seller has been notified.','success');
+      $('#adminSettlementPartnerType').value=partnerType;
+      renderManualSettlementPartners();
+      setFormStatus($('#adminSettlementStatus'),'Settlement recorded successfully. The '+label+' has been notified.','success');
       await Promise.all([loadSellerSettlements(),loadAuditLog()]);
-      globalStatus('Seller settlement recorded.');
+      globalStatus(label+' settlement recorded.');
     });
   };
 
@@ -4617,6 +4649,7 @@
     $('#adminServiceReviewStatusFilter')?.addEventListener('change',renderServiceReviews);
     $('#refreshServiceReviews')?.addEventListener('click',()=>withButtonLock($('#refreshServiceReviews'),'Refreshing…',loadServiceReviews));
     $('#refreshSellerSettlements').addEventListener('click', () => withButtonLock($('#refreshSellerSettlements'), 'Refreshing…', loadSellerSettlements));
+    $('#adminSettlementPartnerType').addEventListener('change',()=>renderManualSettlementPartners());
     $('#adminSettlementSeller').addEventListener('change', renderSellerSettlementAccountOptions);
     $('#adminSellerSettlementForm').addEventListener('submit', recordSellerSettlement);
     $('#addServiceCountyForm').addEventListener('submit', async (event) => {
