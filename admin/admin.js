@@ -3288,9 +3288,46 @@
     renderPickupStations();
   };
   const renderPickupStations = () => {
-    $('#pickupStationList').innerHTML = state.pickupStations.length ? state.pickupStations.map((station) => `<article class="station-card"><header><div><h3>${escapeHtml(station.station_name)}</h3><span class="status-chip">${station.is_active ? 'Active' : 'Inactive'}</span></div><strong>${Number(station.service_fee_percent || 0)}%</strong></header><p>${escapeHtml(station.address_line)}${station.door_number ? `, Door ${escapeHtml(station.door_number)}` : ''}<br>${escapeHtml([station.town, station.sub_county, station.county].filter(Boolean).join(' · '))}<br>${escapeHtml(station.landmark || '')}${station.contact_phone ? `<br>☎ ${escapeHtml(station.contact_phone)}` : ''}${station.operating_hours ? `<br>◷ ${escapeHtml(station.operating_hours)}` : ''}</p><div class="card-actions"><button data-edit-station="${station.id}">Edit Station</button></div></article>`).join('') : '<div class="loading-card">No pickup stations configured.</div>';
+    $('#pickupStationList').innerHTML = state.pickupStations.length ? state.pickupStations.map((station) => `<article class="station-card"><header><div><h3>${escapeHtml(station.station_name)}</h3><span class="status-chip">${station.is_active ? 'Active' : 'Inactive'}</span></div><strong>${Number(station.service_fee_percent || 0)}%</strong></header><p>${escapeHtml(station.address_line)}${station.door_number ? `, Door ${escapeHtml(station.door_number)}` : ''}<br>${escapeHtml([station.town, station.sub_county, station.county].filter(Boolean).join(' · '))}<br>${escapeHtml(station.landmark || '')}${station.contact_phone ? `<br>☎ ${escapeHtml(station.contact_phone)}` : ''}${station.operating_hours ? `<br>◷ ${escapeHtml(station.operating_hours)}` : ''}${station.latitude!=null&&station.longitude!=null?`<br>📍 ${escapeHtml(station.latitude)}, ${escapeHtml(station.longitude)}`:''}${station.map_link?`<br><a href="${escapeHtml(station.map_link)}" target="_blank" rel="noopener noreferrer">Open location ↗</a>`:''}</p><div class="card-actions"><button data-edit-station="${station.id}">Edit Station</button></div></article>`).join('') : '<div class="loading-card">No pickup stations configured.</div>';
     $$('[data-edit-station]').forEach((button) => button.addEventListener('click', () => openPickupModal(button.dataset.editStation)));
   };
+  const pickupStationCoordinatesFromText=(value='')=>{
+    const text=String(value||'').trim();
+    const direct=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+    if(direct)return {lat:Number(direct[1]),lng:Number(direct[2])};
+    const maps=text.match(/(?:@|q=|query=)(-?\d{1,2}(?:\.\d+)?)[,%2C\s]+(-?\d{1,3}(?:\.\d+)?)/i);
+    return maps?{lat:Number(maps[1]),lng:Number(maps[2])}:null;
+  };
+  const setPickupStationCoordinates=(lat,lng,label='Pickup Station pinned')=>{
+    const latitude=Number(lat),longitude=Number(lng),target=$('#pickupStationPinStatus');
+    if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+      if(target){target.textContent='Invalid Pickup Station coordinates.';target.className='form-status error';}
+      return false;
+    }
+    $('#pickupStationLatitude').value=latitude.toFixed(7);
+    $('#pickupStationLongitude').value=longitude.toFixed(7);
+    if(!$('#pickupStationMapLink').value.trim())$('#pickupStationMapLink').value='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
+    if(target){target.textContent='✓ '+label+': '+latitude.toFixed(7)+', '+longitude.toFixed(7);target.className='form-status success';}
+    return true;
+  };
+  $('#pinPickupStationLocation')?.addEventListener('click',()=>{
+    const target=$('#pickupStationPinStatus');
+    if(!navigator.geolocation){
+      if(target){target.textContent='This browser cannot access location. Paste a Maps link or enter coordinates.';target.className='form-status error';}
+      return;
+    }
+    if(target){target.textContent='Getting Pickup Station location…';target.className='form-status';}
+    navigator.geolocation.getCurrentPosition((position)=>{
+      setPickupStationCoordinates(position.coords.latitude,position.coords.longitude,'Pickup Station pinned');
+    },(error)=>{
+      if(target){target.textContent=error.code===1?'Location permission was not granted. Paste a Maps link or coordinates instead.':'Pickup Station location could not be detected.';target.className='form-status error';}
+    },{enableHighAccuracy:true,timeout:15000,maximumAge:15000});
+  });
+  $('#pickupStationMapLink')?.addEventListener('change',(event)=>{
+    const coords=pickupStationCoordinatesFromText(event.currentTarget.value);
+    if(coords)setPickupStationCoordinates(coords.lat,coords.lng,'Coordinates detected from shared location');
+  });
+
   const openPickupModal = (id = '') => {
     const form = $('#pickupStationForm');
     form.reset();
@@ -3302,6 +3339,7 @@
     });
     form.elements.id.value = id;
     $('#pickupModalTitle').textContent = station ? 'Edit Pickup Station' : 'Add Pickup Station';
+    const pinStatus=$('#pickupStationPinStatus');if(pinStatus){pinStatus.textContent=station?.latitude!=null&&station?.longitude!=null?'✓ Pickup Station pinned: '+station.latitude+', '+station.longitude:'Pickup Station location not pinned yet.';pinStatus.className=station?.latitude!=null&&station?.longitude!=null?'form-status success':'form-status';}
     setFormStatus($('#pickupStationStatus'));
     $('#pickupStationModal').hidden = false;
   };
@@ -3313,6 +3351,9 @@
       const id = values.id || null;
       delete values.id;
       values.is_active = event.currentTarget.elements.is_active.checked;
+      const latitude=Number(values.latitude),longitude=Number(values.longitude);
+      if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){setFormStatus($('#pickupStationStatus'),'Pin the Pickup Station location and confirm valid latitude and longitude before saving.','error');return;}
+      values.latitude=latitude;values.longitude=longitude;
       const { error } = await db.rpc('admin_save_pickup_station', { p_station_id: id, p_station: values });
       if (error) { setFormStatus($('#pickupStationStatus'), friendlyError(error), 'error'); return; }
       closeModals();
