@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=transport-sidebar-fix-1">
+  <link rel="stylesheet" href="partner.css?v=password-recovery-8">
 <style>
 .transport-priority-nav{order:-1}.transport-application-progress{display:grid;gap:14px}.transport-progress-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.transport-progress-steps span{border:1px solid #dce3ed;border-radius:12px;padding:12px;display:grid;gap:3px;background:#f8fafc}.transport-progress-steps span i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e8edf4;font-style:normal;font-weight:900}.transport-progress-steps span.done i{background:#071a3a;color:#fff}.transport-progress-steps span.current{border-color:#ff7200;background:#fff8f2}.transport-progress-steps span.current i{background:#ff7200;color:#fff}.transport-progress-steps span.alert{border-color:#c98724;background:#fff9ec}.transport-progress-steps span.alert i{background:#c98724;color:#fff}.seller-icon-button{position:relative}.seller-icon-button #transportHeaderNotificationBadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:999px;background:#ff7200;color:#fff;font-size:10px;display:grid;place-items:center;padding:0 4px}.seller-icon-button #transportHeaderNotificationBadge[hidden]{display:none}.transport-view-lock-note{padding:12px;border-radius:10px;background:#fff8f2;color:#7a4108;font-weight:700}@media(max-width:700px){.transport-progress-steps{grid-template-columns:1fr}}
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
@@ -54,9 +54,10 @@
       <button id="showPartnerResetPassword" class="link-button" type="button">Forgot password?</button>
     </form>
     <form id="partnerResetRequestForm" class="auth-form" hidden>
-      <div class="reset-heading"><strong>Reset your password</strong><small>Enter the email you used to create your LEOGO account. We will send a secure reset link.</small></div>
+      <div class="reset-heading"><strong>Reset your password</strong><small>Enter the email you used to create your LEOGO account. We will send one secure reset link.</small></div>
+      <div class="reset-link-warning">Use only the newest LEOGO password-reset email. Requesting another reset link makes earlier links unusable, and some email apps may group older reset emails in the same conversation.</div>
       <label>Email<input id="partnerResetEmail" type="email" autocomplete="email" required></label>
-      <div class="reset-actions"><button id="cancelPartnerReset" class="secondary" type="button">Back to Sign In</button><button type="submit">Send Reset Link</button></div>
+      <div class="reset-actions"><button id="cancelPartnerReset" class="secondary" type="button">Back to Sign In</button><button id="sendPartnerResetLink" type="submit">Send Reset Link</button></div>
     </form>
     <form id="partnerResetUpdateForm" class="auth-form" hidden>
       <div class="reset-heading"><strong>Create a new password</strong><small>Use at least 8 characters.</small></div>
@@ -956,5 +957,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=password-recovery-session-2" defer></script>
+<script src="partner.js?v=password-recovery-8" defer></script>
 </body></html>
