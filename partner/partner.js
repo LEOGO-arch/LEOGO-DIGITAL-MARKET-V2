@@ -218,11 +218,17 @@ $('#cancelPartnerReset').addEventListener('click',()=>{resetRequestForm.classLis
 const PARTNER_RESET_COOLDOWN_MS=120000;
 const PARTNER_RESET_SENT_KEY='leogo_partner_reset_sent_at';
 let partnerResetCountdownTimer=null;
+const readPartnerResetSentAt=()=>{
+  try{return Number(localStorage.getItem(PARTNER_RESET_SENT_KEY)||0);}catch(_error){return 0;}
+};
+const writePartnerResetSentAt=(value)=>{
+  try{localStorage.setItem(PARTNER_RESET_SENT_KEY,String(value));}catch(_error){}
+};
 
 function updatePartnerResetCooldown(){
   const button=$('#sendPartnerResetLink');
   if(!button)return;
-  const sentAt=Number(localStorage.getItem(PARTNER_RESET_SENT_KEY)||0);
+  const sentAt=readPartnerResetSentAt();
   const remaining=Math.max(0,PARTNER_RESET_COOLDOWN_MS-(Date.now()-sentAt));
   if(remaining<=0){
     button.disabled=false;
@@ -240,7 +246,7 @@ function updatePartnerResetCooldown(){
 resetRequestForm.addEventListener('submit',async e=>{
   e.preventDefault();
   if(!resetRequestForm.reportValidity())return;
-  const sentAt=Number(localStorage.getItem(PARTNER_RESET_SENT_KEY)||0);
+  const sentAt=readPartnerResetSentAt();
   if(Date.now()-sentAt<PARTNER_RESET_COOLDOWN_MS){
     updatePartnerResetCooldown();
     status($('#partnerAuthStatus'),'A reset email was already sent recently. Open the newest LEOGO reset email instead of requesting another link.','error');
@@ -256,7 +262,7 @@ resetRequestForm.addEventListener('submit',async e=>{
     status($('#partnerAuthStatus'),error.message,'error');
     return;
   }
-  localStorage.setItem(PARTNER_RESET_SENT_KEY,String(Date.now()));
+  writePartnerResetSentAt(Date.now());
   updatePartnerResetCooldown();
   status($('#partnerAuthStatus'),'Password reset link sent. Open the newest LEOGO reset email only. Earlier reset emails are no longer valid.','success');
 });
