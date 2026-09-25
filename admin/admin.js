@@ -691,7 +691,22 @@
     const mediaKeys = new Set(Object.keys(approvalMediaFields));
     const hiddenKeys = new Set(['id', 'user_id', 'withdrawal_pin_hash', ...mediaKeys]);
     const detailRows = Object.entries(item.payload || {}).filter(([key, value]) => !hiddenKeys.has(key) && value !== null && value !== '' && typeof value !== 'object');
-    $('#reviewDetails').innerHTML = detailRows.map(([key, value]) => `<div><small>${escapeHtml(key.replaceAll('_', ' '))}</small><b>${escapeHtml(typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value)}</b></div>`).join('');
+    const safeAdminLocationLink=(value)=>{
+      try{
+        const url=new URL(String(value||'').trim());
+        if(!['http:','https:'].includes(url.protocol))return '';
+        return url.href;
+      }catch(_error){return '';}
+    };
+    $('#reviewDetails').innerHTML = detailRows.map(([key, value]) => {
+      const label=escapeHtml(key.replaceAll('_', ' '));
+      const display=typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value;
+      if(['base_map_link','shop_map_link','waiting_point_map_link','map_link'].includes(key)){
+        const href=safeAdminLocationLink(value);
+        return `<div><small>${label}</small>${href?`<a class="admin-location-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">📍 Open pinned location in Google Maps ↗</a>`:`<b>${escapeHtml(display)}</b>`}</div>`;
+      }
+      return `<div><small>${label}</small><b>${escapeHtml(display)}</b></div>`;
+    }).join('');
     $('#reviewNotes').value = '';
     setFormStatus($('#reviewStatus'));
     const underReview = $('[data-review-action="under_review"]');
