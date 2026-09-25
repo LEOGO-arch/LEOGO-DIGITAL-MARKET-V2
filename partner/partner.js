@@ -407,6 +407,7 @@ function renderSellerSummary(){
   const fields=[
     ['Business',seller.business_name],['Owner',seller.owner_name],['ID Number',seller.id_number],['Phone',seller.phone],
     ['County',seller.county],['Sub-County',seller.sub_county||'—'],['Town',seller.town],['Location',seller.location_details],
+    ['Shop Coordinates',(seller.shop_latitude!=null&&seller.shop_longitude!=null)?(seller.shop_latitude+', '+seller.shop_longitude):'Not pinned'],['Shop Map Link',seller.shop_map_link||'—'],
     ['Business Description',seller.business_description||'—'],['Admin correction / review note',seller.admin_notes||'—'],['Business ID Document',seller.business_id_document_path?'Uploaded':'Missing'],['Business Licence',seller.business_licence_path?'Uploaded':'Not provided'],['CR12 / Registration Certificate',seller.registration_certificate_path?'Uploaded':'Not provided'],['Other Permits',(seller.other_permit_paths||[]).length+' file(s)']
   ];
   $('#sellerRegistrationSummary').innerHTML='<div class="section-title compact"><span>REGISTRATION DETAILS</span><h3>Your submitted Seller information</h3></div><div class="summary-grid">'+fields.map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('')+'</div>';
@@ -490,6 +491,11 @@ function renderSeller(){
     renderSellerSubcounties(seller.sub_county_code||'');
     $('#sellerTown').value=seller.town||'';
     $('#sellerLocation').value=seller.location_details||'';
+    $('#sellerShopLatitude').value=seller.shop_latitude??'';
+    $('#sellerShopLongitude').value=seller.shop_longitude??'';
+    $('#sellerShopMapLink').value=seller.shop_map_link||'';
+    const sellerPinStatus=$('#sellerShopPinStatus');
+    if(sellerPinStatus){sellerPinStatus.textContent=(seller.shop_latitude!=null&&seller.shop_longitude!=null)?'✓ Shop location pinned: '+seller.shop_latitude+', '+seller.shop_longitude:'Shop location not pinned yet.';}
     $('#sellerDescription').value=seller.business_description||'';
 
     if(['changes_requested','rejected'].includes(state)){
@@ -796,11 +802,58 @@ $('#sellerSettlementRequestForm').addEventListener('submit',async e=>{
   finally{button.disabled=false;button.textContent=original;}
 });
 
+function sellerCoordinatesFromSharedLocation(value=''){
+  const text=String(value||'').trim();
+  const direct=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+  if(direct)return {lat:Number(direct[1]),lng:Number(direct[2])};
+  const maps=text.match(/(?:@|q=|query=)(-?\d{1,2}(?:\.\d+)?)[,%2C\s]+(-?\d{1,3}(?:\.\d+)?)/i);
+  if(maps)return {lat:Number(maps[1]),lng:Number(maps[2])};
+  return null;
+}
+function setSellerShopCoordinates(lat,lng,{source='Shop location pinned'}={}){
+  const latitude=Number(lat),longitude=Number(lng);
+  const target=$('#sellerShopPinStatus');
+  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+    if(target){target.textContent='Invalid shop coordinates. Pin the shop again or enter valid coordinates.';target.className='status error';}
+    return false;
+  }
+  $('#sellerShopLatitude').value=latitude.toFixed(7);
+  $('#sellerShopLongitude').value=longitude.toFixed(7);
+  if(!$('#sellerShopMapLink').value.trim())$('#sellerShopMapLink').value='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
+  if(target){target.textContent='✓ '+source+': '+latitude.toFixed(7)+', '+longitude.toFixed(7);target.className='status success';}
+  return true;
+}
+$('#pinSellerShopLocation')?.addEventListener('click',()=>{
+  const target=$('#sellerShopPinStatus');
+  if(!navigator.geolocation){
+    if(target){target.textContent='This browser cannot access location. Paste a Google Maps/shared-location link or enter the shop coordinates.';target.className='status error';}
+    return;
+  }
+  if(target){target.textContent='Getting the shop location…';target.className='status';}
+  navigator.geolocation.getCurrentPosition((position)=>{
+    setSellerShopCoordinates(position.coords.latitude,position.coords.longitude,{source:'Shop pinned'});
+  },(error)=>{
+    if(target){
+      target.textContent=error.code===1
+        ? 'Location permission was not granted. Allow location access while at the shop, or paste a Maps link/coordinates.'
+        : 'The shop location could not be detected. Try again at the shop or paste a Maps link/coordinates.';
+      target.className='status error';
+    }
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:15000});
+});
+$('#sellerShopMapLink')?.addEventListener('change',(event)=>{
+  const coords=sellerCoordinatesFromSharedLocation(event.currentTarget.value);
+  if(coords)setSellerShopCoordinates(coords.lat,coords.lng,{source:'Coordinates detected from shared location'});
+});
+
 $('#showSellerRegistration').addEventListener('click',()=>{sellerOnboarding.hidden=true;sellerReg.hidden=false;sellerReg.scrollIntoView({behavior:'smooth'});});
 
 sellerReg.addEventListener('submit',async e=>{
   e.preventDefault();const phone=normalisePhone($('#sellerPhone').value);
   if(!/^\+254[17]\d{8}$/.test(phone)){status($('#sellerRegistrationStatus'),'Enter a valid Kenyan phone number.','error');return;}
+  const shopLatitude=Number($('#sellerShopLatitude').value);
+  const shopLongitude=Number($('#sellerShopLongitude').value);
+  if(!Number.isFinite(shopLatitude)||shopLatitude<-90||shopLatitude>90||!Number.isFinite(shopLongitude)||shopLongitude<-180||shopLongitude>180){status($('#sellerRegistrationStatus'),'Pin the exact shop location and confirm valid latitude and longitude before submitting.','error');return;}
   status($('#sellerRegistrationStatus'),'Uploading business documents…');
   try{
     const businessIdFile=$('#sellerBusinessIdDocument').files[0];
@@ -824,7 +877,10 @@ sellerReg.addEventListener('submit',async e=>{
     p_business_id_document_path:businessIdPath,
     p_business_licence_path:businessLicencePath,
     p_registration_certificate_path:registrationCertificatePath,
-    p_other_permit_paths:otherPermitPaths
+    p_other_permit_paths:otherPermitPaths,
+    p_shop_latitude:shopLatitude,
+    p_shop_longitude:shopLongitude,
+    p_shop_map_link:$('#sellerShopMapLink').value.trim()||null
   });
     if(error)throw error;
   }catch(error){status($('#sellerRegistrationStatus'),error.message||'Seller application could not be submitted.','error');return;}
