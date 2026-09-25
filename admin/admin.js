@@ -482,12 +482,12 @@
         ? `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.customer_name||'Customer')} · ${escapeHtml(item.pickup_location||'Pickup')} → ${escapeHtml(item.destination_location||'Destination')} · ${formatDate(item.created_at,true)}</small></div><button data-dashboard-transport-request="${escapeHtml(item.id)}">Assign →</button></div>`
         : `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.applicant_name)} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-review="${escapeHtml(item.record_id)}" data-dashboard-kind="${escapeHtml(item.kind)}">Review →</button></div>`
     ).join(''):'<div class="empty-mini">No urgent action required.</div>';
-    $('[data-dashboard-review]',compact).forEach((button)=>button.addEventListener('click',()=>openApproval(button.dataset.dashboardKind,button.dataset.dashboardReview)));
-    $('[data-dashboard-payment-view]',compact).forEach((button)=>button.addEventListener('click',()=>{
+    Array.from(compact.querySelectorAll('[data-dashboard-review]')).forEach((button)=>button.addEventListener('click',()=>openApproval(button.dataset.dashboardKind,button.dataset.dashboardReview)));
+    Array.from(compact.querySelectorAll('[data-dashboard-payment-view]')).forEach((button)=>button.addEventListener('click',()=>{
       changeView(button.dataset.dashboardPaymentView);
       if(button.dataset.dashboardPaymentView==='premium')changePremiumAdminTab(button.dataset.dashboardPaymentTab||'subscriptions');
     }));
-    $('[data-dashboard-transport-request]',compact).forEach((button)=>button.addEventListener('click',()=>{
+    Array.from(compact.querySelectorAll('[data-dashboard-transport-request]')).forEach((button)=>button.addEventListener('click',()=>{
       activeTransportSection='jobs';
       changeView('transport');
       changeTransportSection('jobs');
