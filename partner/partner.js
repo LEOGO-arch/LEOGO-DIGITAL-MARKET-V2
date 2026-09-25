@@ -497,6 +497,7 @@ function renderSeller(){
     const sellerPinStatus=$('#sellerShopPinStatus');
     if(sellerPinStatus){sellerPinStatus.textContent=(seller.shop_latitude!=null&&seller.shop_longitude!=null)?'✓ Shop location pinned: '+seller.shop_latitude+', '+seller.shop_longitude:'Shop location not pinned yet.';}
     $('#sellerDescription').value=seller.business_description||'';
+    $('#sellerBusinessIdDocument').required=!seller.business_id_document_path;
 
     if(['changes_requested','rejected'].includes(state)){
       const editButton=document.createElement('button');
@@ -516,6 +517,14 @@ function renderSeller(){
   }
 }
 $('#sellerProfileButton').addEventListener('click',()=>{if(seller)openSellerView('profile');});
+$('#editApprovedSellerProfile')?.addEventListener('click',()=>{
+  if(!seller||seller.application_status!=='approved')return;
+  $('#sellerBusinessIdDocument').required=!seller.business_id_document_path;
+  status($('#sellerProfileEditStatus'),'Edit the fields you want to change. Your current approved profile stays active until Admin approves the changes.');
+  sellerReg.hidden=false;
+  openSellerView('profile');
+  sellerReg.scrollIntoView({behavior:'smooth',block:'start'});
+});
 $('#sellerNotificationsButton').addEventListener('click',()=>{if(seller)openSellerView('notifications');});
 $('#markAllSellerNotificationsRead').addEventListener('click',async()=>{
   const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'seller'});
@@ -857,38 +866,55 @@ sellerReg.addEventListener('submit',async e=>{
   status($('#sellerRegistrationStatus'),'Uploading business documents…');
   try{
     const businessIdFile=$('#sellerBusinessIdDocument').files[0];
-    if(!businessIdFile)throw new Error('Business ID / identification document is required.');
+    const existingBusinessId=seller?.business_id_document_path||null;
+    if(!businessIdFile&&!existingBusinessId)throw new Error('Business ID / identification document is required.');
     const otherFiles=[...$('#sellerOtherPermits').files];
     if(otherFiles.length>4)throw new Error('Choose a maximum of 4 other permit files.');
     const [businessIdPath,businessLicencePath,registrationCertificatePath,otherPermitPaths]=await Promise.all([
-      uploadSellerVerification(businessIdFile,'business-id'),
-      uploadSellerVerification($('#sellerBusinessLicence').files[0],'business-licence'),
-      uploadSellerVerification($('#sellerRegistrationCertificate').files[0],'registration-certificate'),
-      Promise.all(otherFiles.map((file,index)=>uploadSellerVerification(file,'permit-'+index)))
+      businessIdFile?uploadSellerVerification(businessIdFile,'business-id'):Promise.resolve(existingBusinessId),
+      $('#sellerBusinessLicence').files[0]?uploadSellerVerification($('#sellerBusinessLicence').files[0],'business-licence'):Promise.resolve(seller?.business_licence_path||null),
+      $('#sellerRegistrationCertificate').files[0]?uploadSellerVerification($('#sellerRegistrationCertificate').files[0],'registration-certificate'):Promise.resolve(seller?.registration_certificate_path||null),
+      otherFiles.length?Promise.all(otherFiles.map((file,index)=>uploadSellerVerification(file,'permit-'+index))):Promise.resolve(seller?.other_permit_paths||[])
     ]);
-    status($('#sellerRegistrationStatus'),'Submitting seller application…');
-    const {error}=await client.rpc('submit_seller_application',{
-    p_business_name:$('#sellerBusinessName').value.trim(),p_owner_name:$('#sellerOwnerName').value.trim(),
-    p_id_number:$('#sellerIdNumber').value.trim(),p_phone:phone,
-    p_county:$('#sellerCounty').selectedOptions[0]?.textContent||'',p_sub_county:$('#sellerSubCounty').selectedOptions[0]?.textContent||'',
-    p_town:$('#sellerTown').value.trim(),p_location_details:$('#sellerLocation').value.trim(),
-    p_business_description:$('#sellerDescription').value.trim()||null,
-    p_county_code:$('#sellerCounty').value,p_sub_county_code:$('#sellerSubCounty').value,
-    p_business_id_document_path:businessIdPath,
-    p_business_licence_path:businessLicencePath,
-    p_registration_certificate_path:registrationCertificatePath,
-    p_other_permit_paths:otherPermitPaths,
-    p_shop_latitude:shopLatitude,
-    p_shop_longitude:shopLongitude,
-    p_shop_map_link:$('#sellerShopMapLink').value.trim()||null
-  });
+    const sellerProfilePayload={
+      business_name:$('#sellerBusinessName').value.trim(),owner_name:$('#sellerOwnerName').value.trim(),
+      id_number:$('#sellerIdNumber').value.trim(),phone,
+      county_code:$('#sellerCounty').value,sub_county_code:$('#sellerSubCounty').value,
+      town:$('#sellerTown').value.trim(),location_details:$('#sellerLocation').value.trim(),
+      business_description:$('#sellerDescription').value.trim()||null,
+      business_id_document_path:businessIdPath,business_licence_path:businessLicencePath,
+      registration_certificate_path:registrationCertificatePath,other_permit_paths:otherPermitPaths,
+      shop_latitude:shopLatitude,shop_longitude:shopLongitude,shop_map_link:$('#sellerShopMapLink').value.trim()||null
+    };
+    status($('#sellerRegistrationStatus'),seller?.application_status==='approved'?'Sending profile changes to LEOGO Admin…':'Submitting seller application…');
+    const {error}=seller?.application_status==='approved'
+      ? await client.rpc('partner_submit_profile_change',{p_partner_type:'seller',p_payload:sellerProfilePayload})
+      : await client.rpc('submit_seller_application',{
+          p_business_name:sellerProfilePayload.business_name,p_owner_name:sellerProfilePayload.owner_name,
+          p_id_number:sellerProfilePayload.id_number,p_phone:phone,
+          p_county:$('#sellerCounty').selectedOptions[0]?.textContent||'',p_sub_county:$('#sellerSubCounty').selectedOptions[0]?.textContent||'',
+          p_town:sellerProfilePayload.town,p_location_details:sellerProfilePayload.location_details,
+          p_business_description:sellerProfilePayload.business_description,
+          p_county_code:sellerProfilePayload.county_code,p_sub_county_code:sellerProfilePayload.sub_county_code,
+          p_business_id_document_path:businessIdPath,p_business_licence_path:businessLicencePath,
+          p_registration_certificate_path:registrationCertificatePath,p_other_permit_paths:otherPermitPaths,
+          p_shop_latitude:shopLatitude,p_shop_longitude:shopLongitude,p_shop_map_link:sellerProfilePayload.shop_map_link
+        });
     if(error)throw error;
   }catch(error){status($('#sellerRegistrationStatus'),error.message||'Seller application could not be submitted.','error');return;}
-  status($('#sellerRegistrationStatus'),'Seller application submitted to LEOGO Admin for approval.','success');
-  await loadSeller();
-  sellerReg.hidden=true;
-  sellerDashboard.hidden=false;
-  sellerDashboard.scrollIntoView({behavior:'smooth'});
+  if(seller?.application_status==='approved'){
+    status($('#sellerRegistrationStatus'),'Profile changes sent to LEOGO Admin. Your current approved Seller profile remains active until approval.','success');
+    status($('#sellerProfileEditStatus'),'Profile changes are awaiting Admin approval. Your current approved profile is still active.','success');
+    sellerReg.hidden=true;
+    openSellerView('profile');
+    await loadPartnerNotifications().catch(()=>{});
+  }else{
+    status($('#sellerRegistrationStatus'),'Seller application submitted to LEOGO Admin for approval.','success');
+    await loadSeller();
+    sellerReg.hidden=true;
+    sellerDashboard.hidden=false;
+    sellerDashboard.scrollIntoView({behavior:'smooth'});
+  }
 });
 
 
@@ -1954,6 +1980,11 @@ function openProviderRegistration(editExisting=false){
 $('#retryProviderBoot')?.addEventListener('click',()=>openProviderRole());
 $('#showProviderRegistration')?.addEventListener('click',()=>openProviderRegistration(false));
 $('#editProviderApplication')?.addEventListener('click',()=>openProviderRegistration(true));
+$('#editApprovedProviderProfile')?.addEventListener('click',()=>{
+  if(!provider||provider.application_status!=='approved')return;
+  status($('#providerProfileEditStatus'),'Edit your profile and submit it. Your current approved profile stays active while Admin reviews the changes.');
+  openProviderRegistration(true);
+});
 $('#cancelProviderRegistration')?.addEventListener('click',()=>provider?renderProvider():openProviderRole());
 $('#providerPendingBack')?.addEventListener('click',showRolePicker);
 $('#providerBackToPartnerships')?.addEventListener('click',showRolePicker);
@@ -1981,28 +2012,47 @@ providerReg?.addEventListener('submit',async(event)=>{
       $('#providerProfilePictureInitial').files[0]?uploadProviderPublicPhoto($('#providerProfilePictureInitial').files[0]):Promise.resolve(provider?.profile_picture_path||null),
       $('#providerPassportPhotoInitial').files[0]?uploadProviderPassportPhoto($('#providerPassportPhotoInitial').files[0]):Promise.resolve(provider?.passport_photo_path||null)
     ]);
-    status($('#providerRegistrationStatus'),'Sending application to LEOGO Admin…');
-    const {error}=await client.rpc('submit_service_provider_application',{
-      p_business_name:$('#providerBusinessName').value.trim(),p_owner_name:$('#providerOwnerName').value.trim(),
-      p_id_number:$('#providerIdNumber').value.trim(),p_phone:phone,p_primary_service:$('#providerPrimaryService').value.trim(),
-      p_service_category:$('#providerServiceCategory').value.trim()||null,
-      p_experience_years:$('#providerExperienceYears').value===''?null:Number($('#providerExperienceYears').value),
-      p_county_code:$('#providerCounty').value,p_sub_county_code:$('#providerSubCounty').value,p_town:$('#providerTown').value.trim(),
-      p_location_details:$('#providerLocation').value.trim(),p_business_description:$('#providerDescription').value.trim()||null,
-      p_service_area_notes:$('#providerServiceAreaNotes').value.trim()||null,p_business_id_document_path:businessIdPath,
-      p_business_licence_path:businessLicencePath,p_registration_certificate_path:registrationCertificatePath,
-      p_professional_licence_path:professionalLicencePath,p_other_permit_paths:otherPermitPaths
-    });
+    const providerProfilePayload={
+      business_name:$('#providerBusinessName').value.trim(),owner_name:$('#providerOwnerName').value.trim(),
+      id_number:$('#providerIdNumber').value.trim(),phone,primary_service:$('#providerPrimaryService').value.trim(),
+      service_category:$('#providerServiceCategory').value.trim()||null,
+      experience_years:$('#providerExperienceYears').value===''?null:Number($('#providerExperienceYears').value),
+      county_code:$('#providerCounty').value,sub_county_code:$('#providerSubCounty').value,town:$('#providerTown').value.trim(),
+      location_details:$('#providerLocation').value.trim(),business_description:$('#providerDescription').value.trim()||null,
+      service_area_notes:$('#providerServiceAreaNotes').value.trim()||null,business_id_document_path:businessIdPath,
+      business_licence_path:businessLicencePath,registration_certificate_path:registrationCertificatePath,
+      professional_licence_path:professionalLicencePath,other_permit_paths:otherPermitPaths,
+      profile_picture_path:profilePicturePath,passport_photo_path:passportPhotoPath
+    };
+    status($('#providerRegistrationStatus'),provider?.application_status==='approved'?'Sending profile changes to LEOGO Admin…':'Sending application to LEOGO Admin…');
+    const {error}=provider?.application_status==='approved'
+      ? await client.rpc('partner_submit_profile_change',{p_partner_type:'service_provider',p_payload:providerProfilePayload})
+      : await client.rpc('submit_service_provider_application',{
+          p_business_name:providerProfilePayload.business_name,p_owner_name:providerProfilePayload.owner_name,
+          p_id_number:providerProfilePayload.id_number,p_phone:phone,p_primary_service:providerProfilePayload.primary_service,
+          p_service_category:providerProfilePayload.service_category,p_experience_years:providerProfilePayload.experience_years,
+          p_county_code:providerProfilePayload.county_code,p_sub_county_code:providerProfilePayload.sub_county_code,p_town:providerProfilePayload.town,
+          p_location_details:providerProfilePayload.location_details,p_business_description:providerProfilePayload.business_description,
+          p_service_area_notes:providerProfilePayload.service_area_notes,p_business_id_document_path:businessIdPath,
+          p_business_licence_path:businessLicencePath,p_registration_certificate_path:registrationCertificatePath,
+          p_professional_licence_path:professionalLicencePath,p_other_permit_paths:otherPermitPaths
+        });
     if(error)throw error;
-    if(profilePicturePath||passportPhotoPath){
+    if(provider?.application_status!=='approved'&&(profilePicturePath||passportPhotoPath)){
       const photoUpdate=await client.rpc('service_provider_update_profile_photos',{
-        p_profile_picture_path:profilePicturePath,
-        p_passport_photo_path:passportPhotoPath
+        p_profile_picture_path:profilePicturePath,p_passport_photo_path:passportPhotoPath
       });
       if(photoUpdate.error)throw photoUpdate.error;
     }
-    status($('#providerRegistrationStatus'),'Service Provider application submitted successfully.','success');
-    await loadProvider();
+    if(provider?.application_status==='approved'){
+      status($('#providerRegistrationStatus'),'Profile changes sent to LEOGO Admin. Your current approved Service Provider profile remains active.','success');
+      status($('#providerProfileEditStatus'),'Profile changes are awaiting Admin approval.','success');
+      providerReg.hidden=true;providerDashboard.hidden=false;openProviderView('profile');
+      await loadProviderNotifications().catch(()=>{});
+    }else{
+      status($('#providerRegistrationStatus'),'Service Provider application submitted successfully.','success');
+      await loadProvider();
+    }
   }catch(error){status($('#providerRegistrationStatus'),error?.message||'Service Provider application could not be submitted.','error');}
   finally{submitButton.disabled=false;submitButton.textContent=original;}
 });
@@ -2654,6 +2704,11 @@ function openTransportRegistration(editExisting=false){
 }
 $('#showTransportRegistration')?.addEventListener('click',()=>openTransportRegistration(false));
 $('#editTransportApplication')?.addEventListener('click',()=>openTransportRegistration(true));
+$('#editApprovedTransportProfile')?.addEventListener('click',()=>{
+  if(!transportProvider||transportProvider.application_status!=='approved')return;
+  status($('#transportProfileEditStatus'),'Edit your profile and submit it. Your current approved Transport profile stays active while Admin reviews the changes.');
+  openTransportRegistration(true);
+});
 $('#cancelTransportRegistration')?.addEventListener('click',()=>transportProvider?renderTransportProvider():openTransportRole());
 
 transportReg?.addEventListener('submit',async event=>{
@@ -2692,30 +2747,40 @@ transportReg?.addEventListener('submit',async event=>{
       for(const file of otherFiles){const path=await uploadTransportVerification(file,'other-permit');fresh.push(path);uploaded.push(path);}
       otherPermits=fresh;
     }
-    const {error}=await client.rpc('transport_provider_submit_application',{
-      p_business_name:$('#transportBusinessName').value.trim(),
-      p_owner_name:$('#transportOwnerName').value.trim(),
-      p_id_number:$('#transportIdNumber').value.trim(),
-      p_phone:phone,
-      p_provider_type:$('#transportProviderType').value,
-      p_services_offered:services,
-      p_county:county?.display_name||county?.name||$('#transportCounty').selectedOptions[0]?.textContent||'',
-      p_sub_county:subCounty?.name||$('#transportSubCounty').selectedOptions[0]?.textContent||'',
-      p_county_code:countyCode||null,
-      p_sub_county_code:subCountyCode||null,
-      p_town:$('#transportTown').value.trim(),
-      p_location_details:$('#transportLocation').value.trim(),
-      p_coverage_notes:$('#transportCoverage').value.trim()||null,
-      p_business_description:$('#transportDescription').value.trim()||null,
-      p_business_id_document_path:businessId,
-      p_business_licence_path:businessLicence,
-      p_registration_certificate_path:registrationCertificate,
-      p_transport_operator_permit_path:operatorPermit,
-      p_other_permit_paths:otherPermits
-    });
+    const transportProfilePayload={
+      business_name:$('#transportBusinessName').value.trim(),owner_name:$('#transportOwnerName').value.trim(),
+      id_number:$('#transportIdNumber').value.trim(),phone,provider_type:$('#transportProviderType').value,
+      services_offered:services,county_code:countyCode||null,sub_county_code:subCountyCode||null,
+      town:$('#transportTown').value.trim(),location_details:$('#transportLocation').value.trim(),
+      coverage_notes:$('#transportCoverage').value.trim()||null,business_description:$('#transportDescription').value.trim()||null,
+      business_id_document_path:businessId,business_licence_path:businessLicence,
+      registration_certificate_path:registrationCertificate,transport_operator_permit_path:operatorPermit,
+      other_permit_paths:otherPermits
+    };
+    const {error}=transportProvider?.application_status==='approved'
+      ? await client.rpc('partner_submit_profile_change',{p_partner_type:'transport',p_payload:transportProfilePayload})
+      : await client.rpc('transport_provider_submit_application',{
+          p_business_name:transportProfilePayload.business_name,p_owner_name:transportProfilePayload.owner_name,
+          p_id_number:transportProfilePayload.id_number,p_phone:phone,p_provider_type:transportProfilePayload.provider_type,
+          p_services_offered:services,
+          p_county:county?.display_name||county?.name||$('#transportCounty').selectedOptions[0]?.textContent||'',
+          p_sub_county:subCounty?.name||$('#transportSubCounty').selectedOptions[0]?.textContent||'',
+          p_county_code:countyCode||null,p_sub_county_code:subCountyCode||null,p_town:transportProfilePayload.town,
+          p_location_details:transportProfilePayload.location_details,p_coverage_notes:transportProfilePayload.coverage_notes,
+          p_business_description:transportProfilePayload.business_description,p_business_id_document_path:businessId,
+          p_business_licence_path:businessLicence,p_registration_certificate_path:registrationCertificate,
+          p_transport_operator_permit_path:operatorPermit,p_other_permit_paths:otherPermits
+        });
     if(error)throw error;
-    status($('#transportRegistrationStatus'),'Transport Provider application submitted to LEOGO Admin.','success');
-    await loadTransportProvider();
+    if(transportProvider?.application_status==='approved'){
+      status($('#transportRegistrationStatus'),'Profile changes sent to LEOGO Admin. Your current approved Transport profile remains active.','success');
+      status($('#transportProfileEditStatus'),'Profile changes are awaiting Admin approval.','success');
+      transportReg.hidden=true;transportDashboard.hidden=false;openTransportView('profile');
+      await loadTransportNotifications().catch(()=>{});
+    }else{
+      status($('#transportRegistrationStatus'),'Transport Provider application submitted to LEOGO Admin.','success');
+      await loadTransportProvider();
+    }
   }catch(error){
     if(uploaded.length){try{await client.storage.from('transport-verification').remove(uploaded);}catch(_e){}}
     status($('#transportRegistrationStatus'),error?.message||'Transport Provider application could not be submitted.','error');
