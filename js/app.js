@@ -3615,8 +3615,9 @@
 
   const transportRequestStatusText=(value)=>({
     submitted:'Waiting for Admin assignment',
-    assigned:'Assigned to Transport Provider',
-    accepted:'Provider accepted',
+    assigned:'Assigned · waiting for transport price',
+    quoted:'Price received · your approval required',
+    accepted:'Price accepted · provider may start',
     declined:'Provider declined · waiting for reassignment',
     picked_up:'Picked up',
     in_transit:'In transit',
@@ -3802,6 +3803,9 @@
       (item.assigned_provider_phone?'<small><strong>Provider phone:</strong> '+receiptEscape(item.assigned_provider_phone)+'</small>':'')+
       (item.provider_quote_kes!=null?'<div class="customer-service-request-meta transport-customer-quote"><div><small>TRANSPORT COST</small><strong>'+money(item.provider_quote_kes)+'</strong></div><div><small>LEOGO SERVICE FEE</small><strong>'+money(item.quote_customer_service_fee_kes||0)+' ('+receiptEscape(item.quote_customer_service_fee_percent||0)+'%)</strong></div><div><small>TOTAL TO CUSTOMER</small><strong>'+money(item.quote_customer_total_kes||0)+'</strong></div></div>':'')+
       (item.provider_quote_kes!=null?'<p><strong>Transport quote:</strong> Provider cost '+money(item.provider_quote_kes)+' + LEOGO service fee '+money(item.quote_customer_service_fee_kes||0)+' = <strong>'+money(item.quote_customer_total_kes||0)+'</strong>.</p>':'')+
+      (item.request_status==='quoted'
+        ? '<div class="customer-service-quote-actions transport-price-decision"><button type="button" data-transport-quote-decision="'+receiptEscape(item.id)+'" data-accept="true">Accept Total '+receiptEscape(money(item.quote_customer_total_kes||0))+'</button><button class="reject" type="button" data-transport-quote-decision="'+receiptEscape(item.id)+'" data-accept="false">Decline Price</button><small>The Transport Provider cannot start the job until you accept this price.</small></div>'
+        : '')+
       (item.provider_notes?'<p><strong>Provider update:</strong> '+receiptEscape(item.provider_notes)+'</p>':'')+
       (item.admin_notes?'<p><strong>Admin note:</strong> '+receiptEscape(item.admin_notes)+'</p>':'')+
       (item.request_status==='completed'
@@ -3820,6 +3824,35 @@
     const services=document.getElementById('customerServiceRequests')?.innerHTML.trim();
     if(empty)empty.hidden=Boolean(rows.length||products||services);
   };
+  document.addEventListener('click',async(event)=>{
+    const button=event.target.closest?.('[data-transport-quote-decision]');
+    if(!button)return;
+    const requestId=button.dataset.transportQuoteDecision;
+    const accept=button.dataset.accept==='true';
+    const item=customerTransportRequests.find((row)=>String(row.id)===String(requestId));
+    if(!item)return;
+    const confirmed=window.confirm(accept
+      ? 'Accept the total transport price of '+money(item.quote_customer_total_kes||0)+'? The Transport Provider will then be allowed to start the job.'
+      : 'Decline this transport price? The Transport Provider will be asked to submit a revised cost.');
+    if(!confirmed)return;
+    const original=button.textContent;
+    button.disabled=true;
+    button.textContent=accept?'Accepting…':'Declining…';
+    try{
+      const {error}=await window.leogoAuth.client.rpc('customer_decide_transport_quote',{
+        p_request_id:requestId,
+        p_accept:accept
+      });
+      if(error)throw error;
+      await loadCustomerTransportRequests();
+    }catch(error){
+      window.alert(error?.message||'Your transport price decision could not be saved.');
+    }finally{
+      button.disabled=false;
+      button.textContent=original;
+    }
+  });
+
   async function loadCustomerTransportRequests(){
     const client=window.leogoAuth?.client;if(!client)return;
     let user=window.leogoAuth?.getUser?.()||null;
