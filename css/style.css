@@ -1000,3 +1000,5 @@ body.accommodation-modal-open{overflow:hidden}
   .service-review-actions{display:grid;grid-template-columns:1fr}
   .service-review-actions button{width:100%}
 }
+
+.transport-pin-location{display:grid;gap:8px}.transport-pin-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.transport-pin-actions button{border:0;border-radius:10px;padding:10px 14px;font-weight:900;cursor:pointer;background:#071a3a;color:#fff}.transport-pin-actions small{color:#667085;font-weight:700}@media(max-width:640px){.transport-pin-actions{align-items:stretch}.transport-pin-actions button{width:100%}}
