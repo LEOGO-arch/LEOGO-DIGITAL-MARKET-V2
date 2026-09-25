@@ -377,6 +377,15 @@
         <label>Sub-County<select id="transportSubCounty" required disabled><option value="">Choose a county first</option></select></label>
         <label>Town<input id="transportTown" type="text" maxlength="100" required></label>
         <label class="wide">Business / operating location<input id="transportLocation" type="text" maxlength="220" required placeholder="Building, stage, street, landmark or operating base"></label>
+        <div class="wide seller-shop-pin-box">
+          <div class="section-title compact"><span>📍 REQUIRED OPERATING BASE PIN</span><h4>Pin your operating base</h4><p>This is the Transport Provider's main operating base / stage. Pin the exact point, paste a Google Maps/shared-location link, or enter the coordinates.</p></div>
+          <div class="seller-shop-pin-actions"><button id="pinTransportBaseLocation" type="button">📍 Pin Operating Base</button><span id="transportBasePinStatus">Operating base not pinned yet.</span></div>
+          <label class="wide">Google Maps / shared location link<input id="transportBaseMapLink" type="text" maxlength="1000" placeholder="Paste Google Maps link or coordinates"></label>
+          <div class="form-grid">
+            <label>Base latitude<input id="transportBaseLatitude" type="number" step="0.0000001" min="-90" max="90" required></label>
+            <label>Base longitude<input id="transportBaseLongitude" type="number" step="0.0000001" min="-180" max="180" required></label>
+          </div>
+        </div>
         <label class="wide">Coverage / operating areas<textarea id="transportCoverage" rows="2" maxlength="900" placeholder="Counties, towns or routes you normally cover"></textarea></label>
         <label class="wide">About the transport business<textarea id="transportDescription" rows="3" maxlength="1500" placeholder="Describe your transport, courier or parcel operation"></textarea></label>
       </div>
@@ -946,5 +955,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=transport-dashboard-4" defer></script>
+<script src="partner.js?v=transport-base-pin-1" defer></script>
 </body></html>
