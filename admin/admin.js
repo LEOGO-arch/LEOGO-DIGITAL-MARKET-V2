@@ -3700,7 +3700,7 @@
         '<td data-label="Action">'+action+'</td>'+
       '</tr>';
     }).join(''):'<tr><td colspan="7">No Service Listings match this filter.</td></tr>';
-    $('[data-open-service-listing-approval]',target).forEach((button)=>button.addEventListener('click',()=>openApproval('service_listing',button.dataset.openServiceListingApproval)));
+    Array.from(target.querySelectorAll('[data-open-service-listing-approval]')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_listing',button.dataset.openServiceListingApproval)));
     Array.from(target.querySelectorAll('[data-view-service-provider]')).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
     Array.from(target.querySelectorAll('[data-service-listing-active]')).forEach((button)=>button.addEventListener('click',()=>setServiceListingActive(button,button.dataset.serviceListingId,button.dataset.serviceListingActive==='true')));
   };
@@ -3740,7 +3740,7 @@
         '</div></td>'+
       '</tr>';
     }).join(''):'<tr><td colspan="7">No Service Provider accounts yet.</td></tr>';
-    $('[data-provider-review]', $('#serviceProviderTableBody')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
+    Array.from($('#serviceProviderTableBody').querySelectorAll('[data-provider-review]')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
     Array.from($('#serviceProviderTableBody').querySelectorAll('[data-view-service-provider]')).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
     Array.from($('#serviceProviderTableBody').querySelectorAll('[data-service-provider-suspend]')).forEach((button)=>button.addEventListener('click',()=>setServiceProviderSuspended(button,button.dataset.serviceProviderId,button.dataset.serviceProviderSuspend==='true')));
   };
