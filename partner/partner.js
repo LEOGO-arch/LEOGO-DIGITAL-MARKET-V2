@@ -2660,6 +2660,344 @@ $('#markAllProviderNotificationsRead')?.addEventListener('click',async()=>{
 });
 
 
+
+/* ACCOMMODATION PROVIDER MODULE — Phase A: registration, Admin approval and approved dashboard shell */
+const accommodationBootStatus=$('#accommodationBootStatus');
+const accommodationOnboarding=$('#accommodationOnboarding');
+const accommodationReg=$('#accommodationRegistrationForm');
+const accommodationPendingArea=$('#accommodationPendingArea');
+const accommodationDashboard=$('#accommodationDashboard');
+const accommodationSidebar=$('#accommodationSidebar');
+
+function accommodationStatusCopy(value){
+  if(value==='pending')return 'Submitted to LEOGO Admin. Your Accommodation Provider application is waiting for review.';
+  if(value==='under_review')return 'LEOGO Admin is reviewing your Accommodation Provider application.';
+  if(value==='changes_requested')return 'LEOGO Admin requested corrections. Update the application and resubmit it.';
+  if(value==='approved')return 'Approved. You can now use the Accommodation Provider dashboard.';
+  if(value==='rejected')return 'The application was not approved. Review the Admin note and correct it before resubmitting if appropriate.';
+  if(value==='suspended')return 'This Accommodation Provider account is suspended. Your accommodation listings are hidden from customers.';
+  return 'Register as an Accommodation Provider to continue.';
+}
+function showAccommodationBoot(message='Loading your Accommodation Provider account…',isError=false){
+  if(!accommodationBootStatus)return;
+  accommodationBootStatus.hidden=false;
+  $('#accommodationBootTitle').textContent=isError?'Accommodation Provider Portal needs attention':'Opening your Accommodation dashboard…';
+  $('#accommodationBootMessage').textContent=message;
+  const spinner=$('.seller-boot-spinner',accommodationBootStatus);
+  if(spinner)spinner.hidden=isError;
+  $('#retryAccommodationBoot').hidden=!isError;
+}
+function hideAccommodationBoot(){if(accommodationBootStatus)accommodationBootStatus.hidden=true;}
+function closeAccommodationSidebar(){
+  accommodationSidebar?.classList.remove('open');
+  $('#accommodationSidebarScrim')?.classList.remove('open');
+}
+function accommodationViewDescription(view){
+  return {
+    overview:'Overview of your Accommodation Provider account.',
+    properties:'Manage approved properties, rooms and units.',
+    bookings:'Customer accommodation booking requests.',
+    availability:'Manage room and unit availability dates.',
+    earnings:'View Accommodation earnings after completed stays.',
+    settlements:'Manage Accommodation payout accounts and settlements.',
+    notifications:'Application, listing and booking notifications.',
+    profile:'Your approved Accommodation Provider information.'
+  }[view]||'Accommodation Provider Portal';
+}
+function openAccommodationView(view='overview'){
+  const approved=accommodationProvider?.verification_status==='approved';
+  const allowed=approved?['overview','properties','bookings','availability','earnings','settlements','notifications','profile']:['overview','notifications','profile'];
+  const resolved=allowed.includes(view)?view:'overview';
+  $('[data-accommodation-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.accommodationContent===resolved));
+  $('[data-accommodation-view]').forEach(button=>button.classList.toggle('active',button.dataset.accommodationView===resolved));
+  if($('#accommodationViewDescription'))$('#accommodationViewDescription').textContent=accommodationViewDescription(resolved);
+  closeAccommodationSidebar();
+}
+function accommodationCoordinatesFromText(value=''){
+  const text=String(value||'').trim();
+  const direct=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+  if(direct)return {lat:Number(direct[1]),lng:Number(direct[2])};
+  const maps=text.match(/(?:@|q=|query=)(-?\d{1,2}(?:\.\d+)?)[,%2C\s]+(-?\d{1,3}(?:\.\d+)?)/i);
+  return maps?{lat:Number(maps[1]),lng:Number(maps[2])}:null;
+}
+function setAccommodationCoordinates(lat,lng,label='Location pinned'){
+  const latitude=Number(lat),longitude=Number(lng),target=$('#accommodationPinStatus');
+  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+    if(target){target.textContent='Invalid accommodation coordinates.';target.className='status error';}
+    return false;
+  }
+  $('#accommodationLatitude').value=latitude.toFixed(7);
+  $('#accommodationLongitude').value=longitude.toFixed(7);
+  if(!$('#accommodationMapLink').value.trim())$('#accommodationMapLink').value='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
+  if(target){target.textContent='✓ '+label+': '+latitude.toFixed(7)+', '+longitude.toFixed(7);target.className='status success';}
+  return true;
+}
+async function ensureAccommodationLocations(countyCode='',subCountyCode=''){
+  await loadKenyaLocations();
+  const county=$('#accommodationCounty'),sub=$('#accommodationSubCounty');
+  if(!county||!sub)return;
+  county.innerHTML='<option value="">Select county</option>'+kenyaCounties.map(item=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.display_name||item.name)+'</option>').join('');
+  if(countyCode&&kenyaCounties.some(item=>item.code===countyCode))county.value=countyCode;
+  const renderSubs=()=>{
+    const selected=county.value;
+    const rows=kenyaSubcounties.filter(item=>item.county_code===selected);
+    sub.innerHTML=selected
+      ? '<option value="">Select sub-county</option>'+rows.map(item=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.name)+'</option>').join('')
+      : '<option value="">Choose a county first</option>';
+    sub.disabled=!selected||!rows.length;
+    if(subCountyCode&&rows.some(item=>item.code===subCountyCode))sub.value=subCountyCode;
+  };
+  renderSubs();
+  county.onchange=()=>{subCountyCode='';renderSubs();};
+}
+async function uploadAccommodationPrivate(file,prefix){
+  if(!file)return null;
+  if(file.size>8*1024*1024)throw new Error('Each Accommodation verification file must be 8 MB or smaller.');
+  const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('accommodation-verification').upload(path,file,{upsert:false,contentType:file.type||undefined});
+  if(error)throw error;
+  return path;
+}
+async function uploadAccommodationPublicPhoto(file){
+  if(!file)return null;
+  if(file.size>8*1024*1024)throw new Error('Accommodation profile picture must be 8 MB or smaller.');
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Accommodation profile picture must be JPG, PNG or WEBP.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/provider-profile-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('accommodation-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+}
+function accommodationSummaryRows(){
+  if(!accommodationProvider)return [];
+  return [
+    ['Business / Operator',accommodationProvider.business_name],
+    ['Owner / Manager',accommodationProvider.owner_name],
+    ['ID Number',accommodationProvider.id_number],
+    ['Phone',accommodationProvider.contact_phone],
+    ['Email',accommodationProvider.contact_email||'—'],
+    ['Location',[accommodationProvider.town,accommodationProvider.sub_county,accommodationProvider.county].filter(Boolean).join(', ')],
+    ['Operating Location',accommodationProvider.location_details],
+    ['Coordinates',(accommodationProvider.base_latitude!=null&&accommodationProvider.base_longitude!=null)?(accommodationProvider.base_latitude+', '+accommodationProvider.base_longitude):'Not pinned'],
+    ['Map Link',accommodationProvider.base_map_link||'—'],
+    ['About',accommodationProvider.business_description||'—'],
+    ['Status',String(accommodationProvider.verification_status||'').replaceAll('_',' ')],
+    ['Business ID / Identification',accommodationProvider.business_id_document_path?'Uploaded':'Missing'],
+    ['Business Licence',accommodationProvider.business_licence_path?'Uploaded':'Not provided'],
+    ['Registration Certificate',accommodationProvider.registration_certificate_path?'Uploaded':'Not provided'],
+    ['Other Permits',(accommodationProvider.other_permit_paths||[]).length+' file(s)']
+  ];
+}
+function populateAccommodationApplication(){
+  if(!accommodationProvider)return;
+  $('#accommodationBusinessName').value=accommodationProvider.business_name||'';
+  $('#accommodationOwnerName').value=accommodationProvider.owner_name||'';
+  $('#accommodationIdNumber').value=accommodationProvider.id_number||'';
+  $('#accommodationPhone').value=accommodationProvider.contact_phone||'';
+  $('#accommodationEmail').value=accommodationProvider.contact_email||currentUser?.email||'';
+  $('#accommodationTown').value=accommodationProvider.town||'';
+  $('#accommodationLocation').value=accommodationProvider.location_details||'';
+  $('#accommodationMapLink').value=accommodationProvider.base_map_link||'';
+  $('#accommodationLatitude').value=accommodationProvider.base_latitude??'';
+  $('#accommodationLongitude').value=accommodationProvider.base_longitude??'';
+  $('#accommodationDescription').value=accommodationProvider.business_description||'';
+  $('#accommodationBusinessIdDocument').required=!accommodationProvider.business_id_document_path;
+  const target=$('#accommodationPinStatus');
+  if(target)target.textContent=(accommodationProvider.base_latitude!=null&&accommodationProvider.base_longitude!=null)
+    ? '✓ Location pinned: '+accommodationProvider.base_latitude+', '+accommodationProvider.base_longitude
+    : 'Location not pinned yet.';
+  ensureAccommodationLocations(accommodationProvider.county_code||'',accommodationProvider.sub_county_code||'').catch(console.warn);
+}
+function renderAccommodationNotifications(){
+  const list=$('#accommodationNotificationList');
+  if(!list)return;
+  list.innerHTML=accommodationNotifications.length?accommodationNotifications.map(item=>
+    '<article class="seller-notification-item '+(item.read_at?'':'unread')+'"><div><strong>'+escapeHtml(item.title||'Accommodation update')+'</strong><small>'+escapeHtml(formatDate(item.created_at))+'</small></div><p>'+escapeHtml(item.message||'')+'</p></article>'
+  ).join(''):'<div class="empty-card">No Accommodation notifications yet.</div>';
+}
+async function loadAccommodationNotifications(){
+  if(!currentUser)return;
+  const {data,error}=await client.from('partner_notifications').select('*').eq('user_id',currentUser.id).eq('partner_type','accommodation').order('created_at',{ascending:false}).limit(100);
+  if(error)throw error;
+  accommodationNotifications=data||[];
+  renderAccommodationNotifications();
+}
+function renderAccommodationProvider(){
+  hideAccommodationBoot();
+  accommodationOnboarding.hidden=true;
+  accommodationReg.hidden=true;
+  accommodationPendingArea.hidden=true;
+  accommodationDashboard.hidden=true;
+
+  if(!accommodationProvider){
+    accommodationOnboarding.hidden=false;
+    return;
+  }
+  const state=String(accommodationProvider.verification_status||'pending');
+  const rows=accommodationSummaryRows();
+  if(state==='approved'){
+    accommodationDashboard.hidden=false;
+    $('#accommodationSidebarBusiness').textContent=accommodationProvider.business_name||'Accommodation Provider';
+    $('#accommodationSidebarStatus').textContent='APPROVED';
+    $('#accommodationDashboardBusiness').textContent=accommodationProvider.business_name||'Accommodation Dashboard';
+    $('#accommodationAccountMetric').textContent='Approved';
+    $('#accommodationProfileSummary').innerHTML=rows.map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
+    openAccommodationView('overview');
+    return;
+  }
+
+  accommodationPendingArea.hidden=false;
+  $('#accommodationPendingTitle').textContent=
+    state==='changes_requested'?'Accommodation application needs correction':
+    state==='rejected'?'Accommodation application not approved':
+    state==='suspended'?'Accommodation Provider account suspended':
+    state==='under_review'?'Accommodation application under review':'Accommodation Provider application submitted';
+  $('#accommodationPendingMessage').textContent=accommodationStatusCopy(state);
+  $('#accommodationApplicationSummary').innerHTML=rows.map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
+  const note=$('#accommodationAdminNote');
+  note.hidden=!accommodationProvider.admin_notes;
+  note.textContent=accommodationProvider.admin_notes?'Admin note: '+accommodationProvider.admin_notes:'';
+  $('#editAccommodationApplication').hidden=!['changes_requested','rejected'].includes(state);
+}
+async function loadAccommodationProvider(){
+  if(!currentUser)return;
+  showAccommodationBoot();
+  try{
+    const result=await Promise.race([
+      client.rpc('accommodation_provider_get_own_account'),
+      waitTimeout(8000,'Accommodation Provider account is taking too long to load. Check your connection and tap Retry.')
+    ]);
+    if(result?.error)throw result.error;
+    accommodationProvider=result?.data||null;
+    renderAccommodationProvider();
+    await ensureAccommodationLocations(accommodationProvider?.county_code||'',accommodationProvider?.sub_county_code||'');
+    if(accommodationProvider)await loadAccommodationNotifications().catch(()=>{});
+    if(accommodationProvider?.verification_status==='approved'){
+      const [properties,bookings]=await Promise.all([
+        client.from('accommodation_properties').select('id',{count:'exact',head:true}).eq('host_id',accommodationProvider.id),
+        client.from('accommodation_bookings').select('id,property_id',{count:'exact',head:true}).in('property_id',
+          (await client.from('accommodation_properties').select('id').eq('host_id',accommodationProvider.id)).data?.map(row=>row.id)||[])
+      ]);
+      if($('#accommodationPropertyMetric'))$('#accommodationPropertyMetric').textContent=properties.count||0;
+      if($('#accommodationBookingMetric'))$('#accommodationBookingMetric').textContent=bookings.count||0;
+    }
+  }catch(error){
+    console.error('Accommodation Provider portal boot failed:',error);
+    showAccommodationBoot(error?.message||'The Accommodation Provider dashboard could not finish loading.',true);
+    accommodationOnboarding.hidden=true;accommodationReg.hidden=true;accommodationPendingArea.hidden=true;accommodationDashboard.hidden=true;
+  }
+}
+async function openAccommodationRole(){
+  activeRole='accommodation';
+  if(partnerNotificationBell)partnerNotificationBell.hidden=false;
+  rolePicker.hidden=true;
+  sellerShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;
+  if(transportShell)transportShell.hidden=true;
+  accommodationShell.hidden=false;
+  authShell.hidden=true;
+  if(hero)hero.hidden=true;
+  showAccommodationBoot();
+  await loadAccommodationProvider();
+}
+function openAccommodationRegistration(editExisting=false){
+  accommodationOnboarding.hidden=true;
+  accommodationPendingArea.hidden=true;
+  accommodationDashboard.hidden=true;
+  accommodationReg.hidden=false;
+  status($('#accommodationRegistrationStatus'),'');
+  if(editExisting&&accommodationProvider)populateAccommodationApplication();
+  else{
+    accommodationReg.reset();
+    $('#accommodationOwnerName').value=currentUser?.user_metadata?.full_name||'';
+    $('#accommodationEmail').value=currentUser?.email||'';
+    $('#accommodationBusinessIdDocument').required=true;
+    ensureAccommodationLocations().catch(console.warn);
+  }
+  accommodationReg.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+$('#retryAccommodationBoot')?.addEventListener('click',()=>openAccommodationRole());
+$('#showAccommodationRegistration')?.addEventListener('click',()=>openAccommodationRegistration(false));
+$('#editAccommodationApplication')?.addEventListener('click',()=>openAccommodationRegistration(true));
+$('#cancelAccommodationRegistration')?.addEventListener('click',()=>accommodationProvider?renderAccommodationProvider():openAccommodationRole());
+$('#accommodationPendingBack')?.addEventListener('click',showRolePicker);
+$('#accommodationBackToPartnerships')?.addEventListener('click',showRolePicker);
+$('#refreshAccommodationDashboard')?.addEventListener('click',()=>loadAccommodationProvider());
+$('#accommodationSidebarToggle')?.addEventListener('click',()=>{accommodationSidebar?.classList.add('open');$('#accommodationSidebarScrim')?.classList.add('open');});
+$('#accommodationSidebarScrim')?.addEventListener('click',closeAccommodationSidebar);
+$('[data-accommodation-view]').forEach(button=>button.addEventListener('click',()=>openAccommodationView(button.dataset.accommodationView)));
+$('#pinAccommodationLocation')?.addEventListener('click',()=>{
+  const target=$('#accommodationPinStatus');
+  if(!navigator.geolocation){
+    if(target){target.textContent='Location access is unavailable. Paste a Google Maps link or enter coordinates.';target.className='status error';}
+    return;
+  }
+  if(target){target.textContent='Getting accommodation location…';target.className='status';}
+  navigator.geolocation.getCurrentPosition(
+    position=>setAccommodationCoordinates(position.coords.latitude,position.coords.longitude,'Accommodation location pinned'),
+    error=>{if(target){target.textContent=error.code===1?'Location permission was not granted. Paste a Maps link or coordinates instead.':'Accommodation location could not be detected.';target.className='status error';}},
+    {enableHighAccuracy:true,timeout:15000,maximumAge:15000}
+  );
+});
+$('#accommodationMapLink')?.addEventListener('change',event=>{
+  const coords=accommodationCoordinatesFromText(event.currentTarget.value);
+  if(coords)setAccommodationCoordinates(coords.lat,coords.lng,'Coordinates detected');
+});
+
+accommodationReg?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(!accommodationReg.reportValidity())return;
+  const phone=normalisePhone($('#accommodationPhone').value);
+  if(!/^\+254[17]\d{8}$/.test(phone)){status($('#accommodationRegistrationStatus'),'Enter a valid Kenyan phone number.','error');return;}
+  const latitude=Number($('#accommodationLatitude').value),longitude=Number($('#accommodationLongitude').value);
+  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+    status($('#accommodationRegistrationStatus'),'Pin the exact Accommodation location and confirm valid coordinates.','error');return;
+  }
+  const otherFiles=[...($('#accommodationOtherPermits').files||[])];
+  if(otherFiles.length>4){status($('#accommodationRegistrationStatus'),'Choose a maximum of 4 other permit files.','error');return;}
+  const button=accommodationReg.querySelector('button[type="submit"]');
+  const original=button.textContent;button.disabled=true;button.textContent='Submitting…';
+  try{
+    status($('#accommodationRegistrationStatus'),'Uploading Accommodation verification files…');
+    const businessIdFile=$('#accommodationBusinessIdDocument').files?.[0]||null;
+    const existingBusinessId=accommodationProvider?.business_id_document_path||null;
+    if(!businessIdFile&&!existingBusinessId)throw new Error('Business ID / identification document is required.');
+    const [businessIdPath,businessLicencePath,registrationCertificatePath,otherPermitPaths,profilePicturePath,passportPhotoPath]=await Promise.all([
+      businessIdFile?uploadAccommodationPrivate(businessIdFile,'business-id'):Promise.resolve(existingBusinessId),
+      $('#accommodationBusinessLicence').files?.[0]?uploadAccommodationPrivate($('#accommodationBusinessLicence').files[0],'business-licence'):Promise.resolve(accommodationProvider?.business_licence_path||null),
+      $('#accommodationRegistrationCertificate').files?.[0]?uploadAccommodationPrivate($('#accommodationRegistrationCertificate').files[0],'registration-certificate'):Promise.resolve(accommodationProvider?.registration_certificate_path||null),
+      otherFiles.length?Promise.all(otherFiles.map((file,index)=>uploadAccommodationPrivate(file,'permit-'+index))):Promise.resolve(accommodationProvider?.other_permit_paths||[]),
+      $('#accommodationProfilePicture').files?.[0]?uploadAccommodationPublicPhoto($('#accommodationProfilePicture').files[0]):Promise.resolve(accommodationProvider?.profile_picture_path||null),
+      $('#accommodationPassportPhoto').files?.[0]?uploadAccommodationPrivate($('#accommodationPassportPhoto').files[0],'passport-photo'):Promise.resolve(accommodationProvider?.passport_photo_path||null)
+    ]);
+    const county=kenyaCounties.find(item=>item.code===$('#accommodationCounty').value);
+    const sub=kenyaSubcounties.find(item=>item.code===$('#accommodationSubCounty').value);
+    const {error}=await client.rpc('accommodation_provider_submit_application',{
+      p_business_name:$('#accommodationBusinessName').value.trim(),
+      p_owner_name:$('#accommodationOwnerName').value.trim(),
+      p_id_number:$('#accommodationIdNumber').value.trim(),
+      p_phone:phone,p_email:$('#accommodationEmail').value.trim()||null,
+      p_county_code:$('#accommodationCounty').value,p_county:county?.name||$('#accommodationCounty').selectedOptions[0]?.textContent||'',
+      p_sub_county_code:$('#accommodationSubCounty').value,p_sub_county:sub?.name||$('#accommodationSubCounty').selectedOptions[0]?.textContent||'',
+      p_town:$('#accommodationTown').value.trim(),p_location_details:$('#accommodationLocation').value.trim(),
+      p_base_map_link:$('#accommodationMapLink').value.trim()||null,p_base_latitude:latitude,p_base_longitude:longitude,
+      p_business_description:$('#accommodationDescription').value.trim()||null,
+      p_profile_picture_path:profilePicturePath,p_passport_photo_path:passportPhotoPath,
+      p_business_id_document_path:businessIdPath,p_business_licence_path:businessLicencePath,
+      p_registration_certificate_path:registrationCertificatePath,p_other_permit_paths:otherPermitPaths
+    });
+    if(error)throw error;
+    status($('#accommodationRegistrationStatus'),'Accommodation Provider application submitted to LEOGO Admin for approval.','success');
+    await loadAccommodationProvider();
+  }catch(error){
+    status($('#accommodationRegistrationStatus'),error?.message||'Accommodation Provider application could not be submitted.','error');
+  }finally{
+    button.disabled=false;button.textContent=original;
+  }
+});
+
 /* TRANSPORT & PARCEL PROVIDER MODULE — isolated from LEOGO staff rider delivery */
 const transportBootStatus=$('#transportBootStatus');
 const transportOnboarding=$('#transportOnboarding');
