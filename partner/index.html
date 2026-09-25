@@ -571,7 +571,8 @@
           <section class="panel">
             <div class="section-title"><span>MY PROFILE</span><h3>Transport Provider Registration</h3><p>Your approved business/operator information remains here for later viewing.</p></div>
             <div id="transportProfileSummary" class="summary-grid"></div>
-            <div class="product-actions"><button id="editApprovedTransportProfile" type="button">Edit Profile & Send to Admin</button></div>
+            <div id="transportMissingBasePinNotice" class="restricted-notice" hidden>Your application was submitted before operating-base coordinates became required. Add the base pin below and it will be returned to Admin for review.</div>
+            <div class="product-actions"><button id="addTransportMissingBasePin" type="button" hidden>📍 Add Operating Base Pin</button><button id="editApprovedTransportProfile" type="button">Edit Profile & Send to Admin</button></div>
             <p id="transportProfileEditStatus" class="status"></p>
           </section>
         </section>
@@ -955,5 +956,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=transport-base-pin-1" defer></script>
+<script src="partner.js?v=transport-base-pin-2" defer></script>
 </body></html>
