@@ -2729,7 +2729,7 @@ function updateTransportBasePinNotice(){
 function setTransportBasePinOnlyMode(enabled){
   transportBasePinOnly=Boolean(enabled);
   if(!transportReg)return;
-  $('input,select,textarea',transportReg).forEach(control=>{
+  $$('input,select,textarea',transportReg).forEach(control=>{
     if(['transportBaseLatitude','transportBaseLongitude','transportBaseMapLink'].includes(control.id))return;
     if(control.type==='file')control.disabled=transportBasePinOnly;
     else if(control.closest('.product-actions'))return;
