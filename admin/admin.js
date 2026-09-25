@@ -3363,7 +3363,7 @@
       <td data-label="Business"><strong>${escapeHtml(s.business_name)}</strong><small>${escapeHtml(s.email||'')}</small></td>
       <td data-label="Owner"><strong>${escapeHtml(s.owner_name)}</strong></td>
       <td data-label="ID / Phone"><strong>${escapeHtml(s.id_number)}</strong><small>${escapeHtml(s.phone)}</small></td>
-      <td data-label="Location"><strong>${escapeHtml(s.town||'—')}</strong><small>${escapeHtml([s.sub_county,s.county].filter(Boolean).join(', '))}</small></td>
+      <td data-label="Location"><strong>${escapeHtml(s.town||'—')}</strong><small>${escapeHtml([s.sub_county,s.county].filter(Boolean).join(', '))}</small><small>${s.shop_latitude!=null&&s.shop_longitude!=null?'📍 Shop pinned':'Shop pin missing'}</small></td>
       <td data-label="Status"><span class="status-chip">${escapeHtml(s.application_status)}</span></td>
       <td data-label="Products"><strong>${Number(s.product_count||0)}</strong><small>${Number(s.active_product_count||0)} active</small></td>
       <td data-label="Flash Sale"><strong>${Number(s.flash_sale_request_count||0)}</strong></td>
@@ -3619,6 +3619,7 @@
     const rows=[
       ['Business name',s.business_name],['Owner name',s.owner_name],['Email',s.email],['ID number',s.id_number],['Phone',s.phone],
       ['County',s.county],['Sub-County',s.sub_county],['Town',s.town],['Location / landmark',s.location_details],
+      ['Shop coordinates',(s.shop_latitude!=null&&s.shop_longitude!=null)?(s.shop_latitude+', '+s.shop_longitude):'Not pinned'],['Shop map link',s.shop_map_link||'—'],
       ['Business description',s.business_description],['Application status',s.application_status],['Submitted',formatDate(s.submitted_at,true)],
       ['Approved',formatDate(s.approved_at,true)],['Admin notes',s.admin_notes],['Products',s.product_count],['Active products',s.active_product_count],
       ['Flash Sale requests',s.flash_sale_request_count],['Account created',formatDate(s.created_at,true)]
