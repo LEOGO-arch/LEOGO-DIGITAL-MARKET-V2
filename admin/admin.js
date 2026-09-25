@@ -4128,13 +4128,38 @@
   const exportCustomers = async (scope,format='xlsx') => { const source=scope==='selected'?state.customers.filter(r=>state.selectedCustomers.has(r.user_id)):filteredCustomers(); const rows=[['Name','Email','Phone','County','Sub-County','Estate','Registered'],...source.map(r=>[r.full_name,r.email,r.phone,r.county,r.sub_county,r.estate,formatDate(r.created_at)])]; if(!source.length){globalStatus('Select at least one customer to export.','error');return;} await exportRows('customers',scope,format,rows,{search:$('#customerSearch').value}); globalStatus(`${source.length} customer record(s) exported and audited.`); };
   const exportData = async (scope,format='xlsx') => { const type=$('#dataTypeFilter').value, source=scope==='selected'?dataRows().filter(r=>state.selectedData.has(dataRecordId(r))):dataRows(); if(!source.length){globalStatus('Select at least one record to export.','error');return;} const rows=[['Record ID','Record Data'],...source.map(r=>[dataRecordId(r),JSON.stringify(r)])]; await exportRows(type,scope,format,rows,{status:$('#dataStatusFilter').value,from:$('#dataFromFilter').value,to:$('#dataToFilter').value}); globalStatus(`${source.length} ${type.replaceAll('_',' ')} record(s) exported and audited.`); };
 
+  let activeTransportSection='providers';
+  const transportSectionMeta={
+    providers:{eyebrow:'TRANSPORT / PARCEL PARTNERS',title:'Transport / Parcel Providers',description:'Manage provider registrations, approved accounts, vehicles and Transport approvals.'},
+    jobs:{eyebrow:'DELIVERY OPERATIONS',title:'Delivery Jobs',description:'Manage customer Transport requests and LEOGO staff-rider marketplace delivery jobs.'},
+    zones:{eyebrow:'DELIVERY SETTINGS',title:'Delivery Zones',description:'Manage delivery areas, coverage and future zone-based delivery pricing from one dedicated page.'},
+    pickup:{eyebrow:'PICKUP STATIONS',title:'Pickup Stations',description:'Manage customer Pickup Stations, addresses, service fees and pinned station locations.'}
+  };
+  const changeTransportSection=(target='providers')=>{
+    const resolved=transportSectionMeta[target]?target:'providers';
+    activeTransportSection=resolved;
+    $('[data-transport-section]').forEach(section=>section.hidden=section.dataset.transportSection!==resolved);
+    const meta=transportSectionMeta[resolved];
+    if($('#transportSectionEyebrow'))$('#transportSectionEyebrow').textContent=meta.eyebrow;
+    if($('#transportSectionTitle'))$('#transportSectionTitle').textContent=meta.title;
+    if($('#transportSectionDescription'))$('#transportSectionDescription').textContent=meta.description;
+    if($('#openTransportApprovals'))$('#openTransportApprovals').hidden=resolved!=='providers';
+    $('.admin-nav [data-admin-view="transport"]').forEach(button=>{
+      const buttonTarget=button.dataset.transportTarget||'providers';
+      button.classList.toggle('active',buttonTarget===resolved);
+    });
+  };
+
   const changeView = (view, settingsTab = '') => {
     if (!viewAllowed(view, settingsTab)) {
       globalStatus('Your staff role does not have access to this Admin module.', 'error');
       return;
     }
     document.querySelectorAll('.admin-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.adminPanel === view));
-    document.querySelectorAll('.admin-nav [data-admin-view]').forEach((button) => button.classList.toggle('active', button.dataset.adminView === view && (!button.dataset.settingsTab || button.dataset.settingsTab === settingsTab)));
+    document.querySelectorAll('.admin-nav [data-admin-view]').forEach((button) => {
+      if(view==='transport'&&button.dataset.adminView==='transport')return;
+      button.classList.toggle('active', button.dataset.adminView === view && (!button.dataset.settingsTab || button.dataset.settingsTab === settingsTab));
+    });
     $('#adminPageTitle').textContent = viewTitles[view] || 'Admin Control Center';
     $('#adminBreadcrumb').textContent = view === 'settings' ? 'ADMINISTRATION' : 'CONTROL CENTER';
 
@@ -4160,6 +4185,12 @@
     }
     if (view === 'providers') {
       Promise.all([loadServiceProviders(),loadServiceListings(),loadServiceOperations()]).catch((error) => globalStatus('Service operations could not load: '+friendlyError(error), 'error'));
+    }
+    if(view==='transport'){
+      changeTransportSection(activeTransportSection);
+      if(activeTransportSection==='providers') loadTransportNetwork().catch((error)=>globalStatus('Transport Provider data could not load: '+friendlyError(error),'error'));
+      if(activeTransportSection==='jobs') Promise.all([loadTransportNetwork(),loadDeliveryOps()]).catch((error)=>globalStatus('Delivery jobs could not load: '+friendlyError(error),'error'));
+      if(activeTransportSection==='pickup') loadPickupStations().catch((error)=>globalStatus('Pickup Stations could not load: '+friendlyError(error),'error'));
     }
     if (view === 'staff' && isSuperAdmin()) {
       loadStaffManagement().catch((error) => globalStatus('Staff directory could not load: '+friendlyError(error), 'error'));
@@ -4198,7 +4229,13 @@
     $('#openSidebar').addEventListener('click', () => { $('#adminSidebar').classList.add('open'); $('#sidebarScrim').classList.add('open'); });
     $('#closeSidebar').addEventListener('click', closeSidebar);
     $('#sidebarScrim').addEventListener('click', closeSidebar);
-    $$('[data-admin-view]').forEach((button) => button.addEventListener('click', () => { changeView(button.dataset.adminView, button.dataset.settingsTab || ''); if(button.dataset.premiumTarget) changePremiumAdminTab(button.dataset.premiumTarget); if(button.dataset.filterTarget){state.approvalFilter=button.dataset.filterTarget;$$('#approvalFilters [data-approval-filter]').forEach(item=>item.classList.toggle('active',item.dataset.approvalFilter===state.approvalFilter));renderApprovals();} }));
+    $('[data-admin-view]').forEach((button) => button.addEventListener('click', () => {
+      if(button.dataset.adminView==='transport'&&button.dataset.transportTarget)activeTransportSection=button.dataset.transportTarget;
+      changeView(button.dataset.adminView, button.dataset.settingsTab || '');
+      if(button.dataset.adminView==='transport')changeTransportSection(activeTransportSection);
+      if(button.dataset.premiumTarget) changePremiumAdminTab(button.dataset.premiumTarget);
+      if(button.dataset.filterTarget){state.approvalFilter=button.dataset.filterTarget;$('#approvalFilters [data-approval-filter]').forEach(item=>item.classList.toggle('active',item.dataset.approvalFilter===state.approvalFilter));renderApprovals();}
+    }));
     $$('[data-nav-group]').forEach((button) => button.addEventListener('click', () => { const children=$(`[data-nav-children="${button.dataset.navGroup}"]`); if(children) children.classList.toggle('open'); }));
     $$('[data-open-view]').forEach((button) => button.addEventListener('click', () => {
       changeView(button.dataset.openView);
@@ -4301,7 +4338,10 @@
       if(sortingButton) updateActiveOrderSortingStatus(sortingButton,sortingButton.dataset.sortingStatus);
     });
     $('#refreshDeliveryOps').addEventListener('click', () => withButtonLock($('#refreshDeliveryOps'), 'Refreshing…', async()=>{
-      await Promise.all([loadTransportNetwork(),loadDeliveryOps()]);
+      if(activeTransportSection==='providers')await loadTransportNetwork();
+      else if(activeTransportSection==='jobs')await Promise.all([loadTransportNetwork(),loadDeliveryOps()]);
+      else if(activeTransportSection==='pickup')await loadPickupStations();
+      else await Promise.resolve();
     }));
     $('#openTransportApprovals')?.addEventListener('click',()=>{
       changeView('approvals');
