@@ -264,6 +264,7 @@
   });
 
   document.addEventListener('leogo:authchange', refreshPersonalSaleEligibility);
+  document.addEventListener('leogo:authchange',()=>{ loadPublicServices().catch(()=>{}); loadCustomerServiceRequests().catch(()=>{}); });
   window.setTimeout(refreshPersonalSaleEligibility, 700);
 
   const openLeogoBar = document.getElementById('openLeogoBar');
@@ -2888,9 +2889,16 @@
 
 
   const publicServiceProviderList=document.getElementById('publicServiceProviderList');
+  const publicTransportProviderList=document.getElementById('publicTransportProviderList');
+  const publicServiceReviewList=document.getElementById('publicServiceReviewList');
+  const serviceReviewModal=document.getElementById('serviceReviewModal');
+  const serviceReviewForm=document.getElementById('serviceReviewForm');
   const serviceRequestModal=document.getElementById('serviceRequestModal');
   const serviceRequestForm=document.getElementById('serviceRequestForm');
   let customerPublicServices=[];
+  let customerPublicTransportVehicles=[];
+  let customerPublicServiceReviews=[];
+  let customerOwnServiceReviews=[];
   let customerServiceConfig={direct_request_fee_kes:50,quotation_fee_kes:50,payment_destination:null};
   let customerServiceRequests=[];
   let serviceLocationCounties=[];
@@ -2912,6 +2920,16 @@
     quoted:'Quotation ready',quote_accepted:'Quotation accepted',quote_rejected:'Quotation declined',
     in_progress:'Service in progress',completed:'Completed',cancelled:'Cancelled'
   }[value]||String(value||'').replaceAll('_',' '));
+  const serviceReviewStatusText=(value)=>({
+    submitted:'Awaiting LEOGO Admin approval',
+    approved:'Approved & public',
+    rejected:'Not published — you can edit and resubmit'
+  }[value]||String(value||'').replaceAll('_',' '));
+  const serviceReviewStars=(rating)=>'★'.repeat(Math.max(0,Math.min(5,Number(rating)||0)))+'☆'.repeat(Math.max(0,5-(Number(rating)||0)));
+  const serviceReviewSummaryText=(average,count)=>{
+    const total=Number(count||0);
+    return total?('★ '+Number(average||0).toFixed(1)+' · '+total+' review'+(total===1?'':'s')):'No approved reviews yet';
+  };
   const servicePaymentDestinationHtml=(payment)=>{
     if(!payment)return '<div class="service-payment-destination"><strong>Payment account unavailable</strong><span>Please try again shortly or contact LEOGO Customer Care.</span></div>';
     let number=payment.till_number||payment.paybill_number||payment.account_number||'';
@@ -2994,6 +3012,7 @@
       '<div class="service-provider-public-body"><span class="service-provider-public-badge">✓ LEOGO Approved</span>'+
       '<strong>'+receiptEscape(item.service_name||'Professional Service')+'</strong>'+
       '<b>'+receiptEscape(item.business_name||'Service Provider')+'</b>'+
+      '<div class="service-provider-rating-summary"><span>'+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</span></div>'+
       '<p>'+receiptEscape(item.description||'Approved professional service available through LEOGO.')+'</p>'+
       '<small>'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
       '<strong class="service-provider-price">'+receiptEscape(servicePriceText(item))+'</strong>'+
@@ -3002,30 +3021,237 @@
     return card;
   };
 
+  const transportReviewForVehicle=(item)=>customerOwnServiceReviews.find((review)=>
+    review.partner_type==='transport'&&review.provider_id===item.provider_id&&
+    ((review.vehicle_id||null)===(item.vehicle_id||null))
+  )||null;
+
+  const createPublicTransportCard=(item)=>{
+    const photo=item.vehicle_profile_picture_path
+      ? window.leogoAuth?.client?.storage.from('transport-public-media').getPublicUrl(item.vehicle_profile_picture_path)?.data?.publicUrl
+      : '';
+    const ownReview=transportReviewForVehicle(item);
+    const reviewState=ownReview
+      ? '<small class="transport-own-review-state">'+receiptEscape(serviceReviewStatusText(ownReview.moderation_status))+(ownReview.rating?' · '+receiptEscape(serviceReviewStars(ownReview.rating)):'')+'</small>'
+      : '<small class="transport-own-review-state">Used this Transport Provider? Share your experience.</small>';
+    const card=document.createElement('article');
+    card.className='service-provider-public-card transport-provider-public-card';
+    card.innerHTML='<div class="service-provider-public-photo">'+(photo?'<img src="'+receiptEscape(photo)+'" alt="'+receiptEscape(item.provider_name||'Transport Provider')+'" loading="lazy">':'<span>🚚</span>')+'</div>'+
+      '<div class="service-provider-public-body"><span class="service-provider-public-badge">✓ LEOGO Approved Transport</span>'+
+      '<strong>'+receiptEscape(item.vehicle_type||'Transport Vehicle')+(item.registration_number?' · '+receiptEscape(item.registration_number):'')+'</strong>'+
+      '<b>'+receiptEscape(item.provider_name||'Transport Provider')+'</b>'+
+      '<div class="service-provider-rating-summary"><span>'+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</span></div>'+
+      '<p>'+receiptEscape([item.make_model,item.colour,item.capacity_description].filter(Boolean).join(' · ')||'Approved Transport & Parcel vehicle')+'</p>'+
+      '<small>'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
+      '<small>'+receiptEscape((item.service_types||item.services_offered||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'Transport & Parcel Delivery')+'</small>'+
+      reviewState+
+      '<div class="service-provider-actions"><button class="quote transport-rate-button" type="button" data-rate-transport-provider="'+receiptEscape(item.provider_id)+'" data-rate-transport-vehicle="'+receiptEscape(item.vehicle_id||'')+'">'+(ownReview?.moderation_status==='rejected'?'Edit & Resubmit Rating':'Rate Transport Service')+'</button></div></div>';
+    return card;
+  };
+
+  const renderPublicServiceReviews=()=>{
+    if(!publicServiceReviewList)return;
+    publicServiceReviewList.innerHTML=customerPublicServiceReviews.length?customerPublicServiceReviews.map((review)=>{
+      const typeLabel=review.partner_type==='transport'?'Transport & Parcel':'Service Provider';
+      const context=review.service_name||review.vehicle_label||typeLabel;
+      const verified=review.verified_completed_service?'<span class="verified-service-review">✓ Completed through LEOGO</span>':'<span class="verified-service-review neutral">Admin-approved customer review</span>';
+      return '<article class="public-service-review-card">'+
+        '<header><div><strong>'+receiptEscape(review.provider_name||typeLabel)+'</strong><small>'+receiptEscape(context)+'</small></div><b>'+receiptEscape(serviceReviewStars(review.rating))+' '+receiptEscape(review.rating)+'/5</b></header>'+
+        '<p>'+receiptEscape(review.comment||'Customer rated this service.')+'</p>'+
+        '<footer><span>'+receiptEscape(review.customer_name||'LEOGO Customer')+' · '+receiptEscape(customerOrderFormatDate(review.created_at))+'</span>'+verified+'</footer>'+
+      '</article>';
+    }).join(''):'<div class="service-provider-public-empty">Approved service reviews will appear here after LEOGO Admin moderation.</div>';
+  };
+
+
   const loadPublicServices=async()=>{
     if(!publicServiceProviderList)return;
     try{
       const client=window.leogoAuth?.client;
       if(!client)throw new Error('Customer connection is not ready.');
-      const [servicesResult,configResult]=await Promise.all([
+
+      let signedIn=false;
+      try{
+        let user=window.leogoAuth?.getUser?.()||null;
+        if(!user){
+          const session=await client.auth.getSession();
+          user=session.data?.session?.user||null;
+        }
+        signedIn=Boolean(user);
+      }catch(_error){}
+
+      const requests=[
         client.rpc('customer_public_services'),
-        client.rpc('customer_service_marketplace_config')
-      ]);
+        client.rpc('customer_service_marketplace_config'),
+        client.rpc('public_list_transport_vehicles'),
+        client.rpc('customer_public_service_reviews',{p_partner_type:null,p_provider_id:null,p_service_id:null})
+      ];
+      if(signedIn)requests.push(client.rpc('customer_list_own_service_reviews'));
+
+      const results=await Promise.all(requests);
+      const [servicesResult,configResult,transportResult,reviewsResult,ownReviewsResult]=results;
       if(servicesResult.error)throw servicesResult.error;
       if(configResult.error)throw configResult.error;
+      if(transportResult.error)throw transportResult.error;
+      if(reviewsResult.error)throw reviewsResult.error;
+      if(ownReviewsResult?.error)throw ownReviewsResult.error;
+
       customerPublicServices=Array.isArray(servicesResult.data)?servicesResult.data:[];
       customerServiceConfig=configResult.data||customerServiceConfig;
+      customerPublicTransportVehicles=Array.isArray(transportResult.data)?transportResult.data:[];
+      customerPublicServiceReviews=Array.isArray(reviewsResult.data)?reviewsResult.data:[];
+      customerOwnServiceReviews=Array.isArray(ownReviewsResult?.data)?ownReviewsResult.data:[];
+
       publicServiceProviderList.innerHTML='';
       if(!customerPublicServices.length){
         publicServiceProviderList.innerHTML='<div class="service-provider-public-empty">Approved services will appear here after provider listings are approved.</div>';
-        return;
+      }else{
+        customerPublicServices.forEach((item)=>publicServiceProviderList.appendChild(createPublicServiceCard(item)));
       }
-      customerPublicServices.forEach((item)=>publicServiceProviderList.appendChild(createPublicServiceCard(item)));
+
+      if(publicTransportProviderList){
+        publicTransportProviderList.innerHTML='';
+        if(!customerPublicTransportVehicles.length){
+          publicTransportProviderList.innerHTML='<div class="service-provider-public-empty">Approved Transport & Parcel Providers will appear here after Admin approves their vehicles.</div>';
+        }else{
+          customerPublicTransportVehicles.forEach((item)=>publicTransportProviderList.appendChild(createPublicTransportCard(item)));
+        }
+      }
+      renderPublicServiceReviews();
     }catch(error){
       console.warn('Public Services could not load:',error);
       publicServiceProviderList.innerHTML='<div class="service-provider-public-empty">Approved services are temporarily unavailable.</div>';
+      if(publicTransportProviderList)publicTransportProviderList.innerHTML='<div class="service-provider-public-empty">Approved Transport Providers are temporarily unavailable.</div>';
+      if(publicServiceReviewList)publicServiceReviewList.innerHTML='<div class="service-provider-public-empty">Service Reviews are temporarily unavailable.</div>';
     }
   };
+
+  const closeServiceReviewModal=()=>{
+    if(!serviceReviewModal)return;
+    serviceReviewModal.classList.remove('open');
+    serviceReviewModal.setAttribute('aria-hidden','true');
+    document.body.style.overflow='';
+  };
+  const paintServiceReviewStars=(rating)=>{
+    const selected=Number(rating||0);
+    document.querySelectorAll('[data-service-review-rating]').forEach((button)=>{
+      const active=Number(button.dataset.serviceReviewRating)<=selected;
+      button.classList.toggle('active',active);
+      button.setAttribute('aria-checked',String(Number(button.dataset.serviceReviewRating)===selected));
+    });
+  };
+  const openServiceReviewModal=async(options={})=>{
+    let user=window.leogoAuth?.getUser?.()||null;
+    if(!user){
+      const session=await window.leogoAuth?.client?.auth.getSession();
+      user=session?.data?.session?.user||null;
+    }
+    if(!user){openCustomerShell('auth');return;}
+
+    const {
+      partnerType='service_provider',requestId='',providerId='',vehicleId='',
+      title='Rate this service',context='',rating='',comment='',adminNote=''
+    }=options;
+
+    document.getElementById('serviceReviewPartnerType').value=partnerType;
+    document.getElementById('serviceReviewRequestId').value=requestId||'';
+    document.getElementById('serviceReviewProviderId').value=providerId||'';
+    document.getElementById('serviceReviewVehicleId').value=vehicleId||'';
+    document.getElementById('serviceReviewRating').value=rating||'';
+    document.getElementById('serviceReviewComment').value=comment||'';
+    document.getElementById('serviceReviewModalTitle').textContent=title;
+    document.getElementById('serviceReviewContext').textContent=context||'Your review will be sent to LEOGO Admin before it becomes public.';
+    const note=document.getElementById('serviceReviewAdminNote');
+    if(note){note.hidden=!adminNote;note.textContent=adminNote?'Previous Admin note: '+adminNote:'';}
+    const statusBox=document.getElementById('serviceReviewStatus');
+    if(statusBox){statusBox.textContent='';statusBox.className='service-review-status';}
+    paintServiceReviewStars(rating);
+    serviceReviewModal.classList.add('open');
+    serviceReviewModal.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
+  };
+
+  document.querySelectorAll('[data-service-review-rating]').forEach((button)=>button.addEventListener('click',()=>{
+    const rating=Number(button.dataset.serviceReviewRating);
+    document.getElementById('serviceReviewRating').value=String(rating);
+    paintServiceReviewStars(rating);
+  }));
+  serviceReviewModal?.querySelectorAll('[data-close-service-review]').forEach((button)=>button.addEventListener('click',closeServiceReviewModal));
+
+  serviceReviewForm?.addEventListener('submit',async(event)=>{
+    event.preventDefault();
+    const rating=Number(document.getElementById('serviceReviewRating').value||0);
+    const statusBox=document.getElementById('serviceReviewStatus');
+    if(rating<1||rating>5){
+      statusBox.textContent='Choose a rating from 1 to 5 stars.';
+      statusBox.className='service-review-status error';
+      return;
+    }
+    const button=document.getElementById('submitServiceReview');
+    const original=button.textContent;button.disabled=true;button.textContent='Sending…';
+    try{
+      const partnerType=document.getElementById('serviceReviewPartnerType').value;
+      const comment=document.getElementById('serviceReviewComment').value.trim()||null;
+      let result;
+      if(partnerType==='transport'){
+        result=await window.leogoAuth.client.rpc('customer_submit_transport_review',{
+          p_provider_id:document.getElementById('serviceReviewProviderId').value,
+          p_vehicle_id:document.getElementById('serviceReviewVehicleId').value||null,
+          p_rating:rating,
+          p_comment:comment
+        });
+      }else{
+        result=await window.leogoAuth.client.rpc('customer_submit_service_provider_review',{
+          p_request_id:document.getElementById('serviceReviewRequestId').value,
+          p_rating:rating,
+          p_comment:comment
+        });
+      }
+      if(result.error)throw result.error;
+      statusBox.textContent='✓ Review submitted. LEOGO Admin will review it before it appears publicly.';
+      statusBox.className='service-review-status success';
+      await Promise.all([loadCustomerServiceRequests(),loadPublicServices()]);
+      window.setTimeout(closeServiceReviewModal,1100);
+    }catch(error){
+      statusBox.textContent=error?.message||'Your service review could not be submitted.';
+      statusBox.className='service-review-status error';
+    }finally{button.disabled=false;button.textContent=original;}
+  });
+
+  document.addEventListener('click',(event)=>{
+    const serviceButton=event.target.closest?.('[data-rate-service-request]');
+    if(serviceButton){
+      const item=customerServiceRequests.find((row)=>row.id===serviceButton.dataset.rateServiceRequest);
+      if(item)openServiceReviewModal({
+        partnerType:'service_provider',
+        requestId:item.id,
+        providerId:item.provider_id,
+        title:'Rate '+(item.service_name||'this service'),
+        context:(item.service_name||'Service')+' · '+(item.business_name||'Approved Service Provider')+'. Only Admin-approved reviews are shown publicly.',
+        rating:item.review_rating||'',
+        comment:item.review_comment||'',
+        adminNote:item.review_status==='rejected'?item.review_admin_notes||'':''
+      });
+    }
+    const transportButton=event.target.closest?.('[data-rate-transport-provider]');
+    if(transportButton){
+      const providerId=transportButton.dataset.rateTransportProvider;
+      const vehicleId=transportButton.dataset.rateTransportVehicle||null;
+      const item=customerPublicTransportVehicles.find((row)=>row.provider_id===providerId&&String(row.vehicle_id||'')===String(vehicleId||''));
+      const own=item?transportReviewForVehicle(item):null;
+      openServiceReviewModal({
+        partnerType:'transport',
+        providerId,
+        vehicleId,
+        title:'Rate Transport & Parcel Service',
+        context:(item?.provider_name||'Approved Transport Provider')+(item?.vehicle_type?' · '+item.vehicle_type:'')+'. Your rating will be published only after LEOGO Admin approval.',
+        rating:own?.rating||'',
+        comment:own?.comment||'',
+        adminNote:own?.moderation_status==='rejected'?own?.admin_notes||'':''
+      });
+    }
+  });
+
 
   const closeServiceRequestModal=()=>{
     serviceRequestModal?.classList.remove('open');
@@ -3143,6 +3369,19 @@
     if(customerActivityFilter==='cancelled')rows=rows.filter(r=>['cancelled','declined','quote_rejected','payment_rejected'].includes(r.request_status));
     return rows;
   };
+  const customerServiceReviewActionHtml=(item)=>{
+    if(item.request_status!=='completed')return '';
+    if(!item.review_id){
+      return '<div class="customer-service-review-action"><button type="button" data-rate-service-request="'+receiptEscape(item.id)+'">★ Rate Service</button><small>Your rating will be sent to LEOGO Admin before publication.</small></div>';
+    }
+    if(item.review_status==='submitted'){
+      return '<div class="customer-service-review-state pending"><strong>'+receiptEscape(serviceReviewStars(item.review_rating))+' '+receiptEscape(item.review_rating)+'/5</strong><small>Review awaiting LEOGO Admin approval.</small></div>';
+    }
+    if(item.review_status==='approved'){
+      return '<div class="customer-service-review-state approved"><strong>'+receiptEscape(serviceReviewStars(item.review_rating))+' '+receiptEscape(item.review_rating)+'/5</strong><small>Approved and visible in Service Reviews.</small></div>';
+    }
+    return '<div class="customer-service-review-state rejected"><strong>Review not published</strong><small>'+receiptEscape(item.review_admin_notes||'Review the feedback and resubmit when ready.')+'</small><button type="button" data-rate-service-request="'+receiptEscape(item.id)+'">Edit & Resubmit Review</button></div>';
+  };
   const renderCustomerServiceRequests=()=>{
     const target=document.getElementById('customerServiceRequests');
     const rows=filteredCustomerServiceRequests();
@@ -3159,6 +3398,7 @@
       (item.admin_notes?'<p><strong>Admin note:</strong> '+receiptEscape(item.admin_notes)+'</p>':'')+
       (item.provider_quote_kes?'<div class="customer-service-quote-download"><button class="download-quote" type="button" data-download-service-quote="'+receiptEscape(item.id)+'">⬇ Download LEOGO Quotation PDF</button>'+(item.quote_reference?'<small>'+receiptEscape(item.quote_reference)+(item.quote_valid_until?' · Valid until '+receiptEscape(item.quote_valid_until):'')+'</small>':'')+'</div>':'')+
       (item.request_status==='quoted'?'<div class="customer-service-quote-actions"><button type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="true">Accept '+receiptEscape(money(item.provider_quote_kes))+'</button><button class="reject" type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="false">Reject Quotation</button></div>':'')+
+      customerServiceReviewActionHtml(item)+
       '</article>'
     ).join('');
     const productContainer=document.getElementById('customerMarketplaceOrders');
