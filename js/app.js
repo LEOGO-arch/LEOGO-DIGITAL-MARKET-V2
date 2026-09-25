@@ -3049,7 +3049,7 @@
       '<small>'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
       '<small>'+receiptEscape((item.service_types||item.services_offered||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'Transport & Parcel Delivery')+'</small>'+
       '<small class="transport-own-review-state">Complete a LEOGO booking to leave a verified review.</small>'+
-      '<div class="service-provider-actions"><button class="direct" type="button" data-request-transport="'+receiptEscape(item.vehicle_id||'')+'">Request Transport</button></div></div>';
+      '<div class="service-provider-actions"><button class="direct" type="button" data-request-transport="'+receiptEscape(item.vehicle_id||'')+'">Request Transport</button><button class="quote" type="button" data-view-transport-vehicle="'+receiptEscape(item.vehicle_id||'')+'">View Vehicle Details</button></div></div>';
     return card;
   };
 
@@ -3541,6 +3541,50 @@
       await loadCustomerServiceRequests();
     }catch(error){window.alert(error?.message||'Quotation decision could not be saved.');button.disabled=false;}
   });
+  const transportVehicleDetailsModal=document.getElementById('transportVehicleDetailsModal');
+  let activeTransportVehicleDetail=null;
+  const closeTransportVehicleDetails=()=>{
+    if(!transportVehicleDetailsModal)return;
+    transportVehicleDetailsModal.classList.remove('open');
+    transportVehicleDetailsModal.setAttribute('aria-hidden','true');
+    document.body.style.overflow='';
+    activeTransportVehicleDetail=null;
+  };
+  const openTransportVehicleDetails=(vehicleId)=>{
+    const item=customerPublicTransportVehicles.find((row)=>String(row.vehicle_id)===String(vehicleId));
+    if(!item||!transportVehicleDetailsModal)return;
+    activeTransportVehicleDetail=item;
+    document.getElementById('transportVehicleDetailsTitle').textContent=(item.vehicle_type||'Transport Vehicle')+(item.registration_number?' · '+item.registration_number:'');
+    document.getElementById('transportVehicleDetailsProvider').textContent=item.provider_name||'Approved Transport Provider';
+    const mapLink=item.waiting_point_map_link||((item.waiting_point_latitude!=null&&item.waiting_point_longitude!=null)?('https://www.google.com/maps?q='+item.waiting_point_latitude+','+item.waiting_point_longitude):'');
+    document.getElementById('transportVehicleDetailsBody').innerHTML=
+      '<div class="customer-service-request-meta">'+
+        '<div><small>MAKE / MODEL</small><strong>'+receiptEscape(item.make_model||'—')+'</strong></div>'+
+        '<div><small>COLOUR</small><strong>'+receiptEscape(item.colour||'—')+'</strong></div>'+
+        '<div><small>CAPACITY</small><strong>'+receiptEscape(item.capacity_description||'—')+'</strong></div>'+
+      '</div>'+
+      '<p><strong>Services:</strong> '+receiptEscape((item.service_types||item.services_offered||[]).map((v)=>String(v).replaceAll('_',' ')).join(', ')||'Transport & Parcel Delivery')+'</p>'+
+      '<p><strong>Service area:</strong> '+receiptEscape(item.service_area||[item.town,item.county].filter(Boolean).join(', ')||'—')+'</p>'+
+      '<div class="service-location-box"><div class="service-location-heading"><div><span>📍 WAITING POINT / STAGE</span><strong>'+receiptEscape(item.waiting_point_name||'Waiting point not provided')+'</strong><small>This is the public stage/waiting point submitted for this vehicle.</small></div></div>'+
+      '<div class="customer-service-request-meta"><div><small>LATITUDE</small><strong>'+receiptEscape(item.waiting_point_latitude??'—')+'</strong></div><div><small>LONGITUDE</small><strong>'+receiptEscape(item.waiting_point_longitude??'—')+'</strong></div></div>'+
+      (mapLink?'<p><a class="download-quote" href="'+receiptEscape(mapLink)+'" target="_blank" rel="noopener noreferrer">📍 Open Waiting Point in Google Maps ↗</a></p>':'')+
+      '</div>'+
+      '<p><strong>Customer rating:</strong> '+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</p>';
+    transportVehicleDetailsModal.classList.add('open');
+    transportVehicleDetailsModal.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
+  };
+  document.addEventListener('click',(event)=>{
+    const viewButton=event.target.closest?.('[data-view-transport-vehicle]');
+    if(viewButton)openTransportVehicleDetails(viewButton.dataset.viewTransportVehicle);
+    if(event.target.closest?.('[data-close-transport-vehicle-details]'))closeTransportVehicleDetails();
+  });
+  document.getElementById('transportVehicleDetailsRequestButton')?.addEventListener('click',()=>{
+    const vehicleId=activeTransportVehicleDetail?.vehicle_id;
+    closeTransportVehicleDetails();
+    if(vehicleId)openTransportRequestModal(vehicleId);
+  });
+
   const transportRequestStatusText=(value)=>({
     submitted:'Waiting for Admin assignment',
     assigned:'Assigned to Transport Provider',
