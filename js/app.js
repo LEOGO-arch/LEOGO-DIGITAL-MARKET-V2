@@ -2620,6 +2620,7 @@
       if(!user){
         customerMarketplaceOrders=[];
         renderCustomerMarketplaceOrders();
+      renderCustomerTransportRequests();
         return;
       }
 
@@ -2648,7 +2649,7 @@
   document.addEventListener('click',(event)=>{
     if(event.target.closest?.('[data-customer-view="dashboard"],[data-open-customer-view="dashboard"],[data-customer-view="orders"],[data-open-customer-view="orders"]')){
       refreshCustomerOrdersSoon();
-      window.setTimeout(()=>loadCustomerServiceRequests(),45);
+      window.setTimeout(()=>{loadCustomerServiceRequests();loadCustomerTransportRequests();},45);
     }
   });
   window.addEventListener('focus',()=>{ if(window.leogoAuth?.getUser?.()) loadCustomerMarketplaceOrders(); });
@@ -2895,12 +2896,15 @@
   const serviceReviewForm=document.getElementById('serviceReviewForm');
   const serviceRequestModal=document.getElementById('serviceRequestModal');
   const serviceRequestForm=document.getElementById('serviceRequestForm');
+  const transportRequestModal=document.getElementById('transportRequestModal');
+  const transportRequestForm=document.getElementById('transportRequestForm');
   let customerPublicServices=[];
   let customerPublicTransportVehicles=[];
   let customerPublicServiceReviews=[];
   let customerOwnServiceReviews=[];
   let customerServiceConfig={direct_request_fee_kes:50,quotation_fee_kes:50,payment_destination:null};
   let customerServiceRequests=[];
+  let customerTransportRequests=[];
   let serviceLocationCounties=[];
   let serviceLocationSubCounties=[];
 
@@ -3045,7 +3049,7 @@
       '<small>'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
       '<small>'+receiptEscape((item.service_types||item.services_offered||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'Transport & Parcel Delivery')+'</small>'+
       reviewState+
-      '<div class="service-provider-actions"><button class="quote transport-rate-button" type="button" data-rate-transport-provider="'+receiptEscape(item.provider_id)+'" data-rate-transport-vehicle="'+receiptEscape(item.vehicle_id||'')+'">'+(ownReview?.moderation_status==='rejected'?'Edit & Resubmit Rating':'Rate Transport Service')+'</button></div></div>';
+      '<div class="service-provider-actions"><button class="direct" type="button" data-request-transport="'+receiptEscape(item.vehicle_id||'')+'">Request Transport</button><button class="quote transport-rate-button" type="button" data-rate-transport-provider="'+receiptEscape(item.provider_id)+'" data-rate-transport-vehicle="'+receiptEscape(item.vehicle_id||'')+'">'+(ownReview?.moderation_status==='rejected'?'Edit & Resubmit Rating':'Rate Transport Service')+'</button></div></div>';
     return card;
   };
 
@@ -3540,9 +3544,173 @@
       await loadCustomerServiceRequests();
     }catch(error){window.alert(error?.message||'Quotation decision could not be saved.');button.disabled=false;}
   });
-  document.addEventListener('leogo:authchange',()=>window.setTimeout(()=>{loadPublicServices();loadCustomerServiceRequests();},60));
-  document.addEventListener('leogo:customer-data-refresh',()=>loadCustomerServiceRequests());
-  window.setTimeout(()=>{loadPublicServices();loadCustomerServiceRequests();},550);
+  const transportRequestStatusText=(value)=>({
+    submitted:'Waiting for Admin assignment',
+    assigned:'Assigned to Transport Provider',
+    accepted:'Provider accepted',
+    declined:'Provider declined · waiting for reassignment',
+    picked_up:'Picked up',
+    in_transit:'In transit',
+    completed:'Completed',
+    cancelled:'Cancelled'
+  }[value]||String(value||'').replaceAll('_',' '));
+
+  const transportCoordinatesFromLink=(value='')=>{
+    const text=String(value||'').trim();
+    const direct=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+    if(direct)return {lat:Number(direct[1]),lng:Number(direct[2])};
+    const maps=text.match(/(?:@|q=|query=)(-?\d{1,2}(?:\.\d+)?)[,%2C\s]+(-?\d{1,3}(?:\.\d+)?)/i);
+    return maps?{lat:Number(maps[1]),lng:Number(maps[2])}:null;
+  };
+
+  const closeTransportRequestModal=()=>{
+    if(!transportRequestModal)return;
+    transportRequestModal.classList.remove('open');
+    transportRequestModal.setAttribute('aria-hidden','true');
+    document.body.style.overflow='';
+  };
+
+  const renderTransportPickupSubCounties=(preferred='')=>{
+    const county=document.getElementById('transportPickupCounty');
+    const sub=document.getElementById('transportPickupSubCounty');
+    if(!county||!sub)return;
+    const options=serviceLocationSubCounties.filter((item)=>item.county_code===county.value);
+    sub.disabled=!county.value;
+    sub.innerHTML=county.value
+      ? '<option value="">Select sub-county</option>'+options.map((item)=>'<option value="'+receiptEscape(item.code)+'">'+receiptEscape(item.name)+'</option>').join('')
+      : '<option value="">Choose a county first</option>';
+    if(preferred&&options.some((item)=>item.code===preferred))sub.value=preferred;
+  };
+  document.getElementById('transportPickupCounty')?.addEventListener('change',()=>renderTransportPickupSubCounties());
+
+  const openTransportRequestModal=async(vehicleId)=>{
+    const client=window.leogoAuth?.client;
+    if(!client)return;
+    let user=window.leogoAuth?.getUser?.()||null;
+    if(!user){const session=await client.auth.getSession();user=session.data?.session?.user||null;}
+    if(!user){openCustomerShell('auth');return;}
+    const item=customerPublicTransportVehicles.find((row)=>String(row.vehicle_id)===String(vehicleId));
+    if(!item)return;
+    transportRequestForm?.reset();
+    document.getElementById('transportRequestProviderId').value=item.provider_id||'';
+    document.getElementById('transportRequestVehicleId').value=item.vehicle_id||'';
+    document.getElementById('transportRequestProvider').textContent=(item.provider_name||'Approved Transport Provider')+' · '+(item.vehicle_type||'Vehicle')+(item.registration_number?' · '+item.registration_number:'');
+    const services=Array.from(new Set([...(item.service_types||[]),...(item.services_offered||[])]));
+    document.getElementById('transportRequestServiceType').innerHTML='<option value="">Choose service</option>'+services.map((value)=>'<option value="'+receiptEscape(value)+'">'+receiptEscape(String(value).replaceAll('_',' '))+'</option>').join('');
+    try{
+      await loadServiceLocationDirectory();
+      const county=document.getElementById('transportPickupCounty');
+      county.innerHTML='<option value="">Select county</option>'+serviceLocationCounties.map((row)=>'<option value="'+receiptEscape(row.code)+'">'+receiptEscape(row.name)+'</option>').join('');
+      const profileResult=await client.from('customer_profiles').select('county,sub_county,county_code,sub_county_code,estate').eq('user_id',user.id).maybeSingle();
+      const profile=profileResult.data||null;
+      if(profile){
+        const countyCode=profile.county_code||serviceLocationCounties.find((row)=>row.name===profile.county)?.code||'';
+        county.value=countyCode;
+        renderTransportPickupSubCounties(profile.sub_county_code||serviceLocationSubCounties.find((row)=>row.county_code===countyCode&&row.name===profile.sub_county)?.code||'');
+        document.getElementById('transportPickupTownEstate').value=profile.estate||'';
+      }
+    }catch(error){console.warn('Transport pickup location could not prefill:',error);}
+    const date=document.getElementById('transportPreferredDate');if(date)date.min=new Date().toISOString().slice(0,10);
+    const target=document.getElementById('transportRequestStatus');if(target){target.textContent='';target.className='service-request-status';}
+    transportRequestModal.classList.add('open');
+    transportRequestModal.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
+  };
+
+  document.addEventListener('click',(event)=>{
+    const request=event.target.closest?.('[data-request-transport]');
+    if(request)openTransportRequestModal(request.dataset.requestTransport);
+    if(event.target.closest?.('[data-close-transport-request]'))closeTransportRequestModal();
+  });
+
+  transportRequestForm?.addEventListener('submit',async(event)=>{
+    event.preventDefault();
+    if(!transportRequestForm.reportValidity())return;
+    const submit=document.getElementById('submitTransportRequest');
+    const target=document.getElementById('transportRequestStatus');
+    const original=submit.textContent;submit.disabled=true;submit.textContent='Submitting…';
+    if(target){target.textContent='';target.className='service-request-status';}
+    try{
+      const pickupCoords=transportCoordinatesFromLink(document.getElementById('transportPickupMapLink').value);
+      const destinationCoords=transportCoordinatesFromLink(document.getElementById('transportDestinationMapLink').value);
+      const county=document.getElementById('transportPickupCounty');
+      const sub=document.getElementById('transportPickupSubCounty');
+      const {data,error}=await window.leogoAuth.client.rpc('customer_create_transport_request',{
+        p_provider_id:document.getElementById('transportRequestProviderId').value,
+        p_vehicle_id:document.getElementById('transportRequestVehicleId').value,
+        p_service_type:document.getElementById('transportRequestServiceType').value,
+        p_pickup_location:document.getElementById('transportPickupLocation').value.trim(),
+        p_destination_location:document.getElementById('transportDestinationLocation').value.trim(),
+        p_preferred_date:document.getElementById('transportPreferredDate').value||null,
+        p_preferred_time:document.getElementById('transportPreferredTime').value||null,
+        p_pickup_county:county?.selectedOptions?.[0]?.textContent||null,
+        p_pickup_sub_county:sub?.selectedOptions?.[0]?.textContent||null,
+        p_pickup_town_estate:document.getElementById('transportPickupTownEstate').value.trim()||null,
+        p_pickup_map_link:document.getElementById('transportPickupMapLink').value.trim()||null,
+        p_pickup_latitude:pickupCoords?.lat??null,
+        p_pickup_longitude:pickupCoords?.lng??null,
+        p_destination_map_link:document.getElementById('transportDestinationMapLink').value.trim()||null,
+        p_destination_latitude:destinationCoords?.lat??null,
+        p_destination_longitude:destinationCoords?.lng??null,
+        p_parcel_description:document.getElementById('transportParcelDescription').value.trim()||null,
+        p_parcel_weight_kg:document.getElementById('transportParcelWeight').value?Number(document.getElementById('transportParcelWeight').value):null,
+        p_passenger_count:document.getElementById('transportPassengerCount').value?Number(document.getElementById('transportPassengerCount').value):null,
+        p_customer_notes:document.getElementById('transportCustomerNotes').value.trim()||null
+      });
+      if(error)throw error;
+      target.textContent='✓ Transport request '+data.request_reference+' submitted to LEOGO Admin.';
+      target.classList.add('success');
+      await loadCustomerTransportRequests();
+      window.setTimeout(()=>{closeTransportRequestModal();openCustomerShell('orders');},700);
+    }catch(error){
+      target.textContent=error?.message||'Transport request could not be submitted.';
+      target.classList.add('error');
+    }finally{submit.disabled=false;submit.textContent=original;}
+  });
+
+  const filteredCustomerTransportRequests=()=>{
+    let rows=customerTransportRequests;
+    if(customerActivityFilter==='products'||customerActivityFilter==='services')return [];
+    if(customerActivityFilter==='active')rows=rows.filter((r)=>!['completed','cancelled'].includes(r.request_status));
+    if(customerActivityFilter==='completed')rows=rows.filter((r)=>r.request_status==='completed');
+    if(customerActivityFilter==='cancelled')rows=rows.filter((r)=>r.request_status==='cancelled');
+    return rows;
+  };
+  const renderCustomerTransportRequests=()=>{
+    const target=document.getElementById('customerTransportRequests');
+    const rows=filteredCustomerTransportRequests();
+    const active=customerTransportRequests.filter((r)=>!['completed','cancelled'].includes(r.request_status)).length;
+    const dash=document.getElementById('customerTransportDashboardCount');if(dash)dash.textContent=active;
+    const dashText=document.getElementById('customerTransportDashboardText');if(dashText)dashText.textContent=active?active+' active booking(s)':'No active bookings';
+    const activityCount=document.getElementById('customerTransportActivityCount');if(activityCount)activityCount.textContent=customerTransportRequests.length;
+    if(target)target.innerHTML=rows.map((item)=>
+      '<article class="customer-service-request-card" data-customer-transport-request="'+receiptEscape(item.id)+'"><header><div><strong>'+receiptEscape(item.request_reference)+'</strong><small>'+receiptEscape(customerOrderFormatDate(item.created_at))+' · '+receiptEscape(String(item.service_type||'Transport').replaceAll('_',' '))+'</small></div><b>'+receiptEscape(transportRequestStatusText(item.request_status))+'</b></header>'+
+      '<div class="customer-service-request-meta"><div><small>PROVIDER</small><strong>'+receiptEscape(item.assigned_provider_name||item.requested_provider_name||'Waiting for Admin')+'</strong></div><div><small>VEHICLE</small><strong>'+receiptEscape(item.assigned_vehicle_label||item.requested_vehicle_label||'To be assigned')+'</strong></div><div><small>ROUTE</small><strong>'+receiptEscape(item.pickup_location)+' → '+receiptEscape(item.destination_location)+'</strong></div></div>'+
+      '<small><strong>Preferred schedule:</strong> '+receiptEscape((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+'</small>'+
+      (item.assigned_provider_phone?'<small><strong>Provider phone:</strong> '+receiptEscape(item.assigned_provider_phone)+'</small>':'')+
+      (item.provider_notes?'<p><strong>Provider update:</strong> '+receiptEscape(item.provider_notes)+'</p>':'')+
+      (item.admin_notes?'<p><strong>Admin note:</strong> '+receiptEscape(item.admin_notes)+'</p>':'')+
+      '</article>'
+    ).join('');
+    const empty=document.getElementById('customerActivityEmpty');
+    const products=document.getElementById('customerMarketplaceOrders')?.innerHTML.trim();
+    const services=document.getElementById('customerServiceRequests')?.innerHTML.trim();
+    if(empty)empty.hidden=Boolean(rows.length||products||services);
+  };
+  async function loadCustomerTransportRequests(){
+    const client=window.leogoAuth?.client;if(!client)return;
+    let user=window.leogoAuth?.getUser?.()||null;
+    if(!user){const s=await client.auth.getSession();user=s.data?.session?.user||null;}
+    if(!user){customerTransportRequests=[];renderCustomerTransportRequests();return;}
+    const {data,error}=await client.rpc('customer_list_transport_requests');
+    if(error){console.error('Transport requests could not load:',error);return;}
+    customerTransportRequests=Array.isArray(data)?data:[];
+    renderCustomerTransportRequests();
+  }
+
+  document.addEventListener('leogo:authchange',()=>window.setTimeout(()=>{loadPublicServices();loadCustomerServiceRequests();loadCustomerTransportRequests();},60));
+  document.addEventListener('leogo:customer-data-refresh',()=>{loadCustomerServiceRequests();loadCustomerTransportRequests();});
+  window.setTimeout(()=>{loadPublicServices();loadCustomerServiceRequests();loadCustomerTransportRequests();},550);
 
   const customerMobileMenu=document.getElementById('customerMobileMenu');
   const customerMobileMenuScrim=document.getElementById('customerMobileMenuScrim');
