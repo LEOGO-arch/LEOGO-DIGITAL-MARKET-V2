@@ -2710,8 +2710,8 @@ function openAccommodationView(view='overview'){
   const approved=accommodationProvider?.verification_status==='approved';
   const allowed=approved?['overview','properties','bookings','availability','earnings','settlements','notifications','profile']:['overview','notifications','profile'];
   const resolved=allowed.includes(view)?view:'overview';
-  $('[data-accommodation-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.accommodationContent===resolved));
-  $('[data-accommodation-view]').forEach(button=>button.classList.toggle('active',button.dataset.accommodationView===resolved));
+  $$('[data-accommodation-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.accommodationContent===resolved));
+  $$('[data-accommodation-view]').forEach(button=>button.classList.toggle('active',button.dataset.accommodationView===resolved));
   if($('#accommodationViewDescription'))$('#accommodationViewDescription').textContent=accommodationViewDescription(resolved);
   closeAccommodationSidebar();
 }
@@ -2932,7 +2932,7 @@ $('#accommodationBackToPartnerships')?.addEventListener('click',showRolePicker);
 $('#refreshAccommodationDashboard')?.addEventListener('click',()=>loadAccommodationProvider());
 $('#accommodationSidebarToggle')?.addEventListener('click',()=>{accommodationSidebar?.classList.add('open');$('#accommodationSidebarScrim')?.classList.add('open');});
 $('#accommodationSidebarScrim')?.addEventListener('click',closeAccommodationSidebar);
-$('[data-accommodation-view]').forEach(button=>button.addEventListener('click',()=>openAccommodationView(button.dataset.accommodationView)));
+$$('[data-accommodation-view]').forEach(button=>button.addEventListener('click',()=>openAccommodationView(button.dataset.accommodationView)));
 $('#pinAccommodationLocation')?.addEventListener('click',()=>{
   const target=$('#accommodationPinStatus');
   if(!navigator.geolocation){
@@ -3750,7 +3750,7 @@ async function loadTransportJobs(){
 
 function toggleTransportSettlementFields(){
   const type=$('#transportSettlementType')?.value||'mpesa_mobile';
-  $('[data-transport-settlement-field]').forEach((label)=>{
+  $$('[data-transport-settlement-field]').forEach((label)=>{
     const types=(label.dataset.transportSettlementField||'').split(/\s+/);
     label.hidden=!types.includes(type);
   });
@@ -3796,7 +3796,7 @@ function renderTransportSettlements(){
       (['pending_review','rejected'].includes(account.status)?'<button type="button" class="secondary" data-edit-transport-settlement="'+escapeHtml(account.id)+'">Edit</button>':'')+
       '</article>'
     ).join(''):'<div class="empty-card">No settlement account added yet.</div>';
-    $('[data-edit-transport-settlement]',list).forEach((button)=>button.addEventListener('click',()=>editTransportSettlementAccount(button.dataset.editTransportSettlement)));
+    $$('[data-edit-transport-settlement]',list).forEach((button)=>button.addEventListener('click',()=>editTransportSettlementAccount(button.dataset.editTransportSettlement)));
   }
   const approved=transportSettlementAccounts.filter((account)=>account.status==='approved');
   if(requestSelect)requestSelect.innerHTML=approved.length
