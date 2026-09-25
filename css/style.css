@@ -1002,3 +1002,20 @@ body.accommodation-modal-open{overflow:hidden}
 }
 
 .transport-pin-location{display:grid;gap:8px}.transport-pin-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.transport-pin-actions button{border:0;border-radius:10px;padding:10px 14px;font-weight:900;cursor:pointer;background:#071a3a;color:#fff}.transport-pin-actions small{color:#667085;font-weight:700}@media(max-width:640px){.transport-pin-actions{align-items:stretch}.transport-pin-actions button{width:100%}}
+
+
+/* Compact on-demand customer reviews for service & transport cards */
+.service-provider-actions .reviews{
+  background:#eef3f8;
+  color:#0a2348;
+  border:1px solid #d8e1ec;
+}
+.public-partner-reviews-card{width:min(620px,100%)}
+.public-partner-reviews-list{display:grid;gap:12px;padding:18px}
+.public-partner-reviews-list .public-service-review-card{box-shadow:none}
+@media(max-width:620px){
+  .service-provider-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.72fr);gap:8px}
+  .service-provider-actions .quote{grid-column:1/-1}
+  .service-provider-actions button{width:100%}
+  .public-partner-reviews-list{padding:12px}
+}
