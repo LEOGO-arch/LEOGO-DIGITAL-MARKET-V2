@@ -4353,18 +4353,81 @@
     await Promise.all([loadPremiumPlans(), loadAuditLog()]);
   };
 
-  const loadAccommodationSummary = async () => {
-    const [hosts, properties, bookings] = await Promise.all([
-      db.from('accommodation_hosts').select('*', { count: 'exact', head: true }),
-      db.from('accommodation_properties').select('*', { count: 'exact', head: true }),
-      db.from('accommodation_bookings').select('*', { count: 'exact', head: true })
+  const renderAccommodationProviders = () => {
+    const target=$('#accommodationProviderTableBody');
+    if(!target)return;
+    const rows=state.accommodationProviders||[];
+    target.innerHTML=rows.length?rows.map((item)=>`
+      <tr>
+        <td data-label="Provider"><strong>${escapeHtml(item.business_name||'Accommodation Provider')}</strong><small>${escapeHtml(item.owner_name||'')}</small></td>
+        <td data-label="Contact"><strong>${escapeHtml(item.phone||'—')}</strong><small>${escapeHtml(item.email||'')}</small></td>
+        <td data-label="Location"><strong>${escapeHtml([item.town,item.sub_county,item.county].filter(Boolean).join(' · ')||'—')}</strong><small>${escapeHtml(item.location_details||'')}</small></td>
+        <td data-label="Status"><span class="status-chip">${escapeHtml(String(item.verification_status||'').replaceAll('_',' '))}</span></td>
+        <td data-label="Properties"><strong>${Number(item.property_count||0)}</strong></td>
+        <td data-label="Bookings"><strong>${Number(item.booking_count||0)}</strong></td>
+        <td data-label="Action"><div class="partner-record-actions">
+          <button type="button" data-view-accommodation-provider="${escapeHtml(item.id)}">View Details</button>
+          ${item.verification_status==='approved'
+            ? '<button type="button" class="danger" data-accommodation-provider-suspend="true" data-accommodation-host-id="'+escapeHtml(item.id)+'">Suspend Account</button>'
+            : item.verification_status==='suspended'
+              ? '<button type="button" data-accommodation-provider-suspend="false" data-accommodation-host-id="'+escapeHtml(item.id)+'">Reactivate</button>'
+              : '<button type="button" data-open-accommodation-approval="'+escapeHtml(item.id)+'">Open Approval</button>'}
+        </div></td>
+      </tr>`).join(''):'<tr><td colspan="7">No Accommodation Providers registered yet.</td></tr>';
+
+    Array.from(target.querySelectorAll('[data-view-accommodation-provider]')).forEach((button)=>button.addEventListener('click',()=>openAccommodationProviderRecord(button.dataset.viewAccommodationProvider)));
+    Array.from(target.querySelectorAll('[data-accommodation-provider-suspend]')).forEach((button)=>button.addEventListener('click',()=>setAccommodationProviderSuspended(button,button.dataset.accommodationHostId,button.dataset.accommodationProviderSuspend==='true')));
+    Array.from(target.querySelectorAll('[data-open-accommodation-approval]')).forEach((button)=>button.addEventListener('click',()=>{
+      changeView('approvals');
+      state.approvalFilter='accommodation';
+      renderApprovals();
+      const row=state.approvals.find((entry)=>entry.kind==='accommodation_host'&&String(entry.record_id)===String(button.dataset.openAccommodationApproval));
+      if(row)openApproval('accommodation_host',row.record_id);
+    }));
+  };
+
+  const openAccommodationProviderRecord = async (hostId) => {
+    const item=(state.accommodationProviders||[]).find((row)=>String(row.id)===String(hostId));
+    if(!item||!openPartnerRecordShell('ACCOMMODATION PROVIDER RECORD',item.business_name||'Accommodation Provider'))return;
+    $('#partnerRecordGrid').innerHTML=partnerRecordGridHtml([
+      ['Business / Operator',item.business_name],['Owner / Manager',item.owner_name],['Email',item.email],['Phone',item.phone],
+      ['ID Number',item.id_number],['County',item.county],['Sub-County',item.sub_county],['Town / Area',item.town],
+      ['Business / Operating Location',item.location_details],['Latitude',item.base_latitude],['Longitude',item.base_longitude],
+      ['Application Status',String(item.verification_status||'').replaceAll('_',' ')],['Submitted',formatDate(item.submitted_at,true)],
+      ['Approved',formatDate(item.approved_at,true)],['Admin Notes',item.admin_notes],['Business Description',item.business_description],
+      ['Properties',Number(item.property_count||0)],['Bookings',Number(item.booking_count||0)]
     ]);
-    if (hosts.error) throw hosts.error;
-    if (properties.error) throw properties.error;
-    if (bookings.error) throw bookings.error;
-    $('#accommodationHostCount').textContent = hosts.count || 0;
-    $('#accommodationPropertyCount').textContent = properties.count || 0;
-    $('#accommodationBookingCount').textContent = bookings.count || 0;
+    await renderPartnerRecordMedia(item,'accommodation_host');
+    const mapLink=(()=>{try{const value=String(item.base_map_link||'').trim();if(!value)return '';const url=new URL(value);return ['http:','https:'].includes(url.protocol)?url.href:'';}catch{return '';}})();
+    $('#partnerRecordRelated').innerHTML=
+      '<div class="review-media-heading"><span>ACCOMMODATION ACCOUNT</span><strong>Post-approval control</strong><small>This provider record remains available after approval. Suspension hides the provider\'s published accommodation from customers without deleting history.</small></div>'+
+      (mapLink?'<a class="admin-location-link" href="'+escapeHtml(mapLink)+'" target="_blank" rel="noopener noreferrer">📍 Open Accommodation location in Google Maps ↗</a>':'');
+  };
+
+  const setAccommodationProviderSuspended = async (button,hostId,suspended) => {
+    const notes=window.prompt((suspended?'Reason / note for suspension':'Optional reactivation note')+':','')||'';
+    if(suspended&&!window.confirm('Suspend this Accommodation Provider account? Published properties will immediately be hidden from customers.'))return;
+    await withButtonLock(button,suspended?'Suspending…':'Reactivating…',async()=>{
+      const {error}=await db.rpc('admin_set_accommodation_provider_status',{p_host_id:hostId,p_suspended:suspended,p_notes:notes||null});
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadAccommodationSummary(),loadApprovals(),loadDashboard(),loadAuditLog().catch(()=>{})]);
+      globalStatus(suspended?'Accommodation Provider suspended and customer listings hidden.':'Accommodation Provider reactivated.');
+    });
+  };
+
+  const loadAccommodationSummary = async () => {
+    const [summaryResult,providersResult] = await Promise.all([
+      db.rpc('admin_accommodation_summary'),
+      db.rpc('admin_list_accommodation_providers')
+    ]);
+    if(summaryResult.error)throw summaryResult.error;
+    if(providersResult.error)throw providersResult.error;
+    const summary=summaryResult.data||{};
+    state.accommodationProviders=Array.isArray(providersResult.data)?providersResult.data:[];
+    $('#accommodationHostCount').textContent=Number(summary.hosts||0);
+    $('#accommodationPropertyCount').textContent=Number(summary.properties||0);
+    $('#accommodationBookingCount').textContent=Number(summary.bookings||0);
+    renderAccommodationProviders();
   };
 
   const loadAuditLog = async () => {
@@ -4591,6 +4654,7 @@
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
     $('#refreshServiceProviders')?.addEventListener('click', () => withButtonLock($('#refreshServiceProviders'), 'Refreshing…', async () => { await Promise.all([loadServiceProviders(),loadServiceListings(),loadServiceOperations(),loadServiceReviews(),loadApprovals()]); }));
+    $('#refreshAccommodationProviders')?.addEventListener('click',()=>withButtonLock($('#refreshAccommodationProviders'),'Refreshing…',async()=>{await Promise.all([loadAccommodationSummary(),loadApprovals()]);}));
     $('#adminServiceListingFilter')?.addEventListener('change',renderServiceListings);
     $('#serviceQuotationFeeForm')?.addEventListener('submit',saveServiceQuotationFee);
     $('#adminServiceRequestFilter')?.addEventListener('change',renderServiceRequests);
