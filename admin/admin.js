@@ -73,6 +73,7 @@
     deliverySellerStates: [],
     serviceCounties: [],
     serviceSubcounties: [],
+    accommodationProviders: [],
     audit: [],
     dashboard: null,
     dashboardRange: 'today',
@@ -623,6 +624,10 @@
         resolvedConfig = { ...config, bucket: 'transport-public-media', publicBucket: true, label: 'Vehicle Profile Picture' };
       } else if (kind === 'transport_vehicle' && key === 'driver_passport_photo_path') {
         resolvedConfig = { ...config, bucket: 'transport-driver-private', label: 'Driver Passport Photo — Admin Only' };
+      } else if (kind === 'accommodation_host' && key === 'profile_picture_path') {
+        resolvedConfig = { ...config, bucket: 'accommodation-public-media', publicBucket: true, label: 'Accommodation Provider Profile Picture' };
+      } else if (kind === 'accommodation_host' && ['passport_photo_path','business_id_document_path','business_licence_path','registration_certificate_path','other_permit_paths'].includes(key)) {
+        resolvedConfig = { ...config, bucket: 'accommodation-verification', label: key==='passport_photo_path'?'Passport-size Photo — Admin Only':config.label };
       }
       const raw = payload?.[key];
       const values = resolvedConfig.multiple ? (Array.isArray(raw) ? raw : []) : (raw ? [raw] : []);
@@ -743,10 +748,10 @@
     const requestChanges = $('[data-review-action="changes_requested"]');
     const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
-    const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle'].includes(kind) && item.status === 'changes_requested';
+    const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','accommodation_host'].includes(kind) && item.status === 'changes_requested';
     const settlementAccountApproval = ['seller_settlement_account','service_provider_settlement_account','transport_provider_settlement_account'].includes(kind);
     underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection || settlementAccountApproval;
-    requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
+    requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','accommodation_host','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
@@ -808,7 +813,7 @@
             ? 'Correction request saved and audited. The application remains in Approval Center with status CHANGES REQUESTED until the Seller resubmits.'
             : 'Approval decision saved and audited.'
       );
-      const refreshers=[loadApprovals(),loadDashboard(),loadSellers(),loadServiceProviders(),loadCatalogue(),loadPremiumCustomers(),loadPremiumProfiles()];
+      const refreshers=[loadApprovals(),loadDashboard(),loadSellers(),loadServiceProviders(),loadCatalogue(),loadPremiumCustomers(),loadPremiumProfiles(),loadAccommodationSummary()];
       if(isSuperAdmin()) refreshers.push(loadAuditLog());
       if(adminHas('settlements.read')) refreshers.push(loadSellerSettlements());
       await Promise.allSettled(refreshers);
