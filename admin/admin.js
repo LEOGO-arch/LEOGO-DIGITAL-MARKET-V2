@@ -51,6 +51,7 @@
     serviceReviews: [],
     transportProviders: [],
     transportVehicles: [],
+    transportRequests: [],
     serviceMarketplaceSettings: null,
     paymentActions: [],
     sellerSettlementAccounts: [],
@@ -3145,17 +3146,65 @@
     }).join(''):'<tr><td colspan="6">No Transport Provider vehicles yet.</td></tr>';
   };
 
+  const renderTransportRequests = () => {
+    const target=$('#adminTransportRequestList');
+    const requests=Array.isArray(state.transportRequests)?state.transportRequests:[];
+    if($('#adminTransportRequestCount'))$('#adminTransportRequestCount').textContent=requests.length;
+    if(!target)return;
+    const approvedVehicles=(state.transportVehicles||[]).filter((v)=>v.approval_status==='approved'&&v.is_available!==false);
+    target.innerHTML=requests.length?requests.map((item)=>{
+      const selected=item.assigned_vehicle_id||item.requested_vehicle_id||'';
+      const options=approvedVehicles.map((v)=>'<option value="'+escapeHtml(v.id)+'" data-provider-id="'+escapeHtml(v.provider_id)+'" '+(String(v.id)===String(selected)?'selected':'')+'>'+escapeHtml((v.provider_name||'Provider')+' — '+(v.vehicle_type||'Vehicle')+' '+(v.registration_number||''))+'</option>').join('');
+      const action=item.request_status==='submitted'||item.request_status==='declined'
+        ? '<div class="admin-service-request-actions"><select data-transport-assignment-select="'+escapeHtml(item.id)+'"><option value="">Select approved vehicle</option>'+options+'</select><button type="button" data-assign-transport-request="'+escapeHtml(item.id)+'">Assign & Dispatch</button></div>'
+        : '<div class="admin-service-request-actions"><span class="status-chip">'+escapeHtml(String(item.request_status||'').replaceAll('_',' '))+'</span></div>';
+      return '<article class="admin-service-request-card">'+
+        '<header><div><strong>'+escapeHtml(item.request_reference||'Transport Request')+'</strong><small>'+escapeHtml(formatDate(item.created_at,true))+' · '+escapeHtml(item.customer_name||'Customer')+' · '+escapeHtml(item.customer_phone||'')+'</small></div><b>'+escapeHtml(String(item.request_status||'').replaceAll('_',' '))+'</b></header>'+
+        '<div class="admin-service-request-grid"><div><small>SERVICE</small><strong>'+escapeHtml(String(item.service_type||'Transport').replaceAll('_',' '))+'</strong></div><div><small>PICKUP</small><strong>'+escapeHtml(item.pickup_location||'—')+'</strong></div><div><small>DESTINATION</small><strong>'+escapeHtml(item.destination_location||'—')+'</strong></div></div>'+
+        '<small><strong>Requested provider:</strong> '+escapeHtml(item.requested_provider_name||'—')+' · '+escapeHtml(item.requested_vehicle_label||'—')+'</small>'+
+        (item.parcel_description?'<p>'+escapeHtml(item.parcel_description)+'</p>':'')+
+        (item.customer_notes?'<p><strong>Customer note:</strong> '+escapeHtml(item.customer_notes)+'</p>':'')+
+        action+
+      '</article>';
+    }).join(''):'<div class="empty-state">No customer Transport / Parcel requests yet.</div>';
+  };
+
   const loadTransportNetwork = async () => {
-    const [providersResult,vehiclesResult]=await Promise.all([
+    const [providersResult,vehiclesResult,requestsResult]=await Promise.all([
       db.rpc('admin_list_transport_providers'),
-      db.rpc('admin_list_transport_vehicles')
+      db.rpc('admin_list_transport_vehicles'),
+      db.rpc('admin_list_transport_requests')
     ]);
     if(providersResult.error)throw providersResult.error;
     if(vehiclesResult.error)throw vehiclesResult.error;
+    if(requestsResult.error)throw requestsResult.error;
     state.transportProviders=Array.isArray(providersResult.data)?providersResult.data:[];
     state.transportVehicles=Array.isArray(vehiclesResult.data)?vehiclesResult.data:[];
+    state.transportRequests=Array.isArray(requestsResult.data)?requestsResult.data:[];
     renderTransportNetwork();
+    renderTransportRequests();
   };
+
+  document.addEventListener('click',async(event)=>{
+    const button=event.target.closest?.('[data-assign-transport-request]');
+    if(!button)return;
+    const requestId=button.dataset.assignTransportRequest;
+    const select=document.querySelector('[data-transport-assignment-select="'+CSS.escape(requestId)+'"]');
+    const vehicleId=select?.value||'';
+    const vehicle=(state.transportVehicles||[]).find((item)=>String(item.id)===String(vehicleId));
+    if(!vehicle){globalStatus('Select an approved available Transport Provider vehicle.','error');return;}
+    await withButtonLock(button,'Dispatching…',async()=>{
+      const {error}=await db.rpc('admin_assign_transport_request',{
+        p_request_id:requestId,
+        p_provider_id:vehicle.provider_id,
+        p_vehicle_id:vehicle.id,
+        p_notes:null
+      });
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      globalStatus('Transport request assigned and sent to the Transport Provider.');
+      await Promise.all([loadTransportNetwork(),loadAuditLog()]);
+    });
+  });
 
   const loadDeliveryOps = async () => {
     const [ridersResult,jobsResult,sellerStatesResult]=await Promise.all([
