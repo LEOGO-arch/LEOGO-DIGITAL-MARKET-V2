@@ -2685,7 +2685,7 @@ function renderTransportApplicationProgress(){
   submitted?.classList.add('done');
   if(['submitted','under_review'].includes(state)){
     review?.classList.add(state==='submitted'?'current':'done');
-    decision?.classList.add(state==='under_review'?'current':'');
+    if(state==='under_review')decision?.classList.add('current');
   }else if(state==='approved'){
     review?.classList.add('done');decision?.classList.add('done');
   }else if(['changes_requested','rejected'].includes(state)){
