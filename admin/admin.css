@@ -676,3 +676,29 @@
   .section-head-actions{width:100%}
   .section-head-actions button{flex:1 1 180px}
 }
+
+
+/* Service & Transport review moderation */
+.admin-service-reviews-card .admin-product-review-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.admin-service-review-item{display:grid;gap:11px}
+.admin-service-review-item header{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.admin-service-review-item header>div{display:grid;gap:3px}
+.admin-service-review-item header span{font-size:10px;letter-spacing:.1em;font-weight:900;color:#ff7200;text-transform:uppercase}
+.admin-service-review-item header strong{font-size:16px;color:#07152f}
+.admin-service-review-item header small{color:#718096}
+.admin-service-review-item header>b{color:#dd7900;white-space:nowrap}
+.admin-service-review-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;color:#596981;font-size:12px}
+.service-review-verified{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;background:#e7f6ee;color:#167344;font-weight:900}
+.service-review-verified.neutral{background:#edf3fb;color:#31587f}
+.admin-service-review-item .admin-review-note{padding:9px 11px;border-left:3px solid #c83d3d;background:#fff2f2;border-radius:8px;color:#7e3030}
+.admin-service-review-item .admin-product-review-actions{display:flex;gap:8px;flex-wrap:wrap}
+.admin-service-review-item .admin-product-review-actions button{border:0;border-radius:9px;padding:9px 13px;font-weight:900}
+.admin-service-review-item .admin-product-review-actions .approve{background:#177b46;color:#fff}
+.admin-service-review-item .admin-product-review-actions .reject{background:#a92f39;color:#fff}
+@media(max-width:700px){
+  .admin-service-review-item header{display:grid}
+  .admin-service-review-item header>b{white-space:normal}
+  .admin-service-reviews-card .admin-product-review-controls{width:100%}
+  .admin-service-reviews-card .admin-product-review-controls select,
+  .admin-service-reviews-card .admin-product-review-controls button{width:100%}
+}
