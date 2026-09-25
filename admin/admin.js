@@ -4138,13 +4138,13 @@
   const changeTransportSection=(target='providers')=>{
     const resolved=transportSectionMeta[target]?target:'providers';
     activeTransportSection=resolved;
-    $('[data-transport-section]').forEach(section=>section.hidden=section.dataset.transportSection!==resolved);
+    $$('[data-transport-section]').forEach(section=>section.hidden=section.dataset.transportSection!==resolved);
     const meta=transportSectionMeta[resolved];
     if($('#transportSectionEyebrow'))$('#transportSectionEyebrow').textContent=meta.eyebrow;
     if($('#transportSectionTitle'))$('#transportSectionTitle').textContent=meta.title;
     if($('#transportSectionDescription'))$('#transportSectionDescription').textContent=meta.description;
     if($('#openTransportApprovals'))$('#openTransportApprovals').hidden=resolved!=='providers';
-    $('.admin-nav [data-admin-view="transport"]').forEach(button=>{
+    $$('.admin-nav [data-admin-view="transport"]').forEach(button=>{
       if(button.dataset.navGroup==='transport'){button.classList.add('active');return;}
       const buttonTarget=button.dataset.transportTarget||'providers';
       button.classList.toggle('active',buttonTarget===resolved);
@@ -4230,12 +4230,12 @@
     $('#openSidebar').addEventListener('click', () => { $('#adminSidebar').classList.add('open'); $('#sidebarScrim').classList.add('open'); });
     $('#closeSidebar').addEventListener('click', closeSidebar);
     $('#sidebarScrim').addEventListener('click', closeSidebar);
-    $('[data-admin-view]').forEach((button) => button.addEventListener('click', () => {
+    $$('[data-admin-view]').forEach((button) => button.addEventListener('click', () => {
       if(button.dataset.adminView==='transport'&&button.dataset.transportTarget)activeTransportSection=button.dataset.transportTarget;
       changeView(button.dataset.adminView, button.dataset.settingsTab || '');
       if(button.dataset.adminView==='transport')changeTransportSection(activeTransportSection);
       if(button.dataset.premiumTarget) changePremiumAdminTab(button.dataset.premiumTarget);
-      if(button.dataset.filterTarget){state.approvalFilter=button.dataset.filterTarget;$('#approvalFilters [data-approval-filter]').forEach(item=>item.classList.toggle('active',item.dataset.approvalFilter===state.approvalFilter));renderApprovals();}
+      if(button.dataset.filterTarget){state.approvalFilter=button.dataset.filterTarget;$$('#approvalFilters [data-approval-filter]').forEach(item=>item.classList.toggle('active',item.dataset.approvalFilter===state.approvalFilter));renderApprovals();}
     }));
     $$('[data-nav-group]').forEach((button) => button.addEventListener('click', () => { const children=$(`[data-nav-children="${button.dataset.navGroup}"]`); if(children) children.classList.toggle('open'); }));
     $$('[data-open-view]').forEach((button) => button.addEventListener('click', () => {
