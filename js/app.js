@@ -3607,6 +3607,49 @@
     return maps?{lat:Number(maps[1]),lng:Number(maps[2])}:null;
   };
 
+  const setTransportPinnedLocation=(type,lat,lng)=>{
+    const latitude=Number(lat),longitude=Number(lng);
+    const isPickup=type==='pickup';
+    const input=document.getElementById(isPickup?'transportPickupMapLink':'transportDestinationMapLink');
+    const statusTarget=document.getElementById(isPickup?'transportPickupPinStatus':'transportDestinationPinStatus');
+    if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+      if(statusTarget)statusTarget.textContent='Invalid coordinates. Try pinning again or paste a valid Maps link.';
+      return false;
+    }
+    const link='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
+    if(input)input.value=link;
+    if(statusTarget)statusTarget.textContent='✓ Pinned: '+latitude.toFixed(7)+', '+longitude.toFixed(7);
+    return true;
+  };
+
+  const pinTransportCustomerLocation=(type)=>{
+    const isPickup=type==='pickup';
+    const statusTarget=document.getElementById(isPickup?'transportPickupPinStatus':'transportDestinationPinStatus');
+    if(!navigator.geolocation){
+      if(statusTarget)statusTarget.textContent='This browser cannot access location. Paste a Maps link or coordinates instead.';
+      return;
+    }
+    if(statusTarget)statusTarget.textContent='Getting your current location…';
+    navigator.geolocation.getCurrentPosition((position)=>{
+      setTransportPinnedLocation(type,position.coords.latitude,position.coords.longitude);
+    },(error)=>{
+      if(statusTarget)statusTarget.textContent=error.code===1
+        ? 'Location permission was not granted. Allow location access or paste a Maps link.'
+        : 'Your location could not be detected. Try again or paste a Maps link.';
+    },{enableHighAccuracy:true,timeout:15000,maximumAge:10000});
+  };
+
+  document.getElementById('pinTransportPickupLocation')?.addEventListener('click',()=>pinTransportCustomerLocation('pickup'));
+  document.getElementById('pinTransportDestinationLocation')?.addEventListener('click',()=>pinTransportCustomerLocation('destination'));
+  document.getElementById('transportPickupMapLink')?.addEventListener('change',(event)=>{
+    const coords=transportCoordinatesFromLink(event.currentTarget.value);
+    if(coords)setTransportPinnedLocation('pickup',coords.lat,coords.lng);
+  });
+  document.getElementById('transportDestinationMapLink')?.addEventListener('change',(event)=>{
+    const coords=transportCoordinatesFromLink(event.currentTarget.value);
+    if(coords)setTransportPinnedLocation('destination',coords.lat,coords.lng);
+  });
+
   const closeTransportRequestModal=()=>{
     if(!transportRequestModal)return;
     transportRequestModal.classList.remove('open');
