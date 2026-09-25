@@ -3182,7 +3182,8 @@
         <td><strong>${escapeHtml(item.town||'—')}</strong><small>${escapeHtml([item.sub_county,item.county].filter(Boolean).join(', '))}</small></td>
         <td><span class="status-chip">${escapeHtml(String(item.application_status||'').replaceAll('_',' '))}</span></td>
         <td><strong>${Number(item.approved_vehicle_count||0)}</strong><small>${Number(item.vehicle_count||0)} total</small></td>
-      </tr>`).join(''):'<tr><td colspan="6">No Transport / Parcel Provider registrations yet.</td></tr>';
+        <td><div class="partner-record-actions"><button type="button" data-view-transport-provider="${escapeHtml(item.user_id)}">View Details</button>${item.application_status==='approved'?'<button type="button" class="danger" data-transport-provider-suspend="true" data-transport-provider-id="'+escapeHtml(item.user_id)+'">Suspend Account</button>':item.application_status==='suspended'?'<button type="button" data-transport-provider-suspend="false" data-transport-provider-id="'+escapeHtml(item.user_id)+'">Reactivate</button>':''}</div></td>
+      </tr>`).join(''):'<tr><td colspan="7">No Transport / Parcel Provider registrations yet.</td></tr>';
 
     const vehicleBody=$('#adminTransportVehicleBody');
     if(vehicleBody)vehicleBody.innerHTML=vehicles.length?vehicles.map(item=>{
@@ -3194,8 +3195,14 @@
         <td><strong>${escapeHtml(item.driver_full_name||'No driver supplied')}</strong><small>${escapeHtml([item.driver_id_number,item.driver_phone,item.driver_licence_number].filter(Boolean).join(' · ')||'Private verification')}</small></td>
         <td><span class="status-chip">${escapeHtml(String(item.approval_status||'').replaceAll('_',' '))}</span></td>
         <td>${formatDate(item.submitted_at,true)}</td>
+        <td><div class="partner-record-actions"><button type="button" data-view-transport-vehicle="${escapeHtml(item.id)}">View Details</button>${item.approval_status==='approved'&&item.is_available!==false?'<button type="button" class="danger" data-transport-vehicle-active="false" data-transport-vehicle-id="'+escapeHtml(item.id)+'">Suspend Vehicle</button>':item.approval_status==='disabled'||item.is_available===false?'<button type="button" data-transport-vehicle-active="true" data-transport-vehicle-id="'+escapeHtml(item.id)+'">Reactivate</button>':''}</div></td>
       </tr>`;
-    }).join(''):'<tr><td colspan="6">No Transport Provider vehicles yet.</td></tr>';
+    }).join(''):'<tr><td colspan="7">No Transport Provider vehicles yet.</td></tr>';
+
+    $('[data-view-transport-provider]',providerBody).forEach((button)=>button.addEventListener('click',()=>openTransportProviderRecord(button.dataset.viewTransportProvider)));
+    $('[data-transport-provider-suspend]',providerBody).forEach((button)=>button.addEventListener('click',()=>setTransportProviderSuspended(button,button.dataset.transportProviderId,button.dataset.transportProviderSuspend==='true')));
+    $('[data-view-transport-vehicle]',vehicleBody).forEach((button)=>button.addEventListener('click',()=>openTransportVehicleRecord(button.dataset.viewTransportVehicle)));
+    $('[data-transport-vehicle-active]',vehicleBody).forEach((button)=>button.addEventListener('click',()=>setTransportVehicleActive(button,button.dataset.transportVehicleId,button.dataset.transportVehicleActive==='true')));
   };
 
   const renderTransportRequests = () => {
