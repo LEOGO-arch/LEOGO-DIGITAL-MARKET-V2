@@ -382,7 +382,7 @@
         </div>
       `).join(''):'<div class="empty-mini">No marketplace orders have been created yet.</div>';
 
-      $$('[data-dashboard-order-id]',$('#dashboardRecentOrders')).forEach((button)=>button.addEventListener('click',()=>{
+      $$('[data-dashboard-order-id]',$$('#dashboardRecentOrders')).forEach((button)=>button.addEventListener('click',()=>{
         changeView('orders');
         loadMarketplaceOrderDetail(button.dataset.dashboardOrderId,{scroll:true});
       }));
@@ -420,7 +420,7 @@
     $('#networkOverview').innerHTML = networkMap.map(([label,key,view]) => `<button data-open-view="${view}"><span>${escapeHtml(label)}</span><strong>${metricValue(data.network[key])}</strong><small>${data.network[key].supported ? 'Open module →' : 'Not connected'}</small></button>`).join('');
     $('#systemAlertList').innerHTML = data.alerts?.length ? data.alerts.map((item) => `<div class="alert-row ${escapeHtml(item.level)}"><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.detail)}</small></div><button data-alert-view="${escapeHtml(item.view)}" data-alert-tab="${escapeHtml(item.tab || '')}">Review →</button></div>`).join('') : '<div class="empty-mini">No operational exceptions detected.</div>';
     $('#recentAdminActivity').innerHTML = data.recent_admin_activity?.length ? data.recent_admin_activity.map((item) => `<div><div><b>${escapeHtml(item.action.replaceAll('.', ' '))}</b><small>${escapeHtml(item.admin)} · ${formatDate(item.created_at, true)}</small></div><span class="status-chip">${escapeHtml(item.entity)}</span></div>`).join('') : '<div class="empty-mini">No Admin activity yet.</div>';
-    $$('[data-open-view]', $('#networkOverview')).forEach((button) => button.addEventListener('click', () => changeView(button.dataset.openView)));
+    $$('[data-open-view]', $$('#networkOverview')).forEach((button) => button.addEventListener('click', () => changeView(button.dataset.openView)));
     $$('[data-alert-view]').forEach((button) => button.addEventListener('click', () => changeView(button.dataset.alertView, button.dataset.alertTab)));
   };
 
@@ -573,8 +573,8 @@
         <td class="approval-action-cell" data-label="Action"><button class="approval-review-button" type="button" data-review-id="${escapeHtml(item.record_id)}" data-review-kind="${escapeHtml(item.kind)}">Review →</button></td>
       </tr>`;
     }).join('') : '<tr><td colspan="8">No pending requests match this queue.</td></tr>';
-    $$('[data-review-id]', $('#approvalQueue')).forEach((button) => button.addEventListener('click', () => openApproval(button.dataset.reviewKind, button.dataset.reviewId)));
-    $$('[data-approval-select]', $('#approvalQueue')).forEach((input) => input.addEventListener('change', () => {
+    $$('[data-review-id]', $$('#approvalQueue')).forEach((button) => button.addEventListener('click', () => openApproval(button.dataset.reviewKind, button.dataset.reviewId)));
+    $$('[data-approval-select]', $$('#approvalQueue')).forEach((input) => input.addEventListener('change', () => {
       input.checked ? state.selectedApprovals.add(input.dataset.approvalSelect) : state.selectedApprovals.delete(input.dataset.approvalSelect);
       updateApprovalSelection(visible);
     }));
@@ -3501,8 +3501,8 @@
       <td data-label="Flash Sale"><strong>${Number(s.flash_sale_request_count||0)}</strong></td>
       <td data-label="Action"><div class="partner-record-actions"><button type="button" class="seller-record-button" data-seller-record="${s.user_id}">View Details</button>${s.application_status==='approved'?'<button type="button" class="danger" data-seller-suspend="true" data-seller-id="'+escapeHtml(s.user_id)+'">Suspend Account</button>':s.application_status==='suspended'?'<button type="button" data-seller-suspend="false" data-seller-id="'+escapeHtml(s.user_id)+'">Reactivate</button>':''}</div></td>
     </tr>`).join('') : '<tr><td colspan="8">No sellers match the current filters.</td></tr>';
-    $('[data-seller-record]').forEach((button)=>button.addEventListener('click',()=>openSellerRecord(button.dataset.sellerRecord)));
-    $('[data-seller-suspend]').forEach((button)=>button.addEventListener('click',()=>setSellerSuspended(button,button.dataset.sellerId,button.dataset.sellerSuspend==='true')));
+    $$('[data-seller-record]').forEach((button)=>button.addEventListener('click',()=>openSellerRecord(button.dataset.sellerRecord)));
+    $$('[data-seller-suspend]').forEach((button)=>button.addEventListener('click',()=>setSellerSuspended(button,button.dataset.sellerId,button.dataset.sellerSuspend==='true')));
   };
   const loadSellers = async () => {
     const {data,error}=await db.rpc('admin_list_sellers');
@@ -3762,9 +3762,9 @@
         '</div></td>'+
       '</tr>';
     }).join(''):'<tr><td colspan="7">No Service Provider accounts yet.</td></tr>';
-    Array.from($('#serviceProviderTableBody').querySelectorAll('[data-provider-review]')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
-    Array.from($('#serviceProviderTableBody').querySelectorAll('[data-view-service-provider]')).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
-    Array.from($('#serviceProviderTableBody').querySelectorAll('[data-service-provider-suspend]')).forEach((button)=>button.addEventListener('click',()=>setServiceProviderSuspended(button,button.dataset.serviceProviderId,button.dataset.serviceProviderSuspend==='true')));
+    Array.from($$('#serviceProviderTableBody').querySelectorAll('[data-provider-review]')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
+    Array.from($$('#serviceProviderTableBody').querySelectorAll('[data-view-service-provider]')).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
+    Array.from($$('#serviceProviderTableBody').querySelectorAll('[data-service-provider-suspend]')).forEach((button)=>button.addEventListener('click',()=>setServiceProviderSuspended(button,button.dataset.serviceProviderId,button.dataset.serviceProviderSuspend==='true')));
   };
   const loadServiceProviders = async () => {
     const {data,error}=await db.rpc('admin_list_service_providers');
@@ -3885,7 +3885,7 @@
         actions+
       '</article>';
     }).join(''):'<div class="loading-card">'+escapeHtml(emptyLabel)+'</div>';
-    $('[data-moderate-service-review]',target).forEach((button)=>button.addEventListener('click',()=>moderateServiceReview(button)));
+    $$('[data-moderate-service-review]',target).forEach((button)=>button.addEventListener('click',()=>moderateServiceReview(button)));
   };
 
   const renderServiceReviews=()=>{
@@ -4169,7 +4169,7 @@
         globalStatus(decision==='approve'?'Settlement account approved.':decision==='reject'?'Settlement account rejected.':'Settlement account disabled.');
       });
     }));
-    $('[data-settle-partner]').forEach((button) => button.addEventListener('click', () => {
+    $$('[data-settle-partner]').forEach((button) => button.addEventListener('click', () => {
       changeView('settlements');
       $('#adminSettlementPartnerType').value = button.dataset.settlePartnerType || 'seller';
       renderManualSettlementPartners(button.dataset.settlePartner);
@@ -4709,8 +4709,8 @@
     $('#premiumCustomerStatusFilter').addEventListener('change', renderPremiumCustomers);
     $('#premiumSubscriptionFilter').addEventListener('change', renderPremiumCustomers);
     $('#customerSearch').addEventListener('input', renderCustomers);
-    $('#selectAllCustomers').addEventListener('change', (event) => { filteredCustomers().forEach(r=>event.target.checked?state.selectedCustomers.add(r.user_id):state.selectedCustomers.delete(r.user_id)); renderCustomers(); });
-    $('#selectFilteredCustomers').addEventListener('click',()=>{filteredCustomers().forEach(r=>state.selectedCustomers.add(r.user_id));renderCustomers();});
+    $$('#selectAllCustomers').addEventListener('change', (event) => { filteredCustomers().forEach(r=>event.target.checked?state.selectedCustomers.add(r.user_id):state.selectedCustomers.delete(r.user_id)); renderCustomers(); });
+    $$('#selectFilteredCustomers').addEventListener('click',()=>{filteredCustomers().forEach(r=>state.selectedCustomers.add(r.user_id));renderCustomers();});
     $('#clearCustomerSelection').addEventListener('click',()=>{state.selectedCustomers.clear();renderCustomers();});
     $$('[data-export-table="customers"]').forEach(button=>button.addEventListener('click',async()=>{const format=(window.prompt('Export format: xlsx or pdf','xlsx')||'').toLowerCase();if(['xlsx','pdf'].includes(format)) await exportCustomers(button.dataset.exportScope,format);}));
     $$('#dashboardRange [data-range]').forEach(button=>button.addEventListener('click',async()=>{state.dashboardRange=button.dataset.range;$$('#dashboardRange [data-range]').forEach(b=>b.classList.toggle('active',b===button));$('#customRange').hidden=state.dashboardRange!=='custom';if(state.dashboardRange!=='custom')await loadDashboard();}));
@@ -4726,8 +4726,8 @@
     $('#addPickupStation').addEventListener('click', () => openPickupModal());
     $('#pickupStationForm').addEventListener('submit', savePickupStation);
     ['dataTypeFilter','dataStatusFilter','dataFromFilter','dataToFilter'].forEach(id=>$('#'+id).addEventListener('change',()=>{state.selectedData.clear();renderDataManagement();}));
-    $('#selectAllData').addEventListener('change',event=>{dataRows().forEach(r=>event.target.checked?state.selectedData.add(dataRecordId(r)):state.selectedData.delete(dataRecordId(r)));renderDataManagement();});
-    $('#selectFilteredData').addEventListener('click',()=>{dataRows().forEach(r=>state.selectedData.add(dataRecordId(r)));renderDataManagement();});
+    $$('#selectAllData').addEventListener('change',event=>{dataRows().forEach(r=>event.target.checked?state.selectedData.add(dataRecordId(r)):state.selectedData.delete(dataRecordId(r)));renderDataManagement();});
+    $$('#selectFilteredData').addEventListener('click',()=>{dataRows().forEach(r=>state.selectedData.add(dataRecordId(r)));renderDataManagement();});
     $('#clearDataSelection').addEventListener('click',()=>{state.selectedData.clear();renderDataManagement();});
     $$('[data-data-export]').forEach(button=>button.addEventListener('click',async()=>{const format=(window.prompt('Export format: xlsx or pdf','xlsx')||'').toLowerCase();if(['xlsx','pdf'].includes(format))await exportData(button.dataset.dataExport,format);}));
     $('#archiveSelectedData').addEventListener('click',async()=>{if($('#dataTypeFilter').value!=='pickup_stations'||!state.selectedData.size)return;const ids=[...state.selectedData];if(!window.confirm(`Archive ${ids.length} selected pickup station record(s)? They will become inactive and remain in history.`))return;const {error}=await db.rpc('admin_archive_pickup_stations',{p_ids:ids});if(error){globalStatus(friendlyError(error),'error');return;}state.selectedData.clear();await Promise.all([loadPickupStations(),loadDashboard(),loadAuditLog()]);renderDataManagement();globalStatus('Selected pickup stations archived safely.');});
