@@ -3499,15 +3499,31 @@
       <td data-label="Status"><span class="status-chip">${escapeHtml(s.application_status)}</span></td>
       <td data-label="Products"><strong>${Number(s.product_count||0)}</strong><small>${Number(s.active_product_count||0)} active</small></td>
       <td data-label="Flash Sale"><strong>${Number(s.flash_sale_request_count||0)}</strong></td>
-      <td data-label="Action"><button type="button" class="seller-record-button" data-seller-record="${s.user_id}">View Record →</button></td>
+      <td data-label="Action"><div class="partner-record-actions"><button type="button" class="seller-record-button" data-seller-record="${s.user_id}">View Details</button>${s.application_status==='approved'?'<button type="button" class="danger" data-seller-suspend="true" data-seller-id="'+escapeHtml(s.user_id)+'">Suspend Account</button>':s.application_status==='suspended'?'<button type="button" data-seller-suspend="false" data-seller-id="'+escapeHtml(s.user_id)+'">Reactivate</button>':''}</div></td>
     </tr>`).join('') : '<tr><td colspan="8">No sellers match the current filters.</td></tr>';
-    $$('[data-seller-record]').forEach((button)=>button.addEventListener('click',()=>openSellerRecord(button.dataset.sellerRecord)));
+    $('[data-seller-record]').forEach((button)=>button.addEventListener('click',()=>openSellerRecord(button.dataset.sellerRecord)));
+    $('[data-seller-suspend]').forEach((button)=>button.addEventListener('click',()=>setSellerSuspended(button,button.dataset.sellerId,button.dataset.sellerSuspend==='true')));
   };
   const loadSellers = async () => {
     const {data,error}=await db.rpc('admin_list_sellers');
     if(error) throw error;
     state.sellers=data||[];
     renderSellers();
+  };
+
+  const setSellerSuspended=async(button,sellerId,suspended)=>{
+    const notes=window.prompt((suspended?'Reason / note for suspension':'Optional reactivation note')+':','')||'';
+    if(suspended&&!window.confirm('Suspend this Seller account? All approved Seller products will immediately disappear from the customer website until the account is reactivated.'))return;
+    await withButtonLock(button,suspended?'Suspending…':'Reactivating…',async()=>{
+      const {error}=await db.rpc('admin_set_seller_account_status',{
+        p_seller_id:sellerId,
+        p_suspended:suspended,
+        p_notes:notes||null
+      });
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadSellers(),loadCatalogue(),loadAuditLog().catch(()=>{})]);
+      globalStatus(suspended?'Seller account suspended. Products are hidden from customers.':'Seller account reactivated.');
+    });
   };
 
   const serviceListingPriceText=(item)=>{
