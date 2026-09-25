@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=seller-shop-pin-1">
+  <link rel="stylesheet" href="partner.css?v=transport-waiting-point-1">
 <style>
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
 </style></head>
@@ -483,6 +483,16 @@
               <label>Capacity description<input id="transportVehicleCapacity" type="text" maxlength="200" placeholder="e.g. 1 tonne, 4 passengers, 3 crates"></label>
               <label>Maximum parcel weight (kg)<input id="transportVehicleMaxWeight" type="number" min="0.1" step="0.1"></label>
               <label class="wide">Service area<input id="transportVehicleServiceArea" type="text" maxlength="300" placeholder="e.g. Siaya, Bondo, Kisumu"></label>
+              <div class="wide seller-shop-pin-box">
+                <div class="section-title compact"><span>📍 PUBLIC WAITING POINT</span><h4>Stage / Waiting Point</h4><p>This is where customers can locate this vehicle when it is waiting for work. The name, coordinates and map link can be shown to customers in Vehicle Details.</p></div>
+                <label class="wide">Stage / waiting point name<input id="transportWaitingPointName" type="text" maxlength="180" required placeholder="e.g. Siaya Bus Park, Ugunja Stage, Bondo Town Stage"></label>
+                <div class="seller-shop-pin-actions"><button id="pinTransportWaitingPoint" type="button">📍 Pin Waiting Point</button><span id="transportWaitingPointStatus">Waiting point not pinned yet.</span></div>
+                <label class="wide">Google Maps / shared location link <small>(recommended)</small><input id="transportWaitingPointMapLink" type="text" maxlength="1000" placeholder="Paste Google Maps link or coordinates"></label>
+                <div class="form-grid">
+                  <label>Latitude<input id="transportWaitingPointLatitude" type="number" step="0.0000001" min="-90" max="90" required></label>
+                  <label>Longitude<input id="transportWaitingPointLongitude" type="number" step="0.0000001" min="-180" max="180" required></label>
+                </div>
+              </div>
               <label class="wide">Vehicle profile picture <small>Required for a new vehicle; JPG, PNG or WEBP, max 5 MB</small><input id="transportVehiclePicture" type="file" accept="image/jpeg,image/png,image/webp"></label>
             </div>
 
@@ -916,5 +926,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=seller-shop-pin-1" defer></script>
+<script src="partner.js?v=transport-waiting-point-1" defer></script>
 </body></html>
