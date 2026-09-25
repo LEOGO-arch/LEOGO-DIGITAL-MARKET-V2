@@ -148,11 +148,15 @@ function render(){
         :jobs.filter(j=>['assigned','picked_up','arrived_sorting_center','sorting_received','ready_for_dispatch','on_the_way'].includes(j.status));
 
   $('#riderJobList').innerHTML=visible.length?visible.map(job=>{
-    const pickups=(job.seller_pickups||[]).map(s=>
-      '<div class="pickup-card"><small>SELLER PICKUP</small><strong>'+esc(s.seller_name)+'</strong><p>'+
-      esc(s.seller_location||'Location not provided')+(s.seller_phone?' · '+esc(s.seller_phone):'')+
-      '</p><p>Status: <b>'+esc(String(s.fulfilment_status).replaceAll('_',' '))+'</b></p></div>'
-    ).join('');
+    const pickups=(job.seller_pickups||[]).map(s=>{
+      const sellerItems=(s.items||[]).map(item=>'<li><strong>'+esc(item.product_name||'Product')+'</strong>'+(item.variant_name?' · '+esc(item.variant_name):'')+' · '+esc(item.quantity)+(item.measurement_unit?' '+esc(item.measurement_unit):'')+'</li>').join('');
+      return '<div class="pickup-card"><small>SELLER PICKUP</small><strong>'+esc(s.seller_name)+'</strong><p>'+
+        esc(s.seller_location||'Location not provided')+(s.seller_phone?' · '+esc(s.seller_phone):'')+
+        '</p>'+(s.seller_latitude!=null&&s.seller_longitude!=null?'<p><strong>Coordinates:</strong> '+esc(s.seller_latitude)+', '+esc(s.seller_longitude)+'</p>':'')+
+        (s.seller_map_link?'<p><a href="'+esc(s.seller_map_link)+'" target="_blank" rel="noopener">📍 Open Seller Shop Location ↗</a></p>':'')+
+        (sellerItems?'<div class="pickup-products"><small>PRODUCTS TO PICK UP</small><ul>'+sellerItems+'</ul></div>':'')+
+        '<p>Status: <b>'+esc(String(s.fulfilment_status).replaceAll('_',' '))+'</b></p></div>';
+    }).join('');
 
     const next=job.status==='assigned'
       ?['picked_up','Mark Picked Up from Seller']
