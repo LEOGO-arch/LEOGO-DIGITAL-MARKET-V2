@@ -3,6 +3,29 @@
 const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
 const PUBLISHABLE_KEY='sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
 const PARTNER_URL='https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/partner/';
+const INITIAL_PARTNER_URL=new URL(window.location.href);
+const INITIAL_PARTNER_HASH=new URLSearchParams(INITIAL_PARTNER_URL.hash.replace(/^#/,''));
+let passwordRecoveryMode=
+  INITIAL_PARTNER_URL.searchParams.get('mode')==='reset-password' ||
+  INITIAL_PARTNER_URL.searchParams.get('type')==='recovery' ||
+  INITIAL_PARTNER_HASH.get('type')==='recovery';
+const passwordRecoveryUrlHasTokens=
+  INITIAL_PARTNER_HASH.get('type')==='recovery' &&
+  Boolean(INITIAL_PARTNER_HASH.get('access_token')||INITIAL_PARTNER_HASH.get('refresh_token'));
+const passwordRecoveryUrlError=
+  INITIAL_PARTNER_URL.searchParams.get('error') ||
+  INITIAL_PARTNER_HASH.get('error') ||
+  INITIAL_PARTNER_URL.searchParams.get('error_code') ||
+  INITIAL_PARTNER_HASH.get('error_code') ||
+  '';
+const passwordRecoveryUrlErrorDescription=(()=>{
+  const raw=
+    INITIAL_PARTNER_URL.searchParams.get('error_description') ||
+    INITIAL_PARTNER_HASH.get('error_description') ||
+    '';
+  try{return decodeURIComponent(String(raw).replace(/\+/g,' '));}catch(_error){return String(raw);}
+})();
+let passwordRecoverySessionVerified=passwordRecoveryUrlHasTokens&&!passwordRecoveryUrlError;
 const client=window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 if(!client)return;
 
@@ -72,6 +95,35 @@ $('#retrySellerBoot')?.addEventListener('click',()=>openSellerRole());
 
 $$('[data-auth-tab]').forEach(b=>b.addEventListener('click',()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('[data-auth-form]').forEach(f=>f.classList.toggle('active',f.dataset.authForm===b.dataset.authTab));}));
 
+function showPasswordRecoveryScreen({valid=false,message='',type=''}={}){
+  passwordRecoveryMode=true;
+  authShell.hidden=false;
+  rolePicker.hidden=true;
+  sellerShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;
+  if(transportShell)transportShell.hidden=true;
+  if(hero)hero.hidden=false;
+  if(partnerNotificationBell)partnerNotificationBell.hidden=true;
+  logout.hidden=true;
+
+  $('#partnerLoginForm').hidden=true;
+  $('#partnerLoginForm').classList.remove('active');
+  $('#partnerRegisterForm').hidden=true;
+  $('#partnerRegisterForm').classList.remove('active');
+  resetRequestForm.hidden=valid;
+  resetUpdateForm.hidden=!valid;
+  resetRequestForm.classList.toggle('active',!valid);
+  resetUpdateForm.classList.toggle('active',valid);
+
+  if(valid){
+    status($('#partnerAuthStatus'),message||'Create a new password for your LEOGO account.','success');
+    window.setTimeout(()=>$('#partnerRecoveryPassword')?.focus(),50);
+  }else{
+    status($('#partnerAuthStatus'),message||'This password reset link is invalid or has expired. Request a new reset link below.',type||'error');
+    window.setTimeout(()=>$('#partnerResetEmail')?.focus(),50);
+  }
+}
+
 function showLoginForm(){
   $('#partnerLoginForm').hidden=false;
   $('#partnerLoginForm').classList.add('active');
@@ -108,6 +160,14 @@ resetRequestForm.addEventListener('submit',async e=>{
 resetUpdateForm.addEventListener('submit',async e=>{
   e.preventDefault();
   if(!resetUpdateForm.reportValidity())return;
+  if(!passwordRecoverySessionVerified){
+    showPasswordRecoveryScreen({
+      valid:false,
+      message:'This reset link is not valid for changing a password. Request a fresh password reset link below.',
+      type:'error'
+    });
+    return;
+  }
   const password=$('#partnerRecoveryPassword').value;
   const confirm=$('#partnerRecoveryPasswordConfirm').value;
   if(password.length<8){status($('#partnerAuthStatus'),'Use at least 8 characters.','error');return;}
@@ -116,8 +176,21 @@ resetUpdateForm.addEventListener('submit',async e=>{
   const {error}=await client.auth.updateUser({password});
   if(error){status($('#partnerAuthStatus'),error.message,'error');return;}
   resetUpdateForm.reset();
-  status($('#partnerAuthStatus'),'Password updated successfully. Continue to your Partnership Selection.','success');
+
+  // End the recovery session deliberately so the customer proves the new password on the next sign-in.
+  await client.auth.signOut({scope:'local'}).catch(()=>{});
+  passwordRecoveryMode=false;
+  passwordRecoverySessionVerified=false;
   history.replaceState({},document.title,PARTNER_URL);
+  currentUser=null;
+  logout.hidden=true;
+  authShell.hidden=false;
+  rolePicker.hidden=true;
+  sellerShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;
+  if(transportShell)transportShell.hidden=true;
+  showLoginForm();
+  status($('#partnerAuthStatus'),'Password updated successfully. Sign in with your new password.','success');
 });
 
 $('#partnerLoginForm').addEventListener('submit',async e=>{
@@ -3266,32 +3339,75 @@ window.addEventListener('error',event=>{
 client.auth.onAuthStateChange((event,s)=>{
   if(event==='PASSWORD_RECOVERY'){
     currentUser=s?.user||null;
-    authShell.hidden=false;
-    rolePicker.hidden=true;
-    sellerShell.hidden=true;
-    if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;
-    $('#partnerLoginForm').hidden=true;
-    $('#partnerLoginForm').classList.remove('active');
-    $('#partnerRegisterForm').hidden=true;
-    $('#partnerRegisterForm').classList.remove('active');
-    resetRequestForm.hidden=true;
-    resetUpdateForm.hidden=false;
-    resetUpdateForm.classList.add('active');
-    status($('#partnerAuthStatus'),'Create a new password for your LEOGO account.','success');
+    passwordRecoveryMode=true;
+    passwordRecoverySessionVerified=Boolean(s?.user);
+    showPasswordRecoveryScreen({
+      valid:passwordRecoverySessionVerified,
+      message:passwordRecoverySessionVerified
+        ? 'Create a new password for your LEOGO account.'
+        : 'This password reset session could not be verified. Request a new reset link.'
+    });
     return;
   }
+
+  // Never fall through to the Partner dashboard while a password-recovery URL is being processed.
+  if(passwordRecoveryMode){
+    if(passwordRecoveryUrlError){
+      showPasswordRecoveryScreen({
+        valid:false,
+        message:passwordRecoveryUrlErrorDescription
+          ? 'Password reset link error: '+passwordRecoveryUrlErrorDescription
+          : 'This password reset link is invalid or has expired. Request a fresh reset link.'
+      });
+      return;
+    }
+    if(passwordRecoverySessionVerified&&s?.user){
+      currentUser=s.user;
+      showPasswordRecoveryScreen({valid:true,message:'Create a new password for your LEOGO account.'});
+    }
+    return;
+  }
+
   setTimeout(()=>{handleSession(s).catch(console.error);},0);
 });
-client.auth.getSession().then(({data})=>{
-  if(new URLSearchParams(location.search).get('mode')==='reset-password'){
-    currentUser=data.session?.user||null;
-    authShell.hidden=false; rolePicker.hidden=true; sellerShell.hidden=true; if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true; logout.hidden=true;
-    $('#partnerLoginForm').hidden=true; $('#partnerLoginForm').classList.remove('active');
-    $('#partnerRegisterForm').hidden=true; $('#partnerRegisterForm').classList.remove('active');
-    resetRequestForm.hidden=true; resetUpdateForm.hidden=false; resetUpdateForm.classList.add('active');
-    status($('#partnerAuthStatus'),'Create a new password for your LEOGO account.','success');
+client.auth.getSession().then(({data,error})=>{
+  if(passwordRecoveryMode){
+    if(passwordRecoveryUrlError){
+      showPasswordRecoveryScreen({
+        valid:false,
+        message:passwordRecoveryUrlErrorDescription
+          ? 'Password reset link error: '+passwordRecoveryUrlErrorDescription
+          : 'This password reset link is invalid or has expired. Request a fresh reset link.'
+      });
+      return;
+    }
+
+    if(error){
+      passwordRecoverySessionVerified=false;
+      showPasswordRecoveryScreen({
+        valid:false,
+        message:'This password reset link could not be verified. Request a fresh reset link.'
+      });
+      return;
+    }
+
+    if(passwordRecoveryUrlHasTokens&&data.session?.user){
+      currentUser=data.session.user;
+      passwordRecoverySessionVerified=true;
+      showPasswordRecoveryScreen({valid:true,message:'Create a new password for your LEOGO account.'});
+      return;
+    }
+
+    // Give PASSWORD_RECOVERY a brief moment to fire. If it does not, do not use an old
+    // persisted session as permission to change a password.
+    window.setTimeout(()=>{
+      if(passwordRecoverySessionVerified)return;
+      showPasswordRecoveryScreen({
+        valid:false,
+        message:'This password reset link is invalid, expired, or has already been used. Request a fresh link below and open the newest email only.'
+      });
+    },700);
     return;
   }
   handleSession(data.session);
-});
-})();
+});})();
