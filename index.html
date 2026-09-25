@@ -191,13 +191,6 @@
     <div class="service-provider-public-empty">Approved Transport Providers will appear here.</div>
   </div>
 
-  <div class="service-provider-public-heading service-reviews-public-heading">
-    <div><span>CUSTOMER REVIEWS</span><h2>Customer Reviews</h2><p>Reviews for Service Providers and Transport &amp; Parcel providers appear here only after LEOGO Admin moderation.</p></div>
-  </div>
-  <div id="publicServiceReviewList" class="public-service-review-list">
-    <div class="service-provider-public-empty">Approved service reviews will appear here.</div>
-  </div>
-
   <div class="local-strip"><div><strong>Support local businesses. Shop local.</strong><small>LEOGO is our community.</small></div><span>♥</span></div>
 </section>
 <section class="section advertisement-section" id="advertisement">
@@ -250,6 +243,18 @@
         <button id="submitServiceReview" type="submit">Send Review for Admin Approval</button>
       </div>
     </form>
+  </section>
+</div>
+<div class="service-review-modal" id="publicPartnerReviewsModal" role="dialog" aria-modal="true" aria-labelledby="publicPartnerReviewsTitle" aria-hidden="true">
+  <div class="service-review-modal-backdrop" data-close-public-partner-reviews></div>
+  <section class="service-review-modal-card public-partner-reviews-card">
+    <div class="service-review-modal-head">
+      <div><span>CUSTOMER REVIEWS</span><h2 id="publicPartnerReviewsTitle">Customer Reviews</h2><p id="publicPartnerReviewsContext">Reviews from completed LEOGO bookings.</p></div>
+      <button type="button" aria-label="Close reviews" data-close-public-partner-reviews>×</button>
+    </div>
+    <div id="publicPartnerReviewsList" class="public-partner-reviews-list">
+      <div class="service-provider-public-empty">No customer reviews yet.</div>
+    </div>
   </section>
 </div>
 <div class="request-modal" id="requestModal" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle" aria-hidden="true">
@@ -937,4 +942,4 @@
     </div>
   </div>
 </section>
-<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=customer-reviews-label-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=pickup-station-1" defer></script><script src="js/wallet.js?v=pickup-station-1" defer></script><script src="js/premium.js?v=pickup-station-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
+<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=compact-provider-reviews-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=pickup-station-1" defer></script><script src="js/wallet.js?v=pickup-station-1" defer></script><script src="js/premium.js?v=pickup-station-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
