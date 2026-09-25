@@ -3111,7 +3111,12 @@ function transportJobStatusLabel(value){
 }
 function transportJobActions(item){
   if(item.request_status==='assigned'){
-    return '<div class="seller-order-actions"><button type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="accepted">Accept Job</button><button class="secondary" type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="declined">Decline</button></div>';
+    return '<form class="provider-quote-form transport-quote-form" data-transport-quote-form="'+escapeHtml(item.id)+'">'+
+      '<div><small>YOUR TRANSPORTATION COST</small><input name="amount" type="number" min="1" max="10000000" step="0.01" placeholder="Transport cost (KSh)" required></div>'+
+      '<textarea name="notes" maxlength="1000" rows="2" placeholder="Optional transport notes or conditions"></textarea>'+
+      '<small>Current LEOGO rules: '+escapeHtml(item.current_partner_commission_percent??10)+'% provider commission deducted · '+escapeHtml(item.current_customer_service_fee_percent??2)+'% customer service fee added.</small>'+
+      '<button type="submit">Send Cost & Accept Job</button>'+
+    '</form><div class="seller-order-actions"><button class="secondary" type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="declined">Decline Job</button></div>';
   }
   if(item.request_status==='accepted'){
     return '<div class="seller-order-actions"><button type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="picked_up">Mark Picked Up</button><button class="secondary" type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="in_transit">Start Transit</button></div>';
@@ -3139,10 +3144,29 @@ function renderTransportJobs(){
       '<small><strong>Preferred schedule:</strong> '+escapeHtml((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+'</small>'+
       (item.parcel_description?'<p>'+escapeHtml(item.parcel_description)+'</p>':'')+
       (item.customer_notes?'<p><strong>Customer note:</strong> '+escapeHtml(item.customer_notes)+'</p>':'')+
+      (item.provider_quote_kes!=null?'<div class="provider-job-grid transport-quote-breakdown"><div><small>TRANSPORT COST</small><strong>'+money(item.provider_quote_kes)+'</strong></div><div><small>LEOGO COMMISSION</small><strong>'+money(item.quote_partner_commission_kes||0)+' ('+escapeHtml(item.quote_partner_commission_percent||0)+'%)</strong></div><div><small>YOUR NET EARNING</small><strong>'+money(item.quote_partner_net_kes||0)+'</strong></div><div><small>CUSTOMER TOTAL</small><strong>'+money(item.quote_customer_total_kes||0)+'</strong></div></div>':'')+
       transportJobActions(item)+
     '</article>'
   ).join(''):'<div class="empty-card">No Transport / Parcel jobs assigned yet.</div>';
-  $$('[data-transport-job-status]').forEach((button)=>button.addEventListener('click',async()=>{
+  $('[data-transport-quote-form]').forEach((form)=>form.addEventListener('submit',async(event)=>{
+    event.preventDefault();if(!form.reportValidity())return;
+    const button=form.querySelector('button[type="submit"]');
+    const original=button.textContent;button.disabled=true;button.textContent='Sending…';
+    status($('#transportJobStatus'),'');
+    try{
+      const {data,error}=await client.rpc('transport_provider_quote_job',{
+        p_request_id:form.dataset.transportQuoteForm,
+        p_transport_cost_kes:Number(form.elements.amount.value),
+        p_provider_notes:form.elements.notes.value.trim()||null
+      });
+      if(error)throw error;
+      status($('#transportJobStatus'),'Transport cost sent. Customer total: '+money(data.customer_total_kes)+' · Your net earning: '+money(data.partner_net_kes)+'.','success');
+      await Promise.all([loadTransportJobs(),loadTransportNotifications()]);
+    }catch(error){
+      status($('#transportJobStatus'),error?.message||'Transport cost could not be sent.','error');
+    }finally{button.disabled=false;button.textContent=original;}
+  }));
+  $('[data-transport-job-status]').forEach((button)=>button.addEventListener('click',async()=>{
     const requestId=button.dataset.transportJobStatus;
     const nextStatus=button.dataset.status;
     const original=button.textContent;button.disabled=true;button.textContent='Saving…';
