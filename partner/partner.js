@@ -13,7 +13,7 @@ const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits
 const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],sellerEarningsReport=null,partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
 let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],providerSettlementRequests=[],providerSettlements=[],providerEarningsReport=null,editingProviderService=null;
-let transportProvider=null,transportVehicles=[],transportJobs=[],transportNotifications=[],editingTransportVehicle=null;
+let transportProvider=null,transportVehicles=[],transportJobs=[],transportNotifications=[],editingTransportVehicle=null,transportBasePinOnly=false;
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -2720,6 +2720,25 @@ function renderTransportApplicationProgress(){
   if($('#editApprovedTransportProfile'))$('#editApprovedTransportProfile').hidden=!approved;
 }
 
+function updateTransportBasePinNotice(){
+  const missing=Boolean(transportProvider&&transportProvider.base_latitude==null&&transportProvider.base_longitude==null);
+  const notice=$('#transportMissingBasePinNotice'),button=$('#addTransportMissingBasePin');
+  if(notice)notice.hidden=!missing;
+  if(button)button.hidden=!missing;
+}
+function setTransportBasePinOnlyMode(enabled){
+  transportBasePinOnly=Boolean(enabled);
+  if(!transportReg)return;
+  $('input,select,textarea',transportReg).forEach(control=>{
+    if(['transportBaseLatitude','transportBaseLongitude','transportBaseMapLink'].includes(control.id))return;
+    if(control.type==='file')control.disabled=transportBasePinOnly;
+    else if(control.closest('.product-actions'))return;
+    else control.disabled=transportBasePinOnly;
+  });
+  const submit=transportReg.querySelector('button[type="submit"]');
+  if(submit)submit.textContent=transportBasePinOnly?'Save Operating Base Pin':'Submit Transport Application';
+}
+
 function renderTransportProvider(){
   hideTransportBoot();
   transportOnboarding.hidden=true;
@@ -2738,6 +2757,7 @@ function renderTransportProvider(){
   $('#transportProfileSummary').innerHTML=transportSummaryRows().filter(([label])=>!['Admin Note'].includes(label)).map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
   renderTransportApplicationSummary();
   renderTransportApplicationProgress();
+  updateTransportBasePinNotice();
   renderTransportVehicles();
   renderTransportJobs();
   renderTransportNotifications();
@@ -2780,6 +2800,7 @@ async function openTransportRole(){
   await loadTransportProvider();
 }
 function openTransportRegistration(editExisting=false){
+  setTransportBasePinOnlyMode(false);
   transportOnboarding.hidden=true;
   transportPendingArea.hidden=true;
   transportDashboard.hidden=true;
@@ -2801,11 +2822,38 @@ $('#editApprovedTransportProfile')?.addEventListener('click',()=>{
   status($('#transportProfileEditStatus'),'Edit your profile and submit it. Your current approved Transport profile stays active while Admin reviews the changes.');
   openTransportRegistration(true);
 });
-$('#cancelTransportRegistration')?.addEventListener('click',()=>transportProvider?renderTransportProvider():openTransportRole());
+$('#addTransportMissingBasePin')?.addEventListener('click',()=>{
+  if(!transportProvider)return;
+  populateTransportApplication();
+  transportOnboarding.hidden=true;transportPendingArea.hidden=true;transportDashboard.hidden=true;transportReg.hidden=false;
+  setTransportBasePinOnlyMode(true);
+  status($('#transportRegistrationStatus'),'Add the exact operating-base pin. Other registration details are locked for this correction.');
+  transportReg.scrollIntoView({behavior:'smooth',block:'start'});
+});
+$('#cancelTransportRegistration')?.addEventListener('click',()=>{setTransportBasePinOnlyMode(false);transportProvider?renderTransportProvider():openTransportRole();});
 
 transportReg?.addEventListener('submit',async event=>{
   event.preventDefault();
   if(!transportReg.reportValidity())return;
+  if(transportBasePinOnly){
+    const baseLatitude=Number($('#transportBaseLatitude').value),baseLongitude=Number($('#transportBaseLongitude').value);
+    if(!Number.isFinite(baseLatitude)||baseLatitude<-90||baseLatitude>90||!Number.isFinite(baseLongitude)||baseLongitude<-180||baseLongitude>180){
+      status($('#transportRegistrationStatus'),'Pin the exact operating base and confirm valid coordinates.','error');return;
+    }
+    const button=transportReg.querySelector('button[type="submit"]');
+    const original=button.textContent;button.disabled=true;button.textContent='Saving…';
+    try{
+      const {error}=await client.rpc('transport_provider_submit_base_pin',{
+        p_latitude:baseLatitude,p_longitude:baseLongitude,p_map_link:$('#transportBaseMapLink').value.trim()||null
+      });
+      if(error)throw error;
+      status($('#transportRegistrationStatus'),'Operating base pin saved and sent to LEOGO Admin for review.','success');
+      setTransportBasePinOnlyMode(false);
+      await loadTransportProvider();
+    }catch(error){status($('#transportRegistrationStatus'),error?.message||'Operating base pin could not be saved.','error');}
+    finally{button.disabled=false;button.textContent=original;}
+    return;
+  }
   const phone=normalisePhone($('#transportPhone').value);
   if(!/^\+254[17]\d{8}$/.test(phone)){status($('#transportRegistrationStatus'),'Enter a valid Kenyan phone number.','error');return;}
   const services=selectedTransportServices('transportService');
@@ -2853,7 +2901,7 @@ transportReg?.addEventListener('submit',async event=>{
       other_permit_paths:otherPermits
     };
     const {error}=transportProvider?.application_status==='approved'
-      ? await client.rpc('partner_submit_profile_change',{p_partner_type:'transport',p_payload:transportProfilePayload})
+      ? await client.rpc('transport_provider_submit_profile_change',{p_payload:transportProfilePayload})
       : await client.rpc('transport_provider_submit_application',{
           p_business_name:transportProfilePayload.business_name,p_owner_name:transportProfilePayload.owner_name,
           p_id_number:transportProfilePayload.id_number,p_phone:phone,p_provider_type:transportProfilePayload.provider_type,
