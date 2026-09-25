@@ -3148,7 +3148,7 @@ function renderTransportJobs(){
       transportJobActions(item)+
     '</article>'
   ).join(''):'<div class="empty-card">No Transport / Parcel jobs assigned yet.</div>';
-  $('[data-transport-quote-form]').forEach((form)=>form.addEventListener('submit',async(event)=>{
+  $$('[data-transport-quote-form]').forEach((form)=>form.addEventListener('submit',async(event)=>{
     event.preventDefault();if(!form.reportValidity())return;
     const button=form.querySelector('button[type="submit"]');
     const original=button.textContent;button.disabled=true;button.textContent='Sending…';
@@ -3166,7 +3166,7 @@ function renderTransportJobs(){
       status($('#transportJobStatus'),error?.message||'Transport cost could not be sent.','error');
     }finally{button.disabled=false;button.textContent=original;}
   }));
-  $('[data-transport-job-status]').forEach((button)=>button.addEventListener('click',async()=>{
+  $$('[data-transport-job-status]').forEach((button)=>button.addEventListener('click',async()=>{
     const requestId=button.dataset.transportJobStatus;
     const nextStatus=button.dataset.status;
     const original=button.textContent;button.disabled=true;button.textContent='Saving…';
