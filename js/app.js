@@ -3048,8 +3048,8 @@
       '<p>'+receiptEscape([item.make_model,item.colour,item.capacity_description].filter(Boolean).join(' · ')||'Approved Transport & Parcel vehicle')+'</p>'+
       '<small>'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
       '<small>'+receiptEscape((item.service_types||item.services_offered||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'Transport & Parcel Delivery')+'</small>'+
-      reviewState+
-      '<div class="service-provider-actions"><button class="direct" type="button" data-request-transport="'+receiptEscape(item.vehicle_id||'')+'">Request Transport</button><button class="quote transport-rate-button" type="button" data-rate-transport-provider="'+receiptEscape(item.provider_id)+'" data-rate-transport-vehicle="'+receiptEscape(item.vehicle_id||'')+'">'+(ownReview?.moderation_status==='rejected'?'Edit & Resubmit Rating':'Rate Transport Service')+'</button></div></div>';
+      '<small class="transport-own-review-state">Complete a LEOGO booking to leave a verified review.</small>'+
+      '<div class="service-provider-actions"><button class="direct" type="button" data-request-transport="'+receiptEscape(item.vehicle_id||'')+'">Request Transport</button></div></div>';
     return card;
   };
 
@@ -3199,8 +3199,7 @@
       let result;
       if(partnerType==='transport'){
         result=await window.leogoAuth.client.rpc('customer_submit_transport_review',{
-          p_provider_id:document.getElementById('serviceReviewProviderId').value,
-          p_vehicle_id:document.getElementById('serviceReviewVehicleId').value||null,
+          p_request_id:document.getElementById('serviceReviewRequestId').value,
           p_rating:rating,
           p_comment:comment
         });
@@ -3214,7 +3213,7 @@
       if(result.error)throw result.error;
       statusBox.textContent='✓ Review submitted. LEOGO Admin will review it before it appears publicly.';
       statusBox.className='service-review-status success';
-      await Promise.all([loadCustomerServiceRequests(),loadPublicServices()]);
+      await Promise.all([loadCustomerServiceRequests(),loadCustomerTransportRequests(),loadPublicServices()]);
       window.setTimeout(closeServiceReviewModal,1100);
     }catch(error){
       statusBox.textContent=error?.message||'Your service review could not be submitted.';
@@ -3237,21 +3236,19 @@
         adminNote:item.review_status==='rejected'?item.review_admin_notes||'':''
       });
     }
-    const transportButton=event.target.closest?.('[data-rate-transport-provider]');
+    const transportButton=event.target.closest?.('[data-rate-transport-request]');
     if(transportButton){
-      const providerId=transportButton.dataset.rateTransportProvider;
-      const vehicleId=transportButton.dataset.rateTransportVehicle||null;
-      const item=customerPublicTransportVehicles.find((row)=>row.provider_id===providerId&&String(row.vehicle_id||'')===String(vehicleId||''));
-      const own=item?transportReviewForVehicle(item):null;
-      openServiceReviewModal({
+      const item=customerTransportRequests.find((row)=>row.id===transportButton.dataset.rateTransportRequest);
+      if(item)openServiceReviewModal({
         partnerType:'transport',
-        providerId,
-        vehicleId,
+        requestId:item.id,
+        providerId:item.assigned_provider_id||'',
+        vehicleId:item.assigned_vehicle_id||'',
         title:'Rate Transport & Parcel Service',
-        context:(item?.provider_name||'Approved Transport Provider')+(item?.vehicle_type?' · '+item.vehicle_type:'')+'. Your rating will be published only after LEOGO Admin approval.',
-        rating:own?.rating||'',
-        comment:own?.comment||'',
-        adminNote:own?.moderation_status==='rejected'?own?.admin_notes||'':''
+        context:(item.assigned_provider_name||'Transport Provider')+(item.assigned_vehicle_label?' · '+item.assigned_vehicle_label:'')+'. This review is linked to completed booking '+(item.request_reference||'')+' and will be published only after LEOGO Admin approval.',
+        rating:item.review_rating||'',
+        comment:item.review_comment||'',
+        adminNote:item.review_status==='rejected'?item.review_admin_notes||'':''
       });
     }
   });
@@ -3690,6 +3687,15 @@
       (item.assigned_provider_phone?'<small><strong>Provider phone:</strong> '+receiptEscape(item.assigned_provider_phone)+'</small>':'')+
       (item.provider_notes?'<p><strong>Provider update:</strong> '+receiptEscape(item.provider_notes)+'</p>':'')+
       (item.admin_notes?'<p><strong>Admin note:</strong> '+receiptEscape(item.admin_notes)+'</p>':'')+
+      (item.request_status==='completed'
+        ? (!item.review_id
+          ? '<div class="customer-service-review-action"><button type="button" data-rate-transport-request="'+receiptEscape(item.id)+'">★ Rate Transport Service</button><small>Verified completed LEOGO booking. Your review goes to Admin before publication.</small></div>'
+          : item.review_status==='submitted'
+            ? '<div class="customer-service-review-state pending"><strong>'+receiptEscape(serviceReviewStars(item.review_rating))+' '+receiptEscape(item.review_rating)+'/5</strong><small>Transport review awaiting LEOGO Admin approval.</small></div>'
+            : item.review_status==='approved'
+              ? '<div class="customer-service-review-state approved"><strong>'+receiptEscape(serviceReviewStars(item.review_rating))+' '+receiptEscape(item.review_rating)+'/5</strong><small>Approved and visible in Service Reviews.</small></div>'
+              : '<div class="customer-service-review-state rejected"><strong>Review not published</strong><small>'+receiptEscape(item.review_admin_notes||'Review the Admin feedback and resubmit.')+'</small><button type="button" data-rate-transport-request="'+receiptEscape(item.id)+'">Edit & Resubmit Review</button></div>')
+        : '')+
       '</article>'
     ).join('');
     const empty=document.getElementById('customerActivityEmpty');
