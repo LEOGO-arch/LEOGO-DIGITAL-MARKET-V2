@@ -171,6 +171,7 @@ function showPasswordRecoveryScreen({valid=false,message='',type=''}={}){
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(accommodationShell)accommodationShell.hidden=true;
   if(hero)hero.hidden=false;
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   logout.hidden=true;
@@ -1974,6 +1975,7 @@ partnerNotificationBell?.addEventListener('click',()=>{
   if(activeRole==='seller')openSellerView('notifications');
   else if(activeRole==='service_provider')openProviderView('notifications');
   else if(activeRole==='transport')openTransportView('notifications');
+  else if(activeRole==='accommodation')openAccommodationView('notifications');
 });
 
 function showProviderBoot(message='Loading your Service Provider account…',isError=false){
@@ -2874,13 +2876,16 @@ async function loadAccommodationProvider(){
     await ensureAccommodationLocations(accommodationProvider?.county_code||'',accommodationProvider?.sub_county_code||'');
     if(accommodationProvider)await loadAccommodationNotifications().catch(()=>{});
     if(accommodationProvider?.verification_status==='approved'){
-      const [properties,bookings]=await Promise.all([
-        client.from('accommodation_properties').select('id',{count:'exact',head:true}).eq('host_id',accommodationProvider.id),
-        client.from('accommodation_bookings').select('id,property_id',{count:'exact',head:true}).in('property_id',
-          (await client.from('accommodation_properties').select('id').eq('host_id',accommodationProvider.id)).data?.map(row=>row.id)||[])
-      ]);
-      if($('#accommodationPropertyMetric'))$('#accommodationPropertyMetric').textContent=properties.count||0;
-      if($('#accommodationBookingMetric'))$('#accommodationBookingMetric').textContent=bookings.count||0;
+      const propertyResult=await client.from('accommodation_properties').select('id').eq('host_id',accommodationProvider.id);
+      const propertyIds=(propertyResult.data||[]).map(row=>row.id);
+      if($('#accommodationPropertyMetric'))$('#accommodationPropertyMetric').textContent=propertyIds.length;
+      if($('#accommodationBookingMetric')){
+        if(!propertyIds.length)$('#accommodationBookingMetric').textContent='0';
+        else{
+          const bookings=await client.from('accommodation_bookings').select('id',{count:'exact',head:true}).in('property_id',propertyIds);
+          $('#accommodationBookingMetric').textContent=bookings.count||0;
+        }
+      }
     }
   }catch(error){
     console.error('Accommodation Provider portal boot failed:',error);
@@ -3944,19 +3949,26 @@ async function handleSession(session){
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   if(!currentUser){
     seller=null;products=[];sellerEarningsReport=null;provider=null;providerServices=[];providerNotifications=[];providerJobs=[];providerSettlementAccounts=[];providerSettlementRequests=[];providerSettlements=[];providerEarningsReport=null;
-    transportProvider=null;transportVehicles=[];transportJobs=[];transportNotifications=[];editingTransportVehicle=null;activeRole='';
-    authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;if(hero)hero.hidden=false;
+    transportProvider=null;transportVehicles=[];transportJobs=[];transportNotifications=[];editingTransportVehicle=null;
+    accommodationProvider=null;accommodationNotifications=[];activeRole='';
+    authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;
+    if(providerShell)providerShell.hidden=true;
+    if(transportShell)transportShell.hidden=true;
+    if(accommodationShell)accommodationShell.hidden=true;
+    if(hero)hero.hidden=false;
     return;
   }
   authShell.hidden=true;
   sellerShell.hidden=true;
-  if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(accommodationShell)accommodationShell.hidden=true;
   rolePicker.hidden=false;
   if(hero)hero.hidden=false;
   if(activeRole==='seller')await openSellerRole();
   if(activeRole==='service_provider')await openProviderRole();
   if(activeRole==='transport')await openTransportRole();
+  if(activeRole==='accommodation')await openAccommodationRole();
 }
 
 window.addEventListener('unhandledrejection',event=>{
