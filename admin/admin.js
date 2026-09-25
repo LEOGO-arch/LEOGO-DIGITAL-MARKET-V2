@@ -57,10 +57,13 @@
     paymentActions: [],
     sellerSettlementAccounts: [],
     providerSettlementAccounts: [],
+    transportSettlementAccounts: [],
     sellerSettlementRequests: [],
     providerSettlementRequests: [],
+    transportSettlementRequests: [],
     sellerSettlements: [],
     providerSettlements: [],
+    transportSettlements: [],
     riders: [],
     staffDirectory: [],
     staffRolePresets: [],
@@ -92,6 +95,7 @@
     seller_settlement_account: 'Seller Settlement Account',
     service_provider_application: 'Service Provider Registration', service_provider_profile_change: 'Service Provider Profile Update', service_listing: 'Service Listing',
     service_provider_settlement_account: 'Service Provider Settlement Account',
+    transport_provider_settlement_account: 'Transport Provider Settlement Account',
     transport_provider_application: 'Transport / Parcel Provider Registration', transport_provider_profile_change: 'Transport Provider Profile Update',
     transport_vehicle: 'Transport Vehicle',
     premium_customer: 'Premium Customer', premium_profile: 'Verified Premium Profile',
@@ -498,7 +502,7 @@
     }));
   };
 
-  const approvalGroup = (kind) => ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle'].includes(kind) ? 'transport' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalGroup = (kind) => ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle','transport_provider_settlement_account'].includes(kind) ? 'transport' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
   const approvalIsFinancial = (item) => item.kind === 'premium_payment' || item.kind.startsWith('wallet') || item.kind.endsWith('_settlement_account');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
@@ -740,7 +744,7 @@
     const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
     const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle'].includes(kind) && item.status === 'changes_requested';
-    const settlementAccountApproval = ['seller_settlement_account','service_provider_settlement_account'].includes(kind);
+    const settlementAccountApproval = ['seller_settlement_account','service_provider_settlement_account','transport_provider_settlement_account'].includes(kind);
     underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection || settlementAccountApproval;
     requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
     reject.hidden = awaitingCorrection;
@@ -784,8 +788,10 @@
                   ? 'admin_review_seller_settlement_account'
                   : item.kind === 'service_provider_settlement_account'
                     ? 'admin_review_service_provider_settlement_account'
-                    : 'admin_review_approval';
-      const rpcArgs = ['seller_settlement_account','service_provider_settlement_account'].includes(item.kind)
+                    : item.kind === 'transport_provider_settlement_account'
+                      ? 'admin_review_transport_provider_settlement_account'
+                      : 'admin_review_approval';
+      const rpcArgs = ['seller_settlement_account','service_provider_settlement_account','transport_provider_settlement_account'].includes(item.kind)
         ? { p_account_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change'].includes(item.kind)
           ? { p_change_id: item.record_id, p_decision: decision, p_notes: notes || null }
@@ -3946,26 +3952,29 @@
     return (account.bank_name || 'Bank') + ' · ' + (account.account_number || '—') + (account.bank_branch ? ' · ' + account.bank_branch : '');
   };
   const loadSellerSettlements = async () => {
-    const [accountsResult,providerAccountsResult,requestsResult,providerRequestsResult,settlementsResult,providerSettlementsResult] = await Promise.all([
+    const [accountsResult,providerAccountsResult,transportAccountsResult,requestsResult,providerRequestsResult,transportRequestsResult,settlementsResult,providerSettlementsResult,transportSettlementsResult] = await Promise.all([
       db.rpc('admin_list_seller_settlement_accounts'),
       db.rpc('admin_list_service_provider_settlement_accounts'),
+      db.rpc('admin_list_transport_provider_settlement_accounts'),
       db.rpc('admin_list_seller_settlement_requests'),
       db.rpc('admin_list_service_provider_settlement_requests'),
+      db.rpc('admin_list_transport_provider_settlement_requests'),
       db.rpc('admin_list_seller_settlements'),
-      db.rpc('admin_list_service_provider_settlements')
+      db.rpc('admin_list_service_provider_settlements'),
+      db.rpc('admin_list_transport_provider_settlements')
     ]);
-    if (accountsResult.error) throw accountsResult.error;
-    if (providerAccountsResult.error) throw providerAccountsResult.error;
-    if (requestsResult.error) throw requestsResult.error;
-    if (providerRequestsResult.error) throw providerRequestsResult.error;
-    if (settlementsResult.error) throw settlementsResult.error;
-    if (providerSettlementsResult.error) throw providerSettlementsResult.error;
+    for (const result of [accountsResult,providerAccountsResult,transportAccountsResult,requestsResult,providerRequestsResult,transportRequestsResult,settlementsResult,providerSettlementsResult,transportSettlementsResult]) {
+      if (result.error) throw result.error;
+    }
     state.sellerSettlementAccounts = accountsResult.data || [];
     state.providerSettlementAccounts = providerAccountsResult.data || [];
+    state.transportSettlementAccounts = transportAccountsResult.data || [];
     state.sellerSettlementRequests = requestsResult.data || [];
     state.providerSettlementRequests = providerRequestsResult.data || [];
+    state.transportSettlementRequests = transportRequestsResult.data || [];
     state.sellerSettlements = settlementsResult.data || [];
     state.providerSettlements = providerSettlementsResult.data || [];
+    state.transportSettlements = transportSettlementsResult.data || [];
     renderSellerSettlements();
   };
   const renderSellerSettlementAccountOptions = () => {
@@ -3978,17 +3987,20 @@
   const renderSellerSettlements = () => {
     const partnerAccounts = [
       ...state.sellerSettlementAccounts.map((account)=>({...account,partner_type:'seller',partner_id:account.seller_id,partner_name:account.seller_name,partner_email:account.seller_email})),
-      ...state.providerSettlementAccounts.map((account)=>({...account,partner_type:'service_provider',partner_id:account.provider_id,partner_name:account.provider_name,partner_email:account.provider_email}))
+      ...state.providerSettlementAccounts.map((account)=>({...account,partner_type:'service_provider',partner_id:account.provider_id,partner_name:account.provider_name,partner_email:account.provider_email})),
+      ...state.transportSettlementAccounts.map((account)=>({...account,partner_type:'transport',partner_id:account.provider_id,partner_name:account.provider_name,partner_email:account.provider_email}))
     ];
     const pending = partnerAccounts.filter((account) => account.status === 'pending_review').length;
     const approved = partnerAccounts.filter((account) => account.status === 'approved').length;
     const partnerRequests=[
       ...state.sellerSettlementRequests.map((request)=>({...request,partner_type:'seller',partner_id:request.seller_id,partner_name:request.seller_name,partner_email:request.seller_email,partner_note:request.seller_note})),
-      ...state.providerSettlementRequests.map((request)=>({...request,partner_type:'service_provider',partner_id:request.provider_id,partner_name:request.provider_name,partner_email:request.provider_email,partner_note:request.provider_note}))
+      ...state.providerSettlementRequests.map((request)=>({...request,partner_type:'service_provider',partner_id:request.provider_id,partner_name:request.provider_name,partner_email:request.provider_email,partner_note:request.provider_note})),
+      ...state.transportSettlementRequests.map((request)=>({...request,partner_type:'transport',partner_id:request.provider_id,partner_name:request.provider_name,partner_email:request.provider_email,partner_note:request.provider_note}))
     ];
     const partnerSettlements=[
       ...state.sellerSettlements.map((item)=>({...item,partner_type:'seller',partner_name:item.seller_name,partner_email:item.seller_email})),
-      ...state.providerSettlements.map((item)=>({...item,partner_type:'service_provider',partner_name:item.provider_name,partner_email:item.provider_email}))
+      ...state.providerSettlements.map((item)=>({...item,partner_type:'service_provider',partner_name:item.provider_name,partner_email:item.provider_email})),
+      ...state.transportSettlements.map((item)=>({...item,partner_type:'transport',partner_name:item.provider_name,partner_email:item.provider_email}))
     ].sort((a,b)=>new Date(b.paid_at||0)-new Date(a.paid_at||0));
     const pendingRequests = partnerRequests.filter((request) => ['pending','under_review'].includes(request.status)).length;
     $('#adminSettlementPending').textContent = pending + pendingRequests;
@@ -4007,10 +4019,10 @@
     renderSellerSettlementAccountOptions();
 
     $('#sellerSettlementRequestTableBody').innerHTML = partnerRequests.length ? partnerRequests.map((request) => {
-      const accounts=request.partner_type==='seller'?state.sellerSettlementAccounts:state.providerSettlementAccounts;
+      const accounts=request.partner_type==='seller'?state.sellerSettlementAccounts:request.partner_type==='transport'?state.transportSettlementAccounts:state.providerSettlementAccounts;
       const account=accounts.find((item)=>item.id===request.settlement_account_id);
       const open=['pending','under_review'].includes(request.status);
-      const partnerLabel=request.partner_type==='seller'?'Seller':'Service Provider';
+      const partnerLabel=request.partner_type==='seller'?'Seller':request.partner_type==='transport'?'Transport Provider':'Service Provider';
       return `<tr>
         <td><strong>${escapeHtml(request.partner_name||partnerLabel)}</strong><small>${escapeHtml(request.partner_email||'')}</small><small>${partnerLabel}</small></td>
         <td><strong>${formatMoney(request.requested_amount_kes)}</strong><small>${formatDate(request.submitted_at,true)}</small></td>
@@ -4027,8 +4039,9 @@
       const canReview = account.status === 'pending_review';
       const canDisable = account.status === 'approved';
       const isSeller = account.partner_type === 'seller';
+      const partnerLabel = isSeller ? 'Seller' : account.partner_type==='transport' ? 'Transport Provider' : 'Service Provider';
       return `<tr>
-        <td><strong>${escapeHtml(account.partner_name || (isSeller?'Seller':'Service Provider'))}</strong><small>${escapeHtml(account.partner_email || '')}</small><small>${isSeller?'Seller':'Service Provider'}</small></td>
+        <td><strong>${escapeHtml(account.partner_name || partnerLabel)}</strong><small>${escapeHtml(account.partner_email || '')}</small><small>${partnerLabel}</small></td>
         <td><strong>${escapeHtml(account.account_name)}</strong><small>${escapeHtml(account.account_type.replaceAll('_',' '))} · ${escapeHtml(settlementDestination(account))}${account.is_primary ? ' · PRIMARY' : ''}</small></td>
         <td><span class="status-chip">${escapeHtml(account.status.replaceAll('_',' '))}</span></td>
         <td>${formatDate(account.submitted_at, true)}</td>
@@ -4042,7 +4055,7 @@
     }).join('') : '<tr><td colspan="6">No Partner settlement accounts yet.</td></tr>';
 
     $('#sellerSettlementHistoryBody').innerHTML = partnerSettlements.length ? partnerSettlements.map((item) => `<tr>
-      <td>${formatDate(item.paid_at, true)}</td><td><strong>${escapeHtml(item.partner_name || (item.partner_type==='seller'?'Seller':'Service Provider'))}</strong><small>${escapeHtml(item.partner_email || '')} · ${item.partner_type==='seller'?'Seller':'Service Provider'}</small></td>
+      <td>${formatDate(item.paid_at, true)}</td><td><strong>${escapeHtml(item.partner_name || (item.partner_type==='seller'?'Seller':item.partner_type==='transport'?'Transport Provider':'Service Provider'))}</strong><small>${escapeHtml(item.partner_email || '')} · ${item.partner_type==='seller'?'Seller':item.partner_type==='transport'?'Transport Provider':'Service Provider'}</small></td>
       <td><strong>${formatMoney(item.amount_kes)}</strong></td><td>${escapeHtml(item.settlement_reference)}</td><td><span class="status-chip">${escapeHtml(item.status)}</span></td>
     </tr>`).join('') : '<tr><td colspan="5">No Partner settlements recorded yet.</td></tr>';
 
@@ -4056,7 +4069,9 @@
       await withButtonLock(button,'Saving…',async()=>{
         const rpcName=button.dataset.requestKind==='service_provider'
           ? 'admin_review_service_provider_settlement_request'
-          : 'admin_review_seller_settlement_request';
+          : button.dataset.requestKind==='transport'
+            ? 'admin_review_transport_provider_settlement_request'
+            : 'admin_review_seller_settlement_request';
         const {error}=await db.rpc(rpcName,{p_request_id:button.dataset.requestId,p_decision:decision,p_notes:notes||null});
         if(error){globalStatus(friendlyError(error),'error');return;}
         await Promise.all([loadSellerSettlements(),loadAuditLog()]);
@@ -4065,16 +4080,16 @@
     }));
     $$('[data-request-pay]').forEach((button)=>button.addEventListener('click',async()=>{
       const kind=button.dataset.requestKind||'seller';
-      const source=kind==='service_provider'?state.providerSettlementRequests:state.sellerSettlementRequests;
+      const source=kind==='service_provider'?state.providerSettlementRequests:kind==='transport'?state.transportSettlementRequests:state.sellerSettlementRequests;
       const request=source.find((item)=>item.id===button.dataset.requestPay);
       if(!request)return;
-      const partnerLabel=kind==='service_provider'?'Service Provider':'Seller';
+      const partnerLabel=kind==='service_provider'?'Service Provider':kind==='transport'?'Transport Provider':'Seller';
       const reference=window.prompt('Enter the actual M-Pesa / bank transaction reference after sending '+formatMoney(request.requested_amount_kes)+':','')||'';
       if(reference.trim().length<3){globalStatus('A payment reference is required before marking the request paid.','error');return;}
       const notes=window.prompt('Settlement note (optional):','')||'';
       if(!window.confirm('Confirm the money has already been sent to the approved '+partnerLabel+' settlement account?'))return;
       await withButtonLock(button,'Recording…',async()=>{
-        const rpcName=kind==='service_provider'?'admin_pay_service_provider_settlement_request':'admin_pay_seller_settlement_request';
+        const rpcName=kind==='service_provider'?'admin_pay_service_provider_settlement_request':kind==='transport'?'admin_pay_transport_provider_settlement_request':'admin_pay_seller_settlement_request';
         const {error}=await db.rpc(rpcName,{p_request_id:request.id,p_reference:reference.trim(),p_notes:notes||null});
         if(error){globalStatus(friendlyError(error),'error');return;}
         await Promise.allSettled([loadSellerSettlements(),loadAuditLog()]);
@@ -4095,7 +4110,9 @@
       await withButtonLock(button,'Saving…',async()=>{
         const rpcName=button.dataset.settlementKind==='service_provider'
           ? 'admin_review_service_provider_settlement_account'
-          : 'admin_review_seller_settlement_account';
+          : button.dataset.settlementKind==='transport'
+            ? 'admin_review_transport_provider_settlement_account'
+            : 'admin_review_seller_settlement_account';
         const {error}=await db.rpc(rpcName,{p_account_id:button.dataset.settlementAccount,p_decision:decision,p_notes:notes||null});
         if(error){globalStatus(friendlyError(error),'error');return;}
         await Promise.all([loadSellerSettlements(),loadAuditLog()]);
