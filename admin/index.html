@@ -670,7 +670,22 @@
           <div class="plan-grid" id="premiumPlanList"><div class="loading-card">Loading Premium plans…</div></div>
         </div>
       </section>
-      <section class="admin-panel" data-admin-panel="accommodation"><div class="section-head"><div><span>STAY WITH LEOGO</span><h2>Accommodation</h2><p>Hotel/Airbnb host verification, property approvals and bookings.</p></div><button data-open-view="approvals" data-filter-target="accommodation" class="primary-button">Open Accommodation Queue</button></div><div class="module-summary-grid"><article><span>Registered Hosts</span><strong id="accommodationHostCount">0</strong><small>All statuses</small></article><article><span>Properties</span><strong id="accommodationPropertyCount">0</strong><small>Hotel &amp; Airbnb profiles</small></article><article><span>Bookings</span><strong id="accommodationBookingCount">0</strong><small>Customer requests</small></article></div><div class="reserved-module slim"><span>⌂</span><h3>Accommodation foundation connected</h3><p>Host and property applications appear in Approval Center; booking operations will expand after host-side development.</p></div></section>
+      <section class="admin-panel" data-admin-panel="accommodation">
+        <div class="section-head">
+          <div><span>STAY WITH LEOGO</span><h2>Accommodation</h2><p>Accommodation Provider verification, property approvals and booking operations.</p></div>
+          <button data-open-view="approvals" data-filter-target="accommodation" class="primary-button">Open Accommodation Queue</button>
+        </div>
+        <div class="module-summary-grid">
+          <article><span>Registered Providers</span><strong id="accommodationHostCount">0</strong><small>All application statuses</small></article>
+          <article><span>Properties</span><strong id="accommodationPropertyCount">0</strong><small>Hotel &amp; Airbnb profiles</small></article>
+          <article><span>Bookings</span><strong id="accommodationBookingCount">0</strong><small>Customer accommodation requests</small></article>
+        </div>
+        <section class="content-card">
+          <div class="card-head"><div><span>ACCOMMODATION PROVIDERS</span><h3>Provider Accounts</h3><p>View application details after approval, inspect verification records and suspend or reactivate provider accounts.</p></div><button id="refreshAccommodationProviders" class="primary-button" type="button">↻ Refresh Providers</button></div>
+          <div class="responsive-table"><table><thead><tr><th>Provider</th><th>Contact</th><th>Location</th><th>Status</th><th>Properties</th><th>Bookings</th><th>Action</th></tr></thead><tbody id="accommodationProviderTableBody"><tr><td colspan="7">Loading Accommodation Providers…</td></tr></tbody></table></div>
+        </section>
+        <div class="reserved-module slim"><span>🏨</span><h3>Provider registration is now active</h3><p>Next stage: property and room/unit creation, listing approval, availability and booking management.</p></div>
+      </section>
 
       <section class="admin-panel" data-admin-panel="loyalty"><div class="section-head"><div><span>CUSTOMER RETENTION</span><h2>Loyalty &amp; Rewards</h2><p>Shopping rewards are connected to the existing wallet reward rules.</p></div><button data-admin-view="settings" data-settings-tab="fees" class="primary-button">Edit Reward Rules</button></div><div class="reserved-module slim"><span>★</span><h3>Wallet reward engine connected</h3><p>Eligible spend, rate and credited rewards remain auditable in the Wallet system.</p></div></section>
       <section class="admin-panel" data-admin-panel="reports"><div class="section-head"><div><span>BUSINESS INTELLIGENCE</span><h2>Reports</h2><p>Operational, financial and marketplace reporting.</p></div></div><div class="reserved-module"><span>↗</span><h3>Reports workspace reserved</h3><p>Version 1 keeps this area ready while real order, seller and settlement ledgers are completed.</p></div></section>
@@ -910,6 +925,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=auth-bindings-fix-1" defer></script>
+  <script src="admin.js?v=accommodation-phase-a-1" defer></script>
 </body>
 </html>
