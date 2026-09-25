@@ -41,6 +41,7 @@
     paymentAssignments: [],
     pickupStations: [],
     walletSettings: null,
+    transportFinanceSettings: null,
     premiumPlans: [],
     premiumCustomers: [],
     premiumProfiles: [],
@@ -314,6 +315,7 @@
       [loadPaymentSettings, () => adminHas('payments.manage')],
       [loadPickupStations, () => adminHas('orders.read') || adminHas('delivery.manage')],
       [loadWalletSettings, () => adminHas('approvals.read') || adminHas('fees.manage')],
+      [loadTransportFinanceSettings, () => adminHas('settings.manage') || adminHas('fees.manage') || adminHas('delivery.manage')],
       [loadPremiumCustomers, () => adminHas('premium.read')],
       [loadPremiumProfiles, () => adminHas('premium.read')],
       [loadPremiumPlans, () => adminHas('premium.read')],
@@ -3190,6 +3192,7 @@
         '<small><strong>Requested provider:</strong> '+escapeHtml(item.requested_provider_name||'—')+' · '+escapeHtml(item.requested_vehicle_label||'—')+'</small>'+
         (item.parcel_description?'<p>'+escapeHtml(item.parcel_description)+'</p>':'')+
         (item.customer_notes?'<p><strong>Customer note:</strong> '+escapeHtml(item.customer_notes)+'</p>':'')+
+        (item.provider_quote_kes!=null?'<div class="admin-service-request-grid"><div><small>TRANSPORT COST</small><strong>'+formatMoney(item.provider_quote_kes)+'</strong></div><div><small>CUSTOMER SERVICE FEE</small><strong>'+formatMoney(item.quote_customer_service_fee_kes||0)+' ('+Number(item.quote_customer_service_fee_percent||0)+'%)</strong></div><div><small>CUSTOMER TOTAL</small><strong>'+formatMoney(item.quote_customer_total_kes||0)+'</strong></div><div><small>LEOGO COMMISSION</small><strong>'+formatMoney(item.quote_partner_commission_kes||0)+' ('+Number(item.quote_partner_commission_percent||0)+'%)</strong></div><div><small>PROVIDER NET</small><strong>'+formatMoney(item.quote_partner_net_kes||0)+'</strong></div></div>':'')+
         action+
       '</article>';
     }).join(''):'<div class="empty-state">No customer Transport / Parcel requests yet.</div>';
@@ -3381,6 +3384,31 @@
       closeModals();
       globalStatus(`Pickup station ${id ? 'updated' : 'created'} and audited.`);
       await Promise.all([loadPickupStations(), loadDashboard(), loadAuditLog()]);
+    });
+  };
+
+  const loadTransportFinanceSettings = async () => {
+    const {data,error}=await db.rpc('admin_get_transport_finance_settings');
+    if(error)throw error;
+    state.transportFinanceSettings=data||{};
+    const form=$('#transportFinanceSettingsForm');
+    if(form){
+      form.elements.partner_commission_percent.value=Number(data?.partner_commission_percent??10);
+      form.elements.customer_service_fee_percent.value=Number(data?.customer_service_fee_percent??2);
+    }
+  };
+  const saveTransportFinanceSettings = async (event) => {
+    event.preventDefault();
+    const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const values=Object.fromEntries(new FormData(event.currentTarget).entries());
+      const {error}=await db.rpc('admin_update_transport_finance_settings',{
+        p_partner_commission_percent:Number(values.partner_commission_percent),
+        p_customer_service_fee_percent:Number(values.customer_service_fee_percent)
+      });
+      if(error){setFormStatus($('#transportFinanceSettingsStatus'),friendlyError(error),'error');return;}
+      setFormStatus($('#transportFinanceSettingsStatus'),'Transport commission and customer service fee updated. New quotes will use these rates.','success');
+      await Promise.all([loadTransportFinanceSettings(),loadAuditLog()]);
     });
   };
 
@@ -4400,6 +4428,7 @@
     $$('[data-dashboard-export]').forEach(button=>button.addEventListener('click',async()=>{await exportDashboard(button.dataset.dashboardExport);$('#dashboardExportMenu').hidden=true;}));
     $('#businessSettingsForm').addEventListener('submit', saveBusinessSettings);
     $('#walletFeesForm').addEventListener('submit', saveWalletSettings);
+    $('#transportFinanceSettingsForm')?.addEventListener('submit', saveTransportFinanceSettings);
     $('#addPaymentAccount').addEventListener('click', () => openPaymentModal());
     $('#paymentAccountType').addEventListener('change', togglePaymentFields);
     $('#paymentAccountForm').addEventListener('submit', savePaymentAccount);
