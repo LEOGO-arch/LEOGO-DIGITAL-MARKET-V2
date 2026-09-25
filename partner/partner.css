@@ -258,7 +258,8 @@
 
 
 /* Service Provider Portal V1 — scoped so Seller layout remains unchanged */
-.provider-shell .seller-portal{display:block;min-height:0}
+#providerShell .seller-portal{display:block;min-height:0}
+#transportShell .transport-portal{display:grid;grid-template-columns:240px minmax(0,1fr);gap:18px;align-items:start;min-height:680px}
 .provider-shell #providerBackToPartnerships{margin-bottom:12px}
 .provider-shell .provider-overview-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 .provider-service-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff;display:grid;gap:10px}
@@ -419,4 +420,9 @@
   .transport-vehicle-card{grid-template-columns:1fr}
   .transport-vehicle-photo{min-height:190px}
   .transport-vehicle-photo img{min-height:190px}
+}
+
+
+@media(max-width:820px){
+  #transportShell .transport-portal{display:block;min-height:0}
 }
