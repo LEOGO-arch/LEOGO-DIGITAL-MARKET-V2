@@ -48,6 +48,7 @@
     serviceProviders: [],
     serviceListings: [],
     serviceRequests: [],
+    serviceReviews: [],
     transportProviders: [],
     transportVehicles: [],
     serviceMarketplaceSettings: null,
@@ -303,6 +304,7 @@
       [loadServiceProviders, () => adminHas('approvals.read')],
       [loadServiceListings, () => adminHas('approvals.read')],
       [loadServiceOperations, () => adminHas('approvals.read')],
+      [loadServiceReviews, () => adminHas('approvals.read') || adminHas('delivery.manage') || adminHas('products.read')],
       [loadSellerSettlements, () => adminHas('settlements.read')],
       [loadTransportNetwork, () => adminHas('approvals.read') || adminHas('delivery.manage')],
       [loadDeliveryOps, () => adminHas('orders.read') || adminHas('delivery.manage')],
@@ -3484,6 +3486,73 @@
     });
   };
 
+  const adminServiceReviewStars=(rating)=>'★'.repeat(Math.max(0,Math.min(5,Number(rating)||0)))+'☆'.repeat(Math.max(0,5-(Number(rating)||0)));
+
+  const renderServiceReviews=()=>{
+    const all=Array.isArray(state.serviceReviews)?state.serviceReviews:[];
+    const pending=all.filter((item)=>item.moderation_status==='submitted').length;
+    if($('#adminServiceReviewPending'))$('#adminServiceReviewPending').textContent=pending;
+
+    const type=$('#adminServiceReviewTypeFilter')?.value||'all';
+    const statusFilter=$('#adminServiceReviewStatusFilter')?.value||'submitted';
+    const rows=all.filter((item)=>
+      (type==='all'||item.partner_type===type)&&
+      (statusFilter==='all'||item.moderation_status===statusFilter)
+    );
+    const target=$('#adminServiceReviewList');if(!target)return;
+
+    target.innerHTML=rows.length?rows.map((item)=>{
+      const context=item.service_name||item.vehicle_label||(item.partner_type==='transport'?'Transport & Parcel Service':'Professional Service');
+      const typeLabel=item.partner_type==='transport'?'Transport & Parcel':'Service Provider';
+      const verified=item.verified_completed_service
+        ? '<span class="service-review-verified">✓ Completed LEOGO service</span>'
+        : '<span class="service-review-verified neutral">Customer Transport review</span>';
+      const actions=item.moderation_status==='submitted'
+        ? '<div class="admin-product-review-actions"><button class="approve" type="button" data-moderate-service-review="'+escapeHtml(item.review_id)+'" data-review-action="approved">Approve</button><button class="reject" type="button" data-moderate-service-review="'+escapeHtml(item.review_id)+'" data-review-action="rejected">Reject</button></div>'
+        : '<div class="admin-product-review-actions"><span class="status-chip">'+escapeHtml(String(item.moderation_status||'').replaceAll('_',' '))+'</span></div>';
+      return '<article class="admin-product-review-item admin-service-review-item">'+
+        '<header><div><span>'+escapeHtml(typeLabel)+'</span><strong>'+escapeHtml(item.provider_name||typeLabel)+'</strong><small>'+escapeHtml(context)+'</small></div><b>'+escapeHtml(adminServiceReviewStars(item.rating))+' '+escapeHtml(item.rating)+'/5</b></header>'+
+        '<div class="admin-service-review-meta"><span><strong>Customer:</strong> '+escapeHtml(item.customer_name||'Customer')+'</span><span><strong>Submitted:</strong> '+escapeHtml(formatDate(item.created_at,true))+'</span>'+verified+'</div>'+
+        (item.request_reference?'<p><strong>Service request:</strong> '+escapeHtml(item.request_reference)+'</p>':'')+
+        '<p class="admin-product-review-comment">'+escapeHtml(item.comment||'Customer submitted a rating without a written comment.')+'</p>'+
+        (item.admin_notes?'<p class="admin-review-note"><strong>Admin note:</strong> '+escapeHtml(item.admin_notes)+'</p>':'')+
+        actions+
+      '</article>';
+    }).join(''):'<div class="loading-card">No service reviews match this filter.</div>';
+
+    $$('[data-moderate-service-review]',target).forEach((button)=>button.addEventListener('click',()=>moderateServiceReview(button)));
+  };
+
+  const loadServiceReviews=async()=>{
+    const {data,error}=await db.rpc('admin_list_service_reviews');
+    if(error)throw error;
+    state.serviceReviews=Array.isArray(data)?data:[];
+    renderServiceReviews();
+  };
+
+  const moderateServiceReview=async(button)=>{
+    const reviewId=button.dataset.moderateServiceReview;
+    const action=button.dataset.reviewAction;
+    if(!reviewId||!['approved','rejected'].includes(action))return;
+    let notes=null;
+    if(action==='rejected'){
+      notes=window.prompt('Enter the reason this service review should not be published:','')||'';
+      if(notes.trim().length<3){globalStatus('Add a clear rejection reason before rejecting the review.','error');return;}
+    }else{
+      notes=window.prompt('Optional Admin note for this approved review:','')||null;
+    }
+    await withButtonLock(button,action==='approved'?'Approving…':'Rejecting…',async()=>{
+      const {error}=await db.rpc('admin_moderate_service_review',{
+        p_review_id:reviewId,
+        p_action:action,
+        p_admin_notes:notes||null
+      });
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      globalStatus(action==='approved'?'Service review approved and published to customers.':'Service review rejected and kept off the public Customer Front.');
+      await Promise.all([loadServiceReviews(),loadAuditLog().catch(()=>{})]);
+    });
+  };
+
   const sellerDocumentCard = async (label,path) => {
     if(!path) return '<article class="review-media-card"><div class="review-media-card-head"><strong>'+escapeHtml(label)+'</strong><span>Not provided</span></div></article>';
     try{
@@ -4130,6 +4199,9 @@
     }));
     $('#adminSellerSearch').addEventListener('input', renderSellers);
     $('#adminSellerStatusFilter').addEventListener('change', renderSellers);
+    $('#adminServiceReviewTypeFilter')?.addEventListener('change',renderServiceReviews);
+    $('#adminServiceReviewStatusFilter')?.addEventListener('change',renderServiceReviews);
+    $('#refreshServiceReviews')?.addEventListener('click',()=>withButtonLock($('#refreshServiceReviews'),'Refreshing…',loadServiceReviews));
     $('#refreshSellerSettlements').addEventListener('click', () => withButtonLock($('#refreshSellerSettlements'), 'Refreshing…', loadSellerSettlements));
     $('#adminSettlementSeller').addEventListener('change', renderSellerSettlementAccountOptions);
     $('#adminSellerSettlementForm').addEventListener('submit', recordSellerSettlement);
