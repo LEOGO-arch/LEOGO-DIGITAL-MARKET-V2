@@ -3554,8 +3554,8 @@
       const context=item.service_name||item.vehicle_label||(item.partner_type==='transport'?'Transport & Parcel Service':'Professional Service');
       const typeLabel=item.partner_type==='transport'?'Transport & Parcel':'Service Provider';
       const verified=item.verified_completed_service
-        ? '<span class="service-review-verified">✓ Completed LEOGO service</span>'
-        : '<span class="service-review-verified neutral">Customer Transport review</span>';
+        ? '<span class="service-review-verified">✓ Verified completed LEOGO '+(item.partner_type==='transport'?'transport job':'service')+'</span>'
+        : '<span class="service-review-verified neutral">Unverified review — cannot be approved</span>';
       const actions=item.moderation_status==='submitted'
         ? '<div class="admin-product-review-actions"><button class="approve" type="button" data-moderate-service-review="'+escapeHtml(item.review_id)+'" data-review-action="approved">Approve</button><button class="reject" type="button" data-moderate-service-review="'+escapeHtml(item.review_id)+'" data-review-action="rejected">Reject</button></div>'
         : '<div class="admin-product-review-actions"><span class="status-chip">'+escapeHtml(String(item.moderation_status||'').replaceAll('_',' '))+'</span></div>';
