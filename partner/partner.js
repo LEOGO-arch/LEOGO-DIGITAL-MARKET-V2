@@ -2732,6 +2732,43 @@ function resetTransportVehicleForm(){
   $('#transportVehicleFormTitle').textContent='Add Vehicle';
   status($('#transportVehicleStatus'),'');
 }
+function transportWaitingPointCoords(value=''){
+  const text=String(value||'').trim();
+  const direct=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+  if(direct)return {lat:Number(direct[1]),lng:Number(direct[2])};
+  const maps=text.match(/(?:@|q=|query=)(-?\d{1,2}(?:\.\d+)?)[,%2C\s]+(-?\d{1,3}(?:\.\d+)?)/i);
+  return maps?{lat:Number(maps[1]),lng:Number(maps[2])}:null;
+}
+function setTransportWaitingPoint(lat,lng,label='Waiting point pinned'){
+  const latitude=Number(lat),longitude=Number(lng),target=$('#transportWaitingPointStatus');
+  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+    if(target){target.textContent='Invalid waiting-point coordinates.';target.className='status error';}
+    return false;
+  }
+  $('#transportWaitingPointLatitude').value=latitude.toFixed(7);
+  $('#transportWaitingPointLongitude').value=longitude.toFixed(7);
+  if(!$('#transportWaitingPointMapLink').value.trim())$('#transportWaitingPointMapLink').value='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
+  if(target){target.textContent='✓ '+label+': '+latitude.toFixed(7)+', '+longitude.toFixed(7);target.className='status success';}
+  return true;
+}
+$('#pinTransportWaitingPoint')?.addEventListener('click',()=>{
+  const target=$('#transportWaitingPointStatus');
+  if(!navigator.geolocation){
+    if(target){target.textContent='Location access is unavailable. Paste a Google Maps link or enter coordinates.';target.className='status error';}
+    return;
+  }
+  if(target){target.textContent='Getting waiting-point location…';target.className='status';}
+  navigator.geolocation.getCurrentPosition((position)=>{
+    setTransportWaitingPoint(position.coords.latitude,position.coords.longitude,'Waiting point pinned');
+  },(error)=>{
+    if(target){target.textContent=error.code===1?'Location permission was not granted. Paste a Maps link or coordinates instead.':'Waiting-point location could not be detected.';target.className='status error';}
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:15000});
+});
+$('#transportWaitingPointMapLink')?.addEventListener('change',(event)=>{
+  const coords=transportWaitingPointCoords(event.currentTarget.value);
+  if(coords)setTransportWaitingPoint(coords.lat,coords.lng,'Coordinates detected');
+});
+
 $('#transportVehicleReset')?.addEventListener('click',resetTransportVehicleForm);
 $('#showTransportVehicleForm')?.addEventListener('click',()=>{
   resetTransportVehicleForm();
@@ -2750,6 +2787,11 @@ function editTransportVehicle(id){
   $('#transportVehicleCapacity').value=vehicle.capacity_description||'';
   $('#transportVehicleMaxWeight').value=vehicle.max_weight_kg??'';
   $('#transportVehicleServiceArea').value=vehicle.service_area||'';
+  $('#transportWaitingPointName').value=vehicle.waiting_point_name||'';
+  $('#transportWaitingPointLatitude').value=vehicle.waiting_point_latitude??'';
+  $('#transportWaitingPointLongitude').value=vehicle.waiting_point_longitude??'';
+  $('#transportWaitingPointMapLink').value=vehicle.waiting_point_map_link||'';
+  const waitingStatus=$('#transportWaitingPointStatus');if(waitingStatus){waitingStatus.textContent=(vehicle.waiting_point_latitude!=null&&vehicle.waiting_point_longitude!=null)?'✓ Waiting point pinned: '+vehicle.waiting_point_latitude+', '+vehicle.waiting_point_longitude:'Waiting point not pinned yet.';}
   $('#transportVehicleAvailable').checked=vehicle.is_available!==false;
   $('#transportDriverName').value=vehicle.driver_full_name||'';
   $('#transportDriverId').value=vehicle.driver_id_number||'';
@@ -2797,6 +2839,10 @@ $('#transportVehicleForm')?.addEventListener('submit',async event=>{
   if(!services.length){status($('#transportVehicleStatus'),'Choose at least one service for this vehicle.','error');return;}
   const photoFile=$('#transportVehiclePicture').files?.[0]||null;
   if(!photoFile&&!editingTransportVehicle?.vehicle_profile_picture_path){status($('#transportVehicleStatus'),'Add a vehicle profile picture.','error');return;}
+  const waitingPointName=$('#transportWaitingPointName').value.trim();
+  const waitingLat=Number($('#transportWaitingPointLatitude').value),waitingLng=Number($('#transportWaitingPointLongitude').value);
+  if(waitingPointName.length<3){status($('#transportVehicleStatus'),'Enter the vehicle stage / waiting point.','error');return;}
+  if(!Number.isFinite(waitingLat)||waitingLat<-90||waitingLat>90||!Number.isFinite(waitingLng)||waitingLng<-180||waitingLng>180){status($('#transportVehicleStatus'),'Pin the stage / waiting point before saving the vehicle.','error');return;}
   const driverPhoneRaw=$('#transportDriverPhone').value.trim();
   const driverPhone=driverPhoneRaw?normalisePhone(driverPhoneRaw):null;
   if(driverPhoneRaw&&!/^\+254[17]\d{8}$/.test(driverPhone)){status($('#transportVehicleStatus'),'Enter a valid Kenyan driver phone number.','error');return;}
@@ -2826,7 +2872,11 @@ $('#transportVehicleForm')?.addEventListener('submit',async event=>{
       p_driver_id_number:$('#transportDriverId').value.trim()||null,
       p_driver_phone:driverPhone,
       p_driver_licence_number:$('#transportDriverLicence').value.trim()||null,
-      p_driver_passport_photo_path:driverPassport
+      p_driver_passport_photo_path:driverPassport,
+      p_waiting_point_name:waitingPointName,
+      p_waiting_point_latitude:waitingLat,
+      p_waiting_point_longitude:waitingLng,
+      p_waiting_point_map_link:$('#transportWaitingPointMapLink').value.trim()||null
     });
     if(error)throw error;
     status($('#transportVehicleStatus'),'Vehicle saved and sent to LEOGO Admin for approval.','success');
