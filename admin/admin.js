@@ -87,11 +87,11 @@
     staff: 'Staff Management', settings: 'System Settings', audit: 'Audit Log'
   };
   const kindLabels = {
-    seller_application: 'Seller Registration', seller_product: 'Seller Product', customer_personal_sale: 'Customer Item Sale',
+    seller_application: 'Seller Registration', seller_profile_change: 'Seller Profile Update', seller_product: 'Seller Product', customer_personal_sale: 'Customer Item Sale',
     seller_settlement_account: 'Seller Settlement Account',
-    service_provider_application: 'Service Provider Registration', service_listing: 'Service Listing',
+    service_provider_application: 'Service Provider Registration', service_provider_profile_change: 'Service Provider Profile Update', service_listing: 'Service Listing',
     service_provider_settlement_account: 'Service Provider Settlement Account',
-    transport_provider_application: 'Transport / Parcel Provider Registration',
+    transport_provider_application: 'Transport / Parcel Provider Registration', transport_provider_profile_change: 'Transport Provider Profile Update',
     transport_vehicle: 'Transport Vehicle',
     premium_customer: 'Premium Customer', premium_profile: 'Verified Premium Profile',
     premium_payment: 'Premium Payment', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
@@ -419,11 +419,12 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,partnerSettlementResult,paymentActionsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,profileChangesResult,partnerSettlementResult,paymentActionsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
       db.rpc('admin_list_service_provider_approvals'),
       db.rpc('admin_list_transport_approvals'),
+      db.rpc('admin_list_partner_profile_changes'),
       db.rpc('admin_list_partner_settlement_approvals'),
       db.rpc('admin_list_pending_payment_actions')
     ]);
@@ -431,6 +432,7 @@
     if (personalSaleResult.error) throw personalSaleResult.error;
     if (serviceProviderResult.error) throw serviceProviderResult.error;
     if (transportResult.error) throw transportResult.error;
+    if (profileChangesResult.error) throw profileChangesResult.error;
     if (partnerSettlementResult.error) throw partnerSettlementResult.error;
     if (paymentActionsResult.error) throw paymentActionsResult.error;
 
@@ -439,6 +441,7 @@
       ...(Array.isArray(personalSaleResult.data) ? personalSaleResult.data : []),
       ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : []),
       ...(Array.isArray(transportResult.data) ? transportResult.data : []),
+      ...(Array.isArray(profileChangesResult.data) ? profileChangesResult.data : []),
       ...(Array.isArray(partnerSettlementResult.data) ? partnerSettlementResult.data : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     state.paymentActions=Array.isArray(paymentActionsResult.data)?paymentActionsResult.data:[];
@@ -469,7 +472,7 @@
     }));
   };
 
-  const approvalGroup = (kind) => ['seller_application','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_vehicle'].includes(kind) ? 'transport' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalGroup = (kind) => ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle'].includes(kind) ? 'transport' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
   const approvalIsFinancial = (item) => item.kind === 'premium_payment' || item.kind.startsWith('wallet') || item.kind.endsWith('_settlement_account');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
@@ -578,13 +581,13 @@
     const transportVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','transport_operator_permit_path','other_permit_paths']);
     Object.entries(approvalMediaFields).forEach(([key, config]) => {
       let resolvedConfig = config;
-      if (kind === 'service_provider_application' && key === 'profile_picture_path') {
+      if (['service_provider_application','service_provider_profile_change'].includes(kind) && key === 'profile_picture_path') {
         resolvedConfig = { ...config, bucket: 'service-provider-public-media', publicBucket: true, label: 'Customer Profile Picture' };
-      } else if (kind === 'service_provider_application' && key === 'passport_photo_path') {
+      } else if (['service_provider_application','service_provider_profile_change'].includes(kind) && key === 'passport_photo_path') {
         resolvedConfig = { ...config, bucket: 'service-provider-passport-photo', label: 'Passport-size Photo (Admin Only)' };
-      } else if (kind === 'service_provider_application' && providerVerificationFields.has(key)) {
+      } else if (['service_provider_application','service_provider_profile_change'].includes(kind) && providerVerificationFields.has(key)) {
         resolvedConfig = { ...config, bucket: 'service-provider-verification' };
-      } else if (kind === 'transport_provider_application' && transportVerificationFields.has(key)) {
+      } else if (['transport_provider_application','transport_provider_profile_change'].includes(kind) && transportVerificationFields.has(key)) {
         resolvedConfig = { ...config, bucket: 'transport-verification' };
       } else if (kind === 'transport_vehicle' && key === 'vehicle_profile_picture_path') {
         resolvedConfig = { ...config, bucket: 'transport-public-media', publicBucket: true, label: 'Vehicle Profile Picture' };
@@ -695,10 +698,10 @@
     const requestChanges = $('[data-review-action="changes_requested"]');
     const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
-    const awaitingCorrection = ['seller_application','seller_product','service_provider_application','service_listing','transport_provider_application','transport_vehicle'].includes(kind) && item.status === 'changes_requested';
+    const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle'].includes(kind) && item.status === 'changes_requested';
     const settlementAccountApproval = ['seller_settlement_account','service_provider_settlement_account'].includes(kind);
     underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection || settlementAccountApproval;
-    requestChanges.hidden = !['seller_application','seller_product','service_provider_application','service_listing','transport_provider_application','transport_vehicle','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
+    requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
@@ -734,6 +737,8 @@
                   ? 'admin_review_transport_provider_application'
                   : item.kind === 'transport_vehicle'
                     ? 'admin_review_transport_vehicle'
+                    : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change'].includes(item.kind)
+                      ? 'admin_review_partner_profile_change'
                     : item.kind === 'seller_settlement_account'
                   ? 'admin_review_seller_settlement_account'
                   : item.kind === 'service_provider_settlement_account'
@@ -741,9 +746,11 @@
                     : 'admin_review_approval';
       const rpcArgs = ['seller_settlement_account','service_provider_settlement_account'].includes(item.kind)
         ? { p_account_id: item.record_id, p_decision: decision, p_notes: notes || null }
-        : ['seller_application','seller_product','customer_personal_sale','service_provider_application','service_listing','transport_provider_application','transport_vehicle'].includes(item.kind)
-          ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
-          : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
+        : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change'].includes(item.kind)
+          ? { p_change_id: item.record_id, p_decision: decision, p_notes: notes || null }
+          : ['seller_application','seller_product','customer_personal_sale','service_provider_application','service_listing','transport_provider_application','transport_vehicle'].includes(item.kind)
+            ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
+            : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
       const { error } = await db.rpc(rpcName, rpcArgs);
       if (error) { setFormStatus($('#reviewStatus'), friendlyError(error), 'error'); return; }
       closeModals();
