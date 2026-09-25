@@ -338,6 +338,8 @@
           <section class="panel">
             <div class="section-title"><span>MY PROFILE</span><h3>Approved Provider Details</h3><p>Your public profile and private verification information are managed here, not on the overview screen.</p></div>
             <div id="providerProfileSummary" class="summary-grid"></div>
+            <div class="product-actions"><button id="editApprovedProviderProfile" type="button">Edit Profile & Send to Admin</button></div>
+            <p id="providerProfileEditStatus" class="status"></p>
           </section>
           <div id="providerProfilePhotoSlot"></div>
         </section>
@@ -545,6 +547,8 @@
           <section class="panel">
             <div class="section-title"><span>MY PROFILE</span><h3>Transport Provider Registration</h3><p>Your approved business/operator information remains here for later viewing.</p></div>
             <div id="transportProfileSummary" class="summary-grid"></div>
+            <div class="product-actions"><button id="editApprovedTransportProfile" type="button">Edit Profile & Send to Admin</button></div>
+            <p id="transportProfileEditStatus" class="status"></p>
           </section>
         </section>
       </div>
@@ -872,6 +876,7 @@
           <section class="seller-view" data-seller-content="profile">
             <section id="sellerProfilePanel">
               <div class="seller-registration-summary panel" id="sellerRegistrationSummary"></div>
+              <div class="panel"><div class="product-actions"><button id="editApprovedSellerProfile" type="button">Edit Profile & Send to Admin</button></div><p id="sellerProfileEditStatus" class="status"></p></div>
               <form id="sellerVerificationDocumentsForm" class="panel" hidden>
                 <div class="section-title"><span>PRIVATE VERIFICATION DOCUMENTS</span><h3>Business documents for Admin review</h3><p>These files are private. Customers cannot see them.</p></div>
                 <div class="form-grid">
@@ -926,5 +931,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=transport-waiting-point-1" defer></script>
+<script src="partner.js?v=partner-profile-edit-1" defer></script>
 </body></html>
