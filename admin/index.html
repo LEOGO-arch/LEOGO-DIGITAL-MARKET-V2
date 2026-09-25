@@ -53,7 +53,7 @@
         <button data-admin-view="sellers"><i>▣</i><span>Sellers</span></button>
         <button data-admin-view="settlements"><i>₿</i><span>Partner Settlements</span><em id="sidebarSettlementCount">0</em></button>
         <button data-admin-view="providers"><i>⚒</i><span>Service Providers</span></button>
-        <button data-admin-view="transport" data-nav-group="transport"><i>🚚</i><span>Transport &amp; Delivery</span><b>⌄</b></button><div class="nav-children" data-nav-children="transport"><button data-admin-view="transport">Transport/Parcel Providers</button><button data-admin-view="transport">Delivery Jobs</button><button data-admin-view="transport">Delivery Zones</button><button data-admin-view="transport">Pickup Stations</button></div>
+        <button data-admin-view="transport" data-nav-group="transport" data-transport-target="providers"><i>🚚</i><span>Transport &amp; Delivery</span><b>⌄</b></button><div class="nav-children" data-nav-children="transport"><button data-admin-view="transport" data-transport-target="providers">Transport/Parcel Providers</button><button data-admin-view="transport" data-transport-target="jobs">Delivery Jobs</button><button data-admin-view="transport" data-transport-target="zones">Delivery Zones</button><button data-admin-view="transport" data-transport-target="pickup">Pickup Stations</button></div>
         <button data-admin-view="wallet" data-nav-group="wallet"><i>💰</i><span>Wallet &amp; SACCO</span><b>⌄</b></button><div class="nav-children" data-nav-children="wallet"><button data-admin-view="wallet">Overview</button><button data-admin-view="approvals" data-filter-target="wallet">Deposits &amp; Withdrawals</button><button data-admin-view="wallet">Savings Challenges</button><button data-admin-view="approvals" data-filter-target="wallet">Loans</button><button data-admin-view="wallet">Transactions</button></div>
         <button data-admin-view="premium" data-nav-group="premium" data-premium-target="profiles"><i>18+</i><span>Premium</span><b>⌄</b></button><div class="nav-children" data-nav-children="premium"><button data-admin-view="approvals" data-filter-target="premium">Applications</button><button data-admin-view="premium" data-premium-target="profiles">Premium Profiles</button><button data-admin-view="premium" data-premium-target="subscriptions">Subscriptions</button></div>
         <button data-admin-view="accommodation" data-nav-group="accommodation"><i>⌂</i><span>Accommodation</span><b>⌄</b></button><div class="nav-children" data-nav-children="accommodation"><button data-admin-view="accommodation">Providers</button><button data-admin-view="accommodation">Listings</button><button data-admin-view="accommodation">Bookings</button></div>
@@ -537,9 +537,9 @@
       </section>
 
       <section class="admin-panel" data-admin-panel="transport">
-        <div class="section-head"><div><span>LOGISTICS</span><h2>Transport &amp; Parcel Delivery</h2><p>External Transport/Parcel Providers are managed separately from LEOGO staff riders used for marketplace-order delivery.</p></div><div class="section-head-actions"><button class="secondary-button" id="openTransportApprovals" type="button">Transport Approvals</button><button class="primary-button" id="refreshDeliveryOps" type="button">↻ Refresh Transport &amp; Delivery</button></div></div>
+        <div class="section-head"><div><span id="transportSectionEyebrow">LOGISTICS</span><h2 id="transportSectionTitle">Transport / Parcel Providers</h2><p id="transportSectionDescription">Manage Transport and Parcel Provider accounts, vehicles and approvals.</p></div><div class="section-head-actions"><button class="secondary-button" id="openTransportApprovals" type="button">Transport Approvals</button><button class="primary-button" id="refreshDeliveryOps" type="button">↻ Refresh Current Page</button></div></div>
 
-        <section class="content-card transport-network-card">
+        <section class="content-card transport-network-card" data-transport-section="providers">
           <div class="card-head"><div><span>TRANSPORT / PARCEL PARTNERS</span><h3>Approved &amp; Registered Provider Network</h3><p>Registration details remain available after approval. Driver identity details and passport photos are private Admin-only vehicle verification data.</p></div></div>
           <div class="module-summary-grid">
             <article><span>Transport Providers</span><strong id="adminTransportProviderCount">0</strong><small>All retained registrations</small></article>
@@ -555,21 +555,21 @@
           <div class="responsive-table"><table><thead><tr><th>Vehicle</th><th>Provider</th><th>Services / Capacity</th><th>Driver — Admin Only</th><th>Status</th><th>Submitted</th></tr></thead><tbody id="adminTransportVehicleBody"><tr><td colspan="6">Loading vehicles…</td></tr></tbody></table></div>
         </section>
 
-        <section class="content-card transport-network-card">
+        <section class="content-card transport-network-card" data-transport-section="jobs">
           <div class="card-head"><div><span>CUSTOMER TRANSPORT REQUESTS</span><h3>Assign Transport &amp; Parcel Jobs</h3><p>Requests from the Customer Website arrive here first. Select an approved vehicle and dispatch the same job record to the Transport Provider.</p></div><strong id="adminTransportRequestCount">0</strong></div>
           <div id="adminTransportRequestList" class="admin-service-request-list"><div class="empty-state">No customer Transport / Parcel requests yet.</div></div>
         </section>
 
-        <div class="section-title transport-staff-divider"><span>LEOGO INTERNAL DELIVERY</span><h3>Marketplace Staff Rider Operations</h3><p>The functions below remain the existing LEOGO staff-rider workflow and are not replaced by external Transport / Parcel Providers.</p></div>
+        <div class="section-title transport-staff-divider" data-transport-section="jobs"><span>LEOGO INTERNAL DELIVERY</span><h3>Marketplace Staff Rider Operations</h3><p>The functions below remain the existing LEOGO staff-rider workflow and are not replaced by external Transport / Parcel Providers.</p></div>
 
-        <div class="module-summary-grid">
+        <div class="module-summary-grid" data-transport-section="jobs">
           <article><span>Active Riders</span><strong id="adminRiderCount">0</strong><small>LEOGO staff riders</small></article>
           <article><span>Awaiting Assignment</span><strong id="adminDeliveryAwaiting">0</strong><small>Needs a rider</small></article>
           <article><span>In Delivery</span><strong id="adminDeliveryActive">0</strong><small>Assigned / picked up / on the way</small></article>
           <article><span>Delivered</span><strong id="adminDeliveryDone">0</strong><small>Completed jobs</small></article>
         </div>
 
-        <section class="content-card">
+        <section class="content-card" data-transport-section="jobs">
           <div class="card-head"><div><span>LEOGO STAFF RIDERS</span><h3>Authorize a Rider Account</h3><p>The rider must already have a normal LEOGO account. Admin authorizes that account as staff.</p></div><a class="primary-button" href="../staff/" target="_blank" rel="noopener">Open Rider Portal ↗</a></div>
           <form id="adminAddRiderForm" class="admin-settlement-form">
             <label>LEOGO account email<input id="adminRiderEmail" type="email" required></label>
@@ -582,12 +582,17 @@
           <div id="adminRiderList" class="station-grid"></div>
         </section>
 
-        <section class="content-card">
+        <section class="content-card" data-transport-section="jobs">
           <div class="card-head"><div><span>DELIVERY JOBS</span><h3>Assign Orders to LEOGO Riders</h3><p>Seller prepares the order; Admin assigns the rider; the rider controls Picked Up → On the Way → Delivered.</p></div></div>
           <div class="responsive-table"><table><thead><tr><th>Order</th><th>Customer / Destination</th><th>Seller Readiness</th><th>Rider</th><th>Delivery Status</th><th>Action</th></tr></thead><tbody id="adminDeliveryJobBody"><tr><td colspan="6">Loading delivery jobs…</td></tr></tbody></table></div>
         </section>
 
-        <section class="content-card">
+        <section class="content-card" data-transport-section="zones">
+          <div class="card-head"><div><span>DELIVERY ZONES</span><h3>Delivery Areas & Coverage</h3><p>Keep delivery-zone management separate from Transport Providers, delivery jobs and Pickup Stations.</p></div></div>
+          <div class="reserved-module slim"><span>📍</span><h3>Delivery Zone Configuration</h3><p>Zone-based delivery pricing and coverage controls will live on this page. Existing live delivery jobs and provider workflows remain unchanged.</p></div>
+        </section>
+
+        <section class="content-card" data-transport-section="pickup">
           <div class="card-head"><div><span>PICKUP STATIONS</span><h3>Customer Pickup Locations</h3></div><button class="primary-button" id="addPickupStation" type="button">＋ Add Pickup Station</button></div>
           <div class="station-grid" id="pickupStationList"><div class="loading-card">Loading pickup stations…</div></div>
         </section>
@@ -880,6 +885,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=location-link-1" defer></script>
+  <script src="admin.js?v=transport-subpages-1" defer></script>
 </body>
 </html>
