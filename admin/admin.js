@@ -421,14 +421,15 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,profileChangesResult,partnerSettlementResult,paymentActionsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,profileChangesResult,partnerSettlementResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
       db.rpc('admin_list_service_provider_approvals'),
       db.rpc('admin_list_transport_approvals'),
       db.rpc('admin_list_partner_profile_changes'),
       db.rpc('admin_list_partner_settlement_approvals'),
-      db.rpc('admin_list_pending_payment_actions')
+      db.rpc('admin_list_pending_payment_actions'),
+      db.rpc('admin_list_transport_requests')
     ]);
     if (coreResult.error) throw coreResult.error;
     if (personalSaleResult.error) throw personalSaleResult.error;
@@ -437,6 +438,7 @@
     if (profileChangesResult.error) throw profileChangesResult.error;
     if (partnerSettlementResult.error) throw partnerSettlementResult.error;
     if (paymentActionsResult.error) throw paymentActionsResult.error;
+    if (transportRequestsResult.error) throw transportRequestsResult.error;
 
     state.approvals = [
       ...(Array.isArray(coreResult.data) ? coreResult.data : []),
@@ -447,7 +449,9 @@
       ...(Array.isArray(partnerSettlementResult.data) ? partnerSettlementResult.data : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     state.paymentActions=Array.isArray(paymentActionsResult.data)?paymentActionsResult.data:[];
+    state.transportRequests=Array.isArray(transportRequestsResult.data)?transportRequestsResult.data:state.transportRequests;
     renderApprovals();
+    renderTransportRequests();
     if (state.serviceProviders.length) renderServiceProviders();
 
     // Keep Dashboard and sidebar counts synchronized with the actual Approval Center queue,
@@ -461,16 +465,36 @@
       .slice(0,5)
       .map((item)=>({...item,action_type:'approval'}));
     const pendingPayments=state.paymentActions.map((item)=>({...item,action_type:'payment'}));
-    const actions=[...pendingPayments,...nonPaymentApprovals]
+    const pendingTransportRequests=(state.transportRequests||[])
+      .filter((item)=>['submitted','declined'].includes(item.request_status))
+      .map((item)=>({
+        ...item,
+        action_type:'transport_request',
+        submitted_at:item.created_at,
+        title:'Transport Request '+(item.request_reference||''),
+        applicant_name:item.customer_name||'Customer'
+      }));
+    const actions=[...pendingPayments,...pendingTransportRequests,...nonPaymentApprovals]
       .sort((a,b)=>new Date(b.submitted_at||0)-new Date(a.submitted_at||0));
     compact.innerHTML=actions.length?actions.map((item)=>item.action_type==='payment'
       ? `<div><div><b>${escapeHtml(item.title)} · ${formatMoney(item.amount_kes)}</b><small>${escapeHtml(item.customer_name||'Customer')} · ${escapeHtml(item.detail||'Payment awaiting verification')} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-payment-view="${escapeHtml(item.view)}" data-dashboard-payment-tab="${escapeHtml(item.tab||'')}">Verify →</button></div>`
-      : `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.applicant_name)} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-review="${escapeHtml(item.record_id)}" data-dashboard-kind="${escapeHtml(item.kind)}">Review →</button></div>`
+      : item.action_type==='transport_request'
+        ? `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.customer_name||'Customer')} · ${escapeHtml(item.pickup_location||'Pickup')} → ${escapeHtml(item.destination_location||'Destination')} · ${formatDate(item.created_at,true)}</small></div><button data-dashboard-transport-request="${escapeHtml(item.id)}">Assign →</button></div>`
+        : `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.applicant_name)} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-review="${escapeHtml(item.record_id)}" data-dashboard-kind="${escapeHtml(item.kind)}">Review →</button></div>`
     ).join(''):'<div class="empty-mini">No urgent action required.</div>';
-    $$('[data-dashboard-review]',compact).forEach((button)=>button.addEventListener('click',()=>openApproval(button.dataset.dashboardKind,button.dataset.dashboardReview)));
-    $$('[data-dashboard-payment-view]',compact).forEach((button)=>button.addEventListener('click',()=>{
+    $('[data-dashboard-review]',compact).forEach((button)=>button.addEventListener('click',()=>openApproval(button.dataset.dashboardKind,button.dataset.dashboardReview)));
+    $('[data-dashboard-payment-view]',compact).forEach((button)=>button.addEventListener('click',()=>{
       changeView(button.dataset.dashboardPaymentView);
       if(button.dataset.dashboardPaymentView==='premium')changePremiumAdminTab(button.dataset.dashboardPaymentTab||'subscriptions');
+    }));
+    $('[data-dashboard-transport-request]',compact).forEach((button)=>button.addEventListener('click',()=>{
+      activeTransportSection='jobs';
+      changeView('transport');
+      changeTransportSection('jobs');
+      window.setTimeout(()=>{
+        const request=document.querySelector('[data-admin-transport-request="'+CSS.escape(button.dataset.dashboardTransportRequest)+'"]');
+        (request||$('#adminTransportRequestList'))?.scrollIntoView({behavior:'smooth',block:'start'});
+      },80);
     }));
   };
 
@@ -3186,7 +3210,7 @@
       const action=item.request_status==='submitted'||item.request_status==='declined'
         ? '<div class="admin-service-request-actions"><select data-transport-assignment-select="'+escapeHtml(item.id)+'"><option value="">Select approved vehicle</option>'+options+'</select><button type="button" data-assign-transport-request="'+escapeHtml(item.id)+'">Assign & Dispatch</button></div>'
         : '<div class="admin-service-request-actions"><span class="status-chip">'+escapeHtml(String(item.request_status||'').replaceAll('_',' '))+'</span></div>';
-      return '<article class="admin-service-request-card">'+
+      return '<article class="admin-service-request-card" data-admin-transport-request="'+escapeHtml(item.id)+'">'+
         '<header><div><strong>'+escapeHtml(item.request_reference||'Transport Request')+'</strong><small>'+escapeHtml(formatDate(item.created_at,true))+' · '+escapeHtml(item.customer_name||'Customer')+' · '+escapeHtml(item.customer_phone||'')+'</small></div><b>'+escapeHtml(String(item.request_status||'').replaceAll('_',' '))+'</b></header>'+
         '<div class="admin-service-request-grid"><div><small>SERVICE</small><strong>'+escapeHtml(String(item.service_type||'Transport').replaceAll('_',' '))+'</strong></div><div><small>PICKUP</small><strong>'+escapeHtml(item.pickup_location||'—')+'</strong></div><div><small>DESTINATION</small><strong>'+escapeHtml(item.destination_location||'—')+'</strong></div></div>'+
         '<small><strong>Requested provider:</strong> '+escapeHtml(item.requested_provider_name||'—')+' · '+escapeHtml(item.requested_vehicle_label||'—')+'</small>'+
