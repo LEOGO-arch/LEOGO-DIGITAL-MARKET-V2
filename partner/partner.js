@@ -13,7 +13,7 @@ const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits
 const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],sellerEarningsReport=null,partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
 let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],providerSettlementRequests=[],providerSettlements=[],providerEarningsReport=null,editingProviderService=null;
-let transportProvider=null,transportVehicles=[],transportNotifications=[],editingTransportVehicle=null;
+let transportProvider=null,transportVehicles=[],transportJobs=[],transportNotifications=[],editingTransportVehicle=null;
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -2395,6 +2395,7 @@ function openTransportView(view='overview'){
   $$('[data-transport-view]').forEach(button=>button.classList.toggle('active',button.dataset.transportView===resolved));
   if($('#transportViewDescription'))$('#transportViewDescription').textContent=transportViewDescription(resolved);
   if(resolved==='vehicles')loadTransportVehicles().catch(error=>console.warn('Transport vehicle refresh failed:',error));
+  if(resolved==='jobs')loadTransportJobs().catch(error=>console.warn('Transport jobs refresh failed:',error));
   if(resolved==='notifications')loadTransportNotifications().catch(error=>console.warn('Transport notifications refresh failed:',error));
   closeTransportSidebar();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -2558,7 +2559,7 @@ async function loadTransportProvider(){
     renderTransportProvider();
     await ensureTransportLocations(transportProvider?.county_code||'',transportProvider?.sub_county_code||'');
     if(transportProvider?.application_status==='approved'){
-      await Promise.allSettled([loadTransportVehicles(),loadTransportNotifications()]);
+      await Promise.allSettled([loadTransportVehicles(),loadTransportJobs(),loadTransportNotifications()]);
     }else if(transportProvider){
       await loadTransportNotifications().catch(()=>{});
     }
@@ -2781,6 +2782,74 @@ $('#transportVehicleForm')?.addEventListener('submit',async event=>{
   }finally{button.disabled=false;button.textContent=original;}
 });
 
+function transportJobStatusLabel(value){
+  return ({
+    submitted:'Waiting for Admin',
+    assigned:'New assignment',
+    accepted:'Accepted',
+    declined:'Declined',
+    picked_up:'Picked up',
+    in_transit:'In transit',
+    completed:'Completed',
+    cancelled:'Cancelled'
+  }[value]||String(value||'').replaceAll('_',' '));
+}
+function transportJobActions(item){
+  if(item.request_status==='assigned'){
+    return '<div class="seller-order-actions"><button type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="accepted">Accept Job</button><button class="secondary" type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="declined">Decline</button></div>';
+  }
+  if(item.request_status==='accepted'){
+    return '<div class="seller-order-actions"><button type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="picked_up">Mark Picked Up</button><button class="secondary" type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="in_transit">Start Transit</button></div>';
+  }
+  if(item.request_status==='picked_up'){
+    return '<div class="seller-order-actions"><button type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="in_transit">Mark In Transit</button></div>';
+  }
+  if(item.request_status==='in_transit'){
+    return '<div class="seller-order-actions"><button type="button" data-transport-job-status="'+escapeHtml(item.id)+'" data-status="completed">Mark Completed</button></div>';
+  }
+  return '';
+}
+function renderTransportJobs(){
+  const target=$('#transportJobList');if(!target)return;
+  const active=transportJobs.filter((item)=>!['completed','cancelled','declined'].includes(item.request_status));
+  if($('#transportActiveJobCount'))$('#transportActiveJobCount').textContent=active.length;
+  const badge=$('#transportJobBadge');
+  const newJobs=transportJobs.filter((item)=>item.request_status==='assigned').length;
+  if(badge){badge.hidden=!newJobs;badge.textContent=String(newJobs);}
+  target.className='provider-job-list';
+  target.innerHTML=transportJobs.length?transportJobs.map((item)=>
+    '<article class="provider-job-card">'+
+      '<header><div><span>'+escapeHtml(item.request_reference||'Transport Job')+'</span><h4>'+escapeHtml(String(item.service_type||'Transport').replaceAll('_',' '))+'</h4><small>'+escapeHtml(formatDate(item.created_at))+'</small></div><b class="status-chip">'+escapeHtml(transportJobStatusLabel(item.request_status))+'</b></header>'+
+      '<div class="provider-job-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'LEOGO Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'')+'</span></div><div><small>VEHICLE</small><strong>'+escapeHtml(item.vehicle_label||'Assigned vehicle')+'</strong></div><div><small>ROUTE</small><strong>'+escapeHtml(item.pickup_location||'—')+' → '+escapeHtml(item.destination_location||'—')+'</strong></div></div>'+
+      '<small><strong>Preferred schedule:</strong> '+escapeHtml((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+'</small>'+
+      (item.parcel_description?'<p>'+escapeHtml(item.parcel_description)+'</p>':'')+
+      (item.customer_notes?'<p><strong>Customer note:</strong> '+escapeHtml(item.customer_notes)+'</p>':'')+
+      transportJobActions(item)+
+    '</article>'
+  ).join(''):'<div class="empty-card">No Transport / Parcel jobs assigned yet.</div>';
+  $('[data-transport-job-status]').forEach((button)=>button.addEventListener('click',async()=>{
+    const requestId=button.dataset.transportJobStatus;
+    const nextStatus=button.dataset.status;
+    const original=button.textContent;button.disabled=true;button.textContent='Saving…';
+    try{
+      const {error}=await client.rpc('transport_provider_update_job_status',{
+        p_request_id:requestId,p_status:nextStatus,p_provider_notes:null
+      });
+      if(error)throw error;
+      await Promise.all([loadTransportJobs(),loadTransportNotifications()]);
+    }catch(error){
+      window.alert(error?.message||'Transport job status could not be updated.');
+    }finally{button.disabled=false;button.textContent=original;}
+  }));
+}
+async function loadTransportJobs(){
+  if(!currentUser||transportProvider?.application_status!=='approved')return;
+  const {data,error}=await client.rpc('transport_provider_list_jobs');
+  if(error)throw error;
+  transportJobs=Array.isArray(data)?data:[];
+  renderTransportJobs();
+}
+
 async function loadTransportNotifications(){
   if(!currentUser)return;
   const {data,error}=await client.from('partner_notifications').select('*').eq('partner_type','transport').order('created_at',{ascending:false}).limit(50);
@@ -2826,7 +2895,7 @@ async function handleSession(session){
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   if(!currentUser){
     seller=null;products=[];sellerEarningsReport=null;provider=null;providerServices=[];providerNotifications=[];providerJobs=[];providerSettlementAccounts=[];providerSettlementRequests=[];providerSettlements=[];providerEarningsReport=null;
-    transportProvider=null;transportVehicles=[];transportNotifications=[];editingTransportVehicle=null;activeRole='';
+    transportProvider=null;transportVehicles=[];transportJobs=[];transportNotifications=[];editingTransportVehicle=null;activeRole='';
     authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;if(hero)hero.hidden=false;
     return;
   }
