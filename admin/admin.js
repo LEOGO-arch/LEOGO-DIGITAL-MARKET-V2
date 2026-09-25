@@ -3865,19 +3865,8 @@
 
   const adminServiceReviewStars=(rating)=>'★'.repeat(Math.max(0,Math.min(5,Number(rating)||0)))+'☆'.repeat(Math.max(0,5-(Number(rating)||0)));
 
-  const renderServiceReviews=()=>{
-    const all=Array.isArray(state.serviceReviews)?state.serviceReviews:[];
-    const pending=all.filter((item)=>item.moderation_status==='submitted').length;
-    if($('#adminServiceReviewPending'))$('#adminServiceReviewPending').textContent=pending;
-
-    const type=$('#adminServiceReviewTypeFilter')?.value||'all';
-    const statusFilter=$('#adminServiceReviewStatusFilter')?.value||'submitted';
-    const rows=all.filter((item)=>
-      (type==='all'||item.partner_type===type)&&
-      (statusFilter==='all'||item.moderation_status===statusFilter)
-    );
-    const target=$('#adminServiceReviewList');if(!target)return;
-
+  const renderReviewList=(target,rows,emptyLabel)=>{
+    if(!target)return;
     target.innerHTML=rows.length?rows.map((item)=>{
       const context=item.service_name||item.vehicle_label||(item.partner_type==='transport'?'Transport & Parcel Service':'Professional Service');
       const typeLabel=item.partner_type==='transport'?'Transport & Parcel':'Service Provider';
@@ -3895,9 +3884,31 @@
         (item.admin_notes?'<p class="admin-review-note"><strong>Admin note:</strong> '+escapeHtml(item.admin_notes)+'</p>':'')+
         actions+
       '</article>';
-    }).join(''):'<div class="loading-card">No service reviews match this filter.</div>';
+    }).join(''):'<div class="loading-card">'+escapeHtml(emptyLabel)+'</div>';
+    $('[data-moderate-service-review]',target).forEach((button)=>button.addEventListener('click',()=>moderateServiceReview(button)));
+  };
 
-    $$('[data-moderate-service-review]',target).forEach((button)=>button.addEventListener('click',()=>moderateServiceReview(button)));
+  const renderServiceReviews=()=>{
+    const all=Array.isArray(state.serviceReviews)?state.serviceReviews:[];
+    const servicePending=all.filter((item)=>item.partner_type==='service_provider'&&item.moderation_status==='submitted').length;
+    const transportPending=all.filter((item)=>item.partner_type==='transport'&&item.moderation_status==='submitted').length;
+    if($('#adminServiceReviewPending'))$('#adminServiceReviewPending').textContent=servicePending;
+    if($('#adminTransportReviewPending'))$('#adminTransportReviewPending').textContent=transportPending;
+
+    const serviceStatus=$('#adminServiceReviewStatusFilter')?.value||'submitted';
+    const transportStatus=$('#adminTransportReviewStatusFilter')?.value||'submitted';
+
+    const serviceRows=all.filter((item)=>
+      item.partner_type==='service_provider' &&
+      (serviceStatus==='all'||item.moderation_status===serviceStatus)
+    );
+    const transportRows=all.filter((item)=>
+      item.partner_type==='transport' &&
+      (transportStatus==='all'||item.moderation_status===transportStatus)
+    );
+
+    renderReviewList($('#adminServiceReviewList'),serviceRows,'No Service Provider reviews match this filter.');
+    renderReviewList($('#adminTransportReviewList'),transportRows,'No Transport reviews match this filter.');
   };
 
   const loadServiceReviews=async()=>{
@@ -3925,7 +3936,9 @@
         p_admin_notes:notes||null
       });
       if(error){globalStatus(friendlyError(error),'error');return;}
-      globalStatus(action==='approved'?'Service review approved and published to customers.':'Service review rejected and kept off the public Customer Front.');
+      const review=state.serviceReviews.find((item)=>String(item.review_id)===String(reviewId));
+      const label=review?.partner_type==='transport'?'Transport review':'Service Provider review';
+      globalStatus(action==='approved'?label+' approved and published to customers.':label+' rejected and kept off the public Customer Front.');
       await Promise.all([loadServiceReviews(),loadAuditLog().catch(()=>{})]);
     });
   };
@@ -4661,9 +4674,10 @@
     }));
     $('#adminSellerSearch').addEventListener('input', renderSellers);
     $('#adminSellerStatusFilter').addEventListener('change', renderSellers);
-    $('#adminServiceReviewTypeFilter')?.addEventListener('change',renderServiceReviews);
     $('#adminServiceReviewStatusFilter')?.addEventListener('change',renderServiceReviews);
+    $('#adminTransportReviewStatusFilter')?.addEventListener('change',renderServiceReviews);
     $('#refreshServiceReviews')?.addEventListener('click',()=>withButtonLock($('#refreshServiceReviews'),'Refreshing…',loadServiceReviews));
+    $('#refreshTransportReviews')?.addEventListener('click',()=>withButtonLock($('#refreshTransportReviews'),'Refreshing…',loadServiceReviews));
     $('#refreshSellerSettlements').addEventListener('click', () => withButtonLock($('#refreshSellerSettlements'), 'Refreshing…', loadSellerSettlements));
     $('#adminSettlementPartnerType').addEventListener('change',()=>renderManualSettlementPartners());
     $('#adminSettlementSeller').addEventListener('change', renderSellerSettlementAccountOptions);
