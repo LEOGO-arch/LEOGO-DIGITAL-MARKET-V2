@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-v1-37">
+  <link rel="stylesheet" href="admin.css?v=admin-v1-38">
 <style>
 .service-operations-card{margin-top:18px}.service-fee-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.service-fee-form label{display:grid;gap:6px;font-weight:800}.service-fee-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px;width:180px}.service-fee-form button,.admin-service-request-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.service-fee-form small{width:100%;font-weight:800}.admin-service-request-list{display:grid;gap:14px}.admin-service-request-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.admin-service-request-card header{display:flex;justify-content:space-between;gap:12px}.admin-service-request-card header strong,.admin-service-request-card header small{display:block}.admin-service-request-card header b{font-size:11px;text-transform:capitalize;background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;height:max-content}.admin-service-request-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.admin-service-request-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.admin-service-request-grid small,.admin-service-request-grid strong{display:block}.admin-service-request-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-service-request-actions .verify{background:#157f3d}.admin-service-request-actions .reject,.admin-service-request-actions .cancel{background:#a42832}.admin-service-request-actions .dispatch{background:#ff7200}.admin-service-request-card p{margin:0;color:#526177}.service-request-summary-grid{margin:14px 0}@media(max-width:720px){.admin-service-request-grid{grid-template-columns:1fr}.admin-service-request-card header{display:grid}}
 </style></head>
@@ -494,6 +494,7 @@
           <article><span>Approved Providers</span><strong id="serviceProviderApproved">0</strong><small>Ready to offer services</small></article>
           <article><span>Awaiting Review</span><strong id="serviceProviderPending">0</strong><small>Registration decisions needed</small></article>
           <article><span>Approved Services</span><strong id="serviceProviderApprovedServices">0</strong><small>Admin-approved listings</small></article>
+          <article><span>Pending Service Reviews</span><strong id="adminServiceReviewPending">0</strong><small>Customer ratings awaiting approval</small></article>
         </div>
         <section class="content-card service-operations-card">
           <div class="card-head"><div><span>SERVICE SETTINGS</span><h3>Service Request Fees</h3><p>Set the direct service request fee and quotation request fee independently. New requests use the latest saved amounts.</p></div></div>
@@ -504,6 +505,27 @@
           <div class="seller-admin-summary service-request-summary-grid"><article><span>Total Requests</span><strong id="adminServiceRequestTotal">0</strong><small>All time</small></article><article><span>Payments to Verify</span><strong id="adminServicePaymentPending">0</strong><small>Service request fees</small></article><article><span>Ready to Dispatch</span><strong id="adminServiceReadyDispatch">0</strong><small>Admin action needed</small></article><article><span>Active Jobs</span><strong id="adminServiceActiveJobs">0</strong><small>Provider workflow</small></article></div>
           <div id="adminServiceRequestList" class="admin-service-request-list"><div class="reserved-module slim"><span>🛠️</span><h3>No service requests yet</h3><p>Customer requests will appear here.</p></div></div>
         </section>
+        <section class="content-card service-operations-card admin-service-reviews-card">
+          <div class="card-head">
+            <div><span>SERVICE REVIEWS</span><h3>Customer Service &amp; Transport Ratings</h3><p>Customer ratings are never published automatically. Review each submission, then approve or reject it. Approved reviews appear on the Customer Front under Service Reviews.</p></div>
+            <div class="admin-product-review-controls">
+              <select id="adminServiceReviewTypeFilter">
+                <option value="all">All partner types</option>
+                <option value="service_provider">Service Providers</option>
+                <option value="transport">Transport &amp; Parcel</option>
+              </select>
+              <select id="adminServiceReviewStatusFilter">
+                <option value="submitted">Pending approval</option>
+                <option value="all">All reviews</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <button id="refreshServiceReviews" class="primary-button" type="button">↻ Refresh Reviews</button>
+            </div>
+          </div>
+          <div id="adminServiceReviewList" class="admin-product-review-list"><div class="loading-card">Loading service reviews…</div></div>
+        </section>
+
         <section class="content-card service-operations-card">
           <div class="card-head"><div><span>SERVICE CATALOGUE</span><h3>All Service Listings</h3><p>Pending listings stay in Approval Center. Approved listings remain visible here for Admin records.</p></div><select id="adminServiceListingFilter"><option value="all">All statuses</option><option value="pending">Pending approval</option><option value="approved">Approved</option><option value="changes_requested">Changes requested</option><option value="rejected">Rejected</option></select></div>
           <div class="responsive-table"><table><thead><tr><th>Service</th><th>Provider</th><th>Pricing</th><th>Area</th><th>Availability</th><th>Approval</th><th>Action</th></tr></thead><tbody id="adminServiceListingBody"><tr><td colspan="7">Loading Service Listings…</td></tr></tbody></table></div>
@@ -853,6 +875,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=admin-v1-74" defer></script>
+  <script src="admin.js?v=admin-v1-75" defer></script>
 </body>
 </html>
