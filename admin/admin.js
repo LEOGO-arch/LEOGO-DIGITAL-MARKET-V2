@@ -3506,6 +3506,168 @@
     if(item.pricing_model==='from')return 'From '+formatMoney(from)+(to?' – '+formatMoney(to):'')+(item.unit_label?' · '+item.unit_label:'');
     return from?formatMoney(from):'—';
   };
+  const partnerRecordGridHtml=(pairs=[])=>pairs
+    .filter(([,value])=>value!==undefined&&value!==null&&String(value)!=='')
+    .map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(Array.isArray(value)?value.join(', '):String(value))+'</strong></div>')
+    .join('');
+
+  const openPartnerRecordShell=(eyebrow,title)=>{
+    const modal=$('#partnerRecordModal');
+    if(!modal)return false;
+    $('#partnerRecordEyebrow').textContent=eyebrow;
+    $('#partnerRecordTitle').textContent=title;
+    $('#partnerRecordGrid').innerHTML='<div><small>STATUS</small><strong>Loading record…</strong></div>';
+    $('#partnerRecordRelated').innerHTML='';
+    $('#partnerRecordMedia').innerHTML='';
+    $('#partnerRecordMedia').hidden=true;
+    setFormStatus($('#partnerRecordStatus'),'');
+    modal.hidden=false;
+    return true;
+  };
+
+  const renderPartnerRecordMedia=async(payload,kind)=>{
+    const target=$('#partnerRecordMedia');
+    if(!target)return;
+    const entries=adminMediaEntries(payload||{},kind);
+    target.innerHTML='';
+    target.hidden=!entries.length;
+    if(!entries.length)return;
+    const heading=document.createElement('div');
+    heading.className='review-media-heading';
+    heading.innerHTML='<span>FILES & PHOTOS</span><strong>Verification & profile media</strong><small>Private documents remain visible only to authorized Admin staff.</small>';
+    target.appendChild(heading);
+    const grid=document.createElement('div');
+    grid.className='review-media-grid';
+    target.appendChild(grid);
+    for(const entry of entries){
+      grid.appendChild(await renderAdminMediaCard(entry));
+    }
+  };
+
+  const openServiceProviderRecord=async(providerId)=>{
+    if(!openPartnerRecordShell('SERVICE PROVIDER RECORD','Service Provider Details'))return;
+    try{
+      const {data,error}=await db.rpc('admin_get_service_provider_record',{p_provider_id:providerId});
+      if(error)throw error;
+      const account=data?.account||{};
+      const services=Array.isArray(data?.services)?data.services:[];
+      $('#partnerRecordTitle').textContent=account.business_name||'Service Provider Details';
+      $('#partnerRecordGrid').innerHTML=partnerRecordGridHtml([
+        ['Business name',account.business_name],['Owner name',account.owner_name],['Email',account.email],['Phone',account.phone],
+        ['ID number',account.id_number],['Primary service',account.primary_service],['Service category',account.service_category],
+        ['Experience',account.experience_years!=null?account.experience_years+' years':''],['County',account.county],['Sub-County',account.sub_county],
+        ['Town / Area',account.town],['Location details',account.location_details],['Service area notes',account.service_area_notes],
+        ['Availability',String(account.availability_status||'').replaceAll('_',' ')],['Account status',String(account.application_status||'').replaceAll('_',' ')],
+        ['Approved',formatDate(account.approved_at,true)],['Admin notes',account.admin_notes],['Business description',account.business_description]
+      ]);
+      await renderPartnerRecordMedia(account,'service_provider_application');
+      $('#partnerRecordRelated').innerHTML='<div class="review-media-heading"><span>SERVICES</span><strong>'+services.length+' service listing(s)</strong></div>'+
+        (services.length?'<div class="partner-related-grid">'+services.map(service=>
+          '<article><div><strong>'+escapeHtml(service.service_name||'Service')+'</strong><small>'+escapeHtml(service.category_name||'')+'</small></div>'+
+          '<span class="status-chip">'+escapeHtml(String(service.approval_status||'').replaceAll('_',' '))+'</span>'+
+          '<p>'+escapeHtml(service.description||service.service_area||'')+'</p>'+
+          '<small>'+(service.is_available?'Customer available':'Hidden / unavailable')+'</small></article>'
+        ).join('')+'</div>':'<div class="loading-card">No services added yet.</div>');
+    }catch(error){
+      setFormStatus($('#partnerRecordStatus'),friendlyError(error),'error');
+    }
+  };
+
+  const openTransportProviderRecord=async(providerId)=>{
+    if(!openPartnerRecordShell('TRANSPORT PROVIDER RECORD','Transport Provider Details'))return;
+    try{
+      const {data,error}=await db.rpc('admin_get_transport_provider_record',{p_provider_id:providerId});
+      if(error)throw error;
+      const account=data?.account||{};
+      const vehicles=Array.isArray(data?.vehicles)?data.vehicles:[];
+      $('#partnerRecordTitle').textContent=account.business_name||'Transport Provider Details';
+      $('#partnerRecordGrid').innerHTML=partnerRecordGridHtml([
+        ['Business name',account.business_name],['Owner name',account.owner_name],['Email',account.email],['Phone',account.phone],
+        ['ID number',account.id_number],['Provider type',String(account.provider_type||'').replaceAll('_',' ')],
+        ['Services offered',account.services_offered],['County',account.county],['Sub-County',account.sub_county],['Town / Area',account.town],
+        ['Location details',account.location_details],['Coverage notes',account.coverage_notes],['Availability',String(account.availability_status||'').replaceAll('_',' ')],
+        ['Account status',String(account.application_status||'').replaceAll('_',' ')],['Base latitude',account.base_latitude],['Base longitude',account.base_longitude],
+        ['Base map link',account.base_map_link],['Approved',formatDate(account.approved_at,true)],['Admin notes',account.admin_notes],['Business description',account.business_description]
+      ]);
+      await renderPartnerRecordMedia(account,'transport_provider_application');
+      $('#partnerRecordRelated').innerHTML='<div class="review-media-heading"><span>VEHICLES</span><strong>'+vehicles.length+' vehicle(s)</strong><small>Use the vehicle View Details button for private driver verification.</small></div>'+
+        (vehicles.length?'<div class="partner-related-grid">'+vehicles.map(vehicle=>
+          '<article><div><strong>'+escapeHtml([vehicle.vehicle_type,vehicle.registration_number].filter(Boolean).join(' · ')||'Vehicle')+'</strong><small>'+escapeHtml([vehicle.make_model,vehicle.colour].filter(Boolean).join(' · '))+'</small></div>'+
+          '<span class="status-chip">'+escapeHtml(String(vehicle.approval_status||'').replaceAll('_',' '))+'</span>'+
+          '<p>'+escapeHtml(vehicle.capacity_description||vehicle.service_area||'')+'</p><small>'+(vehicle.is_available?'Customer available':'Hidden / unavailable')+'</small></article>'
+        ).join('')+'</div>':'<div class="loading-card">No vehicles added yet.</div>');
+    }catch(error){
+      setFormStatus($('#partnerRecordStatus'),friendlyError(error),'error');
+    }
+  };
+
+  const openTransportVehicleRecord=async(vehicleId)=>{
+    const vehicle=(state.transportVehicles||[]).find((item)=>String(item.id)===String(vehicleId));
+    if(!vehicle||!openPartnerRecordShell('TRANSPORT VEHICLE RECORD','Vehicle Details'))return;
+    $('#partnerRecordTitle').textContent=[vehicle.vehicle_type,vehicle.registration_number].filter(Boolean).join(' · ')||'Vehicle Details';
+    $('#partnerRecordGrid').innerHTML=partnerRecordGridHtml([
+      ['Provider',vehicle.provider_name],['Vehicle type',vehicle.vehicle_type],['Registration',vehicle.registration_number],
+      ['Make / Model',vehicle.make_model],['Colour',vehicle.colour],['Service types',vehicle.service_types],
+      ['Capacity',vehicle.capacity_description],['Maximum weight',vehicle.max_weight_kg!=null?vehicle.max_weight_kg+' kg':''],
+      ['Service area',vehicle.service_area],['Waiting point',vehicle.waiting_point_name],['Waiting latitude',vehicle.waiting_point_latitude],
+      ['Waiting longitude',vehicle.waiting_point_longitude],['Waiting map link',vehicle.waiting_point_map_link],
+      ['Vehicle status',String(vehicle.approval_status||'').replaceAll('_',' ')],['Customer availability',vehicle.is_available?'Available':'Hidden / unavailable'],
+      ['Driver full name',vehicle.driver_full_name],['Driver ID number',vehicle.driver_id_number],['Driver phone',vehicle.driver_phone],
+      ['Driver licence',vehicle.driver_licence_number],['Admin notes',vehicle.admin_notes],['Submitted',formatDate(vehicle.submitted_at,true)]
+    ]);
+    await renderPartnerRecordMedia(vehicle,'transport_vehicle');
+    $('#partnerRecordRelated').innerHTML='<div class="partner-record-private-note">Driver identity details and passport photo are Admin-only verification information.</div>';
+  };
+
+  const setServiceProviderSuspended=async(button,providerId,suspended)=>{
+    const label=suspended?'suspend':'reactivate';
+    const notes=window.prompt((suspended?'Reason / note for suspension':'Optional reactivation note')+':','')||'';
+    if(suspended&&!window.confirm('Suspend this Service Provider account? Its profile and all services will immediately disappear from the customer website.'))return;
+    await withButtonLock(button,suspended?'Suspending…':'Reactivating…',async()=>{
+      const {error}=await db.rpc('admin_set_service_provider_account_status',{p_provider_id:providerId,p_suspended:suspended,p_notes:notes||null});
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadServiceProviders(),loadServiceListings(),loadAuditLog().catch(()=>{})]);
+      globalStatus('Service Provider account '+label+'d. Customer visibility updated.');
+    });
+  };
+
+  const setServiceListingActive=async(button,serviceId,active)=>{
+    const item=(state.serviceListings||[]).find((row)=>String(row.service_id)===String(serviceId));
+    if(!item)return;
+    const notes=window.prompt((active?'Optional reactivation note':'Reason / note for suspension')+':','')||'';
+    if(!active&&!window.confirm('Suspend "'+(item.service_name||'this service')+'"? It will immediately disappear from the customer website.'))return;
+    await withButtonLock(button,active?'Reactivating…':'Suspending…',async()=>{
+      const {error}=await db.rpc('admin_set_service_listing_availability',{p_service_id:serviceId,p_active:active,p_notes:notes||null});
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadServiceListings(),loadServiceProviders(),loadAuditLog().catch(()=>{})]);
+      globalStatus(active?'Service reactivated and customer-visible again.':'Service suspended and hidden from customers.');
+    });
+  };
+
+  const setTransportProviderSuspended=async(button,providerId,suspended)=>{
+    const notes=window.prompt((suspended?'Reason / note for suspension':'Optional reactivation note')+':','')||'';
+    if(suspended&&!window.confirm('Suspend this Transport Provider account? All of its vehicles will immediately disappear from the customer website.'))return;
+    await withButtonLock(button,suspended?'Suspending…':'Reactivating…',async()=>{
+      const {error}=await db.rpc('admin_set_transport_provider_account_status',{p_provider_id:providerId,p_suspended:suspended,p_notes:notes||null});
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadTransportNetwork(),loadAuditLog().catch(()=>{})]);
+      globalStatus(suspended?'Transport Provider suspended and hidden from customers.':'Transport Provider reactivated.');
+    });
+  };
+
+  const setTransportVehicleActive=async(button,vehicleId,active)=>{
+    const vehicle=(state.transportVehicles||[]).find((item)=>String(item.id)===String(vehicleId));
+    if(!vehicle)return;
+    const notes=window.prompt((active?'Optional reactivation note':'Reason / note for suspension')+':','')||'';
+    if(!active&&!window.confirm('Suspend '+([vehicle.vehicle_type,vehicle.registration_number].filter(Boolean).join(' ')||'this vehicle')+'? It will immediately disappear from the customer website.'))return;
+    await withButtonLock(button,active?'Reactivating…':'Suspending…',async()=>{
+      const {error}=await db.rpc('admin_set_transport_vehicle_availability',{p_vehicle_id:vehicleId,p_active:active,p_notes:notes||null});
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadTransportNetwork(),loadAuditLog().catch(()=>{})]);
+      globalStatus(active?'Vehicle reactivated and customer-visible again.':'Vehicle suspended and hidden from customers.');
+    });
+  };
+
   const renderServiceListings=()=>{
     const target=$('#adminServiceListingBody');if(!target)return;
     const filter=$('#adminServiceListingFilter')?.value||'all';
@@ -3514,7 +3676,13 @@
       const pending=['pending','under_review','changes_requested'].includes(item.approval_status);
       const action=pending
         ? '<button type="button" data-open-service-listing-approval="'+escapeHtml(item.service_id)+'">Open Approval →</button>'
-        : '<span class="status-chip">'+(item.approval_status==='approved'?'Customer visible':'No pending action')+'</span>';
+        : item.approval_status==='approved'
+          ? '<div class="partner-record-actions"><button type="button" data-view-service-provider="'+escapeHtml(item.provider_id)+'">View Provider</button>'+
+            (item.is_available
+              ? '<button type="button" class="danger" data-service-listing-active="false" data-service-listing-id="'+escapeHtml(item.service_id)+'">Suspend Service</button>'
+              : '<button type="button" data-service-listing-active="true" data-service-listing-id="'+escapeHtml(item.service_id)+'">Reactivate Service</button>')+
+            '</div>'
+          : '<button type="button" data-view-service-provider="'+escapeHtml(item.provider_id)+'">View Provider</button>';
       return '<tr>'+
         '<td data-label="Service"><strong>'+escapeHtml(item.service_name||'Service')+'</strong><small>'+escapeHtml(item.category_name||'Uncategorised')+'</small></td>'+
         '<td data-label="Provider"><strong>'+escapeHtml(item.provider_name||'Service Provider')+'</strong><small>'+escapeHtml(item.provider_email||'')+'</small></td>'+
@@ -3525,7 +3693,9 @@
         '<td data-label="Action">'+action+'</td>'+
       '</tr>';
     }).join(''):'<tr><td colspan="7">No Service Listings match this filter.</td></tr>';
-    $$('[data-open-service-listing-approval]',target).forEach((button)=>button.addEventListener('click',()=>openApproval('service_listing',button.dataset.openServiceListingApproval)));
+    $('[data-open-service-listing-approval]',target).forEach((button)=>button.addEventListener('click',()=>openApproval('service_listing',button.dataset.openServiceListingApproval)));
+    $('[data-view-service-provider]',target).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
+    $('[data-service-listing-active]',target).forEach((button)=>button.addEventListener('click',()=>setServiceListingActive(button,button.dataset.serviceListingId,button.dataset.serviceListingActive==='true')));
   };
   const loadServiceListings=async()=>{
     const {data,error}=await db.rpc('admin_list_service_listings');
@@ -3552,10 +3722,20 @@
         '<td data-label="Availability"><span class="status-chip">'+escapeHtml(String(item.availability_status||'available').replaceAll('_',' '))+'</span></td>'+
         '<td data-label="Status"><span class="status-chip">'+escapeHtml(String(item.application_status||'').replaceAll('_',' '))+'</span></td>'+
         '<td data-label="Services"><strong>'+Number(item.service_count||0)+'</strong><small>'+Number(item.approved_service_count||0)+' approved</small></td>'+
-        '<td data-label="Action">'+(pendingApproval?'<button type="button" data-provider-review="'+escapeHtml(item.user_id)+'">Open Approval →</button>':'<span class="status-chip">'+(item.application_status==='approved'?'Active':'No pending action')+'</span>')+'</td>'+
+        '<td data-label="Action"><div class="partner-record-actions">'+
+          (pendingApproval?'<button type="button" data-provider-review="'+escapeHtml(item.user_id)+'">Open Approval →</button>':'')+
+          '<button type="button" data-view-service-provider="'+escapeHtml(item.user_id)+'">View Details</button>'+
+          (item.application_status==='approved'
+            ? '<button type="button" class="danger" data-service-provider-suspend="true" data-service-provider-id="'+escapeHtml(item.user_id)+'">Suspend Account</button>'
+            : item.application_status==='suspended'
+              ? '<button type="button" data-service-provider-suspend="false" data-service-provider-id="'+escapeHtml(item.user_id)+'">Reactivate</button>'
+              : '')+
+        '</div></td>'+
       '</tr>';
     }).join(''):'<tr><td colspan="7">No Service Provider accounts yet.</td></tr>';
-    $$('[data-provider-review]', $('#serviceProviderTableBody')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
+    $('[data-provider-review]', $('#serviceProviderTableBody')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
+    $('[data-view-service-provider]', $('#serviceProviderTableBody')).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
+    $('[data-service-provider-suspend]', $('#serviceProviderTableBody')).forEach((button)=>button.addEventListener('click',()=>setServiceProviderSuspended(button,button.dataset.serviceProviderId,button.dataset.serviceProviderSuspend==='true')));
   };
   const loadServiceProviders = async () => {
     const {data,error}=await db.rpc('admin_list_service_providers');
