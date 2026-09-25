@@ -42,6 +42,7 @@ const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],sellerEarningsReport=null,partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
 let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],providerSettlementRequests=[],providerSettlements=[],providerEarningsReport=null,editingProviderService=null;
 let transportProvider=null,transportVehicles=[],transportJobs=[],transportNotifications=[],transportSettlementAccounts=[],transportSettlementRequests=[],transportSettlements=[],transportEarningsReport=null,editingTransportVehicle=null,transportBasePinOnly=false;
+let accommodationProvider=null,accommodationNotifications=[];
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -54,7 +55,7 @@ const applyInitialServiceAreas=()=>{
   kenyaSubcounties=[];
 };
 
-const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),providerShell=$('#providerShell'),logout=$('#partnerLogout'),hero=$('.hero');
+const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),providerShell=$('#providerShell'),transportShell=$('#transportShell'),accommodationShell=$('#accommodationShell'),logout=$('#partnerLogout'),hero=$('.hero');
 const partnerNotificationBell=$('#partnerNotificationBell'),partnerNotificationBadge=$('#partnerNotificationBadge');
 const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
@@ -317,6 +318,7 @@ resetUpdateForm.addEventListener('submit',async e=>{
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(accommodationShell)accommodationShell.hidden=true;
   showLoginForm();
   status($('#partnerAuthStatus'),'Password updated successfully. Sign in with your new password.','success');
 });
@@ -346,6 +348,7 @@ $$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   if(button.dataset.roleTarget==='seller')openSellerRole();
   if(button.dataset.roleTarget==='service_provider')openProviderRole();
   if(button.dataset.roleTarget==='transport')openTransportRole();
+  if(button.dataset.roleTarget==='accommodation')openAccommodationRole();
 }));
 
 async function uploadSellerVerification(file,prefix){
@@ -571,8 +574,9 @@ function showRolePicker(){
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   rolePicker.hidden=false;
   sellerShell.hidden=true;
-  if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(accommodationShell)accommodationShell.hidden=true;
   authShell.hidden=true;
   if(hero)hero.hidden=false;
 }
@@ -581,8 +585,9 @@ async function openSellerRole(){
   if(partnerNotificationBell)partnerNotificationBell.hidden=false;
   rolePicker.hidden=true;
   sellerShell.hidden=false;
-  if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(accommodationShell)accommodationShell.hidden=true;
   if(hero)hero.hidden=true;
 
   // Show visible feedback synchronously before any network request begins.
@@ -2157,6 +2162,7 @@ async function openProviderRole(){
   rolePicker.hidden=true;
   sellerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(accommodationShell)accommodationShell.hidden=true;
   providerShell.hidden=false;
   authShell.hidden=true;
   if(hero)hero.hidden=true;
@@ -2655,7 +2661,6 @@ $('#markAllProviderNotificationsRead')?.addEventListener('click',async()=>{
 
 
 /* TRANSPORT & PARCEL PROVIDER MODULE — isolated from LEOGO staff rider delivery */
-const transportShell=$('#transportShell');
 const transportBootStatus=$('#transportBootStatus');
 const transportOnboarding=$('#transportOnboarding');
 const transportReg=$('#transportRegistrationForm');
@@ -2997,7 +3002,8 @@ async function openTransportRole(){
   if(partnerNotificationBell)partnerNotificationBell.hidden=false;
   rolePicker.hidden=true;
   sellerShell.hidden=true;
-  if(providerShell)providerShell.hidden=true;if(transportShell)transportShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;
+  if(accommodationShell)accommodationShell.hidden=true;
   transportShell.hidden=false;
   authShell.hidden=true;
   if(hero)hero.hidden=true;
