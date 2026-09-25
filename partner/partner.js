@@ -41,7 +41,7 @@ const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits
 const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],sellerEarningsReport=null,partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
 let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],providerSettlementRequests=[],providerSettlements=[],providerEarningsReport=null,editingProviderService=null;
-let transportProvider=null,transportVehicles=[],transportJobs=[],transportNotifications=[],editingTransportVehicle=null,transportBasePinOnly=false;
+let transportProvider=null,transportVehicles=[],transportJobs=[],transportNotifications=[],transportSettlementAccounts=[],transportSettlementRequests=[],transportSettlements=[],transportEarningsReport=null,editingTransportVehicle=null,transportBasePinOnly=false;
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -2687,7 +2687,9 @@ function transportViewDescription(view){
     overview:'Overview of your Transport & Parcel Provider account.',
     jobs:'Customer Transport & Parcel jobs assigned to this provider.',
     vehicles:'Add vehicles, customer-facing vehicle pictures and private driver verification details.',
-    notifications:'Application, vehicle and future transport-job notifications.',
+    earnings:'Review completed Transport & Parcel earnings and LEOGO commission deductions.',
+    settlements:'Add payout accounts and request settlement of available Transport earnings.',
+    notifications:'Application, vehicle, settlement and transport-job notifications.',
     profile:'Your approved Transport Provider registration details.'
   }[view]||'Transport & Parcel Portal';
 }
@@ -2697,7 +2699,7 @@ function closeTransportSidebar(){
 }
 function openTransportView(view='overview'){
   const approved=transportProvider?.application_status==='approved';
-  const allowed=approved?['overview','jobs','vehicles','notifications','profile']:['overview','notifications','profile'];
+  const allowed=approved?['overview','jobs','vehicles','earnings','settlements','notifications','profile']:['overview','notifications','profile'];
   const resolved=allowed.includes(view)?view:'overview';
   if(transportProvider){
     transportPendingArea.hidden=true;
@@ -2708,6 +2710,8 @@ function openTransportView(view='overview'){
   if($('#transportViewDescription'))$('#transportViewDescription').textContent=transportViewDescription(resolved);
   if(resolved==='vehicles')loadTransportVehicles().catch(error=>console.warn('Transport vehicle refresh failed:',error));
   if(resolved==='jobs')loadTransportJobs().catch(error=>console.warn('Transport jobs refresh failed:',error));
+  if(resolved==='earnings')loadTransportEarnings().catch(error=>console.warn('Transport earnings refresh failed:',error));
+  if(resolved==='settlements')loadTransportSettlementData().catch(error=>console.warn('Transport settlement refresh failed:',error));
   if(resolved==='notifications')loadTransportNotifications().catch(error=>console.warn('Transport notifications refresh failed:',error));
   closeTransportSidebar();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -2977,7 +2981,7 @@ async function loadTransportProvider(){
     renderTransportProvider();
     await ensureTransportLocations(transportProvider?.county_code||'',transportProvider?.sub_county_code||'');
     if(transportProvider?.application_status==='approved'){
-      await Promise.allSettled([loadTransportVehicles(),loadTransportJobs(),loadTransportNotifications()]);
+      await Promise.allSettled([loadTransportVehicles(),loadTransportJobs(),loadTransportEarnings(),loadTransportSettlementData(),loadTransportNotifications()]);
     }else if(transportProvider){
       await loadTransportNotifications().catch(()=>{});
       renderTransportApplicationProgress();
@@ -3394,6 +3398,159 @@ async function loadTransportJobs(){
   renderTransportJobs();
 }
 
+
+function toggleTransportSettlementFields(){
+  const type=$('#transportSettlementType')?.value||'mpesa_mobile';
+  $('[data-transport-settlement-field]').forEach((label)=>{
+    const types=(label.dataset.transportSettlementField||'').split(/\s+/);
+    label.hidden=!types.includes(type);
+  });
+  if($('#transportSettlementPhone'))$('#transportSettlementPhone').required=type==='mpesa_mobile';
+  if($('#transportSettlementTill'))$('#transportSettlementTill').required=type==='mpesa_till';
+  if($('#transportSettlementPaybill'))$('#transportSettlementPaybill').required=type==='mpesa_paybill';
+  if($('#transportSettlementAccountNumber'))$('#transportSettlementAccountNumber').required=['mpesa_paybill','bank'].includes(type);
+  if($('#transportSettlementBank'))$('#transportSettlementBank').required=type==='bank';
+}
+function resetTransportSettlementForm(){
+  const form=$('#transportSettlementAccountForm');if(!form)return;
+  form.reset();
+  $('#transportSettlementAccountId').value='';
+  $('#transportSettlementPrimary').checked=true;
+  $('#cancelTransportSettlementEdit').hidden=true;
+  toggleTransportSettlementFields();
+  status($('#transportSettlementStatus'),'');
+}
+function editTransportSettlementAccount(id){
+  const account=transportSettlementAccounts.find((item)=>item.id===id);if(!account)return;
+  $('#transportSettlementAccountId').value=account.id;
+  $('#transportSettlementType').value=account.account_type||'mpesa_mobile';
+  $('#transportSettlementName').value=account.account_name||'';
+  $('#transportSettlementPhone').value=account.phone_number||'';
+  $('#transportSettlementTill').value=account.till_number||'';
+  $('#transportSettlementPaybill').value=account.paybill_number||'';
+  $('#transportSettlementAccountNumber').value=account.account_number||'';
+  $('#transportSettlementBank').value=account.bank_name||'';
+  $('#transportSettlementBranch').value=account.bank_branch||'';
+  $('#transportSettlementPrimary').checked=account.is_primary!==false;
+  $('#cancelTransportSettlementEdit').hidden=false;
+  toggleTransportSettlementFields();
+  $('#transportSettlementAccountForm').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function renderTransportSettlements(){
+  const list=$('#transportSettlementAccountList');
+  const requestSelect=$('#transportSettlementRequestAccount');
+  const requestList=$('#transportSettlementRequestList');
+  const history=$('#transportSettlementHistory');
+  if(list){
+    list.innerHTML=transportSettlementAccounts.length?transportSettlementAccounts.map((account)=>
+      '<article class="settlement-account-card"><div><span class="status-chip">'+escapeHtml(String(account.status||'').replaceAll('_',' '))+'</span><strong>'+escapeHtml(account.account_name||'Settlement account')+'</strong><small>'+escapeHtml(String(account.account_type||'').replaceAll('_',' '))+' · '+escapeHtml(settlementDestination(account))+(account.is_primary?' · Primary':'')+'</small>'+(account.admin_notes?'<small>Admin: '+escapeHtml(account.admin_notes)+'</small>':'')+'</div>'+
+      (['pending_review','rejected'].includes(account.status)?'<button type="button" class="secondary" data-edit-transport-settlement="'+escapeHtml(account.id)+'">Edit</button>':'')+
+      '</article>'
+    ).join(''):'<div class="empty-card">No settlement account added yet.</div>';
+    $('[data-edit-transport-settlement]',list).forEach((button)=>button.addEventListener('click',()=>editTransportSettlementAccount(button.dataset.editTransportSettlement)));
+  }
+  const approved=transportSettlementAccounts.filter((account)=>account.status==='approved');
+  if(requestSelect)requestSelect.innerHTML=approved.length
+    ? '<option value="">Choose approved settlement account</option>'+approved.map((account)=>'<option value="'+escapeHtml(account.id)+'">'+escapeHtml(account.account_name)+' — '+escapeHtml(settlementDestination(account))+(account.is_primary?' (Primary)':'')+'</option>').join('')
+    : '<option value="">No approved settlement account yet</option>';
+  if(requestList)requestList.innerHTML=transportSettlementRequests.length?transportSettlementRequests.map((entry)=>
+    '<article class="settlement-history-row"><div><strong>'+money(entry.requested_amount_kes)+'</strong><small>'+formatDate(entry.submitted_at)+(entry.provider_note?' · '+escapeHtml(entry.provider_note):'')+'</small>'+(entry.admin_notes?'<small>Admin: '+escapeHtml(entry.admin_notes)+'</small>':'')+'</div><span>'+escapeHtml(String(entry.status||'').replaceAll('_',' ').toUpperCase())+'</span></article>'
+  ).join(''):'<div class="empty-card">No payout requests yet.</div>';
+  if(history)history.innerHTML=transportSettlements.length?transportSettlements.map((entry)=>
+    '<article class="settlement-history-row"><div><strong>'+money(entry.amount_kes)+'</strong><small>'+escapeHtml(entry.settlement_reference||'')+' · '+formatDate(entry.paid_at)+'</small></div><span>'+escapeHtml(String(entry.status||'').toUpperCase())+'</span></article>'
+  ).join(''):'<div class="empty-card">No Transport Provider settlement has been recorded yet.</div>';
+  const available=Number(transportEarningsReport?.available_balance_kes||0);
+  if($('#transportSettlementAvailableBalance'))$('#transportSettlementAvailableBalance').textContent=money(available);
+}
+async function loadTransportEarnings(){
+  if(!currentUser||transportProvider?.application_status!=='approved')return;
+  const from=$('#transportEarningsFrom')?.value||null;
+  const to=$('#transportEarningsTo')?.value||null;
+  const {data,error}=await client.rpc('transport_provider_get_earnings_report',{p_from:from,p_to:to});
+  if(error)throw error;
+  transportEarningsReport=data||{};
+  if($('#transportTodayEarnings'))$('#transportTodayEarnings').textContent=money(data?.today_net_kes||0);
+  if($('#transportTotalEarnings'))$('#transportTotalEarnings').textContent=money(data?.cumulative_net_kes||0);
+  if($('#transportAvailableBalance'))$('#transportAvailableBalance').textContent=money(data?.available_balance_kes||0);
+  if($('#transportPendingSettlement'))$('#transportPendingSettlement').textContent=money(data?.pending_settlement_kes||0);
+  if($('#transportSettlementAvailableBalance'))$('#transportSettlementAvailableBalance').textContent=money(data?.available_balance_kes||0);
+  const body=$('#transportEarningsTableBody');
+  const entries=Array.isArray(data?.entries)?data.entries:[];
+  if(body)body.innerHTML=entries.length?entries.map((entry)=>'<tr><td>'+escapeHtml(String(entry.earning_date||''))+'</td><td><strong>'+escapeHtml(entry.reference||'')+'</strong></td><td>'+money(entry.gross_kes)+'</td><td>'+money(entry.commission_kes)+'</td><td><strong>'+money(entry.net_kes)+'</strong></td></tr>').join(''):'<tr><td colspan="5">No completed transport earnings in this period.</td></tr>';
+  renderTransportSettlements();
+}
+async function loadTransportSettlementData(){
+  if(!currentUser||transportProvider?.application_status!=='approved')return;
+  const [accountsResult,requestsResult,settlementsResult]=await Promise.all([
+    client.from('transport_provider_settlement_accounts').select('*').order('created_at',{ascending:false}),
+    client.from('transport_provider_settlement_requests').select('*').order('submitted_at',{ascending:false}),
+    client.from('transport_provider_settlements').select('*').order('paid_at',{ascending:false})
+  ]);
+  if(accountsResult.error)throw accountsResult.error;
+  if(requestsResult.error)throw requestsResult.error;
+  if(settlementsResult.error)throw settlementsResult.error;
+  transportSettlementAccounts=accountsResult.data||[];
+  transportSettlementRequests=requestsResult.data||[];
+  transportSettlements=settlementsResult.data||[];
+  await loadTransportEarnings();
+  renderTransportSettlements();
+}
+$('#transportSettlementType')?.addEventListener('change',toggleTransportSettlementFields);
+$('#cancelTransportSettlementEdit')?.addEventListener('click',resetTransportSettlementForm);
+$('#transportSettlementAccountForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();if(!event.currentTarget.reportValidity())return;
+  const type=$('#transportSettlementType').value;
+  const phone=normalisePhone($('#transportSettlementPhone').value);
+  if(type==='mpesa_mobile'&&!/^\+254[17]\d{8}$/.test(phone)){status($('#transportSettlementStatus'),'Enter a valid Kenyan M-Pesa phone number.','error');return;}
+  const button=event.currentTarget.querySelector('button[type="submit"]');
+  const original=button.textContent;button.disabled=true;button.textContent='Sending…';
+  try{
+    const {error}=await client.rpc('transport_provider_submit_settlement_account',{
+      p_account_id:$('#transportSettlementAccountId').value||null,
+      p_account_type:type,p_account_name:$('#transportSettlementName').value.trim(),
+      p_phone_number:type==='mpesa_mobile'?phone:null,
+      p_till_number:type==='mpesa_till'?$('#transportSettlementTill').value.trim():null,
+      p_paybill_number:type==='mpesa_paybill'?$('#transportSettlementPaybill').value.trim():null,
+      p_account_number:['mpesa_paybill','bank'].includes(type)?$('#transportSettlementAccountNumber').value.trim():null,
+      p_bank_name:type==='bank'?$('#transportSettlementBank').value.trim():null,
+      p_bank_branch:type==='bank'?$('#transportSettlementBranch').value.trim():null,
+      p_make_primary:$('#transportSettlementPrimary').checked
+    });
+    if(error)throw error;
+    resetTransportSettlementForm();
+    status($('#transportSettlementStatus'),'Settlement account sent to LEOGO Admin for verification.','success');
+    await Promise.all([loadTransportSettlementData(),loadTransportNotifications()]);
+  }catch(error){status($('#transportSettlementStatus'),error?.message||'Settlement account could not be submitted.','error');}
+  finally{button.disabled=false;button.textContent=original;}
+});
+$('#transportSettlementRequestForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();if(!event.currentTarget.reportValidity())return;
+  const accountId=$('#transportSettlementRequestAccount').value;
+  const amount=Number($('#transportSettlementRequestAmount').value);
+  const available=Number(transportEarningsReport?.available_balance_kes||0);
+  if(!accountId){status($('#transportSettlementRequestStatus'),'Choose an approved settlement account.','error');return;}
+  if(!amount||amount<=0){status($('#transportSettlementRequestStatus'),'Enter the amount you want to request.','error');return;}
+  if(amount>available){status($('#transportSettlementRequestStatus'),'Requested amount exceeds your available balance of '+money(available)+'.','error');return;}
+  const button=$('#transportSettlementRequestButton');
+  const original=button.textContent;button.disabled=true;button.textContent='Submitting…';
+  try{
+    const {error}=await client.rpc('transport_provider_request_settlement',{
+      p_account_id:accountId,p_amount_kes:amount,p_note:$('#transportSettlementRequestNote').value.trim()||null
+    });
+    if(error)throw error;
+    event.currentTarget.reset();
+    status($('#transportSettlementRequestStatus'),'Payout request sent to LEOGO Admin.','success');
+    await Promise.all([loadTransportSettlementData(),loadTransportNotifications()]);
+  }catch(error){status($('#transportSettlementRequestStatus'),error?.message||'Payout request could not be submitted.','error');}
+  finally{button.disabled=false;button.textContent=original;}
+});
+$('#transportEarningsFilterForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  try{await loadTransportEarnings();status($('#transportEarningsStatus'),'Earnings report updated.','success');}
+  catch(error){status($('#transportEarningsStatus'),error?.message||'Earnings report could not load.','error');}
+});
+toggleTransportSettlementFields();
+
 async function loadTransportNotifications(){
   if(!currentUser)return;
   const {data,error}=await client.from('partner_notifications').select('*').eq('partner_type','transport').order('created_at',{ascending:false}).limit(50);
@@ -3425,6 +3582,8 @@ function renderTransportNotifications(){
     if(view==='transport-vehicles')openTransportView('vehicles');
     else if(view==='transport-profile')openTransportView('profile');
     else if(view==='transport-jobs')openTransportView('jobs');
+    else if(view==='transport-earnings')openTransportView('earnings');
+    else if(view==='transport-settlements')openTransportView('settlements');
     else openTransportView('notifications');
     await loadTransportNotifications();
   }));
