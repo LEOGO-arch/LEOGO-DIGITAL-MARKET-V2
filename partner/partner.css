@@ -429,3 +429,14 @@
 
 .reset-link-warning{margin:10px 0 4px;padding:11px 12px;border-left:4px solid #ff7200;border-radius:10px;background:#fff7ed;color:#6b4a22;font-size:13px;line-height:1.45}
 #sendPartnerResetLink:disabled{opacity:.72;cursor:not-allowed}
+
+
+/* Accommodation Provider portal — Phase A */
+.accommodation-view{display:none}
+.accommodation-view.active{display:block}
+.accommodation-shell .seller-sidebar-brand span{color:#ff8a2b}
+.accommodation-shell .seller-sidebar nav button.active{background:rgba(255,114,0,.18);color:#fff}
+.accommodation-shell .summary-grid strong{overflow-wrap:anywhere}
+@media(max-width:820px){
+  .accommodation-shell .seller-workspace{min-width:0}
+}
