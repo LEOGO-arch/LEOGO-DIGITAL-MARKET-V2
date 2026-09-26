@@ -3008,6 +3008,269 @@ function openAccommodationUnitForm(propertyId,unitId=''){
   status($('#accommodationUnitStatus'),'');
   form.scrollIntoView({behavior:'smooth',block:'start'});
 }
+function accommodationPdfEngine(){
+  return window.jspdf?.jsPDF||null;
+}
+function accommodationPdfSafe(value=''){
+  return String(value??'')
+    .replace(/[–—]/g,'-')
+    .replace(/[‘’]/g,"'")
+    .replace(/[“”]/g,'"')
+    .replace(/[^\x20-\x7E\n]/g,' ');
+}
+function accommodationPdfFilenamePart(value=''){
+  return String(value||'accommodation')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'')
+    .slice(0,70)||'accommodation';
+}
+function accommodationPdfDate(value,withTime=false){
+  if(!value)return '—';
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime()))return String(value);
+  return new Intl.DateTimeFormat('en-KE',{
+    timeZone:'Africa/Nairobi',
+    year:'numeric',month:'short',day:'2-digit',
+    ...(withTime?{hour:'2-digit',minute:'2-digit'}:{})
+  }).format(date);
+}
+function accommodationDateKeyInNairobi(value){
+  if(!value)return '';
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime()))return String(value).slice(0,10);
+  const parts=new Intl.DateTimeFormat('en-CA',{
+    timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'
+  }).formatToParts(date);
+  const map=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+  return [map.year,map.month,map.day].join('-');
+}
+function accommodationPdfFooter(doc){
+  const pages=doc.getNumberOfPages();
+  for(let page=1;page<=pages;page++){
+    doc.setPage(page);
+    doc.setFontSize(7);
+    doc.setTextColor(120);
+    doc.text('LEOGO DIGITAL MARKET - Accommodation',12,202);
+    doc.text('Page '+page+' of '+pages,285,202,{align:'right'});
+  }
+}
+function accommodationPdfLabelValue(doc,label,value,y,options={}){
+  const x=options.x||14;
+  const labelWidth=options.labelWidth||42;
+  const maxWidth=options.maxWidth||142;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9);
+  doc.setTextColor(65);
+  doc.text(accommodationPdfSafe(label),x,y);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(25);
+  const lines=doc.splitTextToSize(accommodationPdfSafe(value||'—'),maxWidth);
+  doc.text(lines,x+labelWidth,y);
+  return y+Math.max(6,lines.length*5);
+}
+function downloadAccommodationGuestPdf(item){
+  if(!['accepted','completed'].includes(item?.booking_status)){
+    status($('#accommodationBookingStatus'),'Guest details PDF becomes available after the booking is accepted.','error');
+    return;
+  }
+  const Pdf=accommodationPdfEngine();
+  if(!Pdf){
+    status($('#accommodationBookingStatus'),'PDF generator could not load. Refresh the page and try again.','error');
+    return;
+  }
+  const doc=new Pdf({orientation:'portrait',unit:'mm',format:'a4'});
+  doc.setProperties({
+    title:'Guest Details - '+(item.booking_reference||'Accommodation Booking'),
+    subject:'LEOGO accommodation guest booking details',
+    author:'LEOGO DIGITAL MARKET'
+  });
+  doc.setFillColor(7,27,61);
+  doc.rect(0,0,210,32,'F');
+  doc.setTextColor(255);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(17);
+  doc.text('LEOGO DIGITAL MARKET',14,13);
+  doc.setFontSize(12);
+  doc.text('Accommodation Guest Details',14,22);
+  doc.setFontSize(9);
+  doc.text(accommodationPdfSafe(item.booking_reference||''),196,22,{align:'right'});
+
+  let y=43;
+  doc.setTextColor(7,27,61);
+  doc.setFontSize(13);
+  doc.text(accommodationPdfSafe(accommodationProvider?.business_name||item.property_name||'Accommodation Provider'),14,y);
+  y+=8;
+  doc.setDrawColor(220);
+  doc.line(14,y,196,y);
+  y+=9;
+
+  const fields=[
+    ['Booking reference',item.booking_reference],
+    ['Booking status',accommodationBookingStatusLabel(item.booking_status)],
+    ['Guest name',item.guest_name],
+    ['Guest phone',item.guest_phone],
+    ['Property',item.property_name],
+    ['Room',String(item.room_category||'Room')+' - '+String(item.room_name||'')],
+    ['Rate plan',item.rate_name],
+    ['Check-in',accommodationPdfDate(item.check_in)],
+    ['Check-out',accommodationPdfDate(item.check_out)],
+    ['Stay',Number(item.nights||0)+' night(s) - '+Number(item.guests||0)+' guest(s)'],
+    ['Nightly rate',money(item.nightly_price_kes)],
+    ['Booking total',money(item.total_amount_kes)],
+    ['Booking received',accommodationPdfDate(item.created_at,true)]
+  ];
+  fields.forEach(([label,value])=>{y=accommodationPdfLabelValue(doc,label,value,y);});
+
+  y+=4;
+  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(7,27,61);
+  doc.text('Special request',14,y);y+=6;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(40);
+  let lines=doc.splitTextToSize(accommodationPdfSafe(item.special_requests||'No special request provided.'),180);
+  doc.text(lines,14,y);y+=Math.max(8,lines.length*5)+5;
+
+  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(7,27,61);
+  doc.text('Property response',14,y);y+=6;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(40);
+  lines=doc.splitTextToSize(accommodationPdfSafe(item.host_response||'Booking accepted.'),180);
+  doc.text(lines,14,y);y+=Math.max(8,lines.length*5)+8;
+
+  doc.setFillColor(245,248,252);
+  doc.roundedRect(14,y,182,24,3,3,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(7,27,61);
+  doc.text('Important',18,y+7);
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(65);
+  doc.text(doc.splitTextToSize('This document contains private guest information for this accommodation booking. Handle it only for legitimate booking and stay operations.',170),18,y+13);
+
+  doc.setFontSize(7);doc.setTextColor(120);
+  doc.text('Generated '+accommodationPdfDate(new Date().toISOString(),true),14,194);
+  doc.text('LEOGO DIGITAL MARKET',196,194,{align:'right'});
+  doc.save('leogo-guest-'+accommodationPdfFilenamePart(item.booking_reference)+'.pdf');
+  status($('#accommodationBookingStatus'),'Guest details PDF downloaded.','success');
+}
+function initializeAccommodationReportDates(){
+  const from=$('#accommodationReportFrom'),to=$('#accommodationReportTo');
+  if(!from||!to||from.value||to.value)return;
+  const now=new Date();
+  const local=new Date(now.toLocaleString('en-US',{timeZone:'Africa/Nairobi'}));
+  const yyyy=local.getFullYear();
+  const mm=String(local.getMonth()+1).padStart(2,'0');
+  const last=new Date(yyyy,local.getMonth()+1,0).getDate();
+  from.value=yyyy+'-'+mm+'-01';
+  to.value=yyyy+'-'+mm+'-'+String(last).padStart(2,'0');
+}
+function accommodationFilteredReportRows(){
+  initializeAccommodationReportDates();
+  const from=$('#accommodationReportFrom')?.value||'';
+  const to=$('#accommodationReportTo')?.value||'';
+  const basis=$('#accommodationReportDateBasis')?.value||'check_in';
+  const wantedStatus=$('#accommodationReportStatus')?.value||'all';
+  if(!from||!to||to<from)throw new Error('Choose a valid report From and To date.');
+  return (accommodationBookings||[]).filter(item=>{
+    const key=basis==='created_at'?accommodationDateKeyInNairobi(item.created_at):String(item.check_in||'').slice(0,10);
+    return key>=from&&key<=to&&(wantedStatus==='all'||item.booking_status===wantedStatus);
+  });
+}
+function drawAccommodationReportTable(doc,rows,startY){
+  const x=12;
+  const widths=[27,43,66,25,25,34,28];
+  const headers=['Reference','Guest','Room / Rate','Check-in','Check-out','Status','Total'];
+  let y=startY;
+  const pageBottom=190;
+  const drawHeader=()=>{
+    doc.setFillColor(7,27,61);
+    doc.rect(x,y,widths.reduce((a,b)=>a+b,0),8,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(255);
+    let cx=x;
+    headers.forEach((header,index)=>{doc.text(header,cx+2,y+5.2);cx+=widths[index];});
+    y+=8;
+  };
+  drawHeader();
+  rows.forEach((item,index)=>{
+    const cells=[
+      item.booking_reference||'—',
+      (item.guest_name||'—')+'\n'+(item.guest_phone||'—'),
+      (item.room_category||'Room')+' - '+(item.room_name||'')+'\n'+(item.rate_name||'Room rate'),
+      String(item.check_in||'—'),
+      String(item.check_out||'—'),
+      accommodationBookingStatusLabel(item.booking_status),
+      money(item.total_amount_kes)
+    ];
+    const wrapped=cells.map((value,i)=>doc.splitTextToSize(accommodationPdfSafe(value),Math.max(8,widths[i]-4)));
+    const rowHeight=Math.max(9,...wrapped.map(lines=>lines.length*4+3));
+    if(y+rowHeight>pageBottom){
+      doc.addPage('a4','landscape');
+      y=14;
+      drawHeader();
+    }
+    if(index%2===0){doc.setFillColor(248,250,252);doc.rect(x,y,widths.reduce((a,b)=>a+b,0),rowHeight,'F');}
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(35);
+    let cx=x;
+    wrapped.forEach((lines,i)=>{doc.text(lines,cx+2,y+4);cx+=widths[i];});
+    doc.setDrawColor(225);doc.line(x,y+rowHeight,x+widths.reduce((a,b)=>a+b,0),y+rowHeight);
+    y+=rowHeight;
+  });
+  return y;
+}
+function downloadAccommodationBookingReport(){
+  const Pdf=accommodationPdfEngine();
+  if(!Pdf){
+    status($('#accommodationBookingReportStatus'),'PDF generator could not load. Refresh the page and try again.','error');
+    return;
+  }
+  let rows;
+  try{rows=accommodationFilteredReportRows();}
+  catch(error){status($('#accommodationBookingReportStatus'),error.message,'error');return;}
+  if(!rows.length){
+    status($('#accommodationBookingReportStatus'),'No bookings match the selected report period and status.','error');
+    return;
+  }
+  const from=$('#accommodationReportFrom').value;
+  const to=$('#accommodationReportTo').value;
+  const basis=$('#accommodationReportDateBasis').value;
+  const wantedStatus=$('#accommodationReportStatus').value;
+  const total=rows.reduce((sum,item)=>sum+Number(item.total_amount_kes||0),0);
+  const accepted=rows.filter(item=>['accepted','completed'].includes(item.booking_status)).length;
+  const pending=rows.filter(item=>item.booking_status==='pending_host').length;
+  const rejected=rows.filter(item=>item.booking_status==='rejected').length;
+
+  const doc=new Pdf({orientation:'landscape',unit:'mm',format:'a4'});
+  doc.setProperties({
+    title:'Accommodation Booking Report '+from+' to '+to,
+    subject:'LEOGO accommodation provider booking report',
+    author:'LEOGO DIGITAL MARKET'
+  });
+  doc.setFillColor(7,27,61);doc.rect(0,0,297,28,'F');
+  doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(16);
+  doc.text('LEOGO DIGITAL MARKET',12,11);
+  doc.setFontSize(11);doc.text('Accommodation Booking Report',12,19);
+  doc.setFontSize(9);doc.text(accommodationPdfSafe(accommodationProvider?.business_name||'Accommodation Provider'),285,19,{align:'right'});
+
+  doc.setTextColor(30);doc.setFont('helvetica','normal');doc.setFontSize(8);
+  doc.text('Period: '+from+' to '+to+' | Basis: '+(basis==='created_at'?'Booking received date':'Check-in date')+' | Status: '+(wantedStatus==='all'?'All statuses':accommodationBookingStatusLabel(wantedStatus)),12,36);
+
+  const metricY=43;
+  const metrics=[
+    ['Bookings',rows.length],
+    ['Accepted / completed',accepted],
+    ['Awaiting response',pending],
+    ['Rejected',rejected],
+    ['Booking value',money(total)]
+  ];
+  let mx=12;
+  metrics.forEach(([label,value])=>{
+    doc.setFillColor(245,248,252);doc.roundedRect(mx,metricY,50,17,2,2,'F');
+    doc.setTextColor(100);doc.setFontSize(7);doc.text(accommodationPdfSafe(label),mx+4,metricY+5);
+    doc.setTextColor(7,27,61);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(accommodationPdfSafe(value),mx+4,metricY+12);
+    doc.setFont('helvetica','normal');mx+=54;
+  });
+
+  drawAccommodationReportTable(doc,rows,67);
+  accommodationPdfFooter(doc);
+  doc.save('leogo-accommodation-bookings-'+from+'-to-'+to+'.pdf');
+  status($('#accommodationBookingReportStatus'),'Booking report PDF downloaded for '+from+' to '+to+'.','success');
+}
+
 function accommodationBookingStatusLabel(value){
   return {
     pending_host:'Awaiting response',
@@ -3040,7 +3303,9 @@ function renderAccommodationBookings(){
       (item.host_response?'<p><strong>Your response:</strong> '+escapeHtml(item.host_response)+'</p>':'')+
       (item.booking_status==='pending_host'
         ? '<div class="accommodation-provider-booking-actions"><button type="button" data-accommodation-booking-action="accept" data-accommodation-booking-id="'+escapeHtml(item.id)+'">Accept Booking</button><button type="button" class="danger" data-accommodation-booking-action="reject" data-accommodation-booking-id="'+escapeHtml(item.id)+'">Reject</button></div>'
-        : '')+
+        : ['accepted','completed'].includes(item.booking_status)
+          ? '<div class="accommodation-provider-booking-actions"><button type="button" data-accommodation-guest-pdf="'+escapeHtml(item.id)+'">Download Guest Details PDF</button></div>'
+          : '')+
     '</article>'
   ).join('');
 }
@@ -3049,6 +3314,7 @@ async function loadAccommodationBookings(){
   const {data,error}=await client.rpc('accommodation_provider_list_bookings');
   if(error)throw error;
   accommodationBookings=Array.isArray(data)?data:[];
+  initializeAccommodationReportDates();
   renderAccommodationBookings();
 }
 async function respondAccommodationBooking(button){
@@ -3201,9 +3467,15 @@ $('#refreshAccommodationCatalogue')?.addEventListener('click',()=>loadAccommodat
 $('#refreshAccommodationBookings')?.addEventListener('click',()=>loadAccommodationBookings().catch(error=>status($('#accommodationBookingStatus'),error?.message||'Could not refresh bookings.','error')));
 $('#accommodationBookingFilter')?.addEventListener('change',renderAccommodationBookings);
 $('#accommodationBookingList')?.addEventListener('click',(event)=>{
-  const button=event.target.closest?.('[data-accommodation-booking-action]');
-  if(button)respondAccommodationBooking(button);
+  const actionButton=event.target.closest?.('[data-accommodation-booking-action]');
+  if(actionButton){respondAccommodationBooking(actionButton);return;}
+  const pdfButton=event.target.closest?.('[data-accommodation-guest-pdf]');
+  if(pdfButton){
+    const item=accommodationBookings.find(row=>String(row.id)===String(pdfButton.dataset.accommodationGuestPdf));
+    if(item)downloadAccommodationGuestPdf(item);
+  }
 });
+$('#downloadAccommodationBookingReport')?.addEventListener('click',downloadAccommodationBookingReport);
 $('#cancelAccommodationProperty')?.addEventListener('click',()=>{$('#accommodationPropertyForm').hidden=true;resetAccommodationPropertyForm();});
 $('#cancelAccommodationUnit')?.addEventListener('click',()=>{$('#accommodationUnitForm').hidden=true;});
 ['accommodationBedOnlyPrice','accommodationBreakfast1Price','accommodationBreakfast2Price'].forEach(id=>{
