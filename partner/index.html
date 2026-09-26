@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=accommodation-notifications-2">
+  <link rel="stylesheet" href="partner.css?v=premium-partner-1">
 <style>
 .transport-priority-nav{order:-1}.transport-application-progress{display:grid;gap:14px}.transport-progress-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.transport-progress-steps span{border:1px solid #dce3ed;border-radius:12px;padding:12px;display:grid;gap:3px;background:#f8fafc}.transport-progress-steps span i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e8edf4;font-style:normal;font-weight:900}.transport-progress-steps span.done i{background:#071a3a;color:#fff}.transport-progress-steps span.current{border-color:#ff7200;background:#fff8f2}.transport-progress-steps span.current i{background:#ff7200;color:#fff}.transport-progress-steps span.alert{border-color:#c98724;background:#fff9ec}.transport-progress-steps span.alert i{background:#c98724;color:#fff}.seller-icon-button{position:relative}.seller-icon-button #transportHeaderNotificationBadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:999px;background:#ff7200;color:#fff;font-size:10px;display:grid;place-items:center;padding:0 4px}.seller-icon-button #transportHeaderNotificationBadge[hidden]{display:none}.transport-view-lock-note{padding:12px;border-radius:10px;background:#fff8f2;color:#7a4108;font-weight:700}@media(max-width:700px){.transport-progress-steps{grid-template-columns:1fr}}
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
@@ -36,7 +36,7 @@
       <button data-role-target="service_provider"><span>🛠️</span><strong>Service Provider</strong><small>Offer services & manage customer jobs</small></button>
       <button data-role-target="transport"><span>🚚</span><strong>Transport & Parcel</strong><small>Register vehicles and receive transport / parcel work</small></button>
       <button data-role-target="cyber" disabled><span>🖥️</span><strong>Cyber Services</strong><small>Registration module comes next</small></button>
-      <button data-role-target="premium" disabled><span>🔞</span><strong>Premium Profile</strong><small>Existing Premium registration will be linked here</small></button>
+      <button data-role-target="premium"><span>🔞</span><strong>Premium Profile</strong><small>Apply, manage availability and receive Premium requests</small></button>
       <button data-role-target="accommodation"><span>🏨</span><strong>Accommodation Provider</strong><small>Register hotels, Airbnbs, guest houses and other stays</small></button>
     </div>
   </section>
@@ -638,6 +638,93 @@
             <p id="transportProfileEditStatus" class="status"></p>
           </section>
         </section>
+      </div>
+    </section>
+  </section>
+
+  <section class="seller-shell provider-shell premium-shell" id="premiumShell" hidden>
+    <section id="premiumBootStatus" class="panel seller-boot-status">
+      <div class="seller-boot-spinner" aria-hidden="true"></div>
+      <div><span>PREMIUM PARTNER PORTAL</span><h2 id="premiumBootTitle">Opening your Premium Profile…</h2><p id="premiumBootMessage">Loading your Verified Premium Profile account.</p></div>
+      <button id="retryPremiumBoot" class="secondary" type="button" hidden>Retry</button>
+    </section>
+
+    <section id="premiumOnboarding" class="panel seller-onboarding" hidden>
+      <div class="seller-onboarding-icon">🔞</div>
+      <div><span>VERIFIED PREMIUM PROFILE</span><h2>Become a Premium Partner</h2><p>Create an adult Premium Profile for LEOGO Admin verification. Your real identity and ID stay private; Premium Customers see only your approved public profile.</p></div>
+      <button id="showPremiumRegistration" type="button">Apply as Premium Profile</button>
+    </section>
+
+    <form id="premiumRegistrationForm" class="panel seller-registration premium-registration" hidden>
+      <div class="section-title"><span>PREMIUM PROFILE APPLICATION</span><h3>Public profile & private verification</h3><p>Premium Profiles are for adults aged 18 or older. Public details are separated from your private identity verification.</p></div>
+      <div class="form-grid">
+        <label>Display name / username<input id="premiumPartnerDisplayName" type="text" minlength="2" maxlength="50" required></label>
+        <label>Gender<input id="premiumPartnerGender" type="text" minlength="2" maxlength="40" required></label>
+        <label>Age<input id="premiumPartnerAge" type="number" min="18" max="100" required></label>
+        <label>Orientation<input id="premiumPartnerOrientation" type="text" minlength="2" maxlength="60" required></label>
+        <label class="wide">General location<input id="premiumPartnerLocation" type="text" minlength="2" maxlength="100" required placeholder="Town / area only"></label>
+        <label class="wide">About you<textarea id="premiumPartnerAbout" rows="4" minlength="20" maxlength="1000" required></textarea></label>
+        <label>Public profile picture<input id="premiumPartnerProfilePhoto" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+        <label>Gallery photos <small>Optional, maximum 3</small><input id="premiumPartnerGallery" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+
+        <div class="wide private-doc-note"><strong>🔒 Private LEOGO verification</strong><br>Real name, phone and identification documents are not shown on your public profile.</div>
+        <label>Real legal name<input id="premiumPartnerRealName" type="text" minlength="2" maxlength="120" required></label>
+        <label>ID / identification number<input id="premiumPartnerIdNumber" type="text" minlength="5" maxlength="20" required></label>
+        <label>Phone number<input id="premiumPartnerPhone" type="tel" placeholder="+2547XXXXXXXX" required></label>
+        <label>ID document<input id="premiumPartnerIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+
+        <div class="wide premium-consent-box">
+          <label><input id="premiumPartnerAgeConsent" type="checkbox" required> I confirm that I am 18 years or older.</label>
+          <label><input id="premiumPartnerResponsibilityConsent" type="checkbox" required> I understand that LEOGO facilitates introductions and requests, while personal decisions and safety remain my responsibility.</label>
+          <label><input id="premiumPartnerPrivacyConsent" type="checkbox" required> I consent to LEOGO privately storing my verification information for account verification and safety operations.</label>
+        </div>
+      </div>
+      <div class="product-actions"><button id="cancelPremiumRegistration" class="secondary" type="button">Cancel</button><button type="submit">Submit for Admin Approval</button></div>
+      <p id="premiumRegistrationStatus" class="status"></p>
+    </form>
+
+    <section id="premiumPendingArea" class="panel seller-pending-area" hidden>
+      <div class="section-title"><span>APPLICATION STATUS</span><h3 id="premiumPendingTitle">Premium Profile submitted</h3><p id="premiumPendingMessage"></p></div>
+      <div id="premiumApplicationSummary" class="summary-grid"></div>
+      <div class="product-actions"><button id="premiumPendingBack" class="secondary" type="button">← Partnerships</button><button id="editPremiumApplication" type="button" hidden>Correct &amp; Resubmit</button></div>
+    </section>
+
+    <section id="premiumDashboard" class="seller-portal premium-portal" hidden>
+      <button id="premiumSidebarToggle" class="seller-sidebar-toggle" type="button">☰ Menu</button>
+      <aside id="premiumSidebar" class="seller-sidebar">
+        <div class="seller-sidebar-brand"><span>PREMIUM PARTNER</span><strong id="premiumSidebarName">My Premium Profile</strong><small id="premiumSidebarStatus">APPROVED</small></div>
+        <nav>
+          <button class="active" data-premium-view="overview" type="button"><span>▦</span>Overview</button>
+          <button data-premium-view="requests" type="button"><span>♡</span>Meetup Requests <b id="premiumRequestBadge" hidden>0</b></button>
+          <button data-premium-view="profile" type="button"><span>👤</span>My Public Profile</button>
+          <button data-premium-view="notifications" type="button"><span>🔔</span>Notifications <b id="premiumNotificationBadge" hidden>0</b></button>
+        </nav>
+        <button id="premiumBackToPartnerships" class="seller-sidebar-back" type="button">← Partnerships</button>
+      </aside>
+      <button id="premiumSidebarScrim" class="seller-sidebar-scrim" type="button" aria-label="Close Premium menu"></button>
+
+      <div class="seller-workspace">
+        <header class="seller-dashboard-head">
+          <div><span>VERIFIED PREMIUM PROFILE</span><h2 id="premiumDashboardName">Premium Profile</h2><p id="premiumViewDescription">Manage your approved Premium Profile.</p></div>
+          <div class="seller-head-actions"><button id="premiumNotificationsButton" class="seller-icon-button" type="button" aria-label="Premium notifications">🔔<b id="premiumHeadNotificationBadge" hidden>0</b></button><button id="refreshPremiumDashboard" type="button">↻ Refresh</button></div>
+        </header>
+
+        <section class="premium-view active" data-premium-content="overview">
+          <section class="panel">
+            <div class="section-title"><span>PREMIUM PROFILE STATUS</span><h3>Your Premium Partner Dashboard</h3><p>Control whether your approved profile is currently available to approved Premium Customers.</p></div>
+            <div class="seller-metrics">
+              <article><span>Verification</span><strong id="premiumApprovalMetric">Approved</strong><small>LEOGO verified</small></article>
+              <article><span>Availability</span><strong id="premiumAvailabilityMetric">Unavailable</strong><small>Customer directory status</small></article>
+              <article><span>Requests</span><strong id="premiumRequestsMetric">0</strong><small>Meetup requests</small></article>
+            </div>
+            <div class="premium-availability-card"><div><strong>Available for meetup requests</strong><small>Turn this on when you want approved Premium Customers to see your profile as available.</small></div><label class="premium-switch"><input id="premiumAvailabilityToggle" type="checkbox"><span></span></label></div>
+            <p id="premiumAvailabilityStatus" class="status"></p>
+          </section>
+        </section>
+
+        <section class="premium-view" data-premium-content="requests"><section class="panel"><div class="section-title"><span>MEETUP REQUESTS</span><h3>Incoming Premium Requests</h3><p>Customer request and acceptance will connect here without exposing your private identity.</p></div><div id="premiumRequestList" class="empty-card">No Premium meetup requests yet.</div></section></section>
+        <section class="premium-view" data-premium-content="profile"><section class="panel"><div class="section-title"><span>PUBLIC PROFILE</span><h3>What Premium Customers See</h3><p>Your real identity and verification documents remain private.</p></div><div id="premiumPublicProfileSummary" class="premium-public-profile-summary"></div></section></section>
+        <section class="premium-view" data-premium-content="notifications"><section class="panel"><div class="section-title"><span>NOTIFICATIONS</span><h3>Premium Activity</h3><p>Admin decisions and Premium request activity appear here.</p></div><div class="product-actions"><button id="markAllPremiumNotificationsRead" class="secondary" type="button">Mark All Read</button><button id="refreshPremiumNotifications" type="button">↻ Refresh</button></div><div id="premiumNotificationList" class="seller-notification-list"><div class="empty-card">No Premium notifications yet.</div></div></section></section>
       </div>
     </section>
   </section>
@@ -1254,5 +1341,5 @@
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=accommodation-notifications-2" defer></script>
+<script src="partner.js?v=premium-partner-1" defer></script>
 </body></html>
