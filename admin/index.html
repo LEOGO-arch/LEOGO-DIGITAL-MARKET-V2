@@ -755,6 +755,15 @@
             </div>
             <div class="form-status" id="transportFinanceSettingsStatus"></div>
           </form>
+          <form class="settings-form" id="accommodationFinanceSettingsForm">
+            <div class="form-section-head"><div><span>🏨</span><div><h3>Accommodation Pricing Rules</h3><p>Applied to new hotel and accommodation bookings. Each booking keeps a snapshot of the rates used when it was created.</p></div></div><button type="submit">Save Accommodation Rates</button></div>
+            <div class="form-grid">
+              <label><span>Hotel commission (%)</span><input name="hotel_commission_percent" type="number" min="0" max="100" step="0.01" required><small>Deducted from the hotel's base booking amount. Default: 10%.</small></label>
+              <label><span>Customer Accommodation service fee (%)</span><input name="customer_service_fee_percent" type="number" min="0" max="100" step="0.01" required><small>Added on top of the hotel's base booking amount. Default: 3%.</small></label>
+            </div>
+            <div class="locked-front-note">Example: Hotel booking KSh 1,000 → hotel commission KSh 100 at 10%, customer service fee KSh 30 at 3%, customer pays KSh 1,030, hotel net KSh 900, LEOGO gross accommodation earning KSh 130.</div>
+            <div class="form-status" id="accommodationFinanceSettingsStatus"></div>
+          </form>
           <form class="settings-form" id="walletFeesForm"><div class="form-section-head"><div><span>F</span><div><h3>Wallet, Statement &amp; Reward Rules</h3><p>Existing live Wallet settings—no duplicate fee system.</p></div></div><button type="submit">Save Fee Rules</button></div><div class="form-grid four"><label><span>Monthly maintenance fee (KSh)</span><input name="maintenance_fee_kes" type="number" min="0" step="0.01" required></label><label><span>Statement fee / 200 (KSh)</span><input name="statement_fee_per_200_kes" type="number" min="0" step="0.01" required></label><label><span>Reward minimum spend (KSh)</span><input name="reward_minimum_spend_kes" type="number" min="0" step="0.01" required></label><label><span>Reward rate (decimal)</span><input name="reward_rate" type="number" min="0" max="1" step="0.0001" required><small>0.001 = 0.1%</small></label></div><div class="form-status" id="walletFeesStatus"></div></form>
           <div class="settings-link-grid"><button data-open-view="transport"><span>⌖</span><strong>Pickup Station Fees</strong><small>Edit the percentage on each station.</small></button><button data-open-view="premium"><span>18+</span><strong>Premium Rates</strong><small>Edit each active Premium plan.</small></button><button disabled><span>▤</span><strong>Order Service Fees</strong><small>Customer Front remains locked pending approved integration.</small></button></div>
         </div>
@@ -928,6 +937,6 @@
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="admin.js?v=accommodation-bookings-1" defer></script>
+  <script src="admin.js?v=accommodation-finance-1" defer></script>
 </body>
 </html>
