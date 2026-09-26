@@ -3134,6 +3134,14 @@ $('#addAccommodationProperty')?.addEventListener('click',()=>openAccommodationPr
 $('#refreshAccommodationCatalogue')?.addEventListener('click',()=>loadAccommodationCatalogue().catch(error=>status($('#accommodationCatalogueStatus'),error?.message||'Could not refresh listings.','error')));
 $('#cancelAccommodationProperty')?.addEventListener('click',()=>{$('#accommodationPropertyForm').hidden=true;resetAccommodationPropertyForm();});
 $('#cancelAccommodationUnit')?.addEventListener('click',()=>{$('#accommodationUnitForm').hidden=true;});
+['accommodationBedOnlyPrice','accommodationBreakfast1Price','accommodationBreakfast2Price'].forEach(id=>{
+  $('#'+id)?.addEventListener('input',syncAccommodationBasePrice);
+});
+$('#accommodationUnitGuests')?.addEventListener('input',()=>{
+  syncAccommodationRateRequirements();
+  syncAccommodationBasePrice();
+});
+
 $('#addAccommodationRate')?.addEventListener('click',()=>{
   const extras=collectAccommodationExtraRates();
   extras.push({rate_name:'',meal_plan:'other',occupancy_type:'custom',occupancy_pax:1,nightly_price_kes:''});
