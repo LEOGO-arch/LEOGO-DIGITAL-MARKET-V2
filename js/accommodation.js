@@ -120,7 +120,7 @@
     setMessage(elements.publicStatus, 'Loading approved accommodation…');
     const { data, error } = await client
       .from('accommodation_properties')
-      .select('id,property_name,property_type,county,town,public_location,description,cover_image_url,gallery_image_urls,amenities,house_rules,check_in_time,check_out_time,children_allowed,pets_allowed,parking_available,wifi_available,breakfast_available,smoking_zone_allowed,units:accommodation_units(id,unit_name,description,nightly_price_kes,max_guests,beds_description,inventory_count,is_active,approval_status,unit_image_url,gallery_image_urls,amenities,rates:accommodation_unit_rates(id,rate_name,meal_plan,occupancy_type,occupancy_pax,nightly_price_kes,is_active))')
+      .select('id,property_name,property_type,county,town,public_location,description,cover_image_url,gallery_image_urls,amenities,house_rules,check_in_time,check_out_time,children_allowed,pets_allowed,parking_available,wifi_available,breakfast_available,smoking_zone_allowed,units:accommodation_units(id,room_category,unit_name,description,nightly_price_kes,max_guests,beds_description,inventory_count,is_active,approval_status,unit_image_url,gallery_image_urls,amenities,rates:accommodation_unit_rates(id,rate_name,meal_plan,occupancy_type,occupancy_pax,nightly_price_kes,is_active))')
       .eq('approval_status', 'approved')
       .eq('is_published', true)
       .order('created_at', { ascending: false });
@@ -203,7 +203,7 @@
     elements.checkInTime.textContent = String(selectedProperty.check_in_time || '14:00').slice(0, 5);
     elements.checkOutTime.textContent = String(selectedProperty.check_out_time || '10:00').slice(0, 5);
     elements.unit.innerHTML = (selectedProperty.units || []).length
-      ? selectedProperty.units.map((unit) => `<option value="${unit.id}">${escapeHtml(unit.unit_name)} — ${money(unit.nightly_price_kes)}/night — up to ${unit.max_guests} guest${unit.max_guests === 1 ? '' : 's'}</option>`).join('')
+      ? selectedProperty.units.map((unit) => `<option value="${unit.id}">${escapeHtml(unit.room_category || 'Room')} · ${escapeHtml(unit.unit_name)} — ${money(unit.nightly_price_kes)}/night — up to ${unit.max_guests} guest${unit.max_guests === 1 ? '' : 's'}</option>`).join('')
       : '<option value="">No active rooms available</option>';
     elements.bookingForm.querySelector('button[type="submit"]').disabled = !(selectedProperty.units || []).some((unit)=>(unit.rates||[]).length);
     elements.bookingCheckIn.value = elements.checkIn?.value || todayKey();
