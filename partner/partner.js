@@ -42,7 +42,7 @@ const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],sellerEarningsReport=null,partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
 let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],providerSettlementRequests=[],providerSettlements=[],providerEarningsReport=null,editingProviderService=null;
 let transportProvider=null,transportVehicles=[],transportJobs=[],transportNotifications=[],transportSettlementAccounts=[],transportSettlementRequests=[],transportSettlements=[],transportEarningsReport=null,editingTransportVehicle=null,transportBasePinOnly=false;
-let accommodationProvider=null,accommodationNotifications=[];
+let accommodationProvider=null,accommodationNotifications=[],accommodationCatalogue=[];
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -2714,6 +2714,7 @@ function openAccommodationView(view='overview'){
   $$('[data-accommodation-view]').forEach(button=>button.classList.toggle('active',button.dataset.accommodationView===resolved));
   if($('#accommodationViewDescription'))$('#accommodationViewDescription').textContent=accommodationViewDescription(resolved);
   closeAccommodationSidebar();
+  if(resolved==='properties')loadAccommodationCatalogue().catch(error=>status($('#accommodationCatalogueStatus'),error?.message||'Accommodation listings could not load.','error'));
 }
 function accommodationCoordinatesFromText(value=''){
   const text=String(value||'').trim();
@@ -2771,6 +2772,143 @@ async function uploadAccommodationPublicPhoto(file){
   if(error)throw error;
   return path;
 }
+async function uploadAccommodationListingPhoto(file,prefix='property'){
+  if(!file)return null;
+  if(file.size>8*1024*1024)throw new Error('Each Accommodation photo must be 8 MB or smaller.');
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Accommodation photos must be JPG, PNG or WEBP.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('accommodation-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  const {data}=client.storage.from('accommodation-public-media').getPublicUrl(path);
+  return data?.publicUrl||null;
+}
+function accommodationArrayValue(value=''){
+  return String(value||'').split(',').map(item=>item.trim()).filter(Boolean).slice(0,30);
+}
+function accommodationStatusLabel(value){
+  return String(value||'draft').replaceAll('_',' ');
+}
+function renderAccommodationCatalogue(){
+  const target=$('#accommodationPropertyList');if(!target)return;
+  const properties=Array.isArray(accommodationCatalogue)?accommodationCatalogue:[];
+  if($('#accommodationPropertyMetric'))$('#accommodationPropertyMetric').textContent=properties.length;
+  target.innerHTML=properties.length?properties.map(property=>{
+    const units=Array.isArray(property.units)?property.units:[];
+    const cover=property.cover_image_url?'<img src="'+escapeHtml(property.cover_image_url)+'" alt="'+escapeHtml(property.property_name||'Property')+'">':'<span>🏨</span>';
+    const canEdit=property.approval_status!=='suspended';
+    return '<article class="accommodation-property-card">'+
+      '<div class="accommodation-property-cover">'+cover+'</div>'+
+      '<div class="accommodation-property-main"><header><div><span>'+escapeHtml(String(property.property_type||'').replaceAll('_',' ').toUpperCase())+'</span><strong>'+escapeHtml(property.property_name||'Property')+'</strong><small>'+escapeHtml([property.public_location,property.town,property.county].filter(Boolean).join(' · '))+'</small></div><b class="status-chip">'+escapeHtml(accommodationStatusLabel(property.approval_status))+'</b></header>'+
+      '<p>'+escapeHtml(property.description||'')+'</p>'+
+      (property.admin_notes?'<div class="restricted-notice"><strong>Admin note:</strong> '+escapeHtml(property.admin_notes)+'</div>':'')+
+      '<div class="accommodation-property-actions">'+
+        (canEdit?'<button type="button" data-edit-accommodation-property="'+escapeHtml(property.id)+'">Edit Property</button>':'')+
+        '<button type="button" data-add-accommodation-unit="'+escapeHtml(property.id)+'">+ Add Room / Unit</button>'+
+      '</div>'+
+      '<div class="accommodation-unit-list">'+(units.length?units.map(unit=>
+        '<article class="accommodation-unit-card">'+
+          '<div><strong>'+escapeHtml(unit.unit_name||'Room / Unit')+'</strong><small>'+money(unit.nightly_price_kes||0)+'/night · Up to '+Number(unit.max_guests||1)+' guest(s) · '+Number(unit.inventory_count||1)+' available unit(s)</small>'+
+          (unit.admin_notes?'<small>Admin: '+escapeHtml(unit.admin_notes)+'</small>':'')+'</div>'+
+          '<span class="status-chip">'+escapeHtml(accommodationStatusLabel(unit.approval_status))+'</span>'+
+          (unit.approval_status!=='suspended'?'<button type="button" class="secondary" data-edit-accommodation-unit="'+escapeHtml(unit.id)+'" data-property-id="'+escapeHtml(property.id)+'">Edit</button>':'')+
+        '</article>'
+      ).join(''):'<div class="empty-card">No rooms / units added yet.</div>')+'</div>'+
+      '</div></article>';
+  }).join(''):'<div class="empty-card">No properties created yet. Tap “Add Property” to create your first accommodation listing.</div>';
+
+  $('[data-edit-accommodation-property]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationPropertyForm(button.dataset.editAccommodationProperty)));
+  $('[data-add-accommodation-unit]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationUnitForm(button.dataset.addAccommodationUnit)));
+  $('[data-edit-accommodation-unit]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationUnitForm(button.dataset.propertyId,button.dataset.editAccommodationUnit)));
+}
+async function loadAccommodationCatalogue(){
+  if(!currentUser||accommodationProvider?.verification_status!=='approved')return;
+  status($('#accommodationCatalogueStatus'),'Loading properties and rooms…');
+  const {data,error}=await client.rpc('accommodation_provider_list_catalogue');
+  if(error)throw error;
+  accommodationCatalogue=Array.isArray(data?.properties)?data.properties:[];
+  renderAccommodationCatalogue();
+  status($('#accommodationCatalogueStatus'),'');
+}
+function resetAccommodationPropertyForm(){
+  const form=$('#accommodationPropertyForm');if(!form)return;
+  form.reset();$('#accommodationPropertyId').value='';
+  $('#accommodationPropertyCheckIn').value='14:00';$('#accommodationPropertyCheckOut').value='10:00';
+  $('#accommodationChildrenAllowed').checked=true;
+  $('#accommodationPropertyPinStatus').textContent='Property location not pinned.';
+  status($('#accommodationPropertyStatus'),'');
+}
+function openAccommodationPropertyForm(propertyId=''){
+  resetAccommodationPropertyForm();
+  const form=$('#accommodationPropertyForm');form.hidden=false;
+  $('#accommodationUnitForm').hidden=true;
+  const property=accommodationCatalogue.find(item=>String(item.id)===String(propertyId));
+  $('#accommodationPropertyFormTitle').textContent=property?'Edit Property':'Add Property';
+  if(property){
+    $('#accommodationPropertyId').value=property.id;
+    $('#accommodationPropertyName').value=property.property_name||'';
+    $('#accommodationPropertyType').value=property.property_type||'';
+    $('#accommodationPropertyCounty').value=property.county||'';
+    $('#accommodationPropertySubCounty').value=property.sub_county||'';
+    $('#accommodationPropertyTown').value=property.town||'';
+    $('#accommodationPropertyPublicLocation').value=property.public_location||'';
+    $('#accommodationPropertyDescription').value=property.description||'';
+    $('#accommodationPropertyAmenities').value=(property.amenities||[]).join(', ');
+    $('#accommodationPropertyRules').value=property.house_rules||'';
+    $('#accommodationPropertyCancellation').value=property.cancellation_policy||'';
+    $('#accommodationPropertyAccessibility').value=property.accessibility_notes||'';
+    $('#accommodationPropertyCheckIn').value=String(property.check_in_time||'14:00').slice(0,5);
+    $('#accommodationPropertyCheckOut').value=String(property.check_out_time||'10:00').slice(0,5);
+    $('#accommodationChildrenAllowed').checked=property.children_allowed!==false;
+    $('#accommodationPetsAllowed').checked=Boolean(property.pets_allowed);
+    $('#accommodationParkingAvailable').checked=Boolean(property.parking_available);
+    $('#accommodationWifiAvailable').checked=Boolean(property.wifi_available);
+    $('#accommodationBreakfastAvailable').checked=Boolean(property.breakfast_available);
+    $('#accommodationPropertyMapLink').value=property.map_link||'';
+    $('#accommodationPropertyLatitude').value=property.latitude??'';
+    $('#accommodationPropertyLongitude').value=property.longitude??'';
+    if(property.latitude!=null&&property.longitude!=null)$('#accommodationPropertyPinStatus').textContent='✓ Property pinned: '+property.latitude+', '+property.longitude;
+  }else{
+    $('#accommodationPropertyCounty').value=accommodationProvider?.county||'';
+    $('#accommodationPropertySubCounty').value=accommodationProvider?.sub_county||'';
+    $('#accommodationPropertyTown').value=accommodationProvider?.town||'';
+  }
+  form.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function openAccommodationUnitForm(propertyId,unitId=''){
+  const property=accommodationCatalogue.find(item=>String(item.id)===String(propertyId));if(!property)return;
+  const form=$('#accommodationUnitForm');form.reset();form.hidden=false;
+  $('#accommodationPropertyForm').hidden=true;
+  $('#accommodationUnitPropertyId').value=property.id;
+  $('#accommodationUnitId').value='';
+  $('#accommodationUnitGuests').value='1';$('#accommodationUnitInventory').value='1';
+  $('#accommodationUnitPropertyLabel').innerHTML='<strong>Property:</strong> '+escapeHtml(property.property_name||'Property')+' · <span class="status-chip">'+escapeHtml(accommodationStatusLabel(property.approval_status))+'</span>';
+  const unit=(property.units||[]).find(item=>String(item.id)===String(unitId));
+  $('#accommodationUnitFormTitle').textContent=unit?'Edit Room / Unit Type':'Add Room / Unit Type';
+  if(unit){
+    $('#accommodationUnitId').value=unit.id;
+    $('#accommodationUnitName').value=unit.unit_name||'';
+    $('#accommodationUnitPrice').value=unit.nightly_price_kes||'';
+    $('#accommodationUnitGuests').value=unit.max_guests||1;
+    $('#accommodationUnitInventory').value=unit.inventory_count||1;
+    $('#accommodationUnitBeds').value=unit.beds_description||'';
+    $('#accommodationUnitDescription').value=unit.description||'';
+    $('#accommodationUnitAmenities').value=(unit.amenities||[]).join(', ');
+  }
+  status($('#accommodationUnitStatus'),'');
+  form.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function setAccommodationPropertyCoordinates(lat,lng,label='Property location pinned'){
+  const latitude=Number(lat),longitude=Number(lng),target=$('#accommodationPropertyPinStatus');
+  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+    target.textContent='Invalid property coordinates.';target.className='status error';return false;
+  }
+  $('#accommodationPropertyLatitude').value=latitude.toFixed(7);
+  $('#accommodationPropertyLongitude').value=longitude.toFixed(7);
+  if(!$('#accommodationPropertyMapLink').value.trim())$('#accommodationPropertyMapLink').value='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
+  target.textContent='✓ '+label+': '+latitude.toFixed(7)+', '+longitude.toFixed(7);target.className='status success';return true;
+}
+
 function accommodationSummaryRows(){
   if(!accommodationProvider)return [];
   return [
@@ -2876,8 +3014,8 @@ async function loadAccommodationProvider(){
     await ensureAccommodationLocations(accommodationProvider?.county_code||'',accommodationProvider?.sub_county_code||'');
     if(accommodationProvider)await loadAccommodationNotifications().catch(()=>{});
     if(accommodationProvider?.verification_status==='approved'){
-      const propertyResult=await client.from('accommodation_properties').select('id').eq('host_id',accommodationProvider.id);
-      const propertyIds=(propertyResult.data||[]).map(row=>row.id);
+      await loadAccommodationCatalogue().catch(error=>console.warn('Accommodation catalogue load failed:',error));
+      const propertyIds=accommodationCatalogue.map(row=>row.id);
       if($('#accommodationPropertyMetric'))$('#accommodationPropertyMetric').textContent=propertyIds.length;
       if($('#accommodationBookingMetric')){
         if(!propertyIds.length)$('#accommodationBookingMetric').textContent='0';
@@ -2893,6 +3031,88 @@ async function loadAccommodationProvider(){
     accommodationOnboarding.hidden=true;accommodationReg.hidden=true;accommodationPendingArea.hidden=true;accommodationDashboard.hidden=true;
   }
 }
+
+$('#addAccommodationProperty')?.addEventListener('click',()=>openAccommodationPropertyForm());
+$('#refreshAccommodationCatalogue')?.addEventListener('click',()=>loadAccommodationCatalogue().catch(error=>status($('#accommodationCatalogueStatus'),error?.message||'Could not refresh listings.','error')));
+$('#cancelAccommodationProperty')?.addEventListener('click',()=>{$('#accommodationPropertyForm').hidden=true;resetAccommodationPropertyForm();});
+$('#cancelAccommodationUnit')?.addEventListener('click',()=>{$('#accommodationUnitForm').hidden=true;});
+$('#pinAccommodationProperty')?.addEventListener('click',()=>{
+  const target=$('#accommodationPropertyPinStatus');
+  if(!navigator.geolocation){target.textContent='Location access is unavailable. Paste Maps coordinates instead.';target.className='status error';return;}
+  target.textContent='Getting property location…';target.className='status';
+  navigator.geolocation.getCurrentPosition(
+    position=>setAccommodationPropertyCoordinates(position.coords.latitude,position.coords.longitude),
+    error=>{target.textContent=error.code===1?'Location permission was not granted. Paste a Maps link or coordinates instead.':'Property location could not be detected.';target.className='status error';},
+    {enableHighAccuracy:true,timeout:15000,maximumAge:15000}
+  );
+});
+$('#accommodationPropertyMapLink')?.addEventListener('change',event=>{
+  const coords=accommodationCoordinatesFromText(event.currentTarget.value);
+  if(coords)setAccommodationPropertyCoordinates(coords.lat,coords.lng,'Coordinates detected');
+});
+$('#accommodationPropertyForm')?.addEventListener('submit',async event=>{
+  event.preventDefault();if(!event.currentTarget.reportValidity())return;
+  const button=event.currentTarget.querySelector('button[type="submit"]');const original=button.textContent;button.disabled=true;button.textContent='Saving…';
+  try{
+    const gallery=[...($('#accommodationPropertyGallery').files||[])];
+    if(gallery.length>5)throw new Error('Choose a maximum of 5 property gallery photos.');
+    const propertyId=$('#accommodationPropertyId').value||null;
+    const existing=accommodationCatalogue.find(item=>String(item.id)===String(propertyId));
+    const coverFile=$('#accommodationPropertyCover').files?.[0]||null;
+    const [coverUrl,galleryUrls]=await Promise.all([
+      coverFile?uploadAccommodationListingPhoto(coverFile,'property-cover'):Promise.resolve(existing?.cover_image_url||null),
+      gallery.length?Promise.all(gallery.map(file=>uploadAccommodationListingPhoto(file,'property-gallery'))):Promise.resolve(existing?.gallery_image_urls||[])
+    ]);
+    const latText=$('#accommodationPropertyLatitude').value.trim(),lngText=$('#accommodationPropertyLongitude').value.trim();
+    const {error}=await client.rpc('accommodation_provider_save_property',{
+      p_property_id:propertyId,p_property_name:$('#accommodationPropertyName').value.trim(),p_property_type:$('#accommodationPropertyType').value,
+      p_county:$('#accommodationPropertyCounty').value.trim(),p_sub_county:$('#accommodationPropertySubCounty').value.trim()||null,
+      p_town:$('#accommodationPropertyTown').value.trim(),p_public_location:$('#accommodationPropertyPublicLocation').value.trim(),
+      p_description:$('#accommodationPropertyDescription').value.trim(),p_cover_image_url:coverUrl,p_gallery_image_urls:galleryUrls,
+      p_amenities:accommodationArrayValue($('#accommodationPropertyAmenities').value),p_house_rules:$('#accommodationPropertyRules').value.trim()||null,
+      p_check_in_time:$('#accommodationPropertyCheckIn').value,p_check_out_time:$('#accommodationPropertyCheckOut').value,
+      p_latitude:latText?Number(latText):null,p_longitude:lngText?Number(lngText):null,p_map_link:$('#accommodationPropertyMapLink').value.trim()||null,
+      p_cancellation_policy:$('#accommodationPropertyCancellation').value.trim()||null,p_children_allowed:$('#accommodationChildrenAllowed').checked,
+      p_pets_allowed:$('#accommodationPetsAllowed').checked,p_parking_available:$('#accommodationParkingAvailable').checked,
+      p_wifi_available:$('#accommodationWifiAvailable').checked,p_breakfast_available:$('#accommodationBreakfastAvailable').checked,
+      p_accessibility_notes:$('#accommodationPropertyAccessibility').value.trim()||null,p_submit:true
+    });
+    if(error)throw error;
+    status($('#accommodationPropertyStatus'),'Property saved and sent to LEOGO Admin for approval.','success');
+    await Promise.all([loadAccommodationCatalogue(),loadAccommodationNotifications()]);
+    window.setTimeout(()=>{$('#accommodationPropertyForm').hidden=true;},600);
+  }catch(error){status($('#accommodationPropertyStatus'),error?.message||'Property could not be saved.','error');}
+  finally{button.disabled=false;button.textContent=original;}
+});
+$('#accommodationUnitForm')?.addEventListener('submit',async event=>{
+  event.preventDefault();if(!event.currentTarget.reportValidity())return;
+  const button=event.currentTarget.querySelector('button[type="submit"]');const original=button.textContent;button.disabled=true;button.textContent='Saving…';
+  try{
+    const gallery=[...($('#accommodationUnitGallery').files||[])];
+    if(gallery.length>3)throw new Error('Choose a maximum of 3 room / unit gallery photos.');
+    const propertyId=$('#accommodationUnitPropertyId').value,unitId=$('#accommodationUnitId').value||null;
+    const property=accommodationCatalogue.find(item=>String(item.id)===String(propertyId));
+    const existing=(property?.units||[]).find(item=>String(item.id)===String(unitId));
+    const imageFile=$('#accommodationUnitImage').files?.[0]||null;
+    const [imageUrl,galleryUrls]=await Promise.all([
+      imageFile?uploadAccommodationListingPhoto(imageFile,'unit-main'):Promise.resolve(existing?.unit_image_url||null),
+      gallery.length?Promise.all(gallery.map(file=>uploadAccommodationListingPhoto(file,'unit-gallery'))):Promise.resolve(existing?.gallery_image_urls||[])
+    ]);
+    const {error}=await client.rpc('accommodation_provider_save_unit',{
+      p_unit_id:unitId,p_property_id:propertyId,p_unit_name:$('#accommodationUnitName').value.trim(),
+      p_description:$('#accommodationUnitDescription').value.trim()||null,p_nightly_price_kes:Number($('#accommodationUnitPrice').value),
+      p_max_guests:Number($('#accommodationUnitGuests').value),p_beds_description:$('#accommodationUnitBeds').value.trim()||null,
+      p_inventory_count:Number($('#accommodationUnitInventory').value),p_unit_image_url:imageUrl,p_gallery_image_urls:galleryUrls,
+      p_amenities:accommodationArrayValue($('#accommodationUnitAmenities').value),p_submit:true
+    });
+    if(error)throw error;
+    status($('#accommodationUnitStatus'),'Room / unit saved and sent to LEOGO Admin for approval.','success');
+    await Promise.all([loadAccommodationCatalogue(),loadAccommodationNotifications()]);
+    window.setTimeout(()=>{$('#accommodationUnitForm').hidden=true;},600);
+  }catch(error){status($('#accommodationUnitStatus'),error?.message||'Room / unit could not be saved.','error');}
+  finally{button.disabled=false;button.textContent=original;}
+});
+
 const ACCOMMODATION_DRAFT_KEY='leogo_accommodation_application_draft_v1';
 const ACCOMMODATION_DRAFT_OPEN_KEY='leogo_accommodation_application_open_v1';
 
