@@ -2918,7 +2918,7 @@ function renderAccommodationRateRows(rates=[]){
     button.closest('[data-rate-row]')?.remove();
     syncAccommodationBasePrice();
   }));
-  $('[data-rate-price]',target).forEach((input)=>input.addEventListener('input',syncAccommodationBasePrice));
+  $$('[data-rate-price]',target).forEach((input)=>input.addEventListener('input',syncAccommodationBasePrice));
   syncAccommodationBasePrice();
 }
 function collectAccommodationRates(){
