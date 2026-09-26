@@ -794,7 +794,7 @@
                 <option value="Other">Other</option>
               </select></label>
               <label>Room / unit name<input id="accommodationUnitName" type="text" maxlength="120" required placeholder="Example: Room 101, Lake View Deluxe"></label>
-              <label>Base / lowest nightly rate (KSh)<input id="accommodationUnitPrice" type="number" min="1" step="1" required readonly></label>
+              <div class="restricted-notice"><strong>Base / lowest nightly rate:</strong> <span id="accommodationUnitPriceDisplay">Enter room prices below</span><input id="accommodationUnitPrice" type="hidden" value=""></div>
               <label>Maximum guests<input id="accommodationUnitGuests" type="number" min="1" max="30" value="1" required></label>
               <label>Number of identical rooms / units<input id="accommodationUnitInventory" type="number" min="1" max="500" value="1" required></label>
               <label class="wide">Beds description<input id="accommodationUnitBeds" type="text" maxlength="300" placeholder="1 Queen bed, 2 Single beds"></label>
