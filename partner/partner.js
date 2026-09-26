@@ -2808,7 +2808,7 @@ function renderAccommodationCatalogue(){
       '</div>'+
       '<div class="accommodation-unit-list">'+(units.length?units.map(unit=>
         '<article class="accommodation-unit-card">'+
-          '<div><strong>'+escapeHtml(unit.unit_name||'Room / Unit')+'</strong><small>'+money(unit.nightly_price_kes||0)+'/night · Up to '+Number(unit.max_guests||1)+' guest(s) · '+Number(unit.inventory_count||1)+' available unit(s)</small>'+
+          '<div><strong>'+escapeHtml(unit.unit_name||'Room / Unit')+'</strong><small>'+escapeHtml(unit.room_category||'Room')+' · '+money(unit.nightly_price_kes||0)+'/night · Up to '+Number(unit.max_guests||1)+' guest(s) · '+Number(unit.inventory_count||1)+' available unit(s)</small>'+
           (unit.admin_notes?'<small>Admin: '+escapeHtml(unit.admin_notes)+'</small>':'')+'</div>'+
           '<span class="status-chip">'+escapeHtml(accommodationStatusLabel(unit.approval_status))+'</span>'+
           (unit.approval_status!=='suspended'?'<button type="button" class="secondary" data-edit-accommodation-unit="'+escapeHtml(unit.id)+'" data-property-id="'+escapeHtml(property.id)+'">Edit</button>':'')+
@@ -2881,8 +2881,8 @@ function renderAccommodationRateRows(rates=[]){
   const target=$('#accommodationRateRows');if(!target)return;
   const rows=(Array.isArray(rates)&&rates.length?rates:[
     {rate_name:'Bed Only',meal_plan:'bed_only',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:''},
-    {rate_name:'Bed & Breakfast - Single',meal_plan:'bed_breakfast',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:''},
-    {rate_name:'Bed & Breakfast - Double',meal_plan:'bed_breakfast',occupancy_type:'double',occupancy_pax:2,nightly_price_kes:''}
+    {rate_name:'Bed & Breakfast for 1 pax',meal_plan:'bed_breakfast',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:''},
+    {rate_name:'Bed & Breakfast for 2 pax',meal_plan:'bed_breakfast',occupancy_type:'double',occupancy_pax:2,nightly_price_kes:''}
   ]);
   target.innerHTML=rows.map((rate)=>{
     return '<div class="accommodation-rate-row" data-rate-row>'+
@@ -2939,12 +2939,14 @@ function openAccommodationUnitForm(propertyId,unitId=''){
   $('#accommodationUnitPropertyId').value=property.id;
   $('#accommodationUnitId').value='';
   $('#accommodationUnitGuests').value='2';$('#accommodationUnitInventory').value='1';
+  $('#accommodationUnitCategory').value='Standard Room';
   renderAccommodationRateRows();
   $('#accommodationUnitPropertyLabel').innerHTML='<strong>Property:</strong> '+escapeHtml(property.property_name||'Property')+' · <span class="status-chip">'+escapeHtml(accommodationStatusLabel(property.approval_status))+'</span>';
   const unit=(property.units||[]).find(item=>String(item.id)===String(unitId));
   $('#accommodationUnitFormTitle').textContent=unit?'Edit Room / Unit Type':'Add Room / Unit Type';
   if(unit){
     $('#accommodationUnitId').value=unit.id;
+    $('#accommodationUnitCategory').value=unit.room_category||'Standard Room';
     $('#accommodationUnitName').value=unit.unit_name||'';
     $('#accommodationUnitPrice').value=unit.nightly_price_kes||'';
     $('#accommodationUnitGuests').value=unit.max_guests||1;
@@ -3133,7 +3135,13 @@ $('#accommodationUnitForm')?.addEventListener('submit',async event=>{
     const property=accommodationCatalogue.find(item=>String(item.id)===String(propertyId));
     const existing=(property?.units||[]).find(item=>String(item.id)===String(unitId));
     const rates=collectAccommodationRates();
-    if(!rates.length)throw new Error('Add at least one rate plan.');
+    if(!rates.length)throw new Error('Add the room prices before saving.');
+    const hasBedOnly=rates.some(rate=>rate.meal_plan==='bed_only');
+    const hasBreakfast1=rates.some(rate=>rate.meal_plan==='bed_breakfast'&&Number(rate.occupancy_pax)===1);
+    const hasBreakfast2=rates.some(rate=>rate.meal_plan==='bed_breakfast'&&Number(rate.occupancy_pax)===2);
+    if(!hasBedOnly)throw new Error('Enter the Bed Only price.');
+    if(!hasBreakfast1)throw new Error('Enter the Bed & Breakfast for 1 pax price.');
+    if(Number($('#accommodationUnitGuests').value)>=2&&!hasBreakfast2)throw new Error('Enter the Bed & Breakfast for 2 pax price.');
     for(const rate of rates){
       if(rate.rate_name.length<2)throw new Error('Every rate plan needs a name.');
       if(!rate.nightly_price_kes||rate.nightly_price_kes<=0)throw new Error('Every rate plan needs a valid nightly price.');
@@ -3146,17 +3154,22 @@ $('#accommodationUnitForm')?.addEventListener('submit',async event=>{
       imageFile?uploadAccommodationListingPhoto(imageFile,'unit-main'):Promise.resolve(existing?.unit_image_url||null),
       gallery.length?Promise.all(gallery.map(file=>uploadAccommodationListingPhoto(file,'unit-gallery'))):Promise.resolve(existing?.gallery_image_urls||[])
     ]);
-    const {data:savedUnitId,error}=await client.rpc('accommodation_provider_save_unit',{
-      p_unit_id:unitId,p_property_id:propertyId,p_unit_name:$('#accommodationUnitName').value.trim(),
-      p_description:$('#accommodationUnitDescription').value.trim()||null,p_nightly_price_kes:Number($('#accommodationUnitPrice').value),
-      p_max_guests:Number($('#accommodationUnitGuests').value),p_beds_description:$('#accommodationUnitBeds').value.trim()||null,
-      p_inventory_count:Number($('#accommodationUnitInventory').value),p_unit_image_url:imageUrl,p_gallery_image_urls:galleryUrls,
-      p_amenities:accommodationArrayValue($('#accommodationUnitAmenities').value),p_submit:true
+    const {error}=await client.rpc('accommodation_provider_save_unit_with_rates',{
+      p_unit_id:unitId,
+      p_property_id:propertyId,
+      p_room_category:$('#accommodationUnitCategory').value,
+      p_unit_name:$('#accommodationUnitName').value.trim(),
+      p_description:$('#accommodationUnitDescription').value.trim()||null,
+      p_max_guests:Number($('#accommodationUnitGuests').value),
+      p_beds_description:$('#accommodationUnitBeds').value.trim()||null,
+      p_inventory_count:Number($('#accommodationUnitInventory').value),
+      p_unit_image_url:imageUrl,
+      p_gallery_image_urls:galleryUrls,
+      p_amenities:accommodationArrayValue($('#accommodationUnitAmenities').value),
+      p_rates:rates,
+      p_submit:true
     });
     if(error)throw error;
-    const effectiveUnitId=savedUnitId||unitId;
-    const rateResult=await client.rpc('accommodation_provider_replace_unit_rates',{p_unit_id:effectiveUnitId,p_rates:rates});
-    if(rateResult.error)throw rateResult.error;
     status($('#accommodationUnitStatus'),'Room / unit saved and sent to LEOGO Admin for approval.','success');
     await Promise.all([loadAccommodationCatalogue(),loadAccommodationNotifications()]);
     window.setTimeout(()=>{$('#accommodationUnitForm').hidden=true;},600);
