@@ -2907,9 +2907,9 @@ function renderAccommodationRateRows(rates=[]){
       '<button type="button" class="secondary" data-remove-rate>Remove</button>'+
     '</div>';
   }).join('');
-  const removeButtons=$('[data-remove-rate]',target);
+  const removeButtons=[...target.querySelectorAll('[data-remove-rate]')];
   removeButtons.forEach((button)=>button.addEventListener('click',()=>{
-    if($('[data-rate-row]',target).length<=1)return;
+    if(target.querySelectorAll('[data-rate-row]').length<=1)return;
     button.closest('[data-rate-row]')?.remove();
     syncAccommodationBasePrice();
   }));
@@ -2918,7 +2918,7 @@ function renderAccommodationRateRows(rates=[]){
 }
 function collectAccommodationRates(){
   const root=$('#accommodationRateRows');
-  return root?$('[data-rate-row]',root).map((row)=>({
+  return root?[...root.querySelectorAll('[data-rate-row]')].map((row)=>({
     rate_name:$('[data-rate-name]',row)?.value.trim()||'',
     meal_plan:$('[data-rate-meal]',row)?.value||'bed_only',
     occupancy_type:$('[data-rate-occupancy]',row)?.value||'single',
@@ -2929,7 +2929,7 @@ function collectAccommodationRates(){
 }
 function syncAccommodationBasePrice(){
   const root=$('#accommodationRateRows');
-  const prices=root?$('[data-rate-price]',root).map((input)=>Number(input.value)).filter((value)=>Number.isFinite(value)&&value>0):[];
+  const prices=root?[...root.querySelectorAll('[data-rate-price]')].map((input)=>Number(input.value)).filter((value)=>Number.isFinite(value)&&value>0):[];
   $('#accommodationUnitPrice').value=prices.length?Math.min(...prices):'';
 }
 function openAccommodationUnitForm(propertyId,unitId=''){
