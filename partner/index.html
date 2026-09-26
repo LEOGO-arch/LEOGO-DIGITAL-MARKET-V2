@@ -801,9 +801,24 @@
               <label class="wide">Description<textarea id="accommodationUnitDescription" rows="3" maxlength="1000"></textarea></label>
               <label class="wide">Room / unit amenities <small>Comma separated</small><textarea id="accommodationUnitAmenities" rows="2" maxlength="800" placeholder="Private bathroom, TV, Balcony, Air conditioning"></textarea></label>
               <div class="wide accommodation-rate-builder">
-                <div class="section-title compact"><span>RATE PLANS</span><h4>Room prices</h4><p>Enter the main room prices: Bed Only, Bed &amp; Breakfast for 1 pax, and Bed &amp; Breakfast for 2 pax. You can add extra rate plans if needed.</p></div>
+                <div class="section-title compact"><span>ROOM PRICES</span><h4>Main nightly rates</h4><p>Enter only the prices. LEOGO will automatically save the correct meal plan, occupancy and pax for these standard rates.</p></div>
+                <div class="accommodation-rate-rows">
+                  <div class="accommodation-rate-row">
+                    <div><strong>Bed Only</strong><small>Room only, no breakfast</small></div>
+                    <label>Price / night (KSh)<input id="accommodationBedOnlyPrice" type="number" inputmode="numeric" min="1" step="1" required></label>
+                  </div>
+                  <div class="accommodation-rate-row">
+                    <div><strong>Bed &amp; Breakfast for 1 pax</strong><small>1 guest with breakfast</small></div>
+                    <label>Price / night (KSh)<input id="accommodationBreakfast1Price" type="number" inputmode="numeric" min="1" step="1" required></label>
+                  </div>
+                  <div class="accommodation-rate-row">
+                    <div><strong>Bed &amp; Breakfast for 2 pax</strong><small>2 guests with breakfast</small></div>
+                    <label>Price / night (KSh)<input id="accommodationBreakfast2Price" type="number" inputmode="numeric" min="1" step="1" required></label>
+                  </div>
+                </div>
+                <div class="section-title compact"><span>OPTIONAL</span><h4>Extra rate plans</h4><p>Add Half Board, Full Board, Self Catering or another special rate only when needed.</p></div>
                 <div id="accommodationRateRows" class="accommodation-rate-rows"></div>
-                <button id="addAccommodationRate" type="button" class="secondary">+ Add Rate</button>
+                <button id="addAccommodationRate" type="button" class="secondary">+ Add Extra Rate</button>
               </div>
               <label>Room / unit main photo<input id="accommodationUnitImage" type="file" accept="image/jpeg,image/png,image/webp"></label>
               <label>Room gallery <small>Up to 3</small><input id="accommodationUnitGallery" type="file" multiple accept="image/jpeg,image/png,image/webp"></label>
