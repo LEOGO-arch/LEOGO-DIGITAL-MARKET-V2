@@ -2893,6 +2893,52 @@ async function loadAccommodationProvider(){
     accommodationOnboarding.hidden=true;accommodationReg.hidden=true;accommodationPendingArea.hidden=true;accommodationDashboard.hidden=true;
   }
 }
+const ACCOMMODATION_DRAFT_KEY='leogo_accommodation_application_draft_v1';
+const ACCOMMODATION_DRAFT_OPEN_KEY='leogo_accommodation_application_open_v1';
+
+function saveAccommodationDraft(){
+  if(!accommodationReg||accommodationReg.hidden||!currentUser)return;
+  const ids=[
+    'accommodationBusinessName','accommodationOwnerName','accommodationIdNumber','accommodationPhone','accommodationEmail',
+    'accommodationCounty','accommodationSubCounty','accommodationTown','accommodationLocation','accommodationMapLink',
+    'accommodationLatitude','accommodationLongitude','accommodationDescription'
+  ];
+  const values={};
+  ids.forEach((id)=>{const el=$('#'+id);if(el)values[id]=el.value;});
+  try{
+    sessionStorage.setItem(ACCOMMODATION_DRAFT_KEY,JSON.stringify({user_id:currentUser.id,values,saved_at:Date.now()}));
+    sessionStorage.setItem(ACCOMMODATION_DRAFT_OPEN_KEY,currentUser.id);
+  }catch(_error){}
+}
+async function restoreAccommodationDraft(){
+  if(!currentUser)return false;
+  let draft=null;
+  try{
+    const raw=sessionStorage.getItem(ACCOMMODATION_DRAFT_KEY);
+    draft=raw?JSON.parse(raw):null;
+  }catch(_error){}
+  if(!draft||draft.user_id!==currentUser.id||!draft.values)return false;
+  await ensureAccommodationLocations(draft.values.accommodationCounty||'',draft.values.accommodationSubCounty||'').catch(()=>{});
+  Object.entries(draft.values).forEach(([id,value])=>{const el=$('#'+id);if(el&&value!=null)el.value=value;});
+  if(draft.values.accommodationLatitude&&draft.values.accommodationLongitude){
+    const target=$('#accommodationPinStatus');
+    if(target){
+      target.textContent='✓ Location preserved: '+draft.values.accommodationLatitude+', '+draft.values.accommodationLongitude;
+      target.className='status success';
+    }
+  }
+  return true;
+}
+function clearAccommodationDraft(){
+  try{
+    sessionStorage.removeItem(ACCOMMODATION_DRAFT_KEY);
+    sessionStorage.removeItem(ACCOMMODATION_DRAFT_OPEN_KEY);
+  }catch(_error){}
+}
+function accommodationDraftWasOpen(){
+  try{return Boolean(currentUser&&sessionStorage.getItem(ACCOMMODATION_DRAFT_OPEN_KEY)===currentUser.id);}catch{return false;}
+}
+
 async function openAccommodationRole(){
   activeRole='accommodation';
   if(partnerNotificationBell)partnerNotificationBell.hidden=false;
@@ -2903,17 +2949,26 @@ async function openAccommodationRole(){
   accommodationShell.hidden=false;
   authShell.hidden=true;
   if(hero)hero.hidden=true;
+  const preserveDraft=accommodationDraftWasOpen();
   showAccommodationBoot();
   await loadAccommodationProvider();
+  if(preserveDraft && accommodationProvider?.verification_status!=='approved' && accommodationProvider?.verification_status!=='suspended'){
+    openAccommodationRegistration(Boolean(accommodationProvider),{preserveDraft:true});
+    await restoreAccommodationDraft();
+  }
 }
-function openAccommodationRegistration(editExisting=false){
+function openAccommodationRegistration(editExisting=false,{preserveDraft=false}={}){
   accommodationOnboarding.hidden=true;
   accommodationPendingArea.hidden=true;
   accommodationDashboard.hidden=true;
   accommodationReg.hidden=false;
   status($('#accommodationRegistrationStatus'),'');
-  if(editExisting&&accommodationProvider)populateAccommodationApplication();
-  else{
+  try{if(currentUser)sessionStorage.setItem(ACCOMMODATION_DRAFT_OPEN_KEY,currentUser.id);}catch(_error){}
+  if(preserveDraft){
+    if(editExisting&&accommodationProvider)populateAccommodationApplication();
+  }else if(editExisting&&accommodationProvider){
+    populateAccommodationApplication();
+  }else{
     accommodationReg.reset();
     $('#accommodationOwnerName').value=currentUser?.user_metadata?.full_name||'';
     $('#accommodationEmail').value=currentUser?.email||'';
@@ -2926,7 +2981,10 @@ function openAccommodationRegistration(editExisting=false){
 $('#retryAccommodationBoot')?.addEventListener('click',()=>openAccommodationRole());
 $('#showAccommodationRegistration')?.addEventListener('click',()=>openAccommodationRegistration(false));
 $('#editAccommodationApplication')?.addEventListener('click',()=>openAccommodationRegistration(true));
-$('#cancelAccommodationRegistration')?.addEventListener('click',()=>accommodationProvider?renderAccommodationProvider():openAccommodationRole());
+$('#cancelAccommodationRegistration')?.addEventListener('click',()=>{
+  clearAccommodationDraft();
+  accommodationProvider?renderAccommodationProvider():openAccommodationRole();
+});
 $('#accommodationPendingBack')?.addEventListener('click',showRolePicker);
 $('#accommodationBackToPartnerships')?.addEventListener('click',showRolePicker);
 $('#refreshAccommodationDashboard')?.addEventListener('click',()=>loadAccommodationProvider());
@@ -2949,6 +3007,12 @@ $('#pinAccommodationLocation')?.addEventListener('click',()=>{
 $('#accommodationMapLink')?.addEventListener('change',event=>{
   const coords=accommodationCoordinatesFromText(event.currentTarget.value);
   if(coords)setAccommodationCoordinates(coords.lat,coords.lng,'Coordinates detected');
+});
+accommodationReg?.addEventListener('input',(event)=>{
+  if(event.target?.type!=='file')saveAccommodationDraft();
+});
+accommodationReg?.addEventListener('change',(event)=>{
+  if(event.target?.type!=='file')saveAccommodationDraft();
 });
 
 accommodationReg?.addEventListener('submit',async event=>{
@@ -2995,6 +3059,7 @@ accommodationReg?.addEventListener('submit',async event=>{
     });
     if(error)throw error;
     status($('#accommodationRegistrationStatus'),'Accommodation Provider application submitted to LEOGO Admin for approval.','success');
+    clearAccommodationDraft();
     await loadAccommodationProvider();
   }catch(error){
     status($('#accommodationRegistrationStatus'),error?.message||'Accommodation Provider application could not be submitted.','error');
@@ -4013,6 +4078,19 @@ client.auth.onAuthStateChange((event,s)=>{
       currentUser=s.user;
       showPasswordRecoveryScreen({valid:true,message:'Create a new password for your LEOGO account.'});
     }
+    return;
+  }
+
+  if(
+    activeRole==='accommodation' &&
+    accommodationReg &&
+    !accommodationReg.hidden &&
+    s?.user &&
+    currentUser?.id===s.user.id &&
+    ['SIGNED_IN','TOKEN_REFRESHED','USER_UPDATED','INITIAL_SESSION'].includes(event)
+  ){
+    currentUser=s.user;
+    saveAccommodationDraft();
     return;
   }
 
