@@ -117,7 +117,7 @@
     setMessage(elements.publicStatus, 'Loading approved accommodation…');
     const { data, error } = await client
       .from('accommodation_properties')
-      .select('id,property_name,property_type,county,town,public_location,description,cover_image_url,gallery_image_urls,amenities,house_rules,check_in_time,check_out_time,units:accommodation_units(id,unit_name,description,nightly_price_kes,max_guests,beds_description,inventory_count,is_active)')
+      .select('id,property_name,property_type,county,town,public_location,description,cover_image_url,gallery_image_urls,amenities,house_rules,check_in_time,check_out_time,units:accommodation_units(id,unit_name,description,nightly_price_kes,max_guests,beds_description,inventory_count,is_active,approval_status,unit_image_url,gallery_image_urls,amenities)')
       .eq('approval_status', 'approved')
       .eq('is_published', true)
       .order('created_at', { ascending: false });
@@ -128,7 +128,7 @@
     }
     properties = (data || []).map((property) => ({
       ...property,
-      units: (property.units || []).filter((unit) => unit.is_active)
+      units: (property.units || []).filter((unit) => unit.is_active && unit.approval_status === 'approved')
     }));
     applyFilters();
   };
