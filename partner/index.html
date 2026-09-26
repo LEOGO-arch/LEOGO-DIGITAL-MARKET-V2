@@ -777,7 +777,23 @@
             <input id="accommodationUnitId" type="hidden"><input id="accommodationUnitPropertyId" type="hidden">
             <div id="accommodationUnitPropertyLabel" class="restricted-notice"></div>
             <div class="form-grid">
-              <label>Room / unit name<input id="accommodationUnitName" type="text" maxlength="120" required placeholder="Standard Room, Deluxe Room, Apartment 1"></label>
+              <label>Room category<select id="accommodationUnitCategory" required>
+                <option value="">Choose room category</option>
+                <option value="Standard Room">Standard Room</option>
+                <option value="Deluxe Room">Deluxe Room</option>
+                <option value="Superior Room">Superior Room</option>
+                <option value="Executive Room">Executive Room</option>
+                <option value="Suite">Suite</option>
+                <option value="Family Room">Family Room</option>
+                <option value="Single Room">Single Room</option>
+                <option value="Double Room">Double Room</option>
+                <option value="Twin Room">Twin Room</option>
+                <option value="Apartment / Studio">Apartment / Studio</option>
+                <option value="Dormitory / Hostel Room">Dormitory / Hostel Room</option>
+                <option value="Cottage / Villa">Cottage / Villa</option>
+                <option value="Other">Other</option>
+              </select></label>
+              <label>Room / unit name<input id="accommodationUnitName" type="text" maxlength="120" required placeholder="Example: Room 101, Lake View Deluxe"></label>
               <label>Base / lowest nightly rate (KSh)<input id="accommodationUnitPrice" type="number" min="1" step="1" required readonly></label>
               <label>Maximum guests<input id="accommodationUnitGuests" type="number" min="1" max="30" value="1" required></label>
               <label>Number of identical rooms / units<input id="accommodationUnitInventory" type="number" min="1" max="500" value="1" required></label>
@@ -785,7 +801,7 @@
               <label class="wide">Description<textarea id="accommodationUnitDescription" rows="3" maxlength="1000"></textarea></label>
               <label class="wide">Room / unit amenities <small>Comma separated</small><textarea id="accommodationUnitAmenities" rows="2" maxlength="800" placeholder="Private bathroom, TV, Balcony, Air conditioning"></textarea></label>
               <div class="wide accommodation-rate-builder">
-                <div class="section-title compact"><span>RATE PLANS</span><h4>Pricing by meal plan &amp; occupancy</h4><p>Add every rate customers can choose. Example: Bed Only, Bed &amp; Breakfast Single, Bed &amp; Breakfast Double.</p></div>
+                <div class="section-title compact"><span>RATE PLANS</span><h4>Room prices</h4><p>Enter the main room prices: Bed Only, Bed &amp; Breakfast for 1 pax, and Bed &amp; Breakfast for 2 pax. You can add extra rate plans if needed.</p></div>
                 <div id="accommodationRateRows" class="accommodation-rate-rows"></div>
                 <button id="addAccommodationRate" type="button" class="secondary">+ Add Rate</button>
               </div>
