@@ -74,6 +74,7 @@
     serviceCounties: [],
     serviceSubcounties: [],
     accommodationProviders: [],
+    accommodationBookings: [],
     audit: [],
     dashboard: null,
     dashboardRange: 'today',
@@ -4365,6 +4366,22 @@
     await Promise.all([loadPremiumPlans(), loadAuditLog()]);
   };
 
+  const renderAccommodationBookings = () => {
+    const target=$('#adminAccommodationBookingBody');
+    if(!target)return;
+    const rows=state.accommodationBookings||[];
+    target.innerHTML=rows.length?rows.map((item)=>`
+      <tr class="${item.booking_status==='pending_host'?'attention-row':''}">
+        <td data-label="Booking"><strong>${escapeHtml(item.booking_reference||'Booking')}</strong><small>${formatDate(item.created_at,true)}</small></td>
+        <td data-label="Provider / Property"><strong>${escapeHtml(item.provider_name||'Accommodation Provider')}</strong><small>${escapeHtml(item.property_name||'Property')}</small></td>
+        <td data-label="Guest"><strong>${escapeHtml(item.guest_name||'—')}</strong><small>${escapeHtml(item.guest_phone||'—')}</small></td>
+        <td data-label="Stay"><strong>${escapeHtml(String(item.check_in||'—'))} → ${escapeHtml(String(item.check_out||'—'))}</strong><small>${Number(item.nights||0)} night(s) · ${Number(item.guests||0)} guest(s)</small></td>
+        <td data-label="Room / Rate"><strong>${escapeHtml(item.room_category||'Room')} · ${escapeHtml(item.room_name||'Room')}</strong><small>${escapeHtml(item.rate_name||'Room rate')}</small></td>
+        <td data-label="Total"><strong>${formatMoney(item.total_amount_kes)}</strong><small>${formatMoney(item.nightly_price_kes)}/night</small></td>
+        <td data-label="Status"><span class="status-chip">${escapeHtml(String(item.booking_status||'').replaceAll('_',' '))}</span>${item.host_response?`<small>${escapeHtml(item.host_response)}</small>`:''}</td>
+      </tr>`).join(''):'<tr><td colspan="7">No Accommodation bookings yet.</td></tr>';
+  };
+
   const renderAccommodationProviders = () => {
     const target=$('#accommodationProviderTableBody');
     if(!target)return;
@@ -4428,18 +4445,22 @@
   };
 
   const loadAccommodationSummary = async () => {
-    const [summaryResult,providersResult] = await Promise.all([
+    const [summaryResult,providersResult,bookingsResult] = await Promise.all([
       db.rpc('admin_accommodation_summary'),
-      db.rpc('admin_list_accommodation_providers')
+      db.rpc('admin_list_accommodation_providers'),
+      db.rpc('admin_list_accommodation_bookings')
     ]);
     if(summaryResult.error)throw summaryResult.error;
     if(providersResult.error)throw providersResult.error;
+    if(bookingsResult.error)throw bookingsResult.error;
     const summary=summaryResult.data||{};
     state.accommodationProviders=Array.isArray(providersResult.data)?providersResult.data:[];
+    state.accommodationBookings=Array.isArray(bookingsResult.data)?bookingsResult.data:[];
     $('#accommodationHostCount').textContent=Number(summary.hosts||0);
     $('#accommodationPropertyCount').textContent=Number(summary.properties||0);
     $('#accommodationBookingCount').textContent=Number(summary.bookings||0);
     renderAccommodationProviders();
+    renderAccommodationBookings();
   };
 
   const loadAuditLog = async () => {
@@ -4667,6 +4688,7 @@
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
     $('#refreshServiceProviders')?.addEventListener('click', () => withButtonLock($('#refreshServiceProviders'), 'Refreshing…', async () => { await Promise.all([loadServiceProviders(),loadServiceListings(),loadServiceOperations(),loadServiceReviews(),loadApprovals()]); }));
     $('#refreshAccommodationProviders')?.addEventListener('click',()=>withButtonLock($('#refreshAccommodationProviders'),'Refreshing…',async()=>{await Promise.all([loadAccommodationSummary(),loadApprovals()]);}));
+    $('#refreshAccommodationBookingsAdmin')?.addEventListener('click',()=>withButtonLock($('#refreshAccommodationBookingsAdmin'),'Refreshing…',loadAccommodationSummary));
     $('#adminServiceListingFilter')?.addEventListener('change',renderServiceListings);
     $('#serviceQuotationFeeForm')?.addEventListener('submit',saveServiceQuotationFee);
     $('#adminServiceRequestFilter')?.addEventListener('change',renderServiceRequests);
