@@ -113,7 +113,7 @@
       const image = safeImage(property.cover_image_url);
       return `<article class="accommodation-card">
         <div class="accommodation-card-cover">${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(property.property_name)}">` : '<span>🏨</span>'}<b>${escapeHtml(typeLabel(property.property_type))}</b></div>
-        <div class="accommodation-card-copy"><span>📍 ${escapeHtml(property.public_location)}, ${escapeHtml(property.town)}</span><h3>${escapeHtml(property.property_name)}</h3><p>${escapeHtml(property.description)}</p><div><strong>${minimum ? `From ${money(minimum)} / night` : 'Rooms being prepared'}</strong><small>${units.length} room type${units.length === 1 ? '' : 's'}</small></div><button type="button" data-accommodation-property="${property.id}">View Profile &amp; Book</button></div>
+        <div class="accommodation-card-copy"><span>📍 ${escapeHtml(property.public_location)}, ${escapeHtml(property.town)}</span><h3>${escapeHtml(property.property_name)}</h3><p>${escapeHtml(property.description)}</p><div><strong>${minimum ? `From ${money(minimum)} / night` : 'Rooms being prepared'}</strong><small>${units.length} room type${units.length === 1 ? '' : 's'}</small></div><button type="button" data-accommodation-property="${property.id}">View Rooms</button></div>
       </article>`;
     }).join('');
   };
