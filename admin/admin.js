@@ -42,6 +42,7 @@
     pickupStations: [],
     walletSettings: null,
     transportFinanceSettings: null,
+    accommodationFinanceSettings: null,
     premiumPlans: [],
     premiumCustomers: [],
     premiumProfiles: [],
@@ -323,6 +324,7 @@
       [loadPickupStations, () => adminHas('orders.read') || adminHas('delivery.manage')],
       [loadWalletSettings, () => adminHas('approvals.read') || adminHas('fees.manage')],
       [loadTransportFinanceSettings, () => adminHas('settings.manage') || adminHas('fees.manage') || adminHas('delivery.manage')],
+      [loadAccommodationFinanceSettings, () => adminHas('settings.manage') || adminHas('fees.manage') || adminHas('approvals.read')],
       [loadPremiumCustomers, () => adminHas('premium.read')],
       [loadPremiumProfiles, () => adminHas('premium.read')],
       [loadPremiumPlans, () => adminHas('premium.read')],
@@ -3467,6 +3469,34 @@
     });
   };
 
+  const loadAccommodationFinanceSettings = async () => {
+    const {data,error}=await db.rpc('admin_get_accommodation_finance_settings');
+    if(error)throw error;
+    state.accommodationFinanceSettings=data||{};
+    const form=$('#accommodationFinanceSettingsForm');
+    if(form){
+      form.elements.hotel_commission_percent.value=Number(data?.hotel_commission_percent??10);
+      form.elements.customer_service_fee_percent.value=Number(data?.customer_service_fee_percent??3);
+    }
+  };
+  const saveAccommodationFinanceSettings = async (event) => {
+    event.preventDefault();
+    const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const values=Object.fromEntries(new FormData(event.currentTarget).entries());
+      const {error}=await db.rpc('admin_update_accommodation_finance_settings',{
+        p_hotel_commission_percent:Number(values.hotel_commission_percent),
+        p_customer_service_fee_percent:Number(values.customer_service_fee_percent)
+      });
+      if(error){
+        setFormStatus($('#accommodationFinanceSettingsStatus'),friendlyError(error),'error');
+        return;
+      }
+      setFormStatus($('#accommodationFinanceSettingsStatus'),'Accommodation commission and customer service fee updated. New bookings will use these rates; existing bookings keep their saved rates.','success');
+      await Promise.all([loadAccommodationFinanceSettings(),loadAuditLog().catch(()=>{})]);
+    });
+  };
+
   const loadWalletSettings = async () => {
     const { data, error } = await db.from('wallet_settings').select('*').eq('id', 1).single();
     if (error) throw error;
@@ -4823,6 +4853,7 @@
     $('#businessSettingsForm').addEventListener('submit', saveBusinessSettings);
     $('#walletFeesForm').addEventListener('submit', saveWalletSettings);
     $('#transportFinanceSettingsForm')?.addEventListener('submit', saveTransportFinanceSettings);
+    $('#accommodationFinanceSettingsForm')?.addEventListener('submit', saveAccommodationFinanceSettings);
     $('#addPaymentAccount').addEventListener('click', () => openPaymentModal());
     $('#paymentAccountType').addEventListener('change', togglePaymentFields);
     $('#paymentAccountForm').addEventListener('submit', savePaymentAccount);
