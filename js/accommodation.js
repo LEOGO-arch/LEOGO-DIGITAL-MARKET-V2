@@ -58,6 +58,7 @@
   let selectedProperty = null;
   let selectedUnit = null;
   let currentUser = null;
+  let accommodationFinanceSettings = { hotel_commission_percent: 10, customer_service_fee_percent: 3 };
   let submissionKey = crypto.randomUUID();
 
   const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (character) => ({
@@ -256,6 +257,16 @@
     elements.bookingForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const loadAccommodationFinanceSettings = async () => {
+    const { data, error } = await client.rpc('get_accommodation_finance_settings');
+    if (!error && data) {
+      accommodationFinanceSettings = {
+        hotel_commission_percent: Number(data.hotel_commission_percent ?? 10),
+        customer_service_fee_percent: Number(data.customer_service_fee_percent ?? 3)
+      };
+    }
+  };
+
   const updateRateOptions = () => {
     const unit = selectedUnit || selectedProperty?.units?.find((item) => item.id === elements.unit?.value);
     if (!elements.rate) return;
@@ -277,7 +288,11 @@
       return;
     }
     const nights = Math.round((new Date(`${checkOut}T12:00:00Z`) - new Date(`${checkIn}T12:00:00Z`)) / 86400000);
-    setMessage(elements.price, `${escapeHtml(rate.rate_name)} · ${nights} night${nights === 1 ? '' : 's'} × ${money(rate.nightly_price_kes)} = ${money(nights * Number(rate.nightly_price_kes))}.`);
+    const hotelAmount = nights * Number(rate.nightly_price_kes);
+    const servicePercent = Number(accommodationFinanceSettings.customer_service_fee_percent || 0);
+    const serviceFee = Math.round(hotelAmount * servicePercent / 100);
+    const customerTotal = hotelAmount + serviceFee;
+    setMessage(elements.price, `${escapeHtml(rate.rate_name)} · Room ${money(hotelAmount)} + LEOGO service fee ${servicePercent}% (${money(serviceFee)}) = ${money(customerTotal)} total.`);
   };
 
   const closeModal = () => {
@@ -346,7 +361,7 @@
     }
     elements.bookingList.innerHTML = bookings.map((booking) => `<article class="accommodation-booking-card">
       <div class="accommodation-booking-card-head"><div><span>${escapeHtml(booking.booking_reference)}</span><h4>${escapeHtml(booking.property_name_snapshot)}</h4><small>${escapeHtml(booking.unit_name_snapshot)}</small></div><b class="status-${escapeHtml(booking.booking_status)}">${escapeHtml(statusLabel(booking.booking_status))}</b></div>
-      <div class="accommodation-booking-facts"><span><small>Stay</small><strong>${escapeHtml(kenyaDate(booking.check_in))} – ${escapeHtml(kenyaDate(booking.check_out))}</strong></span><span><small>Guests</small><strong>${booking.guests}</strong></span><span><small>Nights</small><strong>${booking.nights}</strong></span><span><small>Estimated total</small><strong>${money(booking.total_amount_kes)}</strong></span></div>
+      <div class="accommodation-booking-facts"><span><small>Stay</small><strong>${escapeHtml(kenyaDate(booking.check_in))} – ${escapeHtml(kenyaDate(booking.check_out))}</strong></span><span><small>Guests</small><strong>${booking.guests}</strong></span><span><small>Room charge</small><strong>${money(booking.hotel_booking_amount_kes ?? booking.total_amount_kes)}</strong></span><span><small>LEOGO service fee (${Number(booking.customer_service_fee_percent||0)}%)</small><strong>${money(booking.customer_service_fee_kes||0)}</strong></span><span><small>Customer total</small><strong>${money(booking.customer_total_kes ?? booking.total_amount_kes)}</strong></span></div>
       ${booking.host_response ? `<p>Property response: ${escapeHtml(booking.host_response)}</p>` : '<p>Waiting for the property to review this request.</p>'}
     </article>`).join('');
   };
@@ -359,7 +374,7 @@
     }
     const { data, error } = await client
       .from('accommodation_bookings')
-      .select('id,booking_reference,property_name_snapshot,unit_name_snapshot,check_in,check_out,nights,guests,total_amount_kes,booking_status,host_response,created_at')
+      .select('id,booking_reference,property_name_snapshot,unit_name_snapshot,check_in,check_out,nights,guests,hotel_booking_amount_kes,customer_service_fee_percent,customer_service_fee_kes,customer_total_kes,total_amount_kes,booking_status,host_response,created_at')
       .eq('customer_id', currentUser.id)
       .order('created_at', { ascending: false });
     if (error) {
@@ -441,7 +456,7 @@
       return;
     }
     submissionKey = crypto.randomUUID();
-    setMessage(elements.bookingStatus, `Booking ${data.booking_reference} was sent to the property. It is awaiting acceptance.`, 'success');
+    setMessage(elements.bookingStatus, `Booking ${data.booking_reference} was sent to the property. Customer total: ${money(data.customer_total_kes ?? data.total_amount_kes)}. It is awaiting acceptance.`, 'success');
     await loadBookings(auth.getUser());
   });
 
@@ -451,5 +466,8 @@
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeModal(); });
   document.addEventListener('leogo:authchange', (event) => loadBookings(event.detail?.user || null));
   client.auth.getSession().then(({ data }) => loadBookings(data.session?.user || null));
+  loadAccommodationFinanceSettings().finally(() => {
+    updatePrice();
+  });
   loadProperties();
 })();
