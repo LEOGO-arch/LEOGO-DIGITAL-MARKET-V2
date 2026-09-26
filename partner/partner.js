@@ -43,6 +43,7 @@ let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_T
 let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],providerSettlementRequests=[],providerSettlements=[],providerEarningsReport=null,editingProviderService=null;
 let transportProvider=null,transportVehicles=[],transportJobs=[],transportNotifications=[],transportSettlementAccounts=[],transportSettlementRequests=[],transportSettlements=[],transportEarningsReport=null,editingTransportVehicle=null,transportBasePinOnly=false;
 let accommodationProvider=null,accommodationNotifications=[],accommodationCatalogue=[],accommodationBookings=[];
+let premiumProfile=null,premiumNotifications=[];
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -55,7 +56,7 @@ const applyInitialServiceAreas=()=>{
   kenyaSubcounties=[];
 };
 
-const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),providerShell=$('#providerShell'),transportShell=$('#transportShell'),accommodationShell=$('#accommodationShell'),logout=$('#partnerLogout'),hero=$('.hero');
+const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),providerShell=$('#providerShell'),transportShell=$('#transportShell'),premiumShell=$('#premiumShell'),accommodationShell=$('#accommodationShell'),logout=$('#partnerLogout'),hero=$('.hero');
 const partnerNotificationBell=$('#partnerNotificationBell'),partnerNotificationBadge=$('#partnerNotificationBadge');
 const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
@@ -171,6 +172,7 @@ function showPasswordRecoveryScreen({valid=false,message='',type=''}={}){
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
   if(hero)hero.hidden=false;
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
@@ -319,6 +321,7 @@ resetUpdateForm.addEventListener('submit',async e=>{
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
   showLoginForm();
   status($('#partnerAuthStatus'),'Password updated successfully. Sign in with your new password.','success');
@@ -349,6 +352,7 @@ $$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   if(button.dataset.roleTarget==='seller')openSellerRole();
   if(button.dataset.roleTarget==='service_provider')openProviderRole();
   if(button.dataset.roleTarget==='transport')openTransportRole();
+  if(button.dataset.roleTarget==='premium')openPremiumRole();
   if(button.dataset.roleTarget==='accommodation')openAccommodationRole();
 }));
 
@@ -577,6 +581,7 @@ function showRolePicker(){
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
   authShell.hidden=true;
   if(hero)hero.hidden=false;
@@ -588,6 +593,7 @@ async function openSellerRole(){
   sellerShell.hidden=false;
   if(providerShell)providerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
   if(hero)hero.hidden=true;
 
@@ -1975,6 +1981,7 @@ partnerNotificationBell?.addEventListener('click',()=>{
   if(activeRole==='seller')openSellerView('notifications');
   else if(activeRole==='service_provider')openProviderView('notifications');
   else if(activeRole==='transport')openTransportView('notifications');
+  else if(activeRole==='premium')openPremiumView('notifications');
   else if(activeRole==='accommodation')openAccommodationView('notifications');
 });
 
@@ -2164,6 +2171,7 @@ async function openProviderRole(){
   rolePicker.hidden=true;
   sellerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
   providerShell.hidden=false;
   authShell.hidden=true;
@@ -2662,6 +2670,227 @@ $('#markAllProviderNotificationsRead')?.addEventListener('click',async()=>{
 });
 
 
+
+
+/* PREMIUM PARTNER MODULE — reuses the existing Premium Profile approval records */
+const premiumBootStatus=$('#premiumBootStatus');
+const premiumOnboarding=$('#premiumOnboarding');
+const premiumReg=$('#premiumRegistrationForm');
+const premiumPendingArea=$('#premiumPendingArea');
+const premiumDashboard=$('#premiumDashboard');
+const premiumSidebar=$('#premiumSidebar');
+
+function showPremiumBoot(message='Loading your Premium Profile…',isError=false){
+  if(!premiumBootStatus)return;
+  premiumBootStatus.hidden=false;
+  $('#premiumBootTitle').textContent=isError?'Premium Profile needs attention':'Opening your Premium Profile…';
+  $('#premiumBootMessage').textContent=message;
+  const spinner=$('.seller-boot-spinner',premiumBootStatus);if(spinner)spinner.hidden=isError;
+  $('#retryPremiumBoot').hidden=!isError;
+}
+function hidePremiumBoot(){if(premiumBootStatus)premiumBootStatus.hidden=true;}
+function closePremiumSidebar(){premiumSidebar?.classList.remove('open');$('#premiumSidebarScrim')?.classList.remove('open');}
+function premiumStatusCopy(value){
+  if(value==='submitted')return 'Submitted to LEOGO Admin and waiting for review.';
+  if(value==='under_review')return 'LEOGO Admin is reviewing your Premium Profile application.';
+  if(value==='changes_requested')return 'LEOGO Admin requested corrections. Update and resubmit your Premium Profile.';
+  if(value==='approved')return 'Approved. You can manage your public profile and availability.';
+  if(value==='rejected')return 'This application was not approved. You may correct it and resubmit.';
+  if(value==='suspended')return 'This Premium Profile is currently suspended. Contact LEOGO Admin.';
+  return 'Create your Premium Profile application.';
+}
+function premiumViewDescription(view){
+  return {overview:'Manage Premium Profile status and availability.',requests:'Incoming Premium Customer meetup requests.',profile:'Your approved public Premium Profile.',notifications:'Admin decisions and Premium activity.'}[view]||'Premium Partner Portal';
+}
+function openPremiumView(view='overview'){
+  const allowed=['overview','requests','profile','notifications'];
+  const resolved=allowed.includes(view)?view:'overview';
+  $('[data-premium-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.premiumContent===resolved));
+  $('[data-premium-view]').forEach(button=>button.classList.toggle('active',button.dataset.premiumView===resolved));
+  if($('#premiumViewDescription'))$('#premiumViewDescription').textContent=premiumViewDescription(resolved);
+  if(resolved==='notifications')loadPremiumNotifications().catch(console.warn);
+  closePremiumSidebar();
+}
+async function uploadPremiumPartnerFile(bucket,file,maxBytes){
+  if(!file)return null;
+  if(file.size>maxBytes)throw new Error('Selected file is too large.');
+  const allowed=['image/jpeg','image/png','image/webp','application/pdf'];
+  if(!allowed.includes(file.type))throw new Error('Choose JPG, PNG, WEBP or PDF as allowed.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':file.type==='application/pdf'?'pdf':'jpg';
+  const path=currentUser.id+'/'+Date.now()+'-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from(bucket).upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+}
+function populatePremiumApplication(){
+  if(!premiumProfile?.profile)return;
+  const p=premiumProfile.profile,d=premiumProfile.details||{},i=premiumProfile.identity||{};
+  $('#premiumPartnerDisplayName').value=p.display_name||'';
+  $('#premiumPartnerGender').value=p.gender||'';
+  $('#premiumPartnerAge').value=d.age||'';
+  $('#premiumPartnerOrientation').value=d.orientation||'';
+  $('#premiumPartnerLocation').value=p.general_location||'';
+  $('#premiumPartnerAbout').value=p.about||'';
+  $('#premiumPartnerRealName').value=i.real_name||'';
+  $('#premiumPartnerIdNumber').value=i.id_number||'';
+  $('#premiumPartnerPhone').value=i.phone||'';
+  $('#premiumPartnerAgeConsent').checked=Boolean(i.age_consent);
+  $('#premiumPartnerResponsibilityConsent').checked=Boolean(i.responsibility_consent);
+  $('#premiumPartnerPrivacyConsent').checked=Boolean(i.privacy_consent);
+  $('#premiumPartnerProfilePhoto').dataset.existingPath=p.profile_picture_path||'';
+  $('#premiumPartnerIdDocument').dataset.existingPath=i.id_document_path||'';
+  $('#premiumPartnerProfilePhoto').required=!p.profile_picture_path;
+  $('#premiumPartnerIdDocument').required=!i.id_document_path;
+}
+async function premiumSignedUrl(path){
+  if(!path)return '';
+  const {data}=await client.storage.from('premium-profile-media').createSignedUrl(path,900);
+  return data?.signedUrl||'';
+}
+async function renderPremiumProfile(){
+  hidePremiumBoot();
+  premiumOnboarding.hidden=true;premiumReg.hidden=true;premiumPendingArea.hidden=true;premiumDashboard.hidden=true;
+  const p=premiumProfile?.profile;
+  if(!p){premiumOnboarding.hidden=false;return;}
+  const state=String(p.application_status||'draft'),d=premiumProfile.details||{},i=premiumProfile.identity||{};
+  const rows=[['Display name',p.display_name],['Gender',p.gender],['Age',d.age],['Orientation',d.orientation],['General location',p.general_location],['Application status',state.replaceAll('_',' ')],['Real name (private)',i.real_name],['Phone (private)',i.phone]];
+  if(state==='approved'){
+    premiumDashboard.hidden=false;
+    $('#premiumSidebarName').textContent=p.display_name||'Premium Profile';
+    $('#premiumDashboardName').textContent=p.display_name||'Premium Profile';
+    $('#premiumSidebarStatus').textContent='APPROVED';
+    $('#premiumApprovalMetric').textContent='Approved';
+    $('#premiumAvailabilityMetric').textContent=p.is_available?'Available':'Unavailable';
+    $('#premiumAvailabilityToggle').checked=Boolean(p.is_available);
+    const photo=await premiumSignedUrl(p.profile_picture_path);
+    const gallery=await Promise.all((premiumProfile.gallery||[]).map(async item=>({...item,url:await premiumSignedUrl(item.media_path)})));
+    $('#premiumPublicProfileSummary').innerHTML=
+      '<div class="premium-profile-preview"><div class="premium-profile-preview-photo">'+(photo?'<img src="'+escapeHtml(photo)+'" alt="">':'<span>👤</span>')+'</div><div><span>VERIFIED PREMIUM PROFILE</span><h3>'+escapeHtml(p.display_name)+'</h3><p>'+escapeHtml(p.gender)+' · '+escapeHtml(String(d.age||''))+' · '+escapeHtml(d.orientation||'')+'</p><p>📍 '+escapeHtml(p.general_location||'')+'</p><p>'+escapeHtml(p.about||'')+'</p></div></div>'+
+      (gallery.length?'<div class="premium-gallery-preview">'+gallery.map(item=>item.url?'<img src="'+escapeHtml(item.url)+'" alt="">':'').join('')+'</div>':'');
+    openPremiumView('overview');
+  }else{
+    premiumPendingArea.hidden=false;
+    $('#premiumPendingTitle').textContent=state==='changes_requested'?'Premium Profile corrections required':state==='rejected'?'Premium Profile not approved':state==='under_review'?'Premium Profile under review':'Premium Profile application submitted';
+    $('#premiumPendingMessage').textContent=premiumStatusCopy(state);
+    $('#premiumApplicationSummary').innerHTML=rows.map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value??'—')+'</strong></div>').join('');
+    $('#editPremiumApplication').hidden=!['changes_requested','rejected','draft'].includes(state);
+  }
+}
+async function loadPremiumNotifications(){
+  if(!currentUser)return;
+  const {data,error}=await client.from('partner_notifications').select('*').eq('user_id',currentUser.id).eq('partner_type','premium').order('created_at',{ascending:false}).limit(100);
+  if(error)throw error;
+  premiumNotifications=data||[];
+  const unread=premiumNotifications.filter(item=>!item.read_at).length;
+  for(const badge of [$('#premiumNotificationBadge'),$('#premiumHeadNotificationBadge')]){
+    if(badge){badge.hidden=!unread;badge.textContent=unread>99?'99+':String(unread);}
+  }
+  updateSharedPartnerNotificationBadge(unread);
+  const target=$('#premiumNotificationList');if(!target)return;
+  target.innerHTML=premiumNotifications.length?premiumNotifications.map(item=>
+    '<article class="seller-notification-item '+(item.read_at?'':'unread')+'"><div><strong>'+escapeHtml(item.title||'Premium update')+'</strong><p>'+escapeHtml(item.message||'')+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div><div class="seller-notification-actions">'+
+    (item.action_view?'<button type="button" data-open-premium-notification="'+escapeHtml(item.id)+'">Open</button>':'')+
+    (item.read_at?'':'<button class="secondary" type="button" data-mark-premium-notification="'+escapeHtml(item.id)+'">Mark read</button>')+
+    '</div></article>'
+  ).join(''):'<div class="empty-card">No Premium notifications yet.</div>';
+  $('[data-mark-premium-notification]').forEach(button=>button.addEventListener('click',async()=>{const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markPremiumNotification});if(!error)await loadPremiumNotifications();}));
+  $('[data-open-premium-notification]').forEach(button=>button.addEventListener('click',async()=>{await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.openPremiumNotification});openPremiumView('overview');await loadPremiumNotifications();}));
+}
+async function loadPremiumProfile(){
+  if(!currentUser)return;
+  showPremiumBoot();
+  try{
+    const {data,error}=await client.rpc('premium_partner_get_own_profile');
+    if(error)throw error;
+    premiumProfile=data||null;
+    await renderPremiumProfile();
+    if(premiumProfile)await loadPremiumNotifications().catch(()=>{});
+  }catch(error){showPremiumBoot(error?.message||'Premium Profile could not load.',true);}
+}
+async function openPremiumRole(){
+  activeRole='premium';
+  if(partnerNotificationBell)partnerNotificationBell.hidden=false;
+  rolePicker.hidden=true;sellerShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;
+  if(transportShell)transportShell.hidden=true;
+  if(accommodationShell)accommodationShell.hidden=true;
+  premiumShell.hidden=false;authShell.hidden=true;if(hero)hero.hidden=true;
+  await loadPremiumProfile();
+}
+function openPremiumRegistration(editExisting=false){
+  premiumOnboarding.hidden=true;premiumPendingArea.hidden=true;premiumDashboard.hidden=true;premiumReg.hidden=false;
+  status($('#premiumRegistrationStatus'),'');
+  if(editExisting&&premiumProfile)populatePremiumApplication();
+  else{
+    premiumReg.reset();
+    $('#premiumPartnerRealName').value=currentUser?.user_metadata?.full_name||'';
+    $('#premiumPartnerProfilePhoto').required=true;$('#premiumPartnerIdDocument').required=true;
+  }
+  premiumReg.scrollIntoView({behavior:'smooth',block:'start'});
+}
+premiumReg?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const button=event.submitter,original=button?.textContent||'Submit';
+  if(button){button.disabled=true;button.textContent='Submitting…';}
+  try{
+    const profileFile=$('#premiumPartnerProfilePhoto').files?.[0];
+    const idFile=$('#premiumPartnerIdDocument').files?.[0];
+    const galleryFiles=[...($('#premiumPartnerGallery').files||[])];
+    if(galleryFiles.length>3)throw new Error('Choose a maximum of 3 gallery photos.');
+    let profilePath=$('#premiumPartnerProfilePhoto').dataset.existingPath||'';
+    let idPath=$('#premiumPartnerIdDocument').dataset.existingPath||'';
+    if(profileFile)profilePath=await uploadPremiumPartnerFile('premium-profile-media',profileFile,5*1024*1024);
+    if(idFile)idPath=await uploadPremiumPartnerFile('premium-verification',idFile,8*1024*1024);
+    const existingGallery=(premiumProfile?.gallery||[]).map(item=>item.media_path);
+    const galleryPaths=galleryFiles.length?await Promise.all(galleryFiles.map(file=>uploadPremiumPartnerFile('premium-profile-media',file,5*1024*1024))):existingGallery;
+    const {data,error}=await client.rpc('submit_premium_partner_profile',{
+      p_display_name:$('#premiumPartnerDisplayName').value.trim(),
+      p_profile_picture_path:profilePath,
+      p_gender:$('#premiumPartnerGender').value.trim(),
+      p_general_location:$('#premiumPartnerLocation').value.trim(),
+      p_about:$('#premiumPartnerAbout').value.trim(),
+      p_orientation:$('#premiumPartnerOrientation').value.trim(),
+      p_age:Number($('#premiumPartnerAge').value),
+      p_real_name:$('#premiumPartnerRealName').value.trim(),
+      p_id_number:$('#premiumPartnerIdNumber').value.trim(),
+      p_phone:normalisePhone($('#premiumPartnerPhone').value),
+      p_id_document_path:idPath,
+      p_gallery_paths:galleryPaths,
+      p_age_consent:$('#premiumPartnerAgeConsent').checked,
+      p_responsibility_consent:$('#premiumPartnerResponsibilityConsent').checked,
+      p_privacy_consent:$('#premiumPartnerPrivacyConsent').checked
+    });
+    if(error)throw error;
+    premiumProfile=data;
+    status($('#premiumRegistrationStatus'),'Premium Profile submitted to LEOGO Admin for approval.','success');
+    await renderPremiumProfile();await loadPremiumNotifications().catch(()=>{});
+  }catch(error){status($('#premiumRegistrationStatus'),error?.message||'Premium Profile application could not be submitted.','error');}
+  finally{if(button){button.disabled=false;button.textContent=original;}}
+});
+$('#showPremiumRegistration')?.addEventListener('click',()=>openPremiumRegistration(false));
+$('#editPremiumApplication')?.addEventListener('click',()=>openPremiumRegistration(true));
+$('#cancelPremiumRegistration')?.addEventListener('click',()=>premiumProfile?renderPremiumProfile():openPremiumRole());
+$('#premiumPendingBack')?.addEventListener('click',showRolePicker);
+$('#premiumBackToPartnerships')?.addEventListener('click',showRolePicker);
+$('#retryPremiumBoot')?.addEventListener('click',openPremiumRole);
+$('#refreshPremiumDashboard')?.addEventListener('click',loadPremiumProfile);
+$('#premiumSidebarToggle')?.addEventListener('click',()=>{premiumSidebar?.classList.add('open');$('#premiumSidebarScrim')?.classList.add('open');});
+$('#premiumSidebarScrim')?.addEventListener('click',closePremiumSidebar);
+$('[data-premium-view]').forEach(button=>button.addEventListener('click',()=>openPremiumView(button.dataset.premiumView)));
+$('#premiumNotificationsButton')?.addEventListener('click',()=>openPremiumView('notifications'));
+$('#refreshPremiumNotifications')?.addEventListener('click',()=>loadPremiumNotifications().catch(console.warn));
+$('#markAllPremiumNotificationsRead')?.addEventListener('click',async()=>{const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'premium'});if(!error)await loadPremiumNotifications();});
+$('#premiumAvailabilityToggle')?.addEventListener('change',async(event)=>{
+  const desired=event.target.checked;event.target.disabled=true;
+  try{
+    const {error}=await client.rpc('premium_partner_set_availability',{p_available:desired});
+    if(error)throw error;
+    if(premiumProfile?.profile)premiumProfile.profile.is_available=desired;
+    $('#premiumAvailabilityMetric').textContent=desired?'Available':'Unavailable';
+    status($('#premiumAvailabilityStatus'),desired?'Your approved profile is now available to Premium Customers.':'Your profile is now hidden from new Premium requests.','success');
+  }catch(error){event.target.checked=!desired;status($('#premiumAvailabilityStatus'),error?.message||'Availability could not be updated.','error');}
+  finally{event.target.disabled=false;}
+});
 
 /* ACCOMMODATION PROVIDER MODULE — Phase A: registration, Admin approval and approved dashboard shell */
 const accommodationBootStatus=$('#accommodationBootStatus');
@@ -4149,6 +4378,7 @@ async function openTransportRole(){
   rolePicker.hidden=true;
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
+  if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
   transportShell.hidden=false;
   authShell.hidden=true;
@@ -4753,11 +4983,13 @@ async function handleSession(session){
   if(!currentUser){
     seller=null;products=[];sellerEarningsReport=null;provider=null;providerServices=[];providerNotifications=[];providerJobs=[];providerSettlementAccounts=[];providerSettlementRequests=[];providerSettlements=[];providerEarningsReport=null;
     transportProvider=null;transportVehicles=[];transportJobs=[];transportNotifications=[];editingTransportVehicle=null;
+    premiumProfile=null;premiumNotifications=[];
     accommodationProvider=null;accommodationNotifications=[];activeRole='';
     authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;
     if(providerShell)providerShell.hidden=true;
     if(transportShell)transportShell.hidden=true;
-    if(accommodationShell)accommodationShell.hidden=true;
+    if(premiumShell)premiumShell.hidden=true;
+  if(accommodationShell)accommodationShell.hidden=true;
     if(hero)hero.hidden=false;
     return;
   }
@@ -4765,12 +4997,14 @@ async function handleSession(session){
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
+  if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
   rolePicker.hidden=false;
   if(hero)hero.hidden=false;
   if(activeRole==='seller')await openSellerRole();
   if(activeRole==='service_provider')await openProviderRole();
   if(activeRole==='transport')await openTransportRole();
+  if(activeRole==='premium')await openPremiumRole();
   if(activeRole==='accommodation')await openAccommodationRole();
 }
 
@@ -4789,6 +5023,9 @@ window.addEventListener('error',event=>{
 window.setInterval(()=>{
   if(activeRole==='accommodation'&&currentUser){
     loadAccommodationNotifications().catch(()=>{});
+  }
+  if(activeRole==='premium'&&currentUser){
+    loadPremiumNotifications().catch(()=>{});
   }
 },30000);
 
