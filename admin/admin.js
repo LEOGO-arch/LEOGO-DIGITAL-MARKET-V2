@@ -4407,7 +4407,7 @@
         <td data-label="Guest"><strong>${escapeHtml(item.guest_name||'—')}</strong><small>${escapeHtml(item.guest_phone||'—')}</small></td>
         <td data-label="Stay"><strong>${escapeHtml(String(item.check_in||'—'))} → ${escapeHtml(String(item.check_out||'—'))}</strong><small>${Number(item.nights||0)} night(s) · ${Number(item.guests||0)} guest(s)</small></td>
         <td data-label="Room / Rate"><strong>${escapeHtml(item.room_category||'Room')} · ${escapeHtml(item.room_name||'Room')}</strong><small>${escapeHtml(item.rate_name||'Room rate')}</small></td>
-        <td data-label="Total"><strong>${formatMoney(item.total_amount_kes)}</strong><small>${formatMoney(item.nightly_price_kes)}/night</small></td>
+        <td data-label="Financials"><strong>Customer: ${formatMoney(item.customer_total_kes ?? item.total_amount_kes)}</strong><small>Hotel base ${formatMoney(item.hotel_booking_amount_kes ?? item.total_amount_kes)} · Hotel commission ${Number(item.hotel_commission_percent||0)}% = ${formatMoney(item.hotel_commission_kes||0)} · Service fee ${Number(item.customer_service_fee_percent||0)}% = ${formatMoney(item.customer_service_fee_kes||0)} · LEOGO ${formatMoney(item.leogo_revenue_kes||0)} · Hotel net ${formatMoney(item.hotel_net_amount_kes ?? item.hotel_booking_amount_kes ?? item.total_amount_kes)}</small></td>
         <td data-label="Status"><span class="status-chip">${escapeHtml(String(item.booking_status||'').replaceAll('_',' '))}</span>${item.host_response?`<small>${escapeHtml(item.host_response)}</small>`:''}</td>
       </tr>`).join(''):'<tr><td colspan="7">No Accommodation bookings yet.</td></tr>';
   };
