@@ -577,8 +577,8 @@
         <td class="approval-action-cell" data-label="Action"><button class="approval-review-button" type="button" data-review-id="${escapeHtml(item.record_id)}" data-review-kind="${escapeHtml(item.kind)}">Review →</button></td>
       </tr>`;
     }).join('') : '<tr><td colspan="8">No pending requests match this queue.</td></tr>';
-    $$('[data-review-id]', $$('#approvalQueue')).forEach((button) => button.addEventListener('click', () => openApproval(button.dataset.reviewKind, button.dataset.reviewId)));
-    $$('[data-approval-select]', $$('#approvalQueue')).forEach((input) => input.addEventListener('change', () => {
+    $('[data-review-id]', $('#approvalQueue')).forEach((button) => button.addEventListener('click', () => openApproval(button.dataset.reviewKind, button.dataset.reviewId)));
+    $('[data-approval-select]', $('#approvalQueue')).forEach((input) => input.addEventListener('change', () => {
       input.checked ? state.selectedApprovals.add(input.dataset.approvalSelect) : state.selectedApprovals.delete(input.dataset.approvalSelect);
       updateApprovalSelection(visible);
     }));
