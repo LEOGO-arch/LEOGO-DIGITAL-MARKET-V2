@@ -118,7 +118,7 @@
 </section>
 <section class="accommodation-marketplace" id="accommodation">
   <div class="accommodation-shell">
-    <div class="accommodation-head"><div><span>STAY WITH LEOGO</span><h2>🏨 Hotels, Airbnbs, Guest Houses &amp; Lodges</h2><p>Browse approved accommodation profiles, compare available rooms and send a booking request directly to the property.</p></div><button type="button" data-open-customer-view="accommodation">My Bookings</button></div>
+    <div class="accommodation-head"><div><span>STAY WITH LEOGO</span><h2>🏨 Hotels, Airbnbs, Guest Houses &amp; Lodges</h2><p>Browse approved accommodation, open each property’s room catalogue, compare room photos, rates and ratings, then book the room that suits you.</p></div><button type="button" data-open-customer-view="accommodation">My Bookings</button></div>
     <form class="accommodation-search" id="accommodationSearchForm">
       <label><span>Destination</span><input id="accommodationLocationFilter" type="search" placeholder="County, town or area"></label>
       <label><span>Property type</span><select id="accommodationTypeFilter"><option value="">All accommodation</option><option value="hotel">Hotel</option><option value="airbnb">Airbnb</option><option value="guest_house">Guest House</option><option value="lodge">Lodge</option><option value="apartment">Apartment</option><option value="resort">Resort</option><option value="cottage">Cottage</option><option value="hostel">Hostel</option><option value="villa">Villa</option><option value="bedsitter">Bedsitter</option><option value="other">Other</option></select></label>
@@ -912,10 +912,35 @@
       <div class="accommodation-profile-cover" id="accommodationProfileCover"><span>🏨</span></div>
       <div class="accommodation-profile-copy"><span id="accommodationProfileType"></span><h3 id="accommodationProfileName"></h3><p id="accommodationProfileLocation"></p><p id="accommodationProfileDescription"></p><div class="accommodation-amenities" id="accommodationProfileAmenities"></div><div class="accommodation-times"><span>Check-in <b id="accommodationCheckInTime">—</b></span><span>Check-out <b id="accommodationCheckOutTime">—</b></span></div></div>
     </div>
-    <form class="accommodation-booking-form" id="accommodationBookingForm">
-      <h3>Send Booking Request</h3><p>The selected property will receive this request. Your phone number is not shown in public listings.</p>
+
+    <section class="accommodation-room-catalogue-section">
+      <div class="accommodation-room-catalogue-head"><div><span>ROOM CATALOGUE</span><h3>Choose a room type</h3><p>View room photos, rates, amenities and customer ratings before starting a booking.</p></div></div>
+      <div class="accommodation-room-catalogue" id="accommodationRoomCatalogue"></div>
+    </section>
+
+    <section class="accommodation-room-detail" id="accommodationRoomDetail" hidden>
+      <div class="accommodation-room-detail-gallery">
+        <div class="accommodation-room-detail-main" id="accommodationRoomMainPhoto"><span>🛏️</span></div>
+        <div class="accommodation-room-gallery" id="accommodationRoomGallery"></div>
+      </div>
+      <div class="accommodation-room-detail-copy">
+        <span id="accommodationRoomCategory">ROOM</span>
+        <h3 id="accommodationRoomName">Room</h3>
+        <div class="accommodation-room-rating" id="accommodationRoomRating">☆ New · No ratings yet</div>
+        <p id="accommodationRoomDescription"></p>
+        <div class="accommodation-room-facts" id="accommodationRoomFacts"></div>
+        <div class="accommodation-amenities" id="accommodationRoomAmenities"></div>
+        <div class="accommodation-room-rates"><h4>Available rates</h4><div id="accommodationRoomRates"></div></div>
+        <div class="accommodation-room-reviews"><h4>Room ratings &amp; reviews</h4><div id="accommodationRoomReviews"></div></div>
+        <button type="button" class="accommodation-book-room-button" id="accommodationBookSelectedRoom">Book This Room</button>
+      </div>
+    </section>
+
+    <form class="accommodation-booking-form" id="accommodationBookingForm" hidden>
+      <h3>Book Selected Room</h3><p>Confirm the rate, dates and guest details below. The property will receive your request for acceptance.</p>
+      <div class="accommodation-selected-room-summary" id="accommodationSelectedRoomSummary"></div>
+      <select id="accommodationUnit" required hidden></select>
       <div class="accommodation-form-grid">
-        <label><span>Room or unit</span><select id="accommodationUnit" required></select></label>
         <label><span>Rate plan</span><select id="accommodationRate" required></select></label>
         <label><span>Guests</span><input id="accommodationBookingGuests" type="number" min="1" max="30" value="1" required></label>
         <label><span>Check-in</span><input id="accommodationBookingCheckIn" type="date" required></label>
@@ -924,7 +949,7 @@
         <label><span>Phone number</span><input id="accommodationGuestPhone" type="tel" placeholder="+2547XXXXXXXX" autocomplete="tel" required></label>
         <label class="accommodation-form-wide"><span>Special requests <small>(optional)</small></span><textarea id="accommodationSpecialRequests" rows="3" maxlength="1000" placeholder="Arrival time, accessibility needs or another request"></textarea></label>
       </div>
-      <div class="accommodation-price-preview" id="accommodationPricePreview">Choose dates and a room to see the estimated stay total.</div>
+      <div class="accommodation-price-preview" id="accommodationPricePreview">Choose a rate and dates to see the estimated stay total.</div>
       <div class="accommodation-booking-status" id="accommodationBookingStatus" role="status" aria-live="polite"></div>
       <button type="submit">Send Request to Property</button>
     </form>
@@ -943,4 +968,4 @@
     </div>
   </div>
 </section>
-<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=compact-provider-reviews-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=accommodation-rates-final-1" defer></script><script src="js/wallet.js?v=pickup-station-1" defer></script><script src="js/premium.js?v=pickup-station-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
+<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=compact-provider-reviews-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=room-catalogue-1" defer></script><script src="js/wallet.js?v=pickup-station-1" defer></script><script src="js/premium.js?v=pickup-station-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
