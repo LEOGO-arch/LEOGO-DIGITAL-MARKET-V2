@@ -684,7 +684,10 @@
           <div class="card-head"><div><span>ACCOMMODATION PROVIDERS</span><h3>Provider Accounts</h3><p>View application details after approval, inspect verification records and suspend or reactivate provider accounts.</p></div><button id="refreshAccommodationProviders" class="primary-button" type="button">↻ Refresh Providers</button></div>
           <div class="responsive-table"><table><thead><tr><th>Provider</th><th>Contact</th><th>Location</th><th>Status</th><th>Properties</th><th>Bookings</th><th>Action</th></tr></thead><tbody id="accommodationProviderTableBody"><tr><td colspan="7">Loading Accommodation Providers…</td></tr></tbody></table></div>
         </section>
-        <div class="reserved-module slim"><span>🏨</span><h3>Provider registration is now active</h3><p>Next stage: property and room/unit creation, listing approval, availability and booking management.</p></div>
+        <section class="content-card">
+          <div class="card-head"><div><span>ACCOMMODATION BOOKINGS</span><h3>Customer Booking Requests</h3><p>All customer hotel and accommodation requests. Pending requests remain visible until the property responds.</p></div><button id="refreshAccommodationBookingsAdmin" class="primary-button" type="button">↻ Refresh Bookings</button></div>
+          <div class="responsive-table"><table><thead><tr><th>Booking</th><th>Provider / Property</th><th>Guest</th><th>Stay</th><th>Room / Rate</th><th>Total</th><th>Status</th></tr></thead><tbody id="adminAccommodationBookingBody"><tr><td colspan="7">Loading Accommodation Bookings…</td></tr></tbody></table></div>
+        </section>
       </section>
 
       <section class="admin-panel" data-admin-panel="loyalty"><div class="section-head"><div><span>CUSTOMER RETENTION</span><h2>Loyalty &amp; Rewards</h2><p>Shopping rewards are connected to the existing wallet reward rules.</p></div><button data-admin-view="settings" data-settings-tab="fees" class="primary-button">Edit Reward Rules</button></div><div class="reserved-module slim"><span>★</span><h3>Wallet reward engine connected</h3><p>Eligible spend, rate and credited rewards remain auditable in the Wallet system.</p></div></section>
