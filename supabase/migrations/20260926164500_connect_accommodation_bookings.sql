@@ -289,6 +289,8 @@ grant execute on function public.accommodation_provider_respond_booking(uuid,tex
 revoke all on function public.admin_list_accommodation_bookings() from public, anon;
 grant execute on function public.admin_list_accommodation_bookings() to authenticated;
 
+revoke all on function public.notify_accommodation_provider_new_booking() from public, anon, authenticated;
+
 drop trigger if exists accommodation_booking_notify_provider_after_insert
 on public.accommodation_bookings;
 
