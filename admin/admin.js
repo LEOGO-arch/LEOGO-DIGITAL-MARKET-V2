@@ -76,6 +76,7 @@
     serviceSubcounties: [],
     accommodationProviders: [],
     accommodationBookings: [],
+    adminNotifications: [],
     audit: [],
     dashboard: null,
     dashboardRange: 'today',
@@ -127,6 +128,173 @@
       ? { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Nairobi' }
       : { dateStyle: 'medium', timeZone: 'Africa/Nairobi' }).format(date);
   };
+  const adminNotificationSeenStorageKey = () => 'leogo_admin_notification_seen_'+String(state.user?.id||'anonymous');
+  const adminNotificationSeenSet = () => {
+    try {
+      const raw=JSON.parse(localStorage.getItem(adminNotificationSeenStorageKey())||'[]');
+      return new Set(Array.isArray(raw)?raw:[]);
+    } catch (_error) {
+      return new Set();
+    }
+  };
+  const saveAdminNotificationSeenSet = (seen) => {
+    try {
+      localStorage.setItem(adminNotificationSeenStorageKey(),JSON.stringify([...seen].slice(-500)));
+    } catch (_error) {}
+  };
+  const adminNotificationTime = (item) => item.updated_at||item.submitted_at||item.created_at||new Date().toISOString();
+  const buildAdminActivityNotifications = () => {
+    const items=[];
+
+    (state.approvals||[]).forEach((item)=>{
+      const key='approval:'+String(item.kind||'approval')+':'+String(item.record_id||'');
+      items.push({
+        key,
+        category:'Approval',
+        title:item.title||kindLabels[item.kind]||'Approval waiting',
+        message:(item.applicant_name||item.customer_name||'Applicant')+' is waiting for Admin review.',
+        created_at:item.submitted_at,
+        view:'approvals',
+        kind:item.kind,
+        recordId:item.record_id,
+        priority:true
+      });
+    });
+
+    (state.paymentActions||[]).forEach((item)=>{
+      const source=String(item.record_id||item.source_id||item.payment_id||item.id||item.submitted_at||item.title||'payment');
+      items.push({
+        key:'payment:'+source,
+        category:'Payment',
+        title:item.title||'Payment awaiting verification',
+        message:(item.customer_name||'Customer')+' · '+(item.detail||'Payment needs Admin verification')+(Number(item.amount_kes||0)>0?' · '+formatMoney(item.amount_kes):''),
+        created_at:item.submitted_at||item.created_at,
+        view:item.view||'approvals',
+        tab:item.tab||'',
+        priority:true
+      });
+    });
+
+    (state.transportRequests||[]).filter((item)=>['submitted','declined'].includes(item.request_status)).forEach((item)=>{
+      items.push({
+        key:'transport-request:'+String(item.id)+':'+String(item.request_status),
+        category:'Transport',
+        title:'Transport request '+String(item.request_reference||''),
+        message:(item.customer_name||'Customer')+' · '+(item.pickup_location||'Pickup')+' → '+(item.destination_location||'Destination'),
+        created_at:item.created_at,
+        view:'transport',
+        sourceId:item.id,
+        priority:true
+      });
+    });
+
+    (state.accommodationBookings||[]).forEach((item)=>{
+      const statusLabel=String(item.booking_status||'pending_host').replaceAll('_',' ');
+      const pending=item.booking_status==='pending_host';
+      items.push({
+        key:'accommodation-booking:'+String(item.id)+':'+String(item.booking_status||''),
+        category:'Accommodation',
+        title:pending?'New accommodation booking':'Accommodation booking '+statusLabel,
+        message:String(item.booking_reference||'Booking')+' · '+String(item.provider_name||item.property_name||'Accommodation')+' · '+String(item.guest_name||'Guest'),
+        created_at:pending?item.created_at:(item.updated_at||item.created_at),
+        view:'accommodation',
+        sourceId:item.id,
+        priority:pending
+      });
+    });
+
+    (state.dashboard?.alerts||[]).forEach((item)=>{
+      items.push({
+        key:'system-alert:'+String(item.title||'alert')+':'+String(item.view||'dashboard')+':'+String(item.detail||''),
+        category:'System',
+        title:item.title||'System alert',
+        message:item.detail||'Admin attention may be required.',
+        created_at:new Date().toISOString(),
+        view:item.view||'dashboard',
+        tab:item.tab||'',
+        priority:true
+      });
+    });
+
+    (state.dashboard?.recent_admin_activity||[]).slice(0,10).forEach((item)=>{
+      items.push({
+        key:'admin-activity:'+String(item.created_at||'')+':'+String(item.action||''),
+        category:'Admin Activity',
+        title:String(item.action||'Admin activity').replaceAll('.',' '),
+        message:(item.admin||'Admin')+' · '+(item.entity||'record'),
+        created_at:item.created_at,
+        view:'audit',
+        priority:false
+      });
+    });
+
+    return items
+      .filter((item)=>item.key)
+      .sort((a,b)=>new Date(adminNotificationTime(b)||0)-new Date(adminNotificationTime(a)||0))
+      .slice(0,60);
+  };
+
+  const markAdminNotificationSeen = (key) => {
+    const seen=adminNotificationSeenSet();
+    seen.add(String(key));
+    saveAdminNotificationSeenSet(seen);
+  };
+
+  const renderAdminNotifications = () => {
+    state.adminNotifications=buildAdminActivityNotifications();
+    const seen=adminNotificationSeenSet();
+    const unread=state.adminNotifications.filter((item)=>!seen.has(item.key)).length;
+    const badge=$('#adminNotificationBadge');
+    if(badge){
+      badge.hidden=!unread;
+      badge.textContent=unread>99?'99+':String(unread);
+    }
+    const list=$('#adminNotificationList');
+    if(!list)return;
+    list.innerHTML=state.adminNotifications.length?state.adminNotifications.map((item)=>{
+      const isSeen=seen.has(item.key);
+      return '<article class="admin-notification-item '+(isSeen?'':'unread')+' '+(item.priority?'priority':'')+'">'+
+        '<div class="admin-notification-icon">'+(item.category==='Accommodation'?'🏨':item.category==='Payment'?'KSh':item.category==='Transport'?'🚚':item.category==='Approval'?'✓':item.category==='System'?'!':'◴')+'</div>'+
+        '<div class="admin-notification-copy"><span>'+escapeHtml(item.category)+'</span><strong>'+escapeHtml(item.title)+'</strong><p>'+escapeHtml(item.message)+'</p><small>'+escapeHtml(formatDate(item.created_at,true))+'</small></div>'+
+        '<button type="button" data-open-admin-notification="'+escapeHtml(item.key)+'">Open</button>'+
+      '</article>';
+    }).join(''):'<div class="empty-mini">No Admin activity notifications right now.</div>';
+  };
+
+  const openAdminActivityNotification = (key) => {
+    const item=state.adminNotifications.find((row)=>row.key===key);
+    if(!item)return;
+    markAdminNotificationSeen(item.key);
+    renderAdminNotifications();
+    const panel=$('#adminNotificationPanel');
+    if(panel)panel.hidden=true;
+    $('#adminNotificationBell')?.setAttribute('aria-expanded','false');
+
+    if(item.category==='Approval'&&item.kind&&item.recordId){
+      changeView('approvals');
+      const approval=state.approvals.find((row)=>String(row.kind)===String(item.kind)&&String(row.record_id)===String(item.recordId));
+      if(approval)window.setTimeout(()=>openApproval(item.kind,item.recordId),60);
+      return;
+    }
+    if(item.category==='Transport'){
+      activeTransportSection='jobs';
+      changeView('transport');
+      changeTransportSection('jobs');
+      window.setTimeout(()=>{
+        const node=document.querySelector('[data-admin-transport-request="'+CSS.escape(String(item.sourceId||''))+'"]');
+        (node||$('#adminTransportRequestList'))?.scrollIntoView({behavior:'smooth',block:'start'});
+      },80);
+      return;
+    }
+    if(item.category==='Accommodation'){
+      changeView('accommodation');
+      window.setTimeout(()=>$('#adminAccommodationBookingBody')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+      return;
+    }
+    changeView(item.view||'dashboard',item.tab||'');
+    if(item.view==='premium'&&item.tab)changePremiumAdminTab(item.tab);
+  };
+
   const normaliseErrorMessage = (value) => {
     if (value == null) return '';
     if (typeof value === 'string') return value;
@@ -338,6 +506,7 @@
     if (failed) globalStatus(`Some permitted Admin data could not load: ${friendlyError(failed.reason)}`, 'error');
     if (isSuperAdmin()) renderDataManagement();
     $('#lastSynced').textContent = formatDate(new Date().toISOString(), true);
+    renderAdminNotifications();
   };
 
   const dashboardDates = () => {
@@ -511,6 +680,7 @@
         (request||$('#adminTransportRequestList'))?.scrollIntoView({behavior:'smooth',block:'start'});
       },80);
     }));
+    renderAdminNotifications();
   };
 
   const approvalGroup = (kind) => ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle','transport_provider_settlement_account'].includes(kind) ? 'transport' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
@@ -4608,6 +4778,7 @@
     $('#accommodationBookingCount').textContent=Number(summary.bookings||0);
     renderAccommodationProviders();
     renderAccommodationBookings();
+    renderAdminNotifications();
   };
 
   const loadAuditLog = async () => {
@@ -4831,6 +5002,33 @@
       const format = (window.prompt('Export format: xlsx or pdf', 'xlsx') || '').toLowerCase();
       if (['xlsx','pdf'].includes(format)) await exportApprovals('filtered', format);
     });
+    $('#adminNotificationBell')?.addEventListener('click',(event)=>{
+      event.stopPropagation();
+      renderAdminNotifications();
+      const panel=$('#adminNotificationPanel');
+      if(!panel)return;
+      panel.hidden=!panel.hidden;
+      $('#adminNotificationBell').setAttribute('aria-expanded',panel.hidden?'false':'true');
+    });
+    $('#markAllAdminNotificationsSeen')?.addEventListener('click',(event)=>{
+      event.stopPropagation();
+      const seen=adminNotificationSeenSet();
+      state.adminNotifications.forEach((item)=>seen.add(item.key));
+      saveAdminNotificationSeenSet(seen);
+      renderAdminNotifications();
+    });
+    $('#adminNotificationList')?.addEventListener('click',(event)=>{
+      const button=event.target.closest?.('[data-open-admin-notification]');
+      if(button)openAdminActivityNotification(button.dataset.openAdminNotification);
+    });
+    document.addEventListener('click',(event)=>{
+      const shell=$('#adminNotificationShell');
+      const panel=$('#adminNotificationPanel');
+      if(!shell||!panel||panel.hidden||shell.contains(event.target))return;
+      panel.hidden=true;
+      $('#adminNotificationBell')?.setAttribute('aria-expanded','false');
+    });
+
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
     $('#refreshServiceProviders')?.addEventListener('click', () => withButtonLock($('#refreshServiceProviders'), 'Refreshing…', async () => { await Promise.all([loadServiceProviders(),loadServiceListings(),loadServiceOperations(),loadServiceReviews(),loadApprovals()]); }));
