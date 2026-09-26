@@ -237,8 +237,9 @@
     if (directoryAccessBadge) directoryAccessBadge.textContent = activePlan ? 'Paid plan active' : 'Limited viewing';
     showDirectoryMessage('⌛', 'Loading verified profiles…', 'Please wait while LEOGO loads approved profiles.');
     const { data, error } = await client.from('premium_profiles')
-      .select('user_id, display_name, profile_picture_path, gender, general_location, about')
+      .select('user_id, display_name, profile_picture_path, gender, general_location, about, is_available')
       .eq('application_status', 'approved')
+      .eq('is_available', true)
       .order('approved_at', { ascending: false });
     if (error) {
       showDirectoryMessage('⚠️', 'Profiles could not be loaded', 'Refresh and try again. Your private customer information remains protected.');
