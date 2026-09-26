@@ -42,7 +42,7 @@ const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],sellerEarningsReport=null,partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
 let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],providerSettlementRequests=[],providerSettlements=[],providerEarningsReport=null,editingProviderService=null;
 let transportProvider=null,transportVehicles=[],transportJobs=[],transportNotifications=[],transportSettlementAccounts=[],transportSettlementRequests=[],transportSettlements=[],transportEarningsReport=null,editingTransportVehicle=null,transportBasePinOnly=false;
-let accommodationProvider=null,accommodationNotifications=[],accommodationCatalogue=[];
+let accommodationProvider=null,accommodationNotifications=[],accommodationCatalogue=[],accommodationBookings=[];
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -2715,6 +2715,7 @@ function openAccommodationView(view='overview'){
   if($('#accommodationViewDescription'))$('#accommodationViewDescription').textContent=accommodationViewDescription(resolved);
   closeAccommodationSidebar();
   if(resolved==='properties')loadAccommodationCatalogue().catch(error=>status($('#accommodationCatalogueStatus'),error?.message||'Accommodation listings could not load.','error'));
+  if(resolved==='bookings')loadAccommodationBookings().catch(error=>status($('#accommodationBookingStatus'),error?.message||'Accommodation bookings could not load.','error'));
 }
 function accommodationCoordinatesFromText(value=''){
   const text=String(value||'').trim();
@@ -3007,6 +3008,76 @@ function openAccommodationUnitForm(propertyId,unitId=''){
   status($('#accommodationUnitStatus'),'');
   form.scrollIntoView({behavior:'smooth',block:'start'});
 }
+function accommodationBookingStatusLabel(value){
+  return {
+    pending_host:'Awaiting response',
+    accepted:'Accepted',
+    rejected:'Rejected',
+    cancelled_by_customer:'Cancelled by customer',
+    cancelled_by_host:'Cancelled by property',
+    completed:'Completed'
+  }[value]||String(value||'').replaceAll('_',' ');
+}
+function renderAccommodationBookings(){
+  const target=$('#accommodationBookingList');if(!target)return;
+  const filter=$('#accommodationBookingFilter')?.value||'all';
+  const rows=(accommodationBookings||[]).filter(item=>filter==='all'||item.booking_status===filter);
+  $('#accommodationBookingMetric').textContent=String((accommodationBookings||[]).length);
+  if(!rows.length){
+    target.innerHTML='<div class="empty-card">No accommodation bookings match this filter.</div>';
+    return;
+  }
+  target.innerHTML=rows.map(item=>
+    '<article class="accommodation-provider-booking-card '+(item.booking_status==='pending_host'?'needs-action':'')+'">'+
+      '<header><div><span>'+escapeHtml(item.booking_reference||'Booking')+'</span><h4>'+escapeHtml(item.room_category||'Room')+' · '+escapeHtml(item.room_name||'Room')+'</h4><small>'+escapeHtml(item.property_name||'Property')+'</small></div><b class="status-chip">'+escapeHtml(accommodationBookingStatusLabel(item.booking_status))+'</b></header>'+
+      '<div class="accommodation-provider-booking-grid">'+
+        '<div><small>Guest</small><strong>'+escapeHtml(item.guest_name||'—')+'</strong><span>'+escapeHtml(item.guest_phone||'—')+'</span></div>'+
+        '<div><small>Stay</small><strong>'+escapeHtml(String(item.check_in||'—'))+' → '+escapeHtml(String(item.check_out||'—'))+'</strong><span>'+Number(item.nights||0)+' night(s) · '+Number(item.guests||0)+' guest(s)</span></div>'+
+        '<div><small>Rate</small><strong>'+escapeHtml(item.rate_name||'Room rate')+'</strong><span>'+money(item.nightly_price_kes)+'/night</span></div>'+
+        '<div><small>Total</small><strong>'+money(item.total_amount_kes)+'</strong><span>Requested '+escapeHtml(formatDate(item.created_at))+'</span></div>'+
+      '</div>'+
+      (item.special_requests?'<p><strong>Special request:</strong> '+escapeHtml(item.special_requests)+'</p>':'')+
+      (item.host_response?'<p><strong>Your response:</strong> '+escapeHtml(item.host_response)+'</p>':'')+
+      (item.booking_status==='pending_host'
+        ? '<div class="accommodation-provider-booking-actions"><button type="button" data-accommodation-booking-action="accept" data-accommodation-booking-id="'+escapeHtml(item.id)+'">Accept Booking</button><button type="button" class="danger" data-accommodation-booking-action="reject" data-accommodation-booking-id="'+escapeHtml(item.id)+'">Reject</button></div>'
+        : '')+
+    '</article>'
+  ).join('');
+}
+async function loadAccommodationBookings(){
+  if(!currentUser||accommodationProvider?.verification_status!=='approved')return;
+  const {data,error}=await client.rpc('accommodation_provider_list_bookings');
+  if(error)throw error;
+  accommodationBookings=Array.isArray(data)?data:[];
+  renderAccommodationBookings();
+}
+async function respondAccommodationBooking(button){
+  const bookingId=button.dataset.accommodationBookingId;
+  const action=button.dataset.accommodationBookingAction;
+  const item=accommodationBookings.find(row=>String(row.id)===String(bookingId));
+  if(!item)return;
+  let response='';
+  if(action==='reject'){
+    response=window.prompt('Reason for rejecting this booking:','')||'';
+    if(response.trim().length<3){status($('#accommodationBookingStatus'),'Add a short reason before rejecting the booking.','error');return;}
+    if(!window.confirm('Reject booking '+item.booking_reference+'?'))return;
+  }else{
+    response=window.prompt('Optional message to the customer:','')||'';
+    if(!window.confirm('Accept booking '+item.booking_reference+'?'))return;
+  }
+  const original=button.textContent;button.disabled=true;button.textContent=action==='accept'?'Accepting…':'Rejecting…';
+  try{
+    const {error}=await client.rpc('accommodation_provider_respond_booking',{
+      p_booking_id:bookingId,p_action:action,p_response:response||null
+    });
+    if(error)throw error;
+    status($('#accommodationBookingStatus'),action==='accept'?'Booking accepted. Customer has been notified.':'Booking rejected. Customer has been notified.','success');
+    await Promise.all([loadAccommodationBookings(),loadAccommodationNotifications()]);
+  }catch(error){
+    status($('#accommodationBookingStatus'),error?.message||'Booking response could not be saved.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+}
+
 function accommodationSummaryRows(){
   if(!accommodationProvider)return [];
   return [
@@ -3113,15 +3184,10 @@ async function loadAccommodationProvider(){
     if(accommodationProvider)await loadAccommodationNotifications().catch(()=>{});
     if(accommodationProvider?.verification_status==='approved'){
       await loadAccommodationCatalogue().catch(error=>console.warn('Accommodation catalogue load failed:',error));
+      await loadAccommodationBookings().catch(error=>console.warn('Accommodation bookings load failed:',error));
       const propertyIds=accommodationCatalogue.map(row=>row.id);
       if($('#accommodationPropertyMetric'))$('#accommodationPropertyMetric').textContent=propertyIds.length;
-      if($('#accommodationBookingMetric')){
-        if(!propertyIds.length)$('#accommodationBookingMetric').textContent='0';
-        else{
-          const bookings=await client.from('accommodation_bookings').select('id',{count:'exact',head:true}).in('property_id',propertyIds);
-          $('#accommodationBookingMetric').textContent=bookings.count||0;
-        }
-      }
+      if($('#accommodationBookingMetric'))$('#accommodationBookingMetric').textContent=String((accommodationBookings||[]).length);
     }
   }catch(error){
     console.error('Accommodation Provider portal boot failed:',error);
@@ -3132,6 +3198,12 @@ async function loadAccommodationProvider(){
 
 $('#addAccommodationProperty')?.addEventListener('click',()=>openAccommodationPropertyForm());
 $('#refreshAccommodationCatalogue')?.addEventListener('click',()=>loadAccommodationCatalogue().catch(error=>status($('#accommodationCatalogueStatus'),error?.message||'Could not refresh listings.','error')));
+$('#refreshAccommodationBookings')?.addEventListener('click',()=>loadAccommodationBookings().catch(error=>status($('#accommodationBookingStatus'),error?.message||'Could not refresh bookings.','error')));
+$('#accommodationBookingFilter')?.addEventListener('change',renderAccommodationBookings);
+$('#accommodationBookingList')?.addEventListener('click',(event)=>{
+  const button=event.target.closest?.('[data-accommodation-booking-action]');
+  if(button)respondAccommodationBooking(button);
+});
 $('#cancelAccommodationProperty')?.addEventListener('click',()=>{$('#accommodationPropertyForm').hidden=true;resetAccommodationPropertyForm();});
 $('#cancelAccommodationUnit')?.addEventListener('click',()=>{$('#accommodationUnitForm').hidden=true;});
 ['accommodationBedOnlyPrice','accommodationBreakfast1Price','accommodationBreakfast2Price'].forEach(id=>{
