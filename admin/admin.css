@@ -723,3 +723,6 @@
   .partner-record-actions button{width:100%}
   .partner-related-grid{grid-template-columns:1fr}
 }
+
+/* Accommodation booking operations */
+#adminAccommodationBookingBody tr.attention-row td{background:#fff9ef}#adminAccommodationBookingBody td small{display:block;margin-top:4px;color:#738095}#adminAccommodationBookingBody .status-chip{text-transform:capitalize}
