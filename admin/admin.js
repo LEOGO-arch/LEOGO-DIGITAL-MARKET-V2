@@ -795,6 +795,8 @@
                   ? 'admin_review_transport_provider_application'
                   : item.kind === 'transport_vehicle'
                     ? 'admin_review_transport_vehicle'
+                    : item.kind === 'accommodation_unit'
+                      ? 'admin_review_accommodation_unit'
                     : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change'].includes(item.kind)
                       ? 'admin_review_partner_profile_change'
                     : item.kind === 'seller_settlement_account'
