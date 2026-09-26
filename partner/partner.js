@@ -2716,6 +2716,7 @@ function openAccommodationView(view='overview'){
   closeAccommodationSidebar();
   if(resolved==='properties')loadAccommodationCatalogue().catch(error=>status($('#accommodationCatalogueStatus'),error?.message||'Accommodation listings could not load.','error'));
   if(resolved==='bookings')loadAccommodationBookings().catch(error=>status($('#accommodationBookingStatus'),error?.message||'Accommodation bookings could not load.','error'));
+  if(resolved==='notifications')loadAccommodationNotifications().catch(error=>console.warn('Accommodation notifications refresh failed:',error));
 }
 function accommodationCoordinatesFromText(value=''){
   const text=String(value||'').trim();
@@ -3392,12 +3393,51 @@ function populateAccommodationApplication(){
     : 'Location not pinned yet.';
   ensureAccommodationLocations(accommodationProvider.county_code||'',accommodationProvider.sub_county_code||'').catch(console.warn);
 }
+function accommodationNotificationTarget(view=''){
+  const value=String(view||'');
+  if(['bookings','accommodation-bookings'].includes(value))return 'bookings';
+  if(['properties','accommodation-properties','rooms','units'].includes(value))return 'properties';
+  if(['profile','accommodation-profile'].includes(value))return 'profile';
+  if(['earnings','accommodation-earnings'].includes(value))return 'earnings';
+  if(['settlements','accommodation-settlements'].includes(value))return 'settlements';
+  if(['availability','accommodation-availability'].includes(value))return 'availability';
+  return 'notifications';
+}
 function renderAccommodationNotifications(){
   const list=$('#accommodationNotificationList');
+  const unread=accommodationNotifications.filter(item=>!item.read_at).length;
+  const sidebarBadge=$('#accommodationNotificationBadge');
+  const headBadge=$('#accommodationHeadNotificationBadge');
+  [sidebarBadge,headBadge].forEach(badge=>{
+    if(!badge)return;
+    badge.hidden=!unread;
+    badge.textContent=unread>99?'99+':String(unread);
+  });
+  updateSharedPartnerNotificationBadge(unread);
   if(!list)return;
   list.innerHTML=accommodationNotifications.length?accommodationNotifications.map(item=>
-    '<article class="seller-notification-item '+(item.read_at?'':'unread')+'"><div><strong>'+escapeHtml(item.title||'Accommodation update')+'</strong><small>'+escapeHtml(formatDate(item.created_at))+'</small></div><p>'+escapeHtml(item.message||'')+'</p></article>'
+    '<article class="seller-notification-item '+(item.read_at?'':'unread')+'" data-accommodation-notification-id="'+escapeHtml(item.id)+'">'+
+      '<div><strong>'+escapeHtml(item.title||'Accommodation update')+'</strong><p>'+escapeHtml(item.message||'')+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div>'+
+      '<div class="seller-notification-actions">'+
+        (item.action_view?'<button type="button" data-open-accommodation-notification="'+escapeHtml(item.id)+'" data-accommodation-notification-view="'+escapeHtml(item.action_view)+'">Open</button>':'')+
+        (item.read_at?'':'<button class="secondary" type="button" data-mark-accommodation-notification="'+escapeHtml(item.id)+'">Mark read</button>')+
+      '</div>'+
+    '</article>'
   ).join(''):'<div class="empty-card">No Accommodation notifications yet.</div>';
+
+  $('[data-mark-accommodation-notification]').forEach(button=>button.addEventListener('click',async()=>{
+    const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markAccommodationNotification});
+    if(error){console.warn(error);return;}
+    await loadAccommodationNotifications();
+  }));
+  $('[data-open-accommodation-notification]').forEach(button=>button.addEventListener('click',async()=>{
+    await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.openAccommodationNotification}).catch?.(()=>{});
+    const target=accommodationNotificationTarget(button.dataset.accommodationNotificationView);
+    openAccommodationView(target);
+    if(target==='bookings')await loadAccommodationBookings().catch(()=>{});
+    if(target==='properties')await loadAccommodationCatalogue().catch(()=>{});
+    await loadAccommodationNotifications();
+  }));
 }
 async function loadAccommodationNotifications(){
   if(!currentUser)return;
@@ -3679,6 +3719,13 @@ $('#cancelAccommodationRegistration')?.addEventListener('click',()=>{
 $('#accommodationPendingBack')?.addEventListener('click',showRolePicker);
 $('#accommodationBackToPartnerships')?.addEventListener('click',showRolePicker);
 $('#refreshAccommodationDashboard')?.addEventListener('click',()=>loadAccommodationProvider());
+$('#accommodationNotificationsButton')?.addEventListener('click',()=>openAccommodationView('notifications'));
+$('#refreshAccommodationNotifications')?.addEventListener('click',()=>loadAccommodationNotifications().catch(error=>console.warn(error)));
+$('#markAllAccommodationNotificationsRead')?.addEventListener('click',async()=>{
+  const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'accommodation'});
+  if(error){console.warn(error);return;}
+  await loadAccommodationNotifications();
+});
 $('#accommodationSidebarToggle')?.addEventListener('click',()=>{accommodationSidebar?.classList.add('open');$('#accommodationSidebarScrim')?.classList.add('open');});
 $('#accommodationSidebarScrim')?.addEventListener('click',closeAccommodationSidebar);
 $$('[data-accommodation-view]').forEach(button=>button.addEventListener('click',()=>openAccommodationView(button.dataset.accommodationView)));
@@ -4738,6 +4785,12 @@ window.addEventListener('error',event=>{
     showSellerBootError(event.error||new Error(event.message||'Seller Portal error'));
   }
 });
+
+window.setInterval(()=>{
+  if(activeRole==='accommodation'&&currentUser){
+    loadAccommodationNotifications().catch(()=>{});
+  }
+},30000);
 
 client.auth.onAuthStateChange((event,s)=>{
   if(event==='PASSWORD_RECOVERY'){
