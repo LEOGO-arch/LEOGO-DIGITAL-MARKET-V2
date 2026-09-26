@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=accommodation-bookings-1">
+  <link rel="stylesheet" href="admin.css?v=admin-notifications-1">
 <style>
 .service-operations-card{margin-top:18px}.service-fee-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.service-fee-form label{display:grid;gap:6px;font-weight:800}.service-fee-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px;width:180px}.service-fee-form button,.admin-service-request-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.service-fee-form small{width:100%;font-weight:800}.admin-service-request-list{display:grid;gap:14px}.admin-service-request-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.admin-service-request-card header{display:flex;justify-content:space-between;gap:12px}.admin-service-request-card header strong,.admin-service-request-card header small{display:block}.admin-service-request-card header b{font-size:11px;text-transform:capitalize;background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;height:max-content}.admin-service-request-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.admin-service-request-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.admin-service-request-grid small,.admin-service-request-grid strong{display:block}.admin-service-request-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-service-request-actions .verify{background:#157f3d}.admin-service-request-actions .reject,.admin-service-request-actions .cancel{background:#a42832}.admin-service-request-actions .dispatch{background:#ff7200}.admin-service-request-card p{margin:0;color:#526177}.service-request-summary-grid{margin:14px 0}@media(max-width:720px){.admin-service-request-grid{grid-template-columns:1fr}.admin-service-request-card header{display:grid}}
 </style></head>
@@ -73,7 +73,19 @@
       <header class="admin-header">
         <button class="mobile-menu" id="openSidebar" type="button" aria-label="Open menu">☰</button>
         <div class="header-title"><span id="adminBreadcrumb">CONTROL CENTER</span><h1 id="adminPageTitle">Dashboard</h1></div>
-        <div class="header-actions"><button id="refreshAdminData" type="button">↻ <span>Refresh</span></button><a href="../" target="_blank" rel="noopener">Customer Front ↗</a><div class="admin-identity"><b id="adminInitials">LA</b><div><strong id="adminDisplayName">LEOGO Admin</strong><small id="adminRole">Admin</small></div></div><button class="logout-button" id="adminLogout" type="button" title="Sign out">⇥</button></div>
+        <div class="header-actions">
+          <button id="refreshAdminData" type="button">↻ <span>Refresh</span></button>
+          <div class="admin-notification-shell" id="adminNotificationShell">
+            <button id="adminNotificationBell" class="admin-notification-bell" type="button" aria-label="Admin activity notifications" aria-expanded="false">🔔<b id="adminNotificationBadge" hidden>0</b></button>
+            <section id="adminNotificationPanel" class="admin-notification-panel" hidden>
+              <header><div><span>ACTIVITY NOTIFICATIONS</span><h3>Admin Notifications</h3></div><button id="markAllAdminNotificationsSeen" type="button">Mark all seen</button></header>
+              <div id="adminNotificationList" class="admin-notification-list"><div class="empty-mini">Loading notifications…</div></div>
+            </section>
+          </div>
+          <a href="../" target="_blank" rel="noopener">Customer Front ↗</a>
+          <div class="admin-identity"><b id="adminInitials">LA</b><div><strong id="adminDisplayName">LEOGO Admin</strong><small id="adminRole">Admin</small></div></div>
+          <button class="logout-button" id="adminLogout" type="button" title="Sign out">⇥</button>
+        </div>
       </header>
 
       <div class="global-status" id="adminGlobalStatus" role="status" aria-live="polite"></div>
@@ -938,6 +950,6 @@
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  <script src="admin.js?v=accommodation-guest-pdf-1" defer></script>
+  <script src="admin.js?v=admin-notifications-1" defer></script>
 </body>
 </html>
