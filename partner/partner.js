@@ -2864,6 +2864,7 @@ function openAccommodationPropertyForm(propertyId=''){
     $('#accommodationParkingAvailable').checked=Boolean(property.parking_available);
     $('#accommodationWifiAvailable').checked=Boolean(property.wifi_available);
     $('#accommodationBreakfastAvailable').checked=Boolean(property.breakfast_available);
+    $('#accommodationSmokingZoneAllowed').checked=Boolean(property.smoking_zone_allowed);
     $('#accommodationPropertyMapLink').value=property.map_link||'';
     $('#accommodationPropertyLatitude').value=property.latitude??'';
     $('#accommodationPropertyLongitude').value=property.longitude??'';
@@ -2875,13 +2876,75 @@ function openAccommodationPropertyForm(propertyId=''){
   }
   form.scrollIntoView({behavior:'smooth',block:'start'});
 }
+function accommodationMealPlanLabel(value){
+  return {bed_only:'Bed Only',bed_breakfast:'Bed & Breakfast',half_board:'Half Board',full_board:'Full Board',self_catering:'Self Catering',other:'Other'}[value]||'Other';
+}
+function accommodationOccupancyLabel(value){
+  return {single:'Single Occupancy',double:'Double Occupancy',triple:'Triple Occupancy',family:'Family',custom:'Custom'}[value]||'Custom';
+}
+function renderAccommodationRateRows(rates=[]){
+  const target=$('#accommodationRateRows');if(!target)return;
+  const rows=(Array.isArray(rates)&&rates.length?rates:[
+    {rate_name:'Bed Only',meal_plan:'bed_only',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:''},
+    {rate_name:'Bed & Breakfast - Single',meal_plan:'bed_breakfast',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:''},
+    {rate_name:'Bed & Breakfast - Double',meal_plan:'bed_breakfast',occupancy_type:'double',occupancy_pax:2,nightly_price_kes:''}
+  ]);
+  target.innerHTML=rows.map((rate)=>{
+    return '<div class="accommodation-rate-row" data-rate-row>'+
+      '<label>Rate name<input data-rate-name type="text" maxlength="120" required value="'+escapeHtml(rate.rate_name||'')+'"></label>'+
+      '<label>Meal plan<select data-rate-meal required>'+
+        '<option value="bed_only" '+(rate.meal_plan==='bed_only'?'selected':'')+'>Bed Only</option>'+
+        '<option value="bed_breakfast" '+(rate.meal_plan==='bed_breakfast'?'selected':'')+'>Bed & Breakfast</option>'+
+        '<option value="half_board" '+(rate.meal_plan==='half_board'?'selected':'')+'>Half Board</option>'+
+        '<option value="full_board" '+(rate.meal_plan==='full_board'?'selected':'')+'>Full Board</option>'+
+        '<option value="self_catering" '+(rate.meal_plan==='self_catering'?'selected':'')+'>Self Catering</option>'+
+        '<option value="other" '+(rate.meal_plan==='other'?'selected':'')+'>Other</option>'+
+      '</select></label>'+
+      '<label>Occupancy<select data-rate-occupancy required>'+
+        '<option value="single" '+(rate.occupancy_type==='single'?'selected':'')+'>Single Occupancy</option>'+
+        '<option value="double" '+(rate.occupancy_type==='double'?'selected':'')+'>Double Occupancy</option>'+
+        '<option value="triple" '+(rate.occupancy_type==='triple'?'selected':'')+'>Triple Occupancy</option>'+
+        '<option value="family" '+(rate.occupancy_type==='family'?'selected':'')+'>Family</option>'+
+        '<option value="custom" '+(rate.occupancy_type==='custom'?'selected':'')+'>Custom</option>'+
+      '</select></label>'+
+      '<label>Guests / Pax<input data-rate-pax type="number" min="1" max="30" required value="'+Number(rate.occupancy_pax||1)+'"></label>'+
+      '<label>Price / night (KSh)<input data-rate-price type="number" min="1" step="1" required value="'+(rate.nightly_price_kes?Number(rate.nightly_price_kes):'')+'"></label>'+
+      '<button type="button" class="secondary" data-remove-rate>Remove</button>'+
+    '</div>';
+  }).join('');
+  const removeButtons=$('[data-remove-rate]',target);
+  removeButtons.forEach((button)=>button.addEventListener('click',()=>{
+    if($('[data-rate-row]',target).length<=1)return;
+    button.closest('[data-rate-row]')?.remove();
+    syncAccommodationBasePrice();
+  }));
+  $('[data-rate-price]',target).forEach((input)=>input.addEventListener('input',syncAccommodationBasePrice));
+  syncAccommodationBasePrice();
+}
+function collectAccommodationRates(){
+  const root=$('#accommodationRateRows');
+  return root?$('[data-rate-row]',root).map((row)=>({
+    rate_name:$('[data-rate-name]',row)?.value.trim()||'',
+    meal_plan:$('[data-rate-meal]',row)?.value||'bed_only',
+    occupancy_type:$('[data-rate-occupancy]',row)?.value||'single',
+    occupancy_pax:Number($('[data-rate-pax]',row)?.value||0),
+    nightly_price_kes:Number($('[data-rate-price]',row)?.value||0),
+    is_active:true
+  })):[];
+}
+function syncAccommodationBasePrice(){
+  const root=$('#accommodationRateRows');
+  const prices=root?$('[data-rate-price]',root).map((input)=>Number(input.value)).filter((value)=>Number.isFinite(value)&&value>0):[];
+  $('#accommodationUnitPrice').value=prices.length?Math.min(...prices):'';
+}
 function openAccommodationUnitForm(propertyId,unitId=''){
   const property=accommodationCatalogue.find(item=>String(item.id)===String(propertyId));if(!property)return;
   const form=$('#accommodationUnitForm');form.reset();form.hidden=false;
   $('#accommodationPropertyForm').hidden=true;
   $('#accommodationUnitPropertyId').value=property.id;
   $('#accommodationUnitId').value='';
-  $('#accommodationUnitGuests').value='1';$('#accommodationUnitInventory').value='1';
+  $('#accommodationUnitGuests').value='2';$('#accommodationUnitInventory').value='1';
+  renderAccommodationRateRows();
   $('#accommodationUnitPropertyLabel').innerHTML='<strong>Property:</strong> '+escapeHtml(property.property_name||'Property')+' · <span class="status-chip">'+escapeHtml(accommodationStatusLabel(property.approval_status))+'</span>';
   const unit=(property.units||[]).find(item=>String(item.id)===String(unitId));
   $('#accommodationUnitFormTitle').textContent=unit?'Edit Room / Unit Type':'Add Room / Unit Type';
@@ -2894,6 +2957,7 @@ function openAccommodationUnitForm(propertyId,unitId=''){
     $('#accommodationUnitBeds').value=unit.beds_description||'';
     $('#accommodationUnitDescription').value=unit.description||'';
     $('#accommodationUnitAmenities').value=(unit.amenities||[]).join(', ');
+    renderAccommodationRateRows(unit.rates||[]);
   }
   status($('#accommodationUnitStatus'),'');
   form.scrollIntoView({behavior:'smooth',block:'start'});
@@ -3036,6 +3100,11 @@ $('#addAccommodationProperty')?.addEventListener('click',()=>openAccommodationPr
 $('#refreshAccommodationCatalogue')?.addEventListener('click',()=>loadAccommodationCatalogue().catch(error=>status($('#accommodationCatalogueStatus'),error?.message||'Could not refresh listings.','error')));
 $('#cancelAccommodationProperty')?.addEventListener('click',()=>{$('#accommodationPropertyForm').hidden=true;resetAccommodationPropertyForm();});
 $('#cancelAccommodationUnit')?.addEventListener('click',()=>{$('#accommodationUnitForm').hidden=true;});
+$('#addAccommodationRate')?.addEventListener('click',()=>{
+  const rows=collectAccommodationRates();
+  rows.push({rate_name:'',meal_plan:'bed_only',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:''});
+  renderAccommodationRateRows(rows);
+});
 $('#pinAccommodationProperty')?.addEventListener('click',()=>{
   const target=$('#accommodationPropertyPinStatus');
   if(!navigator.geolocation){target.textContent='Location access is unavailable. Paste Maps coordinates instead.';target.className='status error';return;}
@@ -3075,6 +3144,7 @@ $('#accommodationPropertyForm')?.addEventListener('submit',async event=>{
       p_cancellation_policy:$('#accommodationPropertyCancellation').value.trim()||null,p_children_allowed:$('#accommodationChildrenAllowed').checked,
       p_pets_allowed:$('#accommodationPetsAllowed').checked,p_parking_available:$('#accommodationParkingAvailable').checked,
       p_wifi_available:$('#accommodationWifiAvailable').checked,p_breakfast_available:$('#accommodationBreakfastAvailable').checked,
+      p_smoking_zone_allowed:$('#accommodationSmokingZoneAllowed').checked,
       p_accessibility_notes:$('#accommodationPropertyAccessibility').value.trim()||null,p_submit:true
     });
     if(error)throw error;
@@ -3093,12 +3163,21 @@ $('#accommodationUnitForm')?.addEventListener('submit',async event=>{
     const propertyId=$('#accommodationUnitPropertyId').value,unitId=$('#accommodationUnitId').value||null;
     const property=accommodationCatalogue.find(item=>String(item.id)===String(propertyId));
     const existing=(property?.units||[]).find(item=>String(item.id)===String(unitId));
+    const rates=collectAccommodationRates();
+    if(!rates.length)throw new Error('Add at least one rate plan.');
+    for(const rate of rates){
+      if(rate.rate_name.length<2)throw new Error('Every rate plan needs a name.');
+      if(!rate.nightly_price_kes||rate.nightly_price_kes<=0)throw new Error('Every rate plan needs a valid nightly price.');
+      if(!rate.occupancy_pax||rate.occupancy_pax<1)throw new Error('Every rate plan needs a valid guest / pax count.');
+      if(rate.occupancy_pax>Number($('#accommodationUnitGuests').value))throw new Error(rate.rate_name+' exceeds this room’s maximum guests.');
+    }
+    syncAccommodationBasePrice();
     const imageFile=$('#accommodationUnitImage').files?.[0]||null;
     const [imageUrl,galleryUrls]=await Promise.all([
       imageFile?uploadAccommodationListingPhoto(imageFile,'unit-main'):Promise.resolve(existing?.unit_image_url||null),
       gallery.length?Promise.all(gallery.map(file=>uploadAccommodationListingPhoto(file,'unit-gallery'))):Promise.resolve(existing?.gallery_image_urls||[])
     ]);
-    const {error}=await client.rpc('accommodation_provider_save_unit',{
+    const {data:savedUnitId,error}=await client.rpc('accommodation_provider_save_unit',{
       p_unit_id:unitId,p_property_id:propertyId,p_unit_name:$('#accommodationUnitName').value.trim(),
       p_description:$('#accommodationUnitDescription').value.trim()||null,p_nightly_price_kes:Number($('#accommodationUnitPrice').value),
       p_max_guests:Number($('#accommodationUnitGuests').value),p_beds_description:$('#accommodationUnitBeds').value.trim()||null,
@@ -3106,6 +3185,9 @@ $('#accommodationUnitForm')?.addEventListener('submit',async event=>{
       p_amenities:accommodationArrayValue($('#accommodationUnitAmenities').value),p_submit:true
     });
     if(error)throw error;
+    const effectiveUnitId=savedUnitId||unitId;
+    const rateResult=await client.rpc('accommodation_provider_replace_unit_rates',{p_unit_id:effectiveUnitId,p_rates:rates});
+    if(rateResult.error)throw rateResult.error;
     status($('#accommodationUnitStatus'),'Room / unit saved and sent to LEOGO Admin for approval.','success');
     await Promise.all([loadAccommodationCatalogue(),loadAccommodationNotifications()]);
     window.setTimeout(()=>{$('#accommodationUnitForm').hidden=true;},600);
