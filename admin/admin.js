@@ -383,7 +383,7 @@
         </div>
       `).join(''):'<div class="empty-mini">No marketplace orders have been created yet.</div>';
 
-      $$('[data-dashboard-order-id]',$$('#dashboardRecentOrders')).forEach((button)=>button.addEventListener('click',()=>{
+      $('[data-dashboard-order-id]',$('#dashboardRecentOrders')).forEach((button)=>button.addEventListener('click',()=>{
         changeView('orders');
         loadMarketplaceOrderDetail(button.dataset.dashboardOrderId,{scroll:true});
       }));
@@ -421,7 +421,7 @@
     $('#networkOverview').innerHTML = networkMap.map(([label,key,view]) => `<button data-open-view="${view}"><span>${escapeHtml(label)}</span><strong>${metricValue(data.network[key])}</strong><small>${data.network[key].supported ? 'Open module →' : 'Not connected'}</small></button>`).join('');
     $('#systemAlertList').innerHTML = data.alerts?.length ? data.alerts.map((item) => `<div class="alert-row ${escapeHtml(item.level)}"><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.detail)}</small></div><button data-alert-view="${escapeHtml(item.view)}" data-alert-tab="${escapeHtml(item.tab || '')}">Review →</button></div>`).join('') : '<div class="empty-mini">No operational exceptions detected.</div>';
     $('#recentAdminActivity').innerHTML = data.recent_admin_activity?.length ? data.recent_admin_activity.map((item) => `<div><div><b>${escapeHtml(item.action.replaceAll('.', ' '))}</b><small>${escapeHtml(item.admin)} · ${formatDate(item.created_at, true)}</small></div><span class="status-chip">${escapeHtml(item.entity)}</span></div>`).join('') : '<div class="empty-mini">No Admin activity yet.</div>';
-    $$('[data-open-view]', $$('#networkOverview')).forEach((button) => button.addEventListener('click', () => changeView(button.dataset.openView)));
+    $('[data-open-view]', $('#networkOverview')).forEach((button) => button.addEventListener('click', () => changeView(button.dataset.openView)));
     $$('[data-alert-view]').forEach((button) => button.addEventListener('click', () => changeView(button.dataset.alertView, button.dataset.alertTab)));
   };
 
