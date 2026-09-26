@@ -102,7 +102,8 @@
     premium_customer: 'Premium Customer', premium_profile: 'Verified Premium Profile',
     premium_payment: 'Premium Payment', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
-    accommodation_property: 'Accommodation Property'
+    accommodation_property: 'Accommodation Property',
+    accommodation_unit: 'Accommodation Room / Unit'
   };
   const functionLabels = {
     wallet_sacco_deposits: 'Wallet / SACCO Deposits', savings_challenge: 'Savings Challenge',
@@ -426,7 +427,7 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
       db.rpc('admin_list_service_provider_approvals'),
@@ -434,6 +435,7 @@
       db.rpc('admin_list_partner_profile_changes'),
       db.rpc('admin_list_partner_settlement_approvals'),
       db.rpc('admin_list_accommodation_corrections'),
+      db.rpc('admin_list_accommodation_unit_approvals'),
       db.rpc('admin_list_pending_payment_actions'),
       db.rpc('admin_list_transport_requests')
     ]);
@@ -444,6 +446,7 @@
     if (profileChangesResult.error) throw profileChangesResult.error;
     if (partnerSettlementResult.error) throw partnerSettlementResult.error;
     if (accommodationCorrectionsResult.error) throw accommodationCorrectionsResult.error;
+    if (accommodationUnitsResult.error) throw accommodationUnitsResult.error;
     if (paymentActionsResult.error) throw paymentActionsResult.error;
     if (transportRequestsResult.error) throw transportRequestsResult.error;
 
@@ -454,7 +457,8 @@
       ...(Array.isArray(transportResult.data) ? transportResult.data : []),
       ...(Array.isArray(profileChangesResult.data) ? profileChangesResult.data : []),
       ...(Array.isArray(partnerSettlementResult.data) ? partnerSettlementResult.data : []),
-      ...(Array.isArray(accommodationCorrectionsResult.data) ? accommodationCorrectionsResult.data : [])
+      ...(Array.isArray(accommodationCorrectionsResult.data) ? accommodationCorrectionsResult.data : []),
+      ...(Array.isArray(accommodationUnitsResult.data) ? accommodationUnitsResult.data : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     state.paymentActions=Array.isArray(paymentActionsResult.data)?paymentActionsResult.data:[];
     state.transportRequests=Array.isArray(transportRequestsResult.data)?transportRequestsResult.data:state.transportRequests;
@@ -803,6 +807,8 @@
         ? { p_account_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change'].includes(item.kind)
           ? { p_change_id: item.record_id, p_decision: decision, p_notes: notes || null }
+          : item.kind === 'accommodation_unit'
+            ? { p_unit_id: item.record_id, p_decision: decision, p_notes: notes || null }
           : ['seller_application','seller_product','customer_personal_sale','service_provider_application','service_listing','transport_provider_application','transport_vehicle'].includes(item.kind)
             ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
             : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
