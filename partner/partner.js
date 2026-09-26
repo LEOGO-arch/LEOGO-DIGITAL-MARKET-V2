@@ -2835,7 +2835,6 @@ function resetAccommodationPropertyForm(){
   form.reset();$('#accommodationPropertyId').value='';
   $('#accommodationPropertyCheckIn').value='14:00';$('#accommodationPropertyCheckOut').value='10:00';
   $('#accommodationChildrenAllowed').checked=true;
-  $('#accommodationPropertyPinStatus').textContent='Property location not pinned.';
   status($('#accommodationPropertyStatus'),'');
 }
 function openAccommodationPropertyForm(propertyId=''){
@@ -2865,10 +2864,6 @@ function openAccommodationPropertyForm(propertyId=''){
     $('#accommodationWifiAvailable').checked=Boolean(property.wifi_available);
     $('#accommodationBreakfastAvailable').checked=Boolean(property.breakfast_available);
     $('#accommodationSmokingZoneAllowed').checked=Boolean(property.smoking_zone_allowed);
-    $('#accommodationPropertyMapLink').value=property.map_link||'';
-    $('#accommodationPropertyLatitude').value=property.latitude??'';
-    $('#accommodationPropertyLongitude').value=property.longitude??'';
-    if(property.latitude!=null&&property.longitude!=null)$('#accommodationPropertyPinStatus').textContent='✓ Property pinned: '+property.latitude+', '+property.longitude;
   }else{
     $('#accommodationPropertyCounty').value=accommodationProvider?.county||'';
     $('#accommodationPropertySubCounty').value=accommodationProvider?.sub_county||'';
@@ -2962,17 +2957,6 @@ function openAccommodationUnitForm(propertyId,unitId=''){
   status($('#accommodationUnitStatus'),'');
   form.scrollIntoView({behavior:'smooth',block:'start'});
 }
-function setAccommodationPropertyCoordinates(lat,lng,label='Property location pinned'){
-  const latitude=Number(lat),longitude=Number(lng),target=$('#accommodationPropertyPinStatus');
-  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
-    target.textContent='Invalid property coordinates.';target.className='status error';return false;
-  }
-  $('#accommodationPropertyLatitude').value=latitude.toFixed(7);
-  $('#accommodationPropertyLongitude').value=longitude.toFixed(7);
-  if(!$('#accommodationPropertyMapLink').value.trim())$('#accommodationPropertyMapLink').value='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
-  target.textContent='✓ '+label+': '+latitude.toFixed(7)+', '+longitude.toFixed(7);target.className='status success';return true;
-}
-
 function accommodationSummaryRows(){
   if(!accommodationProvider)return [];
   return [
@@ -3105,20 +3089,6 @@ $('#addAccommodationRate')?.addEventListener('click',()=>{
   rows.push({rate_name:'',meal_plan:'bed_only',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:''});
   renderAccommodationRateRows(rows);
 });
-$('#pinAccommodationProperty')?.addEventListener('click',()=>{
-  const target=$('#accommodationPropertyPinStatus');
-  if(!navigator.geolocation){target.textContent='Location access is unavailable. Paste Maps coordinates instead.';target.className='status error';return;}
-  target.textContent='Getting property location…';target.className='status';
-  navigator.geolocation.getCurrentPosition(
-    position=>setAccommodationPropertyCoordinates(position.coords.latitude,position.coords.longitude),
-    error=>{target.textContent=error.code===1?'Location permission was not granted. Paste a Maps link or coordinates instead.':'Property location could not be detected.';target.className='status error';},
-    {enableHighAccuracy:true,timeout:15000,maximumAge:15000}
-  );
-});
-$('#accommodationPropertyMapLink')?.addEventListener('change',event=>{
-  const coords=accommodationCoordinatesFromText(event.currentTarget.value);
-  if(coords)setAccommodationPropertyCoordinates(coords.lat,coords.lng,'Coordinates detected');
-});
 $('#accommodationPropertyForm')?.addEventListener('submit',async event=>{
   event.preventDefault();if(!event.currentTarget.reportValidity())return;
   const button=event.currentTarget.querySelector('button[type="submit"]');const original=button.textContent;button.disabled=true;button.textContent='Saving…';
@@ -3132,7 +3102,6 @@ $('#accommodationPropertyForm')?.addEventListener('submit',async event=>{
       coverFile?uploadAccommodationListingPhoto(coverFile,'property-cover'):Promise.resolve(existing?.cover_image_url||null),
       gallery.length?Promise.all(gallery.map(file=>uploadAccommodationListingPhoto(file,'property-gallery'))):Promise.resolve(existing?.gallery_image_urls||[])
     ]);
-    const latText=$('#accommodationPropertyLatitude').value.trim(),lngText=$('#accommodationPropertyLongitude').value.trim();
     const {error}=await client.rpc('accommodation_provider_save_property',{
       p_property_id:propertyId,p_property_name:$('#accommodationPropertyName').value.trim(),p_property_type:$('#accommodationPropertyType').value,
       p_county:$('#accommodationPropertyCounty').value.trim(),p_sub_county:$('#accommodationPropertySubCounty').value.trim()||null,
@@ -3140,7 +3109,7 @@ $('#accommodationPropertyForm')?.addEventListener('submit',async event=>{
       p_description:$('#accommodationPropertyDescription').value.trim(),p_cover_image_url:coverUrl,p_gallery_image_urls:galleryUrls,
       p_amenities:accommodationArrayValue($('#accommodationPropertyAmenities').value),p_house_rules:$('#accommodationPropertyRules').value.trim()||null,
       p_check_in_time:$('#accommodationPropertyCheckIn').value,p_check_out_time:$('#accommodationPropertyCheckOut').value,
-      p_latitude:latText?Number(latText):null,p_longitude:lngText?Number(lngText):null,p_map_link:$('#accommodationPropertyMapLink').value.trim()||null,
+      p_latitude:accommodationProvider?.base_latitude??null,p_longitude:accommodationProvider?.base_longitude??null,p_map_link:accommodationProvider?.base_map_link||null,
       p_cancellation_policy:$('#accommodationPropertyCancellation').value.trim()||null,p_children_allowed:$('#accommodationChildrenAllowed').checked,
       p_pets_allowed:$('#accommodationPetsAllowed').checked,p_parking_available:$('#accommodationParkingAvailable').checked,
       p_wifi_available:$('#accommodationWifiAvailable').checked,p_breakfast_available:$('#accommodationBreakfastAvailable').checked,
