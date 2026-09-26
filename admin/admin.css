@@ -726,3 +726,6 @@
 
 /* Accommodation booking operations */
 #adminAccommodationBookingBody tr.attention-row td{background:#fff9ef}#adminAccommodationBookingBody td small{display:block;margin-top:4px;color:#738095}#adminAccommodationBookingBody .status-chip{text-transform:capitalize}
+
+/* Admin Accommodation guest PDF action */
+.accommodation-admin-pdf-button{border:0;border-radius:8px;padding:8px 10px;background:#071b3d;color:#fff;font-size:.7rem;font-weight:900;white-space:nowrap;cursor:pointer}.accommodation-admin-pdf-button:hover{filter:brightness(1.08)}@media(max-width:650px){.accommodation-admin-pdf-button{width:100%;min-height:40px}}
