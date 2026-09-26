@@ -827,7 +827,25 @@
             <p id="accommodationUnitStatus" class="status"></p>
           </form>
         </section>
-        <section class="accommodation-view" data-accommodation-content="bookings"><section class="panel"><div class="section-title"><span>BOOKINGS</span><h3>Accommodation Bookings</h3><p>The existing customer accommodation booking records will be connected here in the booking stage.</p></div></section></section>
+        <section class="accommodation-view" data-accommodation-content="bookings">
+          <section class="panel">
+            <div class="section-title"><span>BOOKINGS</span><h3>Accommodation Bookings</h3><p>Review customer booking requests for your approved properties and respond to pending requests.</p></div>
+            <div class="accommodation-booking-toolbar">
+              <select id="accommodationBookingFilter" aria-label="Filter accommodation bookings">
+                <option value="all">All bookings</option>
+                <option value="pending_host">Awaiting response</option>
+                <option value="accepted">Accepted</option>
+                <option value="rejected">Rejected</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled_by_customer">Cancelled by customer</option>
+                <option value="cancelled_by_host">Cancelled by property</option>
+              </select>
+              <button id="refreshAccommodationBookings" type="button" class="secondary">↻ Refresh</button>
+            </div>
+            <div id="accommodationBookingList" class="accommodation-provider-booking-list"><div class="empty-card">Loading accommodation bookings…</div></div>
+            <p id="accommodationBookingStatus" class="status"></p>
+          </section>
+        </section>
         <section class="accommodation-view" data-accommodation-content="availability"><section class="panel"><div class="section-title"><span>CALENDAR</span><h3>Availability Calendar</h3><p>Room/unit availability, blocked dates and confirmed bookings will be managed here.</p></div></section></section>
         <section class="accommodation-view" data-accommodation-content="earnings"><section class="panel"><div class="section-title"><span>EARNINGS</span><h3>Accommodation Earnings</h3><p>Completed-stay earnings and LEOGO commission reporting will be connected after the booking workflow.</p></div></section></section>
         <section class="accommodation-view" data-accommodation-content="settlements"><section class="panel"><div class="section-title"><span>SETTLEMENTS</span><h3>Accommodation Payouts</h3><p>Approved payout accounts, payout requests and Admin-initiated settlements will use the same Partner settlement standard already used elsewhere in LEOGO.</p></div></section></section>
