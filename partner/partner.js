@@ -2877,14 +2877,31 @@ function accommodationMealPlanLabel(value){
 function accommodationOccupancyLabel(value){
   return {single:'Single Occupancy',double:'Double Occupancy',triple:'Triple Occupancy',family:'Family',custom:'Custom'}[value]||'Custom';
 }
+function accommodationIsMainRate(rate,kind){
+  const name=String(rate?.rate_name||'').toLowerCase();
+  const meal=String(rate?.meal_plan||'');
+  const pax=Number(rate?.occupancy_pax||0);
+  if(kind==='bed_only')return name==='bed only'||meal==='bed_only';
+  if(kind==='bb1')return name==='bed & breakfast for 1 pax'||name==='bed & breakfast - single'||(meal==='bed_breakfast'&&pax===1);
+  if(kind==='bb2')return name==='bed & breakfast for 2 pax'||name==='bed & breakfast - double'||(meal==='bed_breakfast'&&pax===2);
+  return false;
+}
 function renderAccommodationRateRows(rates=[]){
+  const rows=Array.isArray(rates)?rates:[];
+  const bedOnly=rows.find(rate=>accommodationIsMainRate(rate,'bed_only'));
+  const breakfast1=rows.find(rate=>accommodationIsMainRate(rate,'bb1'));
+  const breakfast2=rows.find(rate=>accommodationIsMainRate(rate,'bb2'));
+  $('#accommodationBedOnlyPrice').value=bedOnly?.nightly_price_kes||'';
+  $('#accommodationBreakfast1Price').value=breakfast1?.nightly_price_kes||'';
+  $('#accommodationBreakfast2Price').value=breakfast2?.nightly_price_kes||'';
+
   const target=$('#accommodationRateRows');if(!target)return;
-  const rows=(Array.isArray(rates)&&rates.length?rates:[
-    {rate_name:'Bed Only',meal_plan:'bed_only',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:''},
-    {rate_name:'Bed & Breakfast for 1 pax',meal_plan:'bed_breakfast',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:''},
-    {rate_name:'Bed & Breakfast for 2 pax',meal_plan:'bed_breakfast',occupancy_type:'double',occupancy_pax:2,nightly_price_kes:''}
-  ]);
-  target.innerHTML=rows.map((rate)=>{
+  const extras=rows.filter(rate=>
+    !accommodationIsMainRate(rate,'bed_only') &&
+    !accommodationIsMainRate(rate,'bb1') &&
+    !accommodationIsMainRate(rate,'bb2')
+  );
+  target.innerHTML=extras.map((rate)=>{
     return '<div class="accommodation-rate-row" data-rate-row>'+
       '<label>Rate name<input data-rate-name type="text" maxlength="120" required value="'+escapeHtml(rate.rate_name||'')+'"></label>'+
       '<label>Meal plan<select data-rate-meal required>'+
@@ -2902,34 +2919,61 @@ function renderAccommodationRateRows(rates=[]){
         '<option value="family" '+(rate.occupancy_type==='family'?'selected':'')+'>Family</option>'+
         '<option value="custom" '+(rate.occupancy_type==='custom'?'selected':'')+'>Custom</option>'+
       '</select></label>'+
-      '<label>Guests / Pax<input data-rate-pax type="number" min="1" max="30" required value="'+Number(rate.occupancy_pax||1)+'"></label>'+
+      '<label>Guests / Pax<input data-rate-pax type="number" inputmode="numeric" min="1" max="30" required value="'+Number(rate.occupancy_pax||1)+'"></label>'+
       '<label>Price / night (KSh)<input data-rate-price type="number" inputmode="numeric" min="1" step="1" required value="'+(rate.nightly_price_kes?Number(rate.nightly_price_kes):'')+'"></label>'+
       '<button type="button" class="secondary" data-remove-rate>Remove</button>'+
     '</div>';
   }).join('');
-  const removeButtons=[...target.querySelectorAll('[data-remove-rate]')];
-  removeButtons.forEach((button)=>button.addEventListener('click',()=>{
-    if(target.querySelectorAll('[data-rate-row]').length<=1)return;
+  [...target.querySelectorAll('[data-remove-rate]')].forEach((button)=>button.addEventListener('click',()=>{
     button.closest('[data-rate-row]')?.remove();
     syncAccommodationBasePrice();
   }));
   $$('[data-rate-price]',target).forEach((input)=>input.addEventListener('input',syncAccommodationBasePrice));
+  syncAccommodationRateRequirements();
   syncAccommodationBasePrice();
 }
-function collectAccommodationRates(){
+function collectAccommodationExtraRates(){
   const root=$('#accommodationRateRows');
   return root?[...root.querySelectorAll('[data-rate-row]')].map((row)=>({
     rate_name:$('[data-rate-name]',row)?.value.trim()||'',
-    meal_plan:$('[data-rate-meal]',row)?.value||'bed_only',
-    occupancy_type:$('[data-rate-occupancy]',row)?.value||'single',
+    meal_plan:$('[data-rate-meal]',row)?.value||'other',
+    occupancy_type:$('[data-rate-occupancy]',row)?.value||'custom',
     occupancy_pax:Number($('[data-rate-pax]',row)?.value||0),
     nightly_price_kes:Number($('[data-rate-price]',row)?.value||0),
     is_active:true
   })):[];
 }
+function collectAccommodationRates(){
+  const maxGuests=Math.max(1,Number($('#accommodationUnitGuests').value||1));
+  const bedOnlyPrice=Number($('#accommodationBedOnlyPrice').value||0);
+  const breakfast1Price=Number($('#accommodationBreakfast1Price').value||0);
+  const breakfast2Price=Number($('#accommodationBreakfast2Price').value||0);
+  const bedOnlyOccupancy=maxGuests===1?'single':maxGuests===2?'double':maxGuests===3?'triple':maxGuests>=4?'family':'custom';
+  const main=[
+    {rate_name:'Bed Only',meal_plan:'bed_only',occupancy_type:bedOnlyOccupancy,occupancy_pax:maxGuests,nightly_price_kes:bedOnlyPrice,is_active:true},
+    {rate_name:'Bed & Breakfast for 1 pax',meal_plan:'bed_breakfast',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:breakfast1Price,is_active:true}
+  ];
+  if(maxGuests>=2){
+    main.push({rate_name:'Bed & Breakfast for 2 pax',meal_plan:'bed_breakfast',occupancy_type:'double',occupancy_pax:2,nightly_price_kes:breakfast2Price,is_active:true});
+  }
+  return [...main,...collectAccommodationExtraRates()];
+}
+function syncAccommodationRateRequirements(){
+  const maxGuests=Math.max(1,Number($('#accommodationUnitGuests').value||1));
+  const input=$('#accommodationBreakfast2Price');
+  if(!input)return;
+  input.disabled=maxGuests<2;
+  input.required=maxGuests>=2;
+  if(maxGuests<2)input.value='';
+}
 function syncAccommodationBasePrice(){
   const root=$('#accommodationRateRows');
-  const prices=root?[...root.querySelectorAll('[data-rate-price]')].map((input)=>Number(input.value)).filter((value)=>Number.isFinite(value)&&value>0):[];
+  const prices=[
+    Number($('#accommodationBedOnlyPrice')?.value||0),
+    Number($('#accommodationBreakfast1Price')?.value||0),
+    Number($('#accommodationBreakfast2Price')?.value||0),
+    ...(root?[...root.querySelectorAll('[data-rate-price]')].map((input)=>Number(input.value)):[])
+  ].filter((value)=>Number.isFinite(value)&&value>0);
   const base=prices.length?Math.min(...prices):0;
   $('#accommodationUnitPrice').value=base||'';
   const display=$('#accommodationUnitPriceDisplay');
@@ -2944,6 +2988,7 @@ function openAccommodationUnitForm(propertyId,unitId=''){
   $('#accommodationUnitGuests').value='2';$('#accommodationUnitInventory').value='1';
   $('#accommodationUnitCategory').value='Standard Room';
   renderAccommodationRateRows();
+  syncAccommodationRateRequirements();
   $('#accommodationUnitPropertyLabel').innerHTML='<strong>Property:</strong> '+escapeHtml(property.property_name||'Property')+' · <span class="status-chip">'+escapeHtml(accommodationStatusLabel(property.approval_status))+'</span>';
   const unit=(property.units||[]).find(item=>String(item.id)===String(unitId));
   $('#accommodationUnitFormTitle').textContent=unit?'Edit Room / Unit Type':'Add Room / Unit Type';
@@ -3090,9 +3135,10 @@ $('#refreshAccommodationCatalogue')?.addEventListener('click',()=>loadAccommodat
 $('#cancelAccommodationProperty')?.addEventListener('click',()=>{$('#accommodationPropertyForm').hidden=true;resetAccommodationPropertyForm();});
 $('#cancelAccommodationUnit')?.addEventListener('click',()=>{$('#accommodationUnitForm').hidden=true;});
 $('#addAccommodationRate')?.addEventListener('click',()=>{
-  const rows=collectAccommodationRates();
-  rows.push({rate_name:'',meal_plan:'bed_only',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:''});
-  renderAccommodationRateRows(rows);
+  const extras=collectAccommodationExtraRates();
+  extras.push({rate_name:'',meal_plan:'other',occupancy_type:'custom',occupancy_pax:1,nightly_price_kes:''});
+  const currentMain=collectAccommodationRates().slice(0,Number($('#accommodationUnitGuests').value||1)>=2?3:2);
+  renderAccommodationRateRows([...currentMain,...extras]);
 });
 $('#accommodationPropertyForm')?.addEventListener('submit',async event=>{
   event.preventDefault();if(!event.currentTarget.reportValidity())return;
@@ -3137,14 +3183,12 @@ $('#accommodationUnitForm')?.addEventListener('submit',async event=>{
     const propertyId=$('#accommodationUnitPropertyId').value,unitId=$('#accommodationUnitId').value||null;
     const property=accommodationCatalogue.find(item=>String(item.id)===String(propertyId));
     const existing=(property?.units||[]).find(item=>String(item.id)===String(unitId));
+    syncAccommodationRateRequirements();
     const rates=collectAccommodationRates();
-    if(!rates.length)throw new Error('Add the room prices before saving.');
-    const hasBedOnly=rates.some(rate=>rate.meal_plan==='bed_only');
-    const hasBreakfast1=rates.some(rate=>rate.meal_plan==='bed_breakfast'&&Number(rate.occupancy_pax)===1);
-    const hasBreakfast2=rates.some(rate=>rate.meal_plan==='bed_breakfast'&&Number(rate.occupancy_pax)===2);
-    if(!hasBedOnly)throw new Error('Enter the Bed Only price.');
-    if(!hasBreakfast1)throw new Error('Enter the Bed & Breakfast for 1 pax price.');
-    if(Number($('#accommodationUnitGuests').value)>=2&&!hasBreakfast2)throw new Error('Enter the Bed & Breakfast for 2 pax price.');
+    const maxGuests=Number($('#accommodationUnitGuests').value||1);
+    if(Number($('#accommodationBedOnlyPrice').value||0)<=0)throw new Error('Enter the Bed Only price.');
+    if(Number($('#accommodationBreakfast1Price').value||0)<=0)throw new Error('Enter the Bed & Breakfast for 1 pax price.');
+    if(maxGuests>=2&&Number($('#accommodationBreakfast2Price').value||0)<=0)throw new Error('Enter the Bed & Breakfast for 2 pax price.');
     for(const rate of rates){
       if(rate.rate_name.length<2)throw new Error('Every rate plan needs a name.');
       if(!rate.nightly_price_kes||rate.nightly_price_kes<=0)throw new Error('Every rate plan needs a valid nightly price.');
