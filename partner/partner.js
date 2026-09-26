@@ -2903,7 +2903,7 @@ function renderAccommodationRateRows(rates=[]){
         '<option value="custom" '+(rate.occupancy_type==='custom'?'selected':'')+'>Custom</option>'+
       '</select></label>'+
       '<label>Guests / Pax<input data-rate-pax type="number" min="1" max="30" required value="'+Number(rate.occupancy_pax||1)+'"></label>'+
-      '<label>Price / night (KSh)<input data-rate-price type="number" min="1" step="1" required value="'+(rate.nightly_price_kes?Number(rate.nightly_price_kes):'')+'"></label>'+
+      '<label>Price / night (KSh)<input data-rate-price type="number" inputmode="numeric" min="1" step="1" required value="'+(rate.nightly_price_kes?Number(rate.nightly_price_kes):'')+'"></label>'+
       '<button type="button" class="secondary" data-remove-rate>Remove</button>'+
     '</div>';
   }).join('');
@@ -2930,7 +2930,10 @@ function collectAccommodationRates(){
 function syncAccommodationBasePrice(){
   const root=$('#accommodationRateRows');
   const prices=root?[...root.querySelectorAll('[data-rate-price]')].map((input)=>Number(input.value)).filter((value)=>Number.isFinite(value)&&value>0):[];
-  $('#accommodationUnitPrice').value=prices.length?Math.min(...prices):'';
+  const base=prices.length?Math.min(...prices):0;
+  $('#accommodationUnitPrice').value=base||'';
+  const display=$('#accommodationUnitPriceDisplay');
+  if(display)display.textContent=base?money(base)+'/night':'Enter room prices below';
 }
 function openAccommodationUnitForm(propertyId,unitId=''){
   const property=accommodationCatalogue.find(item=>String(item.id)===String(propertyId));if(!property)return;
