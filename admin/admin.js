@@ -610,7 +610,8 @@
     ownership_proof_path: { label: 'Ownership Proof', bucket: 'customer-sale-verification' },
 
     cover_image_url: { label: 'Property Cover Image', directUrl: true },
-    gallery_image_urls: { label: 'Property Gallery Image', directUrl: true, multiple: true }
+    gallery_image_urls: { label: 'Property Gallery Image', directUrl: true, multiple: true },
+    unit_image_url: { label: 'Room / Unit Main Image', directUrl: true }
   };
 
   const adminMediaEntries = (payload = {}, kind = '') => {
