@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=accommodation-phase-a-final-1">
+  <link rel="stylesheet" href="partner.css?v=accommodation-phase-b-1">
 <style>
 .transport-priority-nav{order:-1}.transport-application-progress{display:grid;gap:14px}.transport-progress-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.transport-progress-steps span{border:1px solid #dce3ed;border-radius:12px;padding:12px;display:grid;gap:3px;background:#f8fafc}.transport-progress-steps span i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e8edf4;font-style:normal;font-weight:900}.transport-progress-steps span.done i{background:#071a3a;color:#fff}.transport-progress-steps span.current{border-color:#ff7200;background:#fff8f2}.transport-progress-steps span.current i{background:#ff7200;color:#fff}.transport-progress-steps span.alert{border-color:#c98724;background:#fff9ec}.transport-progress-steps span.alert i{background:#c98724;color:#fff}.seller-icon-button{position:relative}.seller-icon-button #transportHeaderNotificationBadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:999px;background:#ff7200;color:#fff;font-size:10px;display:grid;place-items:center;padding:0 4px}.seller-icon-button #transportHeaderNotificationBadge[hidden]{display:none}.transport-view-lock-note{padding:12px;border-radius:10px;background:#fff8f2;color:#7a4108;font-weight:700}@media(max-width:700px){.transport-progress-steps{grid-template-columns:1fr}}
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
@@ -731,7 +731,70 @@
           </section>
         </section>
 
-        <section class="accommodation-view" data-accommodation-content="properties"><section class="panel"><div class="section-title"><span>PHASE B</span><h3>Properties &amp; Rooms</h3><p>Next we will connect property creation, room/unit types, photos, amenities and Admin approval here.</p></div></section></section>
+        <section class="accommodation-view" data-accommodation-content="properties">
+          <section class="panel">
+            <div class="section-title"><span>PROPERTIES &amp; ROOMS</span><h3>Accommodation Listings</h3><p>Create a property first, send it to LEOGO Admin for approval, then add room/unit types under that property. Rooms/units also go through Admin approval before customer booking.</p></div>
+            <div class="product-actions"><button id="addAccommodationProperty" type="button">+ Add Property</button><button id="refreshAccommodationCatalogue" class="secondary" type="button">↻ Refresh</button></div>
+            <p id="accommodationCatalogueStatus" class="status"></p>
+            <div id="accommodationPropertyList" class="accommodation-property-list"><div class="empty-card">No properties created yet.</div></div>
+          </section>
+
+          <form id="accommodationPropertyForm" class="panel" hidden>
+            <div class="section-title"><span>PROPERTY PROFILE</span><h3 id="accommodationPropertyFormTitle">Add Property</h3><p>Hotel, Airbnb, guest house, lodge, apartment or other accommodation profile.</p></div>
+            <input id="accommodationPropertyId" type="hidden">
+            <div class="form-grid">
+              <label>Property name<input id="accommodationPropertyName" type="text" maxlength="140" required></label>
+              <label>Property type<select id="accommodationPropertyType" required><option value="">Choose type</option><option value="hotel">Hotel</option><option value="airbnb">Airbnb</option><option value="guest_house">Guest House</option><option value="lodge">Lodge</option><option value="apartment">Apartment</option><option value="resort">Resort</option><option value="cottage">Cottage</option><option value="hostel">Hostel</option><option value="villa">Villa</option><option value="bedsitter">Bedsitter</option><option value="other">Other</option></select></label>
+              <label>County<input id="accommodationPropertyCounty" type="text" maxlength="60" required></label>
+              <label>Sub-County<input id="accommodationPropertySubCounty" type="text" maxlength="80"></label>
+              <label>Town / Area<input id="accommodationPropertyTown" type="text" maxlength="80" required></label>
+              <label>Public location / landmark<input id="accommodationPropertyPublicLocation" type="text" maxlength="160" required></label>
+              <label class="wide">Property description<textarea id="accommodationPropertyDescription" rows="4" minlength="20" maxlength="2000" required></textarea></label>
+              <label>Check-in time<input id="accommodationPropertyCheckIn" type="time" value="14:00" required></label>
+              <label>Check-out time<input id="accommodationPropertyCheckOut" type="time" value="10:00" required></label>
+              <label class="wide">Amenities <small>Comma separated, e.g. Wi-Fi, Parking, Restaurant, Swimming Pool</small><textarea id="accommodationPropertyAmenities" rows="2" maxlength="1000"></textarea></label>
+              <label class="wide">House / property rules<textarea id="accommodationPropertyRules" rows="3" maxlength="1500"></textarea></label>
+              <label class="wide">Cancellation policy<textarea id="accommodationPropertyCancellation" rows="3" maxlength="1200" placeholder="Example: Free cancellation up to 24 hours before check-in."></textarea></label>
+              <label class="wide">Accessibility information <small>Optional</small><textarea id="accommodationPropertyAccessibility" rows="2" maxlength="800"></textarea></label>
+              <div class="wide accommodation-option-grid">
+                <label><input id="accommodationChildrenAllowed" type="checkbox" checked> Children allowed</label>
+                <label><input id="accommodationPetsAllowed" type="checkbox"> Pets allowed</label>
+                <label><input id="accommodationParkingAvailable" type="checkbox"> Parking available</label>
+                <label><input id="accommodationWifiAvailable" type="checkbox"> Wi-Fi available</label>
+                <label><input id="accommodationBreakfastAvailable" type="checkbox"> Breakfast available</label>
+              </div>
+              <div class="wide seller-shop-pin-box">
+                <div class="section-title compact"><span>📍 PROPERTY LOCATION</span><h4>Pin this property</h4><p>This pin helps Admin verify the property and supports customer location browsing.</p></div>
+                <div class="seller-shop-pin-actions"><button id="pinAccommodationProperty" type="button">📍 Pin Current Property Location</button><span id="accommodationPropertyPinStatus">Property location not pinned.</span></div>
+                <label class="wide">Google Maps link <small>Optional</small><input id="accommodationPropertyMapLink" type="text" maxlength="1000" placeholder="Paste Google Maps link or coordinates"></label>
+                <div class="form-grid"><label>Latitude<input id="accommodationPropertyLatitude" type="number" step="0.0000001" min="-90" max="90"></label><label>Longitude<input id="accommodationPropertyLongitude" type="number" step="0.0000001" min="-180" max="180"></label></div>
+              </div>
+              <label>Cover / main property photo<input id="accommodationPropertyCover" type="file" accept="image/jpeg,image/png,image/webp"></label>
+              <label>Gallery photos <small>Up to 5</small><input id="accommodationPropertyGallery" type="file" multiple accept="image/jpeg,image/png,image/webp"></label>
+            </div>
+            <div class="product-actions"><button id="cancelAccommodationProperty" class="secondary" type="button">Cancel</button><button type="submit">Save &amp; Send for Approval</button></div>
+            <p id="accommodationPropertyStatus" class="status"></p>
+          </form>
+
+          <form id="accommodationUnitForm" class="panel" hidden>
+            <div class="section-title"><span>ROOM / UNIT</span><h3 id="accommodationUnitFormTitle">Add Room / Unit Type</h3><p>Add a room type, apartment unit or rentable accommodation unit under an existing property.</p></div>
+            <input id="accommodationUnitId" type="hidden"><input id="accommodationUnitPropertyId" type="hidden">
+            <div id="accommodationUnitPropertyLabel" class="restricted-notice"></div>
+            <div class="form-grid">
+              <label>Room / unit name<input id="accommodationUnitName" type="text" maxlength="120" required placeholder="Standard Room, Deluxe Room, Apartment 1"></label>
+              <label>Nightly price (KSh)<input id="accommodationUnitPrice" type="number" min="1" step="1" required></label>
+              <label>Maximum guests<input id="accommodationUnitGuests" type="number" min="1" max="30" value="1" required></label>
+              <label>Number of identical rooms / units<input id="accommodationUnitInventory" type="number" min="1" max="500" value="1" required></label>
+              <label class="wide">Beds description<input id="accommodationUnitBeds" type="text" maxlength="300" placeholder="1 Queen bed, 2 Single beds"></label>
+              <label class="wide">Description<textarea id="accommodationUnitDescription" rows="3" maxlength="1000"></textarea></label>
+              <label class="wide">Room / unit amenities <small>Comma separated</small><textarea id="accommodationUnitAmenities" rows="2" maxlength="800" placeholder="Private bathroom, TV, Balcony, Air conditioning"></textarea></label>
+              <label>Room / unit main photo<input id="accommodationUnitImage" type="file" accept="image/jpeg,image/png,image/webp"></label>
+              <label>Room gallery <small>Up to 3</small><input id="accommodationUnitGallery" type="file" multiple accept="image/jpeg,image/png,image/webp"></label>
+            </div>
+            <div class="product-actions"><button id="cancelAccommodationUnit" class="secondary" type="button">Cancel</button><button type="submit">Save &amp; Send for Approval</button></div>
+            <p id="accommodationUnitStatus" class="status"></p>
+          </form>
+        </section>
         <section class="accommodation-view" data-accommodation-content="bookings"><section class="panel"><div class="section-title"><span>BOOKINGS</span><h3>Accommodation Bookings</h3><p>The existing customer accommodation booking records will be connected here in the booking stage.</p></div></section></section>
         <section class="accommodation-view" data-accommodation-content="availability"><section class="panel"><div class="section-title"><span>CALENDAR</span><h3>Availability Calendar</h3><p>Room/unit availability, blocked dates and confirmed bookings will be managed here.</p></div></section></section>
         <section class="accommodation-view" data-accommodation-content="earnings"><section class="panel"><div class="section-title"><span>EARNINGS</span><h3>Accommodation Earnings</h3><p>Completed-stay earnings and LEOGO commission reporting will be connected after the booking workflow.</p></div></section></section>
@@ -1118,5 +1181,5 @@
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=accommodation-form-persist-1" defer></script>
+<script src="partner.js?v=accommodation-phase-b-1" defer></script>
 </body></html>
