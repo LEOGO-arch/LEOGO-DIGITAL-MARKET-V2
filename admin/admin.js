@@ -3810,9 +3810,10 @@
         '</div></td>'+
       '</tr>';
     }).join(''):'<tr><td colspan="7">No Service Provider accounts yet.</td></tr>';
-    Array.from($$('#serviceProviderTableBody').querySelectorAll('[data-provider-review]')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
-    Array.from($$('#serviceProviderTableBody').querySelectorAll('[data-view-service-provider]')).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
-    Array.from($$('#serviceProviderTableBody').querySelectorAll('[data-service-provider-suspend]')).forEach((button)=>button.addEventListener('click',()=>setServiceProviderSuspended(button,button.dataset.serviceProviderId,button.dataset.serviceProviderSuspend==='true')));
+    const serviceProviderTable=$('#serviceProviderTableBody');
+    Array.from(serviceProviderTable?.querySelectorAll('[data-provider-review]')||[]).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
+    Array.from(serviceProviderTable?.querySelectorAll('[data-view-service-provider]')||[]).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
+    Array.from(serviceProviderTable?.querySelectorAll('[data-service-provider-suspend]')||[]).forEach((button)=>button.addEventListener('click',()=>setServiceProviderSuspended(button,button.dataset.serviceProviderId,button.dataset.serviceProviderSuspend==='true')));
   };
   const loadServiceProviders = async () => {
     const {data,error}=await db.rpc('admin_list_service_providers');
@@ -4396,6 +4397,117 @@
     await Promise.all([loadPremiumPlans(), loadAuditLog()]);
   };
 
+  const accommodationAdminPdfSafe = (value='') => String(value ?? '')
+    .replace(/[–—]/g,'-')
+    .replace(/[‘’]/g,"'")
+    .replace(/[“”]/g,'"')
+    .replace(/[^\x20-\x7E\n]/g,' ');
+
+  const accommodationAdminPdfDate = (value,withTime=false) => {
+    if(!value)return '—';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return String(value);
+    return new Intl.DateTimeFormat('en-KE',{
+      timeZone:'Africa/Nairobi',
+      year:'numeric',month:'short',day:'2-digit',
+      ...(withTime?{hour:'2-digit',minute:'2-digit'}:{})
+    }).format(date);
+  };
+
+  const accommodationAdminPdfLine = (doc,label,value,y) => {
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.setTextColor(65);
+    doc.text(accommodationAdminPdfSafe(label),14,y);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(25);
+    const lines=doc.splitTextToSize(accommodationAdminPdfSafe(value||'—'),138);
+    doc.text(lines,58,y);
+    return y+Math.max(6,lines.length*5);
+  };
+
+  const downloadAdminAccommodationGuestPdf = (item) => {
+    const Pdf=window.jspdf?.jsPDF;
+    if(!Pdf){
+      globalStatus('PDF generator could not load. Refresh the Admin page and try again.','error');
+      return;
+    }
+
+    const doc=new Pdf({orientation:'portrait',unit:'mm',format:'a4'});
+    doc.setProperties({
+      title:'Accommodation Guest Details - '+(item.booking_reference||'Booking'),
+      subject:'LEOGO Admin accommodation guest booking details',
+      author:'LEOGO DIGITAL MARKET'
+    });
+
+    doc.setFillColor(7,27,61);
+    doc.rect(0,0,210,34,'F');
+    doc.setTextColor(255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(17);
+    doc.text('LEOGO DIGITAL MARKET',14,13);
+    doc.setFontSize(11);
+    doc.text('Admin - Accommodation Guest Booking Details',14,22);
+    doc.setFontSize(9);
+    doc.text(accommodationAdminPdfSafe(item.booking_reference||''),196,22,{align:'right'});
+
+    let y=44;
+    const fields=[
+      ['Booking reference',item.booking_reference],
+      ['Booking status',String(item.booking_status||'').replaceAll('_',' ')],
+      ['Guest name',item.guest_name],
+      ['Guest phone',item.guest_phone],
+      ['Accommodation Provider',item.provider_name],
+      ['Property',item.property_name],
+      ['Room',String(item.room_category||'Room')+' - '+String(item.room_name||'')],
+      ['Rate plan',item.rate_name],
+      ['Check-in',accommodationAdminPdfDate(item.check_in)],
+      ['Check-out',accommodationAdminPdfDate(item.check_out)],
+      ['Stay',Number(item.nights||0)+' night(s) - '+Number(item.guests||0)+' guest(s)'],
+      ['Nightly rate',formatMoney(item.nightly_price_kes)],
+      ['Hotel booking amount',formatMoney(item.hotel_booking_amount_kes ?? item.total_amount_kes)],
+      ['Hotel commission ('+Number(item.hotel_commission_percent||0)+'%)',formatMoney(item.hotel_commission_kes||0)],
+      ['Hotel net amount',formatMoney(item.hotel_net_amount_kes ?? item.hotel_booking_amount_kes ?? item.total_amount_kes)],
+      ['Customer service fee ('+Number(item.customer_service_fee_percent||0)+'%)',formatMoney(item.customer_service_fee_kes||0)],
+      ['Customer total',formatMoney(item.customer_total_kes ?? item.total_amount_kes)],
+      ['LEOGO gross earning',formatMoney(item.leogo_revenue_kes||0)],
+      ['Booking received',accommodationAdminPdfDate(item.created_at,true)]
+    ];
+    fields.forEach(([label,value])=>{y=accommodationAdminPdfLine(doc,label,value,y);});
+
+    const addSection=(title,value)=>{
+      if(y>250){doc.addPage();y=20;}
+      y+=3;
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10);
+      doc.setTextColor(7,27,61);
+      doc.text(title,14,y);
+      y+=6;
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(9);
+      doc.setTextColor(40);
+      const lines=doc.splitTextToSize(accommodationAdminPdfSafe(value||'—'),180);
+      doc.text(lines,14,y);
+      y+=Math.max(8,lines.length*5);
+    };
+
+    addSection('Guest special request',item.special_requests||'No special request provided.');
+    addSection('Property response',item.host_response||'No property response recorded yet.');
+
+    const pages=doc.getNumberOfPages();
+    for(let page=1;page<=pages;page++){
+      doc.setPage(page);
+      doc.setFontSize(7);
+      doc.setTextColor(120);
+      doc.text('Private Admin booking record - LEOGO DIGITAL MARKET',14,292);
+      doc.text('Page '+page+' of '+pages,196,292,{align:'right'});
+    }
+
+    const safeRef=String(item.booking_reference||'booking').replace(/[^a-zA-Z0-9-]+/g,'-');
+    doc.save('leogo-admin-guest-'+safeRef+'.pdf');
+    globalStatus('Guest booking PDF downloaded.');
+  };
+
   const renderAccommodationBookings = () => {
     const target=$('#adminAccommodationBookingBody');
     if(!target)return;
@@ -4409,7 +4521,12 @@
         <td data-label="Room / Rate"><strong>${escapeHtml(item.room_category||'Room')} · ${escapeHtml(item.room_name||'Room')}</strong><small>${escapeHtml(item.rate_name||'Room rate')}</small></td>
         <td data-label="Financials"><strong>Customer: ${formatMoney(item.customer_total_kes ?? item.total_amount_kes)}</strong><small>Hotel base ${formatMoney(item.hotel_booking_amount_kes ?? item.total_amount_kes)} · Hotel commission ${Number(item.hotel_commission_percent||0)}% = ${formatMoney(item.hotel_commission_kes||0)} · Service fee ${Number(item.customer_service_fee_percent||0)}% = ${formatMoney(item.customer_service_fee_kes||0)} · LEOGO ${formatMoney(item.leogo_revenue_kes||0)} · Hotel net ${formatMoney(item.hotel_net_amount_kes ?? item.hotel_booking_amount_kes ?? item.total_amount_kes)}</small></td>
         <td data-label="Status"><span class="status-chip">${escapeHtml(String(item.booking_status||'').replaceAll('_',' '))}</span>${item.host_response?`<small>${escapeHtml(item.host_response)}</small>`:''}</td>
-      </tr>`).join(''):'<tr><td colspan="7">No Accommodation bookings yet.</td></tr>';
+        <td data-label="Action"><button type="button" class="accommodation-admin-pdf-button" data-admin-accommodation-guest-pdf="${escapeHtml(item.id)}">Download Guest PDF</button></td>
+      </tr>`).join(''):'<tr><td colspan="8">No Accommodation bookings yet.</td></tr>';
+    Array.from(target.querySelectorAll('[data-admin-accommodation-guest-pdf]')).forEach((button)=>button.addEventListener('click',()=>{
+      const item=state.accommodationBookings.find((row)=>String(row.id)===String(button.dataset.adminAccommodationGuestPdf));
+      if(item)downloadAdminAccommodationGuestPdf(item);
+    }));
   };
 
   const renderAccommodationProviders = () => {
