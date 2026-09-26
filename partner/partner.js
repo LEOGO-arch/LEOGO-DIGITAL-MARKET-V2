@@ -3117,7 +3117,11 @@ function downloadAccommodationGuestPdf(item){
     ['Check-out',accommodationPdfDate(item.check_out)],
     ['Stay',Number(item.nights||0)+' night(s) - '+Number(item.guests||0)+' guest(s)'],
     ['Nightly rate',money(item.nightly_price_kes)],
-    ['Booking total',money(item.total_amount_kes)],
+    ['Hotel booking amount',money(item.hotel_booking_amount_kes ?? item.total_amount_kes)],
+    ['LEOGO hotel commission ('+Number(item.hotel_commission_percent||0)+'%)',money(item.hotel_commission_kes||0)],
+    ['Hotel net amount',money(item.hotel_net_amount_kes ?? item.hotel_booking_amount_kes ?? item.total_amount_kes)],
+    ['Customer service fee ('+Number(item.customer_service_fee_percent||0)+'%)',money(item.customer_service_fee_kes||0)],
+    ['Customer total',money(item.customer_total_kes ?? item.total_amount_kes)],
     ['Booking received',accommodationPdfDate(item.created_at,true)]
   ];
   fields.forEach(([label,value])=>{y=accommodationPdfLabelValue(doc,label,value,y);});
@@ -3194,7 +3198,7 @@ function drawAccommodationReportTable(doc,rows,startY){
       String(item.check_in||'—'),
       String(item.check_out||'—'),
       accommodationBookingStatusLabel(item.booking_status),
-      money(item.total_amount_kes)
+      money(item.hotel_net_amount_kes ?? item.hotel_booking_amount_kes ?? item.total_amount_kes)
     ];
     const wrapped=cells.map((value,i)=>doc.splitTextToSize(accommodationPdfSafe(value),Math.max(8,widths[i]-4)));
     const rowHeight=Math.max(9,...wrapped.map(lines=>lines.length*4+3));
@@ -3229,10 +3233,10 @@ function downloadAccommodationBookingReport(){
   const to=$('#accommodationReportTo').value;
   const basis=$('#accommodationReportDateBasis').value;
   const wantedStatus=$('#accommodationReportStatus').value;
-  const total=rows.reduce((sum,item)=>sum+Number(item.total_amount_kes||0),0);
+  const hotelBookingValue=rows.reduce((sum,item)=>sum+Number(item.hotel_booking_amount_kes ?? item.total_amount_kes ?? 0),0);
+  const hotelCommission=rows.reduce((sum,item)=>sum+Number(item.hotel_commission_kes||0),0);
+  const hotelNet=rows.reduce((sum,item)=>sum+Number(item.hotel_net_amount_kes ?? item.hotel_booking_amount_kes ?? item.total_amount_kes ?? 0),0);
   const accepted=rows.filter(item=>['accepted','completed'].includes(item.booking_status)).length;
-  const pending=rows.filter(item=>item.booking_status==='pending_host').length;
-  const rejected=rows.filter(item=>item.booking_status==='rejected').length;
 
   const doc=new Pdf({orientation:'landscape',unit:'mm',format:'a4'});
   doc.setProperties({
@@ -3253,9 +3257,9 @@ function downloadAccommodationBookingReport(){
   const metrics=[
     ['Bookings',rows.length],
     ['Accepted / completed',accepted],
-    ['Awaiting response',pending],
-    ['Rejected',rejected],
-    ['Booking value',money(total)]
+    ['Hotel booking value',money(hotelBookingValue)],
+    ['LEOGO commission',money(hotelCommission)],
+    ['Hotel net value',money(hotelNet)]
   ];
   let mx=12;
   metrics.forEach(([label,value])=>{
@@ -3297,7 +3301,11 @@ function renderAccommodationBookings(){
         '<div><small>Guest</small><strong>'+escapeHtml(item.guest_name||'—')+'</strong><span>'+escapeHtml(item.guest_phone||'—')+'</span></div>'+
         '<div><small>Stay</small><strong>'+escapeHtml(String(item.check_in||'—'))+' → '+escapeHtml(String(item.check_out||'—'))+'</strong><span>'+Number(item.nights||0)+' night(s) · '+Number(item.guests||0)+' guest(s)</span></div>'+
         '<div><small>Rate</small><strong>'+escapeHtml(item.rate_name||'Room rate')+'</strong><span>'+money(item.nightly_price_kes)+'/night</span></div>'+
-        '<div><small>Total</small><strong>'+money(item.total_amount_kes)+'</strong><span>Requested '+escapeHtml(formatDate(item.created_at))+'</span></div>'+
+        '<div><small>Hotel booking</small><strong>'+money(item.hotel_booking_amount_kes ?? item.total_amount_kes)+'</strong><span>Before LEOGO commission</span></div>'+
+        '<div><small>LEOGO commission ('+Number(item.hotel_commission_percent||0)+'%)</small><strong>'+money(item.hotel_commission_kes||0)+'</strong><span>Deducted from hotel amount</span></div>'+
+        '<div><small>Hotel net</small><strong>'+money(item.hotel_net_amount_kes ?? item.hotel_booking_amount_kes ?? item.total_amount_kes)+'</strong><span>Amount due to property</span></div>'+
+        '<div><small>Customer service fee ('+Number(item.customer_service_fee_percent||0)+'%)</small><strong>'+money(item.customer_service_fee_kes||0)+'</strong><span>Paid on top by customer</span></div>'+
+        '<div><small>Customer total</small><strong>'+money(item.customer_total_kes ?? item.total_amount_kes)+'</strong><span>Requested '+escapeHtml(formatDate(item.created_at))+'</span></div>'+
       '</div>'+
       (item.special_requests?'<p><strong>Special request:</strong> '+escapeHtml(item.special_requests)+'</p>':'')+
       (item.host_response?'<p><strong>Your response:</strong> '+escapeHtml(item.host_response)+'</p>':'')+
