@@ -721,7 +721,7 @@
   };
 
   const openApproval = async (kind, id) => {
-    const item = state.approvals.find((entry) => entry.kind === kind && entry.record_id === id);
+    const item = state.approvals.find((entry) => entry.kind === kind && String(entry.record_id) === String(id));
     if (!item) return;
     state.activeApproval = item;
     $('#reviewModalTitle').textContent = item.title;
