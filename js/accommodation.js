@@ -27,6 +27,7 @@
     checkOutTime: document.getElementById('accommodationCheckOutTime'),
     bookingForm: document.getElementById('accommodationBookingForm'),
     unit: document.getElementById('accommodationUnit'),
+    rate: document.getElementById('accommodationRate'),
     bookingGuests: document.getElementById('accommodationBookingGuests'),
     bookingCheckIn: document.getElementById('accommodationBookingCheckIn'),
     bookingCheckOut: document.getElementById('accommodationBookingCheckOut'),
@@ -48,7 +49,9 @@
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
   })[character]);
   const money = (value) => 'KSh ' + Number(value || 0).toLocaleString('en-KE');
-  const typeLabel = (value) => ({ hotel: 'Hotel', airbnb: 'Airbnb', guest_house: 'Guest House', lodge: 'Lodge' })[value] || 'Accommodation';
+  const typeLabel = (value) => ({ hotel:'Hotel',airbnb:'Airbnb',guest_house:'Guest House',lodge:'Lodge',apartment:'Apartment',resort:'Resort',cottage:'Cottage',hostel:'Hostel',villa:'Villa',bedsitter:'Bedsitter',other:'Other' })[value] || 'Accommodation';
+  const mealPlanLabel = (value) => ({bed_only:'Bed Only',bed_breakfast:'Bed & Breakfast',half_board:'Half Board',full_board:'Full Board',self_catering:'Self Catering',other:'Other'})[value] || 'Other';
+  const occupancyLabel = (value) => ({single:'Single Occupancy',double:'Double Occupancy',triple:'Triple Occupancy',family:'Family',custom:'Custom'})[value] || 'Custom';
   const statusLabel = (value) => String(value || '').replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
   const safeImage = (value) => {
     try {
@@ -117,7 +120,7 @@
     setMessage(elements.publicStatus, 'Loading approved accommodation…');
     const { data, error } = await client
       .from('accommodation_properties')
-      .select('id,property_name,property_type,county,town,public_location,description,cover_image_url,gallery_image_urls,amenities,house_rules,check_in_time,check_out_time,units:accommodation_units(id,unit_name,description,nightly_price_kes,max_guests,beds_description,inventory_count,is_active,approval_status,unit_image_url,gallery_image_urls,amenities)')
+      .select('id,property_name,property_type,county,town,public_location,description,cover_image_url,gallery_image_urls,amenities,house_rules,check_in_time,check_out_time,children_allowed,pets_allowed,parking_available,wifi_available,breakfast_available,smoking_zone_allowed,units:accommodation_units(id,unit_name,description,nightly_price_kes,max_guests,beds_description,inventory_count,is_active,approval_status,unit_image_url,gallery_image_urls,amenities,rates:accommodation_unit_rates(id,rate_name,meal_plan,occupancy_type,occupancy_pax,nightly_price_kes,is_active))')
       .eq('approval_status', 'approved')
       .eq('is_published', true)
       .order('created_at', { ascending: false });
@@ -128,21 +131,36 @@
     }
     properties = (data || []).map((property) => ({
       ...property,
-      units: (property.units || []).filter((unit) => unit.is_active && unit.approval_status === 'approved')
+      units: (property.units || []).filter((unit) => unit.is_active && unit.approval_status === 'approved').map((unit)=>({
+        ...unit,
+        rates:(unit.rates||[]).filter((rate)=>rate.is_active)
+      }))
     }));
     applyFilters();
   };
 
+  const updateRateOptions = () => {
+    const unit = selectedProperty?.units?.find((item) => item.id === elements.unit?.value);
+    if (!elements.rate) return;
+    const rates = unit?.rates || [];
+    elements.rate.innerHTML = rates.length
+      ? rates.map((rate)=>`<option value="${rate.id}">${escapeHtml(rate.rate_name)} — ${escapeHtml(mealPlanLabel(rate.meal_plan))} — ${escapeHtml(occupancyLabel(rate.occupancy_type))} (${rate.occupancy_pax} pax) — ${money(rate.nightly_price_kes)}/night</option>`).join('')
+      : '<option value="">No approved rates available</option>';
+    if (rates.length) elements.bookingGuests.max = Math.max(...rates.map((rate)=>Number(rate.occupancy_pax||1)));
+    updatePrice();
+  };
+
   const updatePrice = () => {
     const unit = selectedProperty?.units?.find((item) => item.id === elements.unit?.value);
+    const rate = unit?.rates?.find((item) => item.id === elements.rate?.value);
     const checkIn = elements.bookingCheckIn?.value;
     const checkOut = elements.bookingCheckOut?.value;
-    if (!unit || !checkIn || !checkOut || checkOut <= checkIn) {
-      setMessage(elements.price, 'Choose valid dates and a room to see the estimated stay total.');
+    if (!unit || !rate || !checkIn || !checkOut || checkOut <= checkIn) {
+      setMessage(elements.price, 'Choose valid dates, a room and a rate plan to see the estimated stay total.');
       return;
     }
     const nights = Math.round((new Date(`${checkOut}T12:00:00Z`) - new Date(`${checkIn}T12:00:00Z`)) / 86400000);
-    setMessage(elements.price, `${nights} night${nights === 1 ? '' : 's'} × ${money(unit.nightly_price_kes)} = ${money(nights * Number(unit.nightly_price_kes))}. Final confirmation comes from the property.`);
+    setMessage(elements.price, `${escapeHtml(rate.rate_name)} · ${nights} night${nights === 1 ? '' : 's'} × ${money(rate.nightly_price_kes)} = ${money(nights * Number(rate.nightly_price_kes))}.`);
   };
 
   const closeModal = () => {
@@ -172,15 +190,22 @@
     elements.profileLocation.textContent = `📍 ${selectedProperty.public_location}, ${selectedProperty.town}, ${selectedProperty.county}`;
     elements.profileDescription.textContent = selectedProperty.description;
     elements.cover.innerHTML = image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(selectedProperty.property_name)}">` : '<span>🏨</span>';
-    elements.amenities.innerHTML = (selectedProperty.amenities || []).length
-      ? selectedProperty.amenities.map((amenity) => `<span>✓ ${escapeHtml(amenity)}</span>`).join('')
+    const publicAmenities=[...(selectedProperty.amenities||[])];
+    if(selectedProperty.parking_available) publicAmenities.push('Parking');
+    if(selectedProperty.wifi_available) publicAmenities.push('Wi-Fi');
+    if(selectedProperty.breakfast_available) publicAmenities.push('Breakfast available');
+    if(selectedProperty.children_allowed) publicAmenities.push('Children allowed');
+    if(selectedProperty.pets_allowed) publicAmenities.push('Pets allowed');
+    if(selectedProperty.smoking_zone_allowed) publicAmenities.push('Smoking zone available');
+    elements.amenities.innerHTML = publicAmenities.length
+      ? [...new Set(publicAmenities)].map((amenity) => `<span>✓ ${escapeHtml(amenity)}</span>`).join('')
       : '<span>Amenities will be confirmed by the property.</span>';
     elements.checkInTime.textContent = String(selectedProperty.check_in_time || '14:00').slice(0, 5);
     elements.checkOutTime.textContent = String(selectedProperty.check_out_time || '10:00').slice(0, 5);
     elements.unit.innerHTML = (selectedProperty.units || []).length
       ? selectedProperty.units.map((unit) => `<option value="${unit.id}">${escapeHtml(unit.unit_name)} — ${money(unit.nightly_price_kes)}/night — up to ${unit.max_guests} guest${unit.max_guests === 1 ? '' : 's'}</option>`).join('')
       : '<option value="">No active rooms available</option>';
-    elements.bookingForm.querySelector('button[type="submit"]').disabled = !(selectedProperty.units || []).length;
+    elements.bookingForm.querySelector('button[type="submit"]').disabled = !(selectedProperty.units || []).some((unit)=>(unit.rates||[]).length);
     elements.bookingCheckIn.value = elements.checkIn?.value || todayKey();
     elements.bookingCheckOut.value = elements.checkOut?.value || addDays(elements.bookingCheckIn.value, 1);
     elements.bookingGuests.value = elements.guests?.value || 1;
@@ -244,13 +269,15 @@
     }
     if (elements.bookingForm.dataset.submitting === 'true') return;
     const unit = selectedProperty.units.find((item) => item.id === elements.unit.value);
+    const rate = unit?.rates?.find((item)=>item.id===elements.rate?.value);
+    if(!unit||!rate){setMessage(elements.bookingStatus,'Choose a room and rate plan.','error');return;}
     const phone = normalisePhone(elements.guestPhone.value);
     if (!/^\+254[17]\d{8}$/.test(phone)) {
       setMessage(elements.bookingStatus, 'Enter a valid Kenyan phone number, for example +254712345678.', 'error');
       return;
     }
-    if (Number(elements.bookingGuests.value) > Number(unit.max_guests)) {
-      setMessage(elements.bookingStatus, `This room allows a maximum of ${unit.max_guests} guests.`, 'error');
+    if (Number(elements.bookingGuests.value) > Number(unit.max_guests) || Number(elements.bookingGuests.value) > Number(rate.occupancy_pax)) {
+      setMessage(elements.bookingStatus, `The selected ${rate.rate_name} rate allows up to ${rate.occupancy_pax} guest(s).`, 'error');
       return;
     }
     const button = elements.bookingForm.querySelector('button[type="submit"]');
@@ -261,6 +288,7 @@
     const { data, error } = await client.rpc('submit_accommodation_booking', {
       p_property_id: selectedProperty.id,
       p_unit_id: unit.id,
+      p_rate_id: rate.id,
       p_check_in: elements.bookingCheckIn.value,
       p_check_out: elements.bookingCheckOut.value,
       p_guests: Number(elements.bookingGuests.value),
