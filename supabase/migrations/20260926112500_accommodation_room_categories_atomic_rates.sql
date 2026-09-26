@@ -9,7 +9,7 @@ set room_category = coalesce(nullif(btrim(room_category),''),'standard')
 where room_category is null or btrim(room_category)='';
 
 alter table public.accommodation_units
-  alter column room_category set default 'standard',
+  alter column room_category set default 'Standard Room',
   alter column room_category set not null;
 
 alter table public.accommodation_units
