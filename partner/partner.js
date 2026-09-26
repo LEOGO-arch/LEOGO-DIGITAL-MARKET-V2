@@ -3178,7 +3178,7 @@ function accommodationFilteredReportRows(){
 function drawAccommodationReportTable(doc,rows,startY){
   const x=12;
   const widths=[27,43,66,25,25,34,28];
-  const headers=['Reference','Guest','Room / Rate','Check-in','Check-out','Status','Total'];
+  const headers=['Reference','Guest','Room / Rate','Check-in','Check-out','Status','Hotel net'];
   let y=startY;
   const pageBottom=190;
   const drawHeader=()=>{
