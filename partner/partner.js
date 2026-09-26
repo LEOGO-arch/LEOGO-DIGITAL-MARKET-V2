@@ -2817,9 +2817,9 @@ function renderAccommodationCatalogue(){
       '</div></article>';
   }).join(''):'<div class="empty-card">No properties created yet. Tap “Add Property” to create your first accommodation listing.</div>';
 
-  $('[data-edit-accommodation-property]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationPropertyForm(button.dataset.editAccommodationProperty)));
-  $('[data-add-accommodation-unit]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationUnitForm(button.dataset.addAccommodationUnit)));
-  $('[data-edit-accommodation-unit]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationUnitForm(button.dataset.propertyId,button.dataset.editAccommodationUnit)));
+  $$('[data-edit-accommodation-property]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationPropertyForm(button.dataset.editAccommodationProperty)));
+  $$('[data-add-accommodation-unit]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationUnitForm(button.dataset.addAccommodationUnit)));
+  $$('[data-edit-accommodation-unit]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationUnitForm(button.dataset.propertyId,button.dataset.editAccommodationUnit)));
 }
 async function loadAccommodationCatalogue(){
   if(!currentUser||accommodationProvider?.verification_status!=='approved')return;
