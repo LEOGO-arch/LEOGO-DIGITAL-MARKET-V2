@@ -228,35 +228,65 @@
     profileDirectory.appendChild(empty);
   };
 
+  const signedPremiumMediaUrl = async (path) => {
+    if (!path) return '';
+    const { data, error } = await client.storage.from('premium-profile-media').createSignedUrl(path, 600);
+    return error ? '' : (data?.signedUrl || '');
+  };
+
+  const sendPremiumMeetupRequest = async (profile, button) => {
+    if (!currentUser || !profile?.profile_user_id) return;
+    const original = button?.textContent || 'Send Meetup Request';
+    if (button) { button.disabled = true; button.textContent = 'Sending…'; }
+    try {
+      const { error } = await client.rpc('premium_customer_request_meetup', {
+        p_profile_user_id: profile.profile_user_id,
+        p_message: null
+      });
+      if (error) throw error;
+      setMessage(applicationMessage, 'Meetup request sent. The Premium Profile must accept before contact details are released.', 'success');
+      await loadVerifiedProfileDirectory(currentCustomer, true);
+    } catch (error) {
+      setMessage(applicationMessage, error?.message || 'The meetup request could not be sent.', 'error');
+      if (button) { button.disabled = false; button.textContent = original; }
+    }
+  };
+
   const loadVerifiedProfileDirectory = async (customer, activePlan) => {
     if (!customer || customer.application_status !== 'approved') {
       if (directoryAccessBadge) directoryAccessBadge.textContent = 'Customer approval required';
       showDirectoryMessage('🔒', 'Premium Customer approval required', 'Once Admin approves your one-time customer application, available Verified Premium Profiles will be listed here.');
       return;
     }
-    if (directoryAccessBadge) directoryAccessBadge.textContent = activePlan ? 'Paid plan active' : 'Limited viewing';
+
+    if (directoryAccessBadge) directoryAccessBadge.textContent = activePlan ? 'Full profile access' : 'Limited viewing';
     showDirectoryMessage('⌛', 'Loading verified profiles…', 'Please wait while LEOGO loads approved profiles.');
-    const { data, error } = await client.from('premium_profiles')
-      .select('user_id, display_name, profile_picture_path, gender, general_location, about, is_available')
-      .eq('application_status', 'approved')
-      .eq('is_available', true)
-      .order('approved_at', { ascending: false });
+
+    const { data, error } = await client.rpc('premium_customer_profile_directory');
     if (error) {
-      showDirectoryMessage('⚠️', 'Profiles could not be loaded', 'Refresh and try again. Your private customer information remains protected.');
+      showDirectoryMessage('⚠️', 'Profiles could not be loaded', error?.message || 'Refresh and try again. Your private customer information remains protected.');
       return;
     }
+
     if (!data?.length) {
       showDirectoryMessage('♡', 'No approved profiles available yet', 'Admin-approved Verified Premium Profiles will appear here when available for meetup.');
       return;
     }
+
     const profiles = await Promise.all(data.map(async (profile) => {
-      const { data: signed } = await client.storage.from('premium-profile-media').createSignedUrl(profile.profile_picture_path, 600);
-      return { ...profile, imageUrl: signed?.signedUrl || '' };
+      const imageUrl = await signedPremiumMediaUrl(profile.profile_picture_path);
+      const galleryUrls = profile.access_level === 'full'
+        ? (await Promise.all((profile.gallery_paths || []).map(signedPremiumMediaUrl))).filter(Boolean)
+        : [];
+      return { ...profile, imageUrl, galleryUrls };
     }));
+
     profileDirectory.innerHTML = '';
     profiles.forEach((profile) => {
+      const fullAccess = profile.access_level === 'full';
       const card = document.createElement('article');
-      card.className = 'premium-directory-card';
+      card.className = 'premium-directory-card' + (fullAccess ? ' full-access' : ' limited-access');
+
       const image = document.createElement('div');
       image.className = 'premium-directory-photo';
       if (profile.imageUrl) {
@@ -267,19 +297,79 @@
       } else {
         image.textContent = '👤';
       }
+
       const body = document.createElement('div');
       body.className = 'premium-directory-body';
+
       const name = document.createElement('strong');
       name.textContent = profile.display_name;
-      const meta = document.createElement('span');
-      meta.textContent = `${profile.gender} · ${profile.general_location}`;
-      const about = document.createElement('p');
-      about.textContent = profile.about;
-      const action = document.createElement('button');
-      action.type = 'button';
-      action.disabled = true;
-      action.textContent = activePlan ? 'Interest & booking coming next' : 'Activate a plan to request meetup';
-      body.append(name, meta, about, action);
+
+      const location = document.createElement('span');
+      location.className = 'premium-directory-location';
+      location.textContent = `📍 ${profile.general_location}`;
+
+      body.append(name, location);
+
+      if (!fullAccess) {
+        const lock = document.createElement('div');
+        lock.className = 'premium-limited-note';
+        lock.innerHTML = '<b>🔒 Limited profile</b><small>Activate or renew a Premium plan to view full profile details and gallery.</small>';
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.disabled = true;
+        action.textContent = 'Subscribe to view full profile';
+        body.append(lock, action);
+      } else {
+        const meta = document.createElement('span');
+        meta.className = 'premium-directory-meta';
+        meta.textContent = [profile.gender, profile.age ? `${profile.age} years` : '', profile.orientation].filter(Boolean).join(' · ');
+
+        const about = document.createElement('p');
+        about.textContent = profile.about || '';
+
+        body.append(meta, about);
+
+        if (profile.galleryUrls?.length) {
+          const gallery = document.createElement('div');
+          gallery.className = 'premium-directory-gallery';
+          profile.galleryUrls.forEach((url, index) => {
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = `${profile.display_name} gallery photo ${index + 1}`;
+            gallery.appendChild(img);
+          });
+          body.appendChild(gallery);
+        }
+
+        if (profile.request_status === 'accepted' && profile.contact_phone) {
+          const contact = document.createElement('div');
+          contact.className = 'premium-accepted-contact';
+          const label = document.createElement('small');
+          label.textContent = 'CONTACT RELEASED AFTER ACCEPTANCE';
+          const phone = document.createElement('a');
+          phone.href = `tel:${profile.contact_phone}`;
+          phone.textContent = profile.contact_phone;
+          contact.append(label, phone);
+          if (profile.profile_response) {
+            const response = document.createElement('p');
+            response.textContent = profile.profile_response;
+            contact.appendChild(response);
+          }
+          body.appendChild(contact);
+        } else {
+          const action = document.createElement('button');
+          action.type = 'button';
+          if (profile.request_status === 'submitted') {
+            action.disabled = true;
+            action.textContent = 'Request sent · Awaiting acceptance';
+          } else {
+            action.textContent = profile.request_status === 'rejected' ? 'Send Meetup Request Again' : 'Send Meetup Request';
+            action.addEventListener('click', () => sendPremiumMeetupRequest(profile, action));
+          }
+          body.appendChild(action);
+        }
+      }
+
       card.append(image, body);
       profileDirectory.appendChild(card);
     });
