@@ -452,7 +452,11 @@
     setStatusValue(membershipStatus, active ? 'active' : membership?.membership_status, 'Inactive');
     if (membershipExpiry) membershipExpiry.textContent = active ? formatDate(membership.ends_at) : '—';
     if (membershipRemaining) membershipRemaining.textContent = active ? 'Paid access is active' : (currentCustomer ? 'Account remains ready for renewal' : 'Create your customer account');
-    if (headerBadge) headerBadge.textContent = active ? 'Premium plan active' : currentCustomer ? `Customer ${prettyStatus(currentCustomer.application_status)}` : 'Customer application required';
+    if (headerBadge) headerBadge.textContent = active
+      ? 'Premium plan active'
+      : currentCustomer
+        ? `Customer ${prettyStatus(currentCustomer.application_status)} · Preview access`
+        : (sessionStorage.getItem(consentKey)==='accepted' ? 'Consent preview access' : '18+ consent required');
     await loadVerifiedProfileDirectory(currentCustomer, active);
     renderPaymentHistory(payments);
     const editable = !currentCustomer || ['draft', 'changes_requested', 'rejected'].includes(currentCustomer.application_status);
