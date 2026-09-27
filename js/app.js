@@ -378,12 +378,24 @@
   premiumConsentModal?.querySelectorAll('[data-close-premium-consent]').forEach((button) => {
     button.addEventListener('click', closePremiumConsent);
   });
-  enterPremiumArea?.addEventListener('click', () => {
+  enterPremiumArea?.addEventListener('click', async () => {
     if (!(premiumAgeConsent.checked && premiumResponsibilityConsent.checked)) {
       premiumConsentStatus.textContent = 'Both confirmations are required before entering Premium.';
       return;
     }
     sessionStorage.setItem(premiumConsentKey, 'accepted');
+    try {
+      const premiumClient = window.leogoAuth?.client;
+      const user = window.leogoAuth?.user?.() || window.leogoAuth?.currentUser || null;
+      if (premiumClient && user) {
+        await premiumClient.rpc('record_premium_access_consent', {
+          p_age_confirmed: true,
+          p_responsibility_confirmed: true
+        });
+      }
+    } catch (error) {
+      console.warn('Premium consent persistence deferred:', error);
+    }
     updateDashboardPremiumStatus();
     closePremiumConsent();
     premiumEntryStatus.textContent = '✓ Consent accepted for this session.';
