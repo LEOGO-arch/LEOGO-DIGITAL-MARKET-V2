@@ -43,7 +43,7 @@ let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_T
 let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],providerSettlementRequests=[],providerSettlements=[],providerEarningsReport=null,editingProviderService=null;
 let transportProvider=null,transportVehicles=[],transportJobs=[],transportNotifications=[],transportSettlementAccounts=[],transportSettlementRequests=[],transportSettlements=[],transportEarningsReport=null,editingTransportVehicle=null,transportBasePinOnly=false;
 let accommodationProvider=null,accommodationNotifications=[],accommodationCatalogue=[],accommodationBookings=[];
-let premiumProfile=null,premiumNotifications=[];
+let premiumProfile=null,premiumNotifications=[],premiumMeetupRequests=[];
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -2708,6 +2708,7 @@ function openPremiumView(view='overview'){
   $('[data-premium-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.premiumContent===resolved));
   $('[data-premium-view]').forEach(button=>button.classList.toggle('active',button.dataset.premiumView===resolved));
   if($('#premiumViewDescription'))$('#premiumViewDescription').textContent=premiumViewDescription(resolved);
+  if(resolved==='requests')loadPremiumMeetupRequests().catch(error=>status($('#premiumRequestStatus'),error?.message||'Premium requests could not load.','error'));
   if(resolved==='notifications')loadPremiumNotifications().catch(console.warn);
   closePremiumSidebar();
 }
@@ -2794,8 +2795,78 @@ async function loadPremiumNotifications(){
     '</div></article>'
   ).join(''):'<div class="empty-card">No Premium notifications yet.</div>';
   $('[data-mark-premium-notification]').forEach(button=>button.addEventListener('click',async()=>{const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markPremiumNotification});if(!error)await loadPremiumNotifications();}));
-  $('[data-open-premium-notification]').forEach(button=>button.addEventListener('click',async()=>{await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.openPremiumNotification});openPremiumView('overview');await loadPremiumNotifications();}));
+  $('[data-open-premium-notification]').forEach(button=>button.addEventListener('click',async()=>{
+    const item=premiumNotifications.find(row=>String(row.id)===String(button.dataset.openPremiumNotification));
+    await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.openPremiumNotification});
+    openPremiumView(String(item?.action_view||'').includes('request')?'requests':'overview');
+    await loadPremiumNotifications();
+  }));
 }
+async function premiumCustomerSignedPhoto(path){
+  if(!path)return '';
+  const {data}=await client.storage.from('premium-profile-media').createSignedUrl(path,900);
+  return data?.signedUrl||'';
+}
+function premiumRequestStatusLabel(value){
+  return {submitted:'Awaiting your response',accepted:'Accepted',rejected:'Rejected',cancelled:'Cancelled'}[value]||String(value||'').replaceAll('_',' ');
+}
+async function renderPremiumMeetupRequests(){
+  const target=$('#premiumRequestList');if(!target)return;
+  const pending=premiumMeetupRequests.filter(item=>item.request_status==='submitted').length;
+  $('#premiumRequestsMetric').textContent=String(premiumMeetupRequests.length);
+  const badge=$('#premiumRequestBadge');
+  if(badge){badge.hidden=!pending;badge.textContent=pending>99?'99+':String(pending);}
+  if(!premiumMeetupRequests.length){
+    target.className='empty-card';
+    target.innerHTML='No Premium meetup requests yet.';
+    return;
+  }
+  target.className='premium-request-list';
+  const enriched=await Promise.all(premiumMeetupRequests.map(async item=>({...item,image_url:await premiumCustomerSignedPhoto(item.customer_profile_picture_path)})));
+  target.innerHTML=enriched.map(item=>
+    '<article class="premium-request-card '+(item.request_status==='submitted'?'needs-action':'')+'">'+
+      '<div class="premium-request-photo">'+(item.image_url?'<img src="'+escapeHtml(item.image_url)+'" alt="">':'<span>👤</span>')+'</div>'+
+      '<div class="premium-request-copy">'+
+        '<div class="premium-request-head"><div><span>PREMIUM CUSTOMER</span><h4>'+escapeHtml(item.customer_sex||'Customer')+' · '+Number(item.customer_age||0)+' years</h4><small>📍 '+escapeHtml(item.customer_location||'—')+'</small></div><b>'+escapeHtml(premiumRequestStatusLabel(item.request_status))+'</b></div>'+
+        (item.customer_message?'<p><strong>Message:</strong> '+escapeHtml(item.customer_message)+'</p>':'')+
+        (item.profile_response?'<p><strong>Your response:</strong> '+escapeHtml(item.profile_response)+'</p>':'')+
+        (item.request_status==='accepted'&&item.customer_phone?'<div class="premium-request-contact"><small>CONTACT RELEASED AFTER ACCEPTANCE</small><a href="tel:'+escapeHtml(item.customer_phone)+'">'+escapeHtml(item.customer_phone)+'</a></div>':'')+
+        (item.request_status==='submitted'?'<div class="premium-request-actions"><button type="button" data-premium-request-action="accept" data-premium-request-id="'+escapeHtml(item.request_id)+'">Accept Request</button><button type="button" class="danger" data-premium-request-action="reject" data-premium-request-id="'+escapeHtml(item.request_id)+'">Reject</button></div>':'')+
+      '</div>'+
+    '</article>'
+  ).join('');
+}
+async function loadPremiumMeetupRequests(){
+  if(!currentUser||premiumProfile?.profile?.application_status!=='approved')return;
+  const {data,error}=await client.rpc('premium_partner_list_meetup_requests');
+  if(error)throw error;
+  premiumMeetupRequests=Array.isArray(data)?data:[];
+  await renderPremiumMeetupRequests();
+}
+async function respondPremiumMeetupRequest(button){
+  const requestId=button.dataset.premiumRequestId;
+  const action=button.dataset.premiumRequestAction;
+  let response='';
+  if(action==='reject'){
+    response=window.prompt('Optional message to the Premium Customer:','')||'';
+    if(!window.confirm('Reject this Premium meetup request?'))return;
+  }else{
+    response=window.prompt('Optional message to the Premium Customer:','')||'';
+    if(!window.confirm('Accept this Premium meetup request? Contact details will be released to both sides.'))return;
+  }
+  const original=button.textContent;button.disabled=true;button.textContent=action==='accept'?'Accepting…':'Rejecting…';
+  try{
+    const {error}=await client.rpc('premium_partner_respond_meetup_request',{
+      p_request_id:requestId,p_action:action,p_response:response||null
+    });
+    if(error)throw error;
+    status($('#premiumRequestStatus'),action==='accept'?'Request accepted. Contact details are now released according to Premium access rules.':'Request rejected. The customer has been notified.','success');
+    await Promise.all([loadPremiumMeetupRequests(),loadPremiumNotifications()]);
+  }catch(error){
+    status($('#premiumRequestStatus'),error?.message||'Premium request response could not be saved.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+}
+
 async function loadPremiumProfile(){
   if(!currentUser)return;
   showPremiumBoot();
@@ -2804,7 +2875,12 @@ async function loadPremiumProfile(){
     if(error)throw error;
     premiumProfile=data||null;
     await renderPremiumProfile();
-    if(premiumProfile)await loadPremiumNotifications().catch(()=>{});
+    if(premiumProfile){
+      await Promise.all([
+        loadPremiumNotifications().catch(()=>{}),
+        premiumProfile?.profile?.application_status==='approved'?loadPremiumMeetupRequests().catch(()=>{}):Promise.resolve()
+      ]);
+    }
   }catch(error){showPremiumBoot(error?.message||'Premium Profile could not load.',true);}
 }
 async function openPremiumRole(){
@@ -2880,6 +2956,10 @@ $('[data-premium-view]').forEach(button=>button.addEventListener('click',()=>ope
 $('#premiumNotificationsButton')?.addEventListener('click',()=>openPremiumView('notifications'));
 $('#refreshPremiumNotifications')?.addEventListener('click',()=>loadPremiumNotifications().catch(console.warn));
 $('#markAllPremiumNotificationsRead')?.addEventListener('click',async()=>{const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'premium'});if(!error)await loadPremiumNotifications();});
+$('#premiumRequestList')?.addEventListener('click',(event)=>{
+  const button=event.target.closest?.('[data-premium-request-action]');
+  if(button)respondPremiumMeetupRequest(button);
+});
 $('#premiumAvailabilityToggle')?.addEventListener('change',async(event)=>{
   const desired=event.target.checked;event.target.disabled=true;
   try{
