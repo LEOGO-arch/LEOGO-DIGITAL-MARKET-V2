@@ -253,13 +253,28 @@
   };
 
   const loadVerifiedProfileDirectory = async (customer, activePlan) => {
-    if (!customer || customer.application_status !== 'approved') {
-      if (directoryAccessBadge) directoryAccessBadge.textContent = 'Customer approval required';
-      showDirectoryMessage('🔒', 'Premium Customer approval required', 'Once Admin approves your one-time customer application, available Verified Premium Profiles will be listed here.');
+    if (!currentUser) {
+      if (directoryAccessBadge) directoryAccessBadge.textContent = 'Login required';
+      showDirectoryMessage('🔒', 'Login required', 'Sign in, accept the Premium 18+ and responsibility consent, then you can view the approved Premium Profile previews.');
+      return;
+    }
+    if (sessionStorage.getItem(consentKey) !== 'accepted') {
+      if (directoryAccessBadge) directoryAccessBadge.textContent = '18+ consent required';
+      showDirectoryMessage('🔞', 'Premium consent required', 'Accept the Premium age and responsibility consent to view approved Premium Profile previews.');
       return;
     }
 
-    if (directoryAccessBadge) directoryAccessBadge.textContent = activePlan ? 'Full profile access' : 'Limited viewing';
+    const consentResult = await client.rpc('record_premium_access_consent', {
+      p_age_confirmed: true,
+      p_responsibility_confirmed: true
+    });
+    if (consentResult.error) {
+      if (directoryAccessBadge) directoryAccessBadge.textContent = 'Consent could not be confirmed';
+      showDirectoryMessage('⚠️', 'Premium consent could not be confirmed', consentResult.error.message || 'Please refresh and try again.');
+      return;
+    }
+
+    if (directoryAccessBadge) directoryAccessBadge.textContent = activePlan ? 'Full subscriber access' : 'Consent preview';
     showDirectoryMessage('⌛', 'Loading verified profiles…', 'Please wait while LEOGO loads approved profiles.');
 
     const { data, error } = await client.rpc('premium_customer_profile_directory');
@@ -310,25 +325,25 @@
 
       body.append(name, location);
 
+      const meta = document.createElement('span');
+      meta.className = 'premium-directory-meta';
+      meta.textContent = [profile.gender, profile.age ? `${profile.age} years` : '', fullAccess ? profile.orientation : ''].filter(Boolean).join(' · ');
+
+      const about = document.createElement('p');
+      about.textContent = profile.about || '';
+
+      body.append(meta, about);
+
       if (!fullAccess) {
         const lock = document.createElement('div');
         lock.className = 'premium-limited-note';
-        lock.innerHTML = '<b>🔒 Limited profile</b><small>Activate or renew a Premium plan to view full profile details and gallery.</small>';
+        lock.innerHTML = '<b>🔒 Subscriber-only content</b><small>Activate or renew a Premium plan to view the gallery, orientation and send meetup requests.</small>';
         const action = document.createElement('button');
         action.type = 'button';
         action.disabled = true;
-        action.textContent = 'Subscribe to view full profile';
+        action.textContent = 'Subscribe to unlock gallery & requests';
         body.append(lock, action);
       } else {
-        const meta = document.createElement('span');
-        meta.className = 'premium-directory-meta';
-        meta.textContent = [profile.gender, profile.age ? `${profile.age} years` : '', profile.orientation].filter(Boolean).join(' · ');
-
-        const about = document.createElement('p');
-        about.textContent = profile.about || '';
-
-        body.append(meta, about);
-
         if (profile.galleryUrls?.length) {
           const gallery = document.createElement('div');
           gallery.className = 'premium-directory-gallery';
