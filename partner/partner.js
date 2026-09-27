@@ -2705,8 +2705,8 @@ function premiumViewDescription(view){
 function openPremiumView(view='overview'){
   const allowed=['overview','requests','profile','notifications'];
   const resolved=allowed.includes(view)?view:'overview';
-  $('[data-premium-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.premiumContent===resolved));
-  $('[data-premium-view]').forEach(button=>button.classList.toggle('active',button.dataset.premiumView===resolved));
+  [...document.querySelectorAll('[data-premium-content]')].forEach(panel=>panel.classList.toggle('active',panel.dataset.premiumContent===resolved));
+  [...document.querySelectorAll('[data-premium-view]')].forEach(button=>button.classList.toggle('active',button.dataset.premiumView===resolved));
   if($('#premiumViewDescription'))$('#premiumViewDescription').textContent=premiumViewDescription(resolved);
   if(resolved==='requests')loadPremiumMeetupRequests().catch(error=>status($('#premiumRequestStatus'),error?.message||'Premium requests could not load.','error'));
   if(resolved==='notifications')loadPremiumNotifications().catch(console.warn);
@@ -2952,7 +2952,7 @@ $('#retryPremiumBoot')?.addEventListener('click',openPremiumRole);
 $('#refreshPremiumDashboard')?.addEventListener('click',loadPremiumProfile);
 $('#premiumSidebarToggle')?.addEventListener('click',()=>{premiumSidebar?.classList.add('open');$('#premiumSidebarScrim')?.classList.add('open');});
 $('#premiumSidebarScrim')?.addEventListener('click',closePremiumSidebar);
-$('[data-premium-view]').forEach(button=>button.addEventListener('click',()=>openPremiumView(button.dataset.premiumView)));
+[...document.querySelectorAll('[data-premium-view]')].forEach(button=>button.addEventListener('click',()=>openPremiumView(button.dataset.premiumView)));
 $('#premiumNotificationsButton')?.addEventListener('click',()=>openPremiumView('notifications'));
 $('#refreshPremiumNotifications')?.addEventListener('click',()=>loadPremiumNotifications().catch(console.warn));
 $('#markAllPremiumNotificationsRead')?.addEventListener('click',async()=>{const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'premium'});if(!error)await loadPremiumNotifications();});
