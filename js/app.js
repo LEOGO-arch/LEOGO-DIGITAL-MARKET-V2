@@ -386,7 +386,7 @@
     sessionStorage.setItem(premiumConsentKey, 'accepted');
     try {
       const premiumClient = window.leogoAuth?.client;
-      const user = window.leogoAuth?.user?.() || window.leogoAuth?.currentUser || null;
+      const user = window.leogoAuth?.getUser?.() || null;
       if (premiumClient && user) {
         await premiumClient.rpc('record_premium_access_consent', {
           p_age_confirmed: true,
