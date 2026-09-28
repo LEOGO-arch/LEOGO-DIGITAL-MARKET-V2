@@ -4,8 +4,14 @@
 const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
 const PUBLISHABLE_KEY='sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
 const STAFF_PORTAL_URL='https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/staff/';
+const STAFF_AUTH_STORAGE_KEY='leogo-staff-auth-v2';
 const client=window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{
-  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+  auth:{
+    persistSession:true,
+    autoRefreshToken:true,
+    detectSessionInUrl:true,
+    storageKey:STAFF_AUTH_STORAGE_KEY
+  }
 });
 if(!client)return;
 
