@@ -103,6 +103,8 @@
     transport_provider_settlement_account: 'Transport Provider Settlement Account',
     transport_provider_application: 'Transport / Parcel Provider Registration', transport_provider_profile_change: 'Transport Provider Profile Update',
     transport_vehicle: 'Transport Vehicle',
+    accommodation_provider_profile_change: 'Accommodation Provider Profile Update',
+    premium_partner_profile_change: 'Premium Profile Update',
     premium_customer: 'Premium Customer', premium_profile: 'Verified Premium Profile',
     premium_payment: 'Premium Payment', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
@@ -778,6 +780,7 @@
 
   const approvalMediaFields = {
     profile_picture_path: { label: 'Profile Picture', bucket: 'premium-profile-media' },
+    gallery_paths: { label: 'Premium Gallery Photo', bucket: 'premium-profile-media', multiple: true },
     passport_photo_path: { label: 'Passport-size Photo', bucket: 'premium-verification' },
     id_document_path: { label: 'Identity Document', bucket: 'premium-verification' },
 
@@ -819,9 +822,9 @@
         resolvedConfig = { ...config, bucket: 'transport-public-media', publicBucket: true, label: 'Vehicle Profile Picture' };
       } else if (kind === 'transport_vehicle' && key === 'driver_passport_photo_path') {
         resolvedConfig = { ...config, bucket: 'transport-driver-private', label: 'Driver Passport Photo — Admin Only' };
-      } else if (kind === 'accommodation_host' && key === 'profile_picture_path') {
+      } else if (['accommodation_host','accommodation_provider_profile_change'].includes(kind) && key === 'profile_picture_path') {
         resolvedConfig = { ...config, bucket: 'accommodation-public-media', publicBucket: true, label: 'Accommodation Provider Profile Picture' };
-      } else if (kind === 'accommodation_host' && ['passport_photo_path','business_id_document_path','business_licence_path','registration_certificate_path','other_permit_paths'].includes(key)) {
+      } else if (['accommodation_host','accommodation_provider_profile_change'].includes(kind) && ['passport_photo_path','business_id_document_path','business_licence_path','registration_certificate_path','other_permit_paths'].includes(key)) {
         resolvedConfig = { ...config, bucket: 'accommodation-verification', label: key==='passport_photo_path'?'Passport-size Photo — Admin Only':config.label };
       }
       const raw = payload?.[key];
@@ -943,10 +946,10 @@
     const requestChanges = $('[data-review-action="changes_requested"]');
     const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
-    const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','accommodation_host'].includes(kind) && item.status === 'changes_requested';
+    const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change'].includes(kind) && item.status === 'changes_requested';
     const settlementAccountApproval = ['seller_settlement_account','service_provider_settlement_account','transport_provider_settlement_account'].includes(kind);
     underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection || settlementAccountApproval;
-    requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','accommodation_host','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
+    requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
@@ -986,6 +989,10 @@
                       ? 'admin_review_accommodation_unit'
                     : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change'].includes(item.kind)
                       ? 'admin_review_partner_profile_change'
+                    : item.kind === 'accommodation_provider_profile_change'
+                      ? 'admin_review_accommodation_profile_change'
+                    : item.kind === 'premium_partner_profile_change'
+                      ? 'admin_review_premium_profile_change'
                     : item.kind === 'seller_settlement_account'
                   ? 'admin_review_seller_settlement_account'
                   : item.kind === 'service_provider_settlement_account'
@@ -995,7 +1002,7 @@
                       : 'admin_review_approval';
       const rpcArgs = ['seller_settlement_account','service_provider_settlement_account','transport_provider_settlement_account'].includes(item.kind)
         ? { p_account_id: item.record_id, p_decision: decision, p_notes: notes || null }
-        : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change'].includes(item.kind)
+        : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change','accommodation_provider_profile_change','premium_partner_profile_change'].includes(item.kind)
           ? { p_change_id: item.record_id, p_decision: decision, p_notes: notes || null }
           : item.kind === 'accommodation_unit'
             ? { p_unit_id: item.record_id, p_decision: decision, p_notes: notes || null }
