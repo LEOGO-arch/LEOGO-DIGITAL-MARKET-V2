@@ -131,8 +131,8 @@ const accountStatusCopy=(s)=>{
 };
 
 const openView=(view='overview')=>{
-  $('[data-cyber-content]').forEach(p=>p.classList.toggle('active',p.dataset.cyberContent===view));
-  $('[data-cyber-view]').forEach(b=>b.classList.toggle('active',b.dataset.cyberView===view));
+  $$('[data-cyber-content]').forEach(p=>p.classList.toggle('active',p.dataset.cyberContent===view));
+  $$('[data-cyber-view]').forEach(b=>b.classList.toggle('active',b.dataset.cyberView===view));
   if(view==='orders')loadOrders().catch(console.warn);
   if(view==='services')loadServices().catch(console.warn);
   if(view==='flashsale'){loadServices().then(renderFlashSale).catch(console.warn);}
@@ -373,12 +373,12 @@ const renderOrders=()=>{
     if(error){alert(error.message);return;}
     await loadOrders();
   }));
-  $('[data-cyber-status]').forEach(b=>b.addEventListener('click',async()=>{
+  $$('[data-cyber-status]').forEach(b=>b.addEventListener('click',async()=>{
     const {error}=await client.rpc('cyber_provider_update_order_status',{p_order_id:b.dataset.cyberStatus,p_status:b.dataset.status,p_notes:null});
     if(error){alert(error.message);return;}
     await loadOrders();
   }));
-  $('[data-open-cyber-order-chat]').forEach(b=>b.addEventListener('click',async()=>{
+  $$('[data-open-cyber-order-chat]').forEach(b=>b.addEventListener('click',async()=>{
     openView('chat');
     await openCyberOrderChat(b.dataset.openCyberOrderChat);
   }));
@@ -721,7 +721,7 @@ $('#closeCyberChat')?.addEventListener('click',()=>{activeCyberChatOrderId=null;
 $('#refreshCyberChats')?.addEventListener('click',()=>loadCyberChatThreads().catch(e=>alert(e.message)));
 partnerBell?.addEventListener('click',()=>{if(document.body.classList.contains('cyber-role-open'))openView('notifications');});
 
-$('[data-cyber-view]').forEach(b=>b.addEventListener('click',()=>openView(b.dataset.cyberView)));
+$$('[data-cyber-view]').forEach(b=>b.addEventListener('click',()=>openView(b.dataset.cyberView)));
 $('#backFromCyberPortal')?.addEventListener('click',showRolePicker);
 $('#refreshCyberOrders')?.addEventListener('click',()=>loadOrders().catch(e=>alert(e.message)));
 $('#refreshCyberServices')?.addEventListener('click',()=>loadServices().catch(e=>alert(e.message)));
