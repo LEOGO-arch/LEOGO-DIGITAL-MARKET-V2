@@ -10,7 +10,8 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=(v)=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const money=(v)=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const status=(msg='',type='')=>{const el=$('#cyberMarketStatus');if(!el)return;el.textContent=msg;el.style.color=type==='error'?'#b42318':'';};
-let shops=[],services=[],products=[],settings={cbd_delivery_fee_kes:50,estate_delivery_fee_kes:80,outside_town_delivery_fee_kes:200},selectedShop=null,activeTab='services',selectedItem=null,paymentDestination=null;
+const ORDER_DELIVERY_FEES=Object.freeze({cbd:50,estate:80,outside_town:200});
+let shops=[],services=[],products=[],activeFlashSales=new Map(),selectedShop=null,activeTab='services',selectedItem=null,paymentDestination=null,activeCustomerChatOrderId=null;
 
 const ensureUI=()=>{
   if($('#cyberMarketplace'))return;
@@ -57,11 +58,12 @@ const ensureUI=()=>{
           <div id="cyberPickupBox" class="cyber-pickup-box cyber-order-wide"></div>
           <div id="cyberDeliveryFields" class="cyber-order-wide" hidden>
             <div class="cyber-order-grid">
-              <label>Delivery zone<select id="cyberDeliveryZone"><option value="cbd">CBD / Town Centre</option><option value="estate">Estate / Nearby Area</option><option value="outside_town">Outside Town</option></select></label>
+              <label>Delivery zone<select id="cyberDeliveryZone"><option value="cbd">Same local town — CBD (KSh 50)</option><option value="estate">Local estate (KSh 80)</option><option value="outside_town">Outside town (from KSh 200)</option></select></label>
               <label>Delivery address<input id="cyberDeliveryAddress" placeholder="Estate, road, building or exact place"></label>
               <label>Nearest landmark<input id="cyberDeliveryLandmark" placeholder="Optional landmark"></label>
               <label>Map / location link<input id="cyberDeliveryMapLink" type="url" placeholder="Optional Google Maps link"></label>
             </div>
+            <p class="cyber-delivery-rule-note">Same LEOGO order delivery rule: KSh 50 in the local CBD, KSh 80 for local estates, and from KSh 200 outside town. Standard KSh 50/80 rates are for parcels below 50 kg and up to 1 m².</p>
             <div style="margin-top:8px"><button id="useCyberDeliveryLocation" type="button">📍 Use Current Location</button><small id="cyberDeliveryLocationStatus"></small></div>
             <input id="cyberDeliveryLatitude" type="hidden"><input id="cyberDeliveryLongitude" type="hidden">
           </div>
@@ -78,10 +80,36 @@ const ensureUI=()=>{
       </form>
     </section>`;
   document.body.appendChild(modal);
+
+  const chatModal=document.createElement('div');
+  chatModal.className='cyber-order-modal cyber-customer-chat-modal';
+  chatModal.id='cyberCustomerChatModal';
+  chatModal.setAttribute('aria-hidden','true');
+  chatModal.innerHTML=`
+    <div class="cyber-order-backdrop" data-close-cyber-customer-chat></div>
+    <section class="cyber-order-dialog cyber-customer-chat-dialog">
+      <header><div><span>PERSON-TO-PERSON CHAT</span><h2 id="cyberCustomerChatTitle">Chat with Cyber Partner</h2></div><button type="button" data-close-cyber-customer-chat>×</button></header>
+      <div id="cyberCustomerChatMessages" class="cyber-customer-chat-messages"><div class="cyber-empty">Loading conversation…</div></div>
+      <form id="cyberCustomerChatForm" class="cyber-customer-chat-form">
+        <textarea id="cyberCustomerChatMessage" rows="2" maxlength="2000" placeholder="Write a message to the Cyber partner…" required></textarea>
+        <button class="primary" type="submit">Send</button>
+      </form>
+      <p id="cyberCustomerChatStatus" class="cyber-market-status"></p>
+    </section>`;
+  document.body.appendChild(chatModal);
 };
 
 const publicImage=(path)=>path?client.storage.from('cyber-public-media').getPublicUrl(path).data.publicUrl:'';
 const shopMap=(s)=>s.shop_map_link||('https://www.google.com/maps?q='+s.shop_latitude+','+s.shop_longitude);
+const serviceUnitPrice=(service)=>Number(service?.flash_sale?.flash_sale_price_kes??service?.price_kes??0);
+const servicePriceHtml=(service)=>{
+  if(service.pricing_model==='quote')return 'Request quotation';
+  const unit=service.unit_label?' / '+esc(service.unit_label):'';
+  if(service.flash_sale){
+    return '<span class="cyber-flash-price"><del>'+money(service.price_kes)+'</del><strong>'+money(serviceUnitPrice(service))+unit+'</strong></span>';
+  }
+  return money(service.price_kes)+unit;
+};
 
 const renderShops=()=>{
   const grid=$('#cyberShopGrid');
@@ -113,8 +141,9 @@ const renderCatalogue=()=>{
   const rows=activeTab==='services'?services.filter(s=>s.provider_id===selectedShop.provider_id):products.filter(p=>p.provider_id===selectedShop.provider_id);
   grid.innerHTML=rows.length?rows.map(item=>{
     if(activeTab==='services'){
-      const price=item.pricing_model==='quote'?'Request quotation':money(item.price_kes)+(item.unit_label?' / '+esc(item.unit_label):'');
-      return `<article class="cyber-item-card"><header><h4>${esc(item.service_name)}</h4><span class="badge">${esc(item.service_category.replaceAll('_',' '))}</span></header><p>${esc(item.description||'')}</p><span class="price">${price}</span>${item.requires_file_upload?'<small>📎 File upload required</small>':''}<button type="button" data-order-cyber-service="${item.id}">Order Service</button></article>`;
+      const price=servicePriceHtml(item);
+      const flash=item.flash_sale?'<div class="cyber-flash-badge">⚡ FLASH SALE · Ends '+esc(new Intl.DateTimeFormat('en-KE',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Nairobi'}).format(new Date(item.flash_sale.flash_sale_ends_at)))+'</div>':'';
+      return `<article class="cyber-item-card ${item.flash_sale?'cyber-item-flash':''}"><header><h4>${esc(item.service_name)}</h4><span class="badge">${esc(item.service_category.replaceAll('_',' '))}</span></header>${flash}<p>${esc(item.description||'')}</p><span class="price">${price}</span>${item.requires_file_upload?'<small>📎 File upload required</small>':''}<button type="button" data-order-cyber-service="${item.id}">Order Service</button></article>`;
     }
     const img=publicImage(item.image_path);
     return `<article class="cyber-item-card"><div class="cyber-product-img">${img?'<img src="'+esc(img)+'" alt="'+esc(item.product_name)+'">':'🛍️'}</div><header><h4>${esc(item.product_name)}</h4><span class="badge">${esc(item.quantity_available)} available</span></header><p>${esc(item.description||'')}</p><span class="price">${money(item.price_kes)} / ${esc(item.measurement_unit)}</span><button type="button" data-order-cyber-product="${item.id}">Buy Item</button></article>`;
@@ -136,16 +165,15 @@ const openShop=(id)=>{
 const deliveryFee=()=>{
   if($('#cyberFulfilment')?.value!=='delivery')return 0;
   const zone=$('#cyberDeliveryZone')?.value||'cbd';
-  if(zone==='estate')return Number(settings.estate_delivery_fee_kes||0);
-  if(zone==='outside_town')return Number(settings.outside_town_delivery_fee_kes||0);
-  return Number(settings.cbd_delivery_fee_kes||0);
+  return Number(ORDER_DELIVERY_FEES[zone]??ORDER_DELIVERY_FEES.cbd);
 };
 
 const itemSubtotal=()=>{
   if(!selectedItem)return 0;
   if(selectedItem.type==='service'&&selectedItem.data.pricing_model==='quote')return null;
   const qty=Math.max(1,Number($('#cyberOrderQuantity')?.value||1));
-  return Number(selectedItem.data.price_kes||0)*qty;
+  const unitPrice=selectedItem.type==='service'?serviceUnitPrice(selectedItem.data):Number(selectedItem.data.price_kes||0);
+  return unitPrice*qty;
 };
 
 const paymentText=(p)=>{
@@ -183,7 +211,8 @@ const openOrder=async(type,data)=>{
   selectedShop=shops.find(s=>s.provider_id===data.provider_id)||selectedShop;
   const quote=type==='service'&&data.pricing_model==='quote';
   $('#cyberOrderTitle').textContent=(type==='service'?'Order ':'Buy ')+(data.service_name||data.product_name);
-  $('#cyberOrderSummary').innerHTML='<strong>'+esc(data.provider_name||selectedShop?.business_name||'Cyber Partner')+'</strong><br>'+esc(data.service_name||data.product_name)+' · '+(quote?'Quotation required':money(data.price_kes));
+  const displayPrice=type==='service'?servicePriceHtml(data):money(data.price_kes);
+  $('#cyberOrderSummary').innerHTML='<strong>'+esc(data.provider_name||selectedShop?.business_name||'Cyber Partner')+'</strong><br>'+esc(data.service_name||data.product_name)+' · '+(quote?'Quotation required':displayPrice);
   $('#cyberOrderQuantity').value='1';
   $('#cyberOrderNotes').value='';
   $('#cyberPaymentReference').value='';
@@ -222,14 +251,20 @@ const uploadOrderFiles=async(user)=>{
 
 const loadPublic=async()=>{
   status('Loading approved Cyber shops…');
-  const [shopRes,serviceRes,productRes,settingsRes]=await Promise.all([
+  const [shopRes,serviceRes,productRes,flashRes]=await Promise.all([
     client.rpc('public_list_cyber_shops'),
     client.rpc('public_list_cyber_services',{p_provider_id:null}),
     client.rpc('public_list_cyber_products',{p_provider_id:null}),
-    client.rpc('public_cyber_marketplace_settings')
+    client.rpc('public_list_cyber_service_flash_sales',{p_provider_id:null})
   ]);
-  if(shopRes.error)throw shopRes.error;if(serviceRes.error)throw serviceRes.error;if(productRes.error)throw productRes.error;
-  shops=shopRes.data||[];services=serviceRes.data||[];products=productRes.data||[];settings=settingsRes.data||settings;
+  if(shopRes.error)throw shopRes.error;
+  if(serviceRes.error)throw serviceRes.error;
+  if(productRes.error)throw productRes.error;
+  if(flashRes.error)throw flashRes.error;
+  activeFlashSales=new Map((flashRes.data||[]).map(row=>[String(row.service_id),row]));
+  shops=shopRes.data||[];
+  services=(serviceRes.data||[]).map(row=>({...row,flash_sale:activeFlashSales.get(String(row.id))||null}));
+  products=productRes.data||[];
   renderShops();
   status(shops.length+' approved Cyber shop'+(shops.length===1?'':'s')+' available.');
 };
@@ -256,6 +291,7 @@ const renderCustomerOrders=async()=>{
         <small>Fulfilment: ${esc(o.fulfilment_method)} · Payment: ${esc(o.payment_status.replaceAll('_',' '))} · Total: ${money(o.total_kes)}</small>
         ${o.fulfilment_method==='pickup'?'<small>📍 Pickup: '+esc(o.shop_location)+' · <a href="'+esc(o.shop_map_link||'#')+'" target="_blank" rel="noopener">Open location</a></small>':''}
         ${quote?'<div><strong>Quotation: '+money(o.provider_quote_kes)+'</strong><small>'+esc(o.provider_quote_notes||'')+'</small></div><div class="quote-actions"><button class="accept" type="button" data-cyber-accept-quote="'+o.id+'">Accept & Pay</button><button class="reject" type="button" data-cyber-reject-quote="'+o.id+'">Reject Quote</button></div>':''}
+        <div class="cyber-order-chat-actions"><button type="button" data-customer-cyber-chat="${o.id}" data-customer-cyber-ref="${esc(o.order_reference)}" data-customer-cyber-provider="${esc(o.provider_name)}">💬 Chat with Cyber</button></div>
       </article>`;
   }).join(''):'<div class="cyber-empty">You have no Cyber orders yet.</div>';
   $$('[data-cyber-accept-quote]').forEach(b=>b.addEventListener('click',async()=>{
@@ -267,12 +303,50 @@ const renderCustomerOrders=async()=>{
     if(error){alert(error.message);return;}
     await renderCustomerOrders();
   }));
-  $$('[data-cyber-reject-quote]').forEach(b=>b.addEventListener('click',async()=>{
+  $('[data-cyber-reject-quote]').forEach(b=>b.addEventListener('click',async()=>{
     if(!confirm('Reject this Cyber quotation?'))return;
     const {error}=await client.rpc('customer_decide_cyber_quote',{p_order_id:b.dataset.cyberRejectQuote,p_decision:'reject',p_payment_reference:null});
     if(error){alert(error.message);return;}
     await renderCustomerOrders();
   }));
+  $('[data-customer-cyber-chat]').forEach(b=>b.addEventListener('click',()=>openCustomerCyberChat(b.dataset.customerCyberChat,b.dataset.customerCyberRef,b.dataset.customerCyberProvider)));
+};
+
+const customerChatStatus=(msg='',type='')=>{
+  const el=$('#cyberCustomerChatStatus');if(!el)return;
+  el.textContent=msg;el.style.color=type==='error'?'#b42318':'';
+};
+const renderCustomerCyberMessages=(rows=[])=>{
+  const box=$('#cyberCustomerChatMessages');if(!box)return;
+  box.innerHTML=rows.length?rows.map(m=>`
+    <article class="cyber-customer-chat-message ${m.sender_role==='customer'?'mine':'theirs'}">
+      <div><strong>${m.sender_role==='customer'?'You':'Cyber Partner'}</strong><small>${esc(new Intl.DateTimeFormat('en-KE',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Nairobi'}).format(new Date(m.created_at)))}</small></div>
+      <p>${esc(m.body).replace(/\n/g,'<br>')}</p>
+    </article>`).join(''):'<div class="cyber-empty">No messages yet. Start the conversation.</div>';
+  box.scrollTop=box.scrollHeight;
+};
+const openCustomerCyberChat=async(orderId,orderRef='',providerName='Cyber Partner')=>{
+  await requireLogin();
+  activeCustomerChatOrderId=orderId;
+  $('#cyberCustomerChatTitle').textContent=(orderRef||'Cyber Order')+' · '+(providerName||'Cyber Partner');
+  $('#cyberCustomerChatModal').classList.add('open');
+  $('#cyberCustomerChatModal').setAttribute('aria-hidden','false');
+  document.body.style.overflow='hidden';
+  customerChatStatus('Loading conversation…');
+  const results=await Promise.all([
+    client.rpc('customer_list_cyber_order_messages',{p_order_id:orderId}),
+    client.rpc('customer_mark_cyber_order_chat_read',{p_order_id:orderId})
+  ]);
+  const data=results[0].data,error=results[0].error||results[1].error;
+  if(error){customerChatStatus(error.message,'error');return;}
+  renderCustomerCyberMessages(data||[]);
+  customerChatStatus('');
+};
+const closeCustomerCyberChat=()=>{
+  activeCustomerChatOrderId=null;
+  $('#cyberCustomerChatModal')?.classList.remove('open');
+  $('#cyberCustomerChatModal')?.setAttribute('aria-hidden','true');
+  document.body.style.overflow='';
 };
 
 ensureUI();
@@ -287,7 +361,25 @@ $('#openCyberCustomerOrders')?.addEventListener('click',async()=>{
   try{$('#cyberCustomerOrders').classList.add('open');$('#cyberCatalogue').classList.remove('active');await renderCustomerOrders();}catch(e){status(e.message,'error');}
 });
 $('#closeCyberCustomerOrders')?.addEventListener('click',()=>$('#cyberCustomerOrders').classList.remove('open'));
-$$('[data-close-cyber-order]').forEach(b=>b.addEventListener('click',closeOrder));
+$('[data-close-cyber-order]').forEach(b=>b.addEventListener('click',closeOrder));
+$('[data-close-cyber-customer-chat]').forEach(b=>b.addEventListener('click',closeCustomerCyberChat));
+$('#cyberCustomerChatForm')?.addEventListener('submit',async(e)=>{
+  e.preventDefault();
+  if(!activeCustomerChatOrderId)return;
+  const message=$('#cyberCustomerChatMessage').value.trim();
+  if(!message)return;
+  const b=e.submitter,old=b.textContent;b.disabled=true;b.textContent='Sending…';
+  try{
+    const {error}=await client.rpc('customer_send_cyber_order_message',{p_order_id:activeCustomerChatOrderId,p_body:message});
+    if(error)throw error;
+    $('#cyberCustomerChatMessage').value='';
+    const {data,error:loadError}=await client.rpc('customer_list_cyber_order_messages',{p_order_id:activeCustomerChatOrderId});
+    if(loadError)throw loadError;
+    renderCustomerCyberMessages(data||[]);
+    customerChatStatus('');
+  }catch(error){customerChatStatus(error.message||'Message could not be sent.','error');}
+  finally{b.disabled=false;b.textContent=old;}
+});
 $('#cyberFulfilment')?.addEventListener('change',updateOrderPreview);
 $('#cyberDeliveryZone')?.addEventListener('change',updateOrderPreview);
 $('#cyberOrderQuantity')?.addEventListener('input',updateOrderPreview);
