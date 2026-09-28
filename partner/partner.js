@@ -44,6 +44,7 @@ let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],p
 let transportProvider=null,transportVehicles=[],transportJobs=[],transportNotifications=[],transportSettlementAccounts=[],transportSettlementRequests=[],transportSettlements=[],transportEarningsReport=null,editingTransportVehicle=null,transportBasePinOnly=false;
 let accommodationProvider=null,accommodationNotifications=[],accommodationCatalogue=[],accommodationBookings=[];
 let premiumProfile=null,premiumNotifications=[],premiumMeetupRequests=[];
+let premiumPartnerChatRequestId=null,premiumPartnerChatTimer=null,premiumPartnerChatLoading=false;
 const INITIAL_SERVICE_AREAS=[
   {code:'KE041',name:'Siaya'},{code:'KE042',name:'Kisumu'},{code:'KE047',name:'Nairobi'},
   {code:'KE040',name:'Busia'},{code:'KE043',name:'Homa Bay'},{code:'KE044',name:'Migori'},
@@ -2794,14 +2795,101 @@ async function loadPremiumNotifications(){
     (item.read_at?'':'<button class="secondary" type="button" data-mark-premium-notification="'+escapeHtml(item.id)+'">Mark read</button>')+
     '</div></article>'
   ).join(''):'<div class="empty-card">No Premium notifications yet.</div>';
-  $('[data-mark-premium-notification]').forEach(button=>button.addEventListener('click',async()=>{const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markPremiumNotification});if(!error)await loadPremiumNotifications();}));
-  $('[data-open-premium-notification]').forEach(button=>button.addEventListener('click',async()=>{
+  [...document.querySelectorAll('[data-mark-premium-notification]')].forEach(button=>button.addEventListener('click',async()=>{const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markPremiumNotification});if(!error)await loadPremiumNotifications();}));
+  [...document.querySelectorAll('[data-open-premium-notification]')].forEach(button=>button.addEventListener('click',async()=>{
     const item=premiumNotifications.find(row=>String(row.id)===String(button.dataset.openPremiumNotification));
     await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.openPremiumNotification});
     openPremiumView(String(item?.action_view||'').includes('request')?'requests':'overview');
     await loadPremiumNotifications();
   }));
 }
+const premiumPartnerChatModal=$('#premiumPartnerChatModal');
+const premiumPartnerMessageList=$('#premiumPartnerMessageList');
+const premiumPartnerChatForm=$('#premiumPartnerChatForm');
+const premiumPartnerChatMessage=$('#premiumPartnerChatMessage');
+const premiumPartnerChatStatus=$('#premiumPartnerChatStatus');
+
+function premiumPartnerChatTime(value){
+  if(!value)return '';
+  try{return new Intl.DateTimeFormat('en-KE',{timeZone:'Africa/Nairobi',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}).format(new Date(value));}
+  catch(_error){return '';}
+}
+function renderPremiumPartnerChatMessages(messages=[]){
+  if(!premiumPartnerMessageList)return;
+  if(!messages.length){
+    premiumPartnerMessageList.innerHTML='<div class="premium-partner-chat-empty"><span>💬</span><strong>Private conversation</strong><small>You can chat before accepting this meetup request.</small></div>';
+    return;
+  }
+  premiumPartnerMessageList.innerHTML=messages.map(message=>{
+    const mine=message.sender_role==='profile';
+    return '<article class="premium-partner-message '+(mine?'mine':'theirs')+'">'+
+      '<div><strong>'+(mine?'You':'Premium Customer')+'</strong><span>'+escapeHtml(premiumPartnerChatTime(message.created_at))+'</span></div>'+
+      '<p>'+escapeHtml(message.body||'').replace(/\n/g,'<br>')+'</p>'+
+    '</article>';
+  }).join('');
+}
+async function loadPremiumPartnerChat({scroll=false,silent=false}={}){
+  if(!premiumPartnerChatRequestId||premiumPartnerChatLoading)return;
+  premiumPartnerChatLoading=true;
+  if(!silent&&premiumPartnerChatStatus)premiumPartnerChatStatus.textContent='Loading chat…';
+  try{
+    const [openResult,messageResult]=await Promise.all([
+      client.rpc('premium_open_chat',{p_request_id:premiumPartnerChatRequestId}),
+      client.rpc('premium_list_chat_messages',{p_request_id:premiumPartnerChatRequestId})
+    ]);
+    if(openResult.error)throw openResult.error;
+    if(messageResult.error)throw messageResult.error;
+    const info=openResult.data||{};
+    $('#premiumPartnerChatTitle').textContent=info.other_name||'Premium Customer';
+    $('#premiumPartnerChatState').textContent=info.contact_released
+      ? 'Meetup accepted · Contact details are released according to Premium rules.'
+      : 'Awaiting your decision · Contact details remain hidden.';
+    renderPremiumPartnerChatMessages(Array.isArray(messageResult.data)?messageResult.data:[]);
+    await client.rpc('premium_mark_chat_read',{p_request_id:premiumPartnerChatRequestId});
+    if(premiumPartnerChatStatus)premiumPartnerChatStatus.textContent='';
+    if(scroll&&premiumPartnerMessageList)window.setTimeout(()=>{premiumPartnerMessageList.scrollTop=premiumPartnerMessageList.scrollHeight;},20);
+  }catch(error){
+    if(premiumPartnerChatStatus)premiumPartnerChatStatus.textContent=error?.message||'Premium chat could not load.';
+  }finally{premiumPartnerChatLoading=false;}
+}
+function closePremiumPartnerChat(){
+  if(premiumPartnerChatTimer){clearInterval(premiumPartnerChatTimer);premiumPartnerChatTimer=null;}
+  premiumPartnerChatRequestId=null;
+  if(premiumPartnerChatModal){premiumPartnerChatModal.hidden=true;premiumPartnerChatModal.setAttribute('aria-hidden','true');}
+  document.body.classList.remove('premium-partner-chat-open');
+}
+async function openPremiumPartnerChat(requestId){
+  if(!requestId)return;
+  premiumPartnerChatRequestId=requestId;
+  if(premiumPartnerChatModal){premiumPartnerChatModal.hidden=false;premiumPartnerChatModal.setAttribute('aria-hidden','false');}
+  document.body.classList.add('premium-partner-chat-open');
+  await loadPremiumPartnerChat({scroll:true});
+  if(premiumPartnerChatTimer)clearInterval(premiumPartnerChatTimer);
+  premiumPartnerChatTimer=window.setInterval(()=>{
+    if(!premiumPartnerChatModal?.hidden&&document.visibilityState==='visible')loadPremiumPartnerChat({scroll:false,silent:true});
+  },4000);
+}
+$('#closePremiumPartnerChat')?.addEventListener('click',closePremiumPartnerChat);
+premiumPartnerChatModal?.querySelectorAll('[data-close-premium-partner-chat]').forEach(node=>node.addEventListener('click',closePremiumPartnerChat));
+premiumPartnerChatForm?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const text=premiumPartnerChatMessage?.value.trim()||'';
+  if(!text||!premiumPartnerChatRequestId)return;
+  const button=$('#sendPremiumPartnerMessage'),original=button?.textContent||'Send';
+  if(button){button.disabled=true;button.textContent='Sending…';}
+  try{
+    const {error}=await client.rpc('premium_send_chat_message',{p_request_id:premiumPartnerChatRequestId,p_body:text});
+    if(error)throw error;
+    if(premiumPartnerChatMessage)premiumPartnerChatMessage.value='';
+    await loadPremiumPartnerChat({scroll:true,silent:true});
+  }catch(error){
+    if(premiumPartnerChatStatus)premiumPartnerChatStatus.textContent=error?.message||'Message could not be sent.';
+  }finally{
+    if(button){button.disabled=false;button.textContent=original;}
+    premiumPartnerChatMessage?.focus();
+  }
+});
+
 async function premiumCustomerSignedPhoto(path){
   if(!path)return '';
   const {data}=await client.storage.from('premium-profile-media').createSignedUrl(path,900);
@@ -2831,7 +2919,7 @@ async function renderPremiumMeetupRequests(){
         (item.customer_message?'<p><strong>Message:</strong> '+escapeHtml(item.customer_message)+'</p>':'')+
         (item.profile_response?'<p><strong>Your response:</strong> '+escapeHtml(item.profile_response)+'</p>':'')+
         (item.request_status==='accepted'&&item.customer_phone?'<div class="premium-request-contact"><small>CONTACT RELEASED AFTER ACCEPTANCE</small><a href="tel:'+escapeHtml(item.customer_phone)+'">'+escapeHtml(item.customer_phone)+'</a></div>':'')+
-        (item.request_status==='submitted'?'<div class="premium-request-actions"><button type="button" data-premium-request-action="accept" data-premium-request-id="'+escapeHtml(item.request_id)+'">Accept Request</button><button type="button" class="danger" data-premium-request-action="reject" data-premium-request-id="'+escapeHtml(item.request_id)+'">Reject</button></div>':'')+
+        (['submitted','accepted'].includes(item.request_status)?'<div class="premium-request-actions '+(item.request_status==='accepted'?'chat-only':'')+'"><button type="button" class="premium-request-chat-button" data-premium-request-chat="'+escapeHtml(item.request_id)+'">💬 Chat</button>'+(item.request_status==='submitted'?'<button type="button" data-premium-request-action="accept" data-premium-request-id="'+escapeHtml(item.request_id)+'">Accept Request</button><button type="button" class="danger" data-premium-request-action="reject" data-premium-request-id="'+escapeHtml(item.request_id)+'">Reject</button>':'')+'</div>':'')+
       '</div>'+
     '</article>'
   ).join('');
@@ -2957,6 +3045,8 @@ $('#premiumNotificationsButton')?.addEventListener('click',()=>openPremiumView('
 $('#refreshPremiumNotifications')?.addEventListener('click',()=>loadPremiumNotifications().catch(console.warn));
 $('#markAllPremiumNotificationsRead')?.addEventListener('click',async()=>{const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'premium'});if(!error)await loadPremiumNotifications();});
 $('#premiumRequestList')?.addEventListener('click',(event)=>{
+  const chatButton=event.target.closest?.('[data-premium-request-chat]');
+  if(chatButton){openPremiumPartnerChat(chatButton.dataset.premiumRequestChat);return;}
   const button=event.target.closest?.('[data-premium-request-action]');
   if(button)respondPremiumMeetupRequest(button);
 });
