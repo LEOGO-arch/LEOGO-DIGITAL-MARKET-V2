@@ -735,5 +735,5 @@ if(cyberRoleButton){
   const helper=cyberRoleButton.querySelector('small');
   if(helper)helper.textContent='Printing, online services, files & shop items';
 }
-$('[data-role-target]').filter(b=>b.dataset.roleTarget!=='cyber').forEach(b=>b.addEventListener('click',()=>{shell.hidden=true;}));
+$$('[data-role-target]').filter(b=>b.dataset.roleTarget!=='cyber').forEach(b=>b.addEventListener('click',()=>{shell.hidden=true;}));
 })();
