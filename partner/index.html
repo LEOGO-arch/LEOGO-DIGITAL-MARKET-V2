@@ -1088,7 +1088,10 @@
         <button type="button" data-cyber-view="overview" class="active">▦ Overview</button>
         <button type="button" data-cyber-view="orders">▤ Customer Orders</button>
         <button type="button" data-cyber-view="services">🖨️ Services</button>
+        <button type="button" data-cyber-view="flashsale">⚡ Flash Sale</button>
         <button type="button" data-cyber-view="products">🛍️ Shop Items</button>
+        <button type="button" data-cyber-view="notifications">🔔 Notifications <b id="cyberNotificationBadge" class="cyber-nav-badge" hidden>0</b></button>
+        <button type="button" data-cyber-view="chat">💬 Customer Chat <b id="cyberChatBadge" class="cyber-nav-badge" hidden>0</b></button>
         <button type="button" data-cyber-view="profile">♙ My Profile</button>
         <button id="backFromCyberPortal" type="button">← Partnerships</button>
       </aside>
@@ -1134,6 +1137,22 @@
           </section>
         </section>
 
+        <section class="cyber-view" data-cyber-content="flashsale">
+          <section class="cyber-panel">
+            <div class="cyber-panel-head"><div><span>CYBER FLASH SALE</span><h3>Offer a Service on Flash Sale</h3><p>Choose an already approved service, set a lower price and time period, then send the offer to LEOGO Admin for approval.</p></div></div>
+            <form id="cyberFlashSaleForm" class="cyber-inline-form">
+              <label class="wide">Approved service<select id="cyberFlashSaleService" required><option value="">Choose approved service…</option></select></label>
+              <label>Normal price<input id="cyberFlashSaleNormalPrice" readonly placeholder="Select a service"></label>
+              <label>Flash Sale price (KSh)<input id="cyberFlashSalePrice" type="number" min="0.01" step="0.01" required></label>
+              <label>Starts<input id="cyberFlashSaleStart" type="datetime-local" required></label>
+              <label>Ends<input id="cyberFlashSaleEnd" type="datetime-local" required></label>
+              <div class="cyber-inline-actions"><button class="primary" type="submit">Send Flash Sale for Approval</button></div>
+            </form>
+            <p id="cyberFlashSaleStatus" class="cyber-status"></p>
+            <div id="cyberFlashSaleList" class="cyber-list"><div class="cyber-empty">No Cyber service Flash Sale requests yet.</div></div>
+          </section>
+        </section>
+
         <section class="cyber-view" data-cyber-content="products">
           <section class="cyber-panel">
             <div class="cyber-panel-head"><div><span>CYBER SHOP ITEMS</span><h3>Products for Sale</h3><p>Add stationery, accessories, flash disks, papers and other items sold by your Cyber shop.</p></div><button id="refreshCyberProducts" type="button">↻ Refresh</button></div>
@@ -1149,6 +1168,31 @@
             </form>
             <p id="cyberProductStatus" class="cyber-status"></p>
             <div id="cyberProductList" class="cyber-list"><div class="cyber-empty">No products yet.</div></div>
+          </section>
+        </section>
+
+        <section class="cyber-view" data-cyber-content="notifications">
+          <section class="cyber-panel">
+            <div class="cyber-panel-head"><div><span>NOTIFICATIONS</span><h3>All Cyber Notifications</h3><p>Orders, customer messages, payment verification, approvals, corrections and Flash Sale updates are collected here.</p></div><button id="markAllCyberNotificationsRead" type="button">Mark all read</button></div>
+            <div id="cyberNotificationList" class="cyber-list"><div class="cyber-empty">Loading notifications…</div></div>
+          </section>
+        </section>
+
+        <section class="cyber-view" data-cyber-content="chat">
+          <section class="cyber-panel">
+            <div class="cyber-panel-head"><div><span>PERSON-TO-PERSON CHAT</span><h3>Customer Order Chats</h3><p>Chat directly with the customer inside the related Cyber order. Phone numbers do not need to be exchanged.</p></div><button id="refreshCyberChats" type="button">↻ Refresh</button></div>
+            <div class="cyber-chat-layout">
+              <div id="cyberChatThreadList" class="cyber-chat-threads"><div class="cyber-empty">Loading customer chats…</div></div>
+              <section id="cyberChatConversation" class="cyber-chat-conversation" hidden>
+                <div class="cyber-chat-head"><div><small>ORDER CHAT</small><strong id="cyberChatTitle">Customer Chat</strong></div><button id="closeCyberChat" type="button">Close</button></div>
+                <div id="cyberChatMessages" class="cyber-chat-messages"><div class="cyber-empty">Choose an order conversation.</div></div>
+                <form id="cyberChatForm" class="cyber-chat-form">
+                  <textarea id="cyberChatMessage" rows="2" maxlength="2000" placeholder="Write a message to the customer…" required></textarea>
+                  <button class="primary" type="submit">Send</button>
+                </form>
+                <p id="cyberChatStatus" class="cyber-status"></p>
+              </section>
+            </div>
           </section>
         </section>
 
@@ -1540,6 +1584,6 @@
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=cyber-partner-4" defer></script>
-<script src="cyber.js?v=cyber-partner-4" defer></script>
+<script src="partner.js?v=cyber-partner-5" defer></script>
+<script src="cyber.js?v=cyber-partner-5" defer></script>
 </body></html>
