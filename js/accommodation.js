@@ -112,9 +112,22 @@
       const units = property.units || [];
       const minimum = units.length ? Math.min(...units.map((unit) => Number(unit.nightly_price_kes))) : 0;
       const image = safeImage(property.cover_image_url);
-      return `<article class="accommodation-card">
-        <div class="accommodation-card-cover">${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(property.property_name)}">` : '<span>🏨</span>'}<b>${escapeHtml(typeLabel(property.property_type))}</b></div>
-        <div class="accommodation-card-copy"><span>📍 ${escapeHtml(property.public_location)}, ${escapeHtml(property.town)}</span><h3>${escapeHtml(property.property_name)}</h3><p>${escapeHtml(property.description)}</p><div><strong>${minimum ? `From ${money(minimum)} / night` : 'Rooms being prepared'}</strong><small>${units.length} room type${units.length === 1 ? '' : 's'}</small></div><button type="button" data-accommodation-property="${property.id}">View Rooms</button></div>
+      const location = [property.public_location, property.town].filter(Boolean).join(', ');
+      return `<article class="leogo-stay-card-v3">
+        <div class="leogo-stay-photo-v3">
+          ${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(property.property_name)}">` : '<span class="leogo-stay-placeholder-v3">🏨</span>'}
+          <b class="leogo-stay-type-v3">${escapeHtml(typeLabel(property.property_type))}</b>
+        </div>
+        <div class="leogo-stay-info-v3">
+          <span class="leogo-stay-location-v3">📍 ${escapeHtml(location)}</span>
+          <h3>${escapeHtml(property.property_name)}</h3>
+          <p class="leogo-stay-description-v3">${escapeHtml(property.description || '')}</p>
+          <div class="leogo-stay-meta-v3">
+            <strong>${minimum ? `From ${money(minimum)} / night` : 'Rooms being prepared'}</strong>
+            <small>${units.length} room type${units.length === 1 ? '' : 's'}</small>
+          </div>
+          <button class="leogo-stay-view-v3" type="button" data-accommodation-property="${property.id}">View Rooms →</button>
+        </div>
       </article>`;
     }).join('');
   };
