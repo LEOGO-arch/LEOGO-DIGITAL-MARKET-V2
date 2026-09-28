@@ -497,7 +497,7 @@ $('#cyberServiceForm')?.addEventListener('submit',async(e)=>{
       p_service_id:editServiceId,p_service_name:$('#cyberServiceName').value.trim(),
       p_service_category:$('#cyberServiceCategory').value,p_description:$('#cyberServiceDescription').value.trim(),
       p_pricing_model:pricing,p_price_kes:pricing==='quote'?null:Number($('#cyberServicePrice').value),
-      p_unit_label:$('#cyberServiceUnit').value.trim(),p_requires_file_upload:$('#cyberServiceRequiresFile').checked,
+      p_unit_label:$('#cyberServiceUnit').value.trim(),p_requires_file_upload:['printing','photocopy','typesetting'].includes($('#cyberServiceCategory').value)||$('#cyberServiceRequiresFile').checked,
       p_accepts_multiple_files:$('#cyberServiceMultipleFiles').checked,p_is_available:$('#cyberServiceAvailable').checked
     });
     if(error)throw error;
