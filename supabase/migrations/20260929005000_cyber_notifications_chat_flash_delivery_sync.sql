@@ -36,6 +36,8 @@ create table if not exists public.cyber_order_messages (
 
 create index if not exists cyber_order_messages_order_created_idx
   on public.cyber_order_messages(order_id,created_at);
+create index if not exists cyber_order_messages_sender_idx
+  on public.cyber_order_messages(sender_id);
 
 alter table public.cyber_order_messages enable row level security;
 revoke all on public.cyber_order_messages from anon,authenticated;
