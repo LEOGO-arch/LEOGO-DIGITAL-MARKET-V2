@@ -396,6 +396,9 @@
     } catch (error) {
       console.warn('Premium consent persistence deferred:', error);
     }
+    document.dispatchEvent(new CustomEvent('leogo:premiumconsentaccepted', {
+      detail: { accepted: true }
+    }));
     updateDashboardPremiumStatus();
     closePremiumConsent();
     premiumEntryStatus.textContent = '✓ Consent accepted for this session.';
