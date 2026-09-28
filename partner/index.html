@@ -765,11 +765,34 @@
         </div>
         <section class="premium-view" data-premium-content="profile">
           <section class="panel">
-            <div class="section-title">
-              <span>MY PROFILE</span>
-              <h3>My Premium Profile</h3>
-              <p>Your submitted Premium Profile information and photos.</p>
+            <div class="section-title premium-profile-section-title">
+              <div>
+                <span>MY PROFILE</span>
+                <h3>My Premium Profile</h3>
+                <p>Your approved public Premium Profile information and photos.</p>
+              </div>
+              <button id="editPremiumPublicProfile" type="button">✎ Edit Profile</button>
             </div>
+
+            <form id="premiumPublicProfileEditForm" class="premium-profile-edit-form" hidden>
+              <div class="premium-profile-edit-head">
+                <div><span>EDIT PUBLIC PROFILE</span><h4>Update Profile Information</h4><p>These are the details Premium Customers can see. Private verification details are not changed here.</p></div>
+              </div>
+              <div class="premium-profile-edit-grid">
+                <label><span>Display name / username</span><input id="premiumEditDisplayName" type="text" minlength="2" maxlength="50" required></label>
+                <label><span>Gender</span><input id="premiumEditGender" type="text" minlength="2" maxlength="40" required></label>
+                <label><span>Age</span><input id="premiumEditAge" type="number" min="18" max="100" required></label>
+                <label><span>Orientation</span><input id="premiumEditOrientation" type="text" minlength="2" maxlength="60" required></label>
+                <label><span>General location</span><input id="premiumEditLocation" type="text" minlength="2" maxlength="100" required></label>
+                <label class="wide"><span>About</span><textarea id="premiumEditAbout" rows="5" minlength="20" maxlength="1000" required></textarea><small><span id="premiumEditAboutCount">0</span>/1000</small></label>
+              </div>
+              <div class="premium-profile-edit-actions">
+                <button id="cancelPremiumProfileEdit" class="secondary" type="button">Cancel</button>
+                <button id="savePremiumProfileEdit" type="submit">Save Changes</button>
+              </div>
+              <p id="premiumProfileEditStatus" class="status"></p>
+            </form>
+
             <div id="premiumPublicProfileSummary" class="premium-public-profile-summary"></div>
             <p id="premiumPublicProfileNotice" class="status"></p>
           </section>
