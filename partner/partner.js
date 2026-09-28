@@ -2771,31 +2771,72 @@ async function cleanupPremiumPartnerMedia(paths=null){
     return false;
   }
 }
-function populatePremiumPublicEditForm(){
-  const p=premiumProfile?.profile,d=premiumProfile?.details||{};
-  if(!p)return;
-  $('#premiumEditDisplayName').value=p.display_name||'';
-  $('#premiumEditGender').value=p.gender||'';
-  $('#premiumEditAge').value=d.age||'';
-  $('#premiumEditOrientation').value=d.orientation||'';
-  $('#premiumEditLocation').value=p.general_location||'';
-  $('#premiumEditAbout').value=p.about||'';
-  $('#premiumEditProfilePhoto').value='';
-  $('#premiumEditGallery').value='';
-  status($('#premiumPublicEditStatus'),'');
-  status($('#premiumPublicProfileNotice'),'');
+function premiumGalleryItemForSlot(slot){
+  const sort=Number(String(slot||'').replace('gallery_',''));
+  return (premiumProfile?.gallery||[]).find(item=>Number(item.sort_order)===sort)||null;
 }
-function openPremiumPublicEditor(){
-  if(premiumProfile?.profile?.application_status!=='approved')return;
-  populatePremiumPublicEditForm();
-  $('#premiumPublicProfileEditForm').hidden=false;
-  $('#editPremiumPublicProfile').hidden=true;
-  $('#premiumPublicProfileEditForm').scrollIntoView({behavior:'smooth',block:'start'});
+function premiumMediaPathForSlot(slot){
+  if(slot==='profile')return premiumProfile?.profile?.profile_picture_path||'';
+  return premiumGalleryItemForSlot(slot)?.media_path||'';
 }
-function closePremiumPublicEditor(){
-  $('#premiumPublicProfileEditForm').hidden=true;
-  $('#editPremiumPublicProfile').hidden=false;
-  status($('#premiumPublicEditStatus'),'');
+function premiumMediaLabel(slot){
+  if(slot==='profile')return 'Profile Picture';
+  return 'Gallery Photo '+String(slot||'').replace('gallery_','');
+}
+async function replacePremiumMediaSlot(slot,file,button=null){
+  if(!file||!premiumProfile?.profile)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+    status($('#premiumPublicProfileNotice'),'Choose a JPG, PNG or WEBP image.','error');
+    return;
+  }
+  if(file.size>5*1024*1024){
+    status($('#premiumPublicProfileNotice'),'Photo must be 5 MB or smaller.','error');
+    return;
+  }
+
+  const existingPath=premiumMediaPathForSlot(slot);
+  const original=button?.textContent||'Update Photo';
+  if(button){button.disabled=true;button.textContent='Updating…';}
+  status($('#premiumPublicProfileNotice'),'Updating '+premiumMediaLabel(slot)+'…');
+
+  let newPath=existingPath;
+  let uploadedNew=false;
+  try{
+    if(existingPath){
+      const {error:updateError}=await client.storage
+        .from('premium-profile-media')
+        .update(existingPath,file,{cacheControl:'0',contentType:file.type});
+      if(updateError)throw updateError;
+
+      const {data,error}=await client.rpc('premium_partner_replace_media',{
+        p_slot:slot,
+        p_media_path:existingPath
+      });
+      if(error)throw error;
+      premiumProfile=data?.profile||premiumProfile;
+    }else{
+      newPath=await uploadPremiumPartnerFile('premium-profile-media',file,5*1024*1024);
+      uploadedNew=true;
+      const {data,error}=await client.rpc('premium_partner_replace_media',{
+        p_slot:slot,
+        p_media_path:newPath
+      });
+      if(error)throw error;
+      premiumProfile=data?.profile||premiumProfile;
+      uploadedNew=false;
+    }
+
+    await renderPremiumProfile();
+    openPremiumView('profile');
+    status($('#premiumPublicProfileNotice'),premiumMediaLabel(slot)+' updated.','success');
+  }catch(error){
+    if(uploadedNew&&newPath){
+      await client.storage.from('premium-profile-media').remove([newPath]).catch(()=>{});
+    }
+    status($('#premiumPublicProfileNotice'),error?.message||'Photo could not be updated.','error');
+  }finally{
+    if(button){button.disabled=false;button.textContent=original;}
+  }
 }
 async function renderPremiumProfile(){
   hidePremiumBoot();
@@ -2812,14 +2853,52 @@ async function renderPremiumProfile(){
     $('#premiumApprovalMetric').textContent='Approved';
     $('#premiumAvailabilityMetric').textContent=p.is_available?'Available':'Unavailable';
     $('#premiumAvailabilityToggle').checked=Boolean(p.is_available);
+
     const photo=await premiumSignedUrl(p.profile_picture_path);
-    const gallery=await Promise.all((premiumProfile.gallery||[]).map(async item=>({...item,url:await premiumSignedUrl(item.media_path)})));
+    const galleryBySlot={};
+    for(const item of (premiumProfile.gallery||[])){
+      const slot=Number(item.sort_order);
+      if(slot>=1&&slot<=3){
+        galleryBySlot[slot]={...item,url:await premiumSignedUrl(item.media_path)};
+      }
+    }
+
+    const infoHtml=
+      '<div class="premium-profile-info-grid">'+
+        '<div><small>Display name / username</small><strong>'+escapeHtml(p.display_name||'—')+'</strong></div>'+
+        '<div><small>Gender</small><strong>'+escapeHtml(p.gender||'—')+'</strong></div>'+
+        '<div><small>Age</small><strong>'+escapeHtml(String(d.age||'—'))+'</strong></div>'+
+        '<div><small>Orientation</small><strong>'+escapeHtml(d.orientation||'—')+'</strong></div>'+
+        '<div><small>General location</small><strong>'+escapeHtml(p.general_location||'—')+'</strong></div>'+
+        '<div class="wide"><small>About</small><strong>'+escapeHtml(p.about||'—')+'</strong></div>'+
+      '</div>';
+
+    const profileMedia=
+      '<article class="premium-media-slot premium-media-slot-main">'+
+        '<span>Profile Picture</span>'+
+        '<div class="premium-media-photo">'+(photo?'<img src="'+escapeHtml(photo)+'" alt="Profile picture">':'<div class="premium-media-empty">No photo</div>')+'</div>'+
+        '<button type="button" data-premium-media-trigger="profile">'+(photo?'Change Profile Picture':'Upload Profile Picture')+'</button>'+
+        '<input type="file" accept="image/jpeg,image/png,image/webp" data-premium-media-input="profile" hidden>'+
+      '</article>';
+
+    const galleryHtml=[1,2,3].map(slot=>{
+      const item=galleryBySlot[slot]||null;
+      return '<article class="premium-media-slot">'+
+        '<span>Gallery Photo '+slot+'</span>'+
+        '<div class="premium-media-photo">'+(item?.url?'<img src="'+escapeHtml(item.url)+'" alt="Gallery photo '+slot+'">':'<div class="premium-media-empty">No photo</div>')+'</div>'+
+        '<button type="button" data-premium-media-trigger="gallery_'+slot+'">'+(item?'Change Photo':'Upload Photo')+'</button>'+
+        '<input type="file" accept="image/jpeg,image/png,image/webp" data-premium-media-input="gallery_'+slot+'" hidden>'+
+      '</article>';
+    }).join('');
+
     $('#premiumPublicProfileSummary').innerHTML=
-      '<div class="premium-profile-preview"><div class="premium-profile-preview-photo">'+(photo?'<img src="'+escapeHtml(photo)+'" alt="">':'<span>👤</span>')+'</div><div><span>VERIFIED PREMIUM PROFILE</span><h3>'+escapeHtml(p.display_name)+'</h3><p>'+escapeHtml(p.gender)+' · '+escapeHtml(String(d.age||''))+' · '+escapeHtml(d.orientation||'')+'</p><p>📍 '+escapeHtml(p.general_location||'')+'</p><p>'+escapeHtml(p.about||'')+'</p></div></div>'+
-      (gallery.length?'<div class="premium-gallery-preview">'+gallery.map(item=>item.url?'<img src="'+escapeHtml(item.url)+'" alt="">':'').join('')+'</div>':'');
-    $('#editPremiumPublicProfile').hidden=false;
-    $('#premiumPublicProfileEditForm').hidden=true;
-    openPremiumView('overview');
+      infoHtml+
+      '<div class="premium-profile-media-section">'+
+        '<h4>Profile Picture</h4>'+
+        profileMedia+
+        '<h4>Gallery Photos</h4>'+
+        '<div class="premium-gallery-slots">'+galleryHtml+'</div>'+
+      '</div>';
   }else{
     premiumPendingArea.hidden=false;
     $('#premiumPendingTitle').textContent=state==='changes_requested'?'Premium Profile corrections required':state==='rejected'?'Premium Profile not approved':state==='under_review'?'Premium Profile under review':'Premium Profile application submitted';
@@ -2828,6 +2907,7 @@ async function renderPremiumProfile(){
     $('#editPremiumApplication').hidden=!['changes_requested','rejected','draft'].includes(state);
   }
 }
+
 async function loadPremiumNotifications(){
   if(!currentUser)return;
   const {data,error}=await client.from('partner_notifications').select('*').eq('user_id',currentUser.id).eq('partner_type','premium').order('created_at',{ascending:false}).limit(100);
@@ -3101,65 +3181,21 @@ $('#premiumRequestList')?.addEventListener('click',(event)=>{
   const button=event.target.closest?.('[data-premium-request-action]');
   if(button)respondPremiumMeetupRequest(button);
 });
-$('#editPremiumPublicProfile')?.addEventListener('click',openPremiumPublicEditor);
-$('#cancelPremiumPublicEdit')?.addEventListener('click',closePremiumPublicEditor);
-$('#premiumPublicProfileEditForm')?.addEventListener('submit',async(event)=>{
-  event.preventDefault();
-  if(!premiumProfile?.profile)return;
-  const button=event.submitter,original=button?.textContent||'Save Changes';
-  if(button){button.disabled=true;button.textContent='Saving…';}
-  const newlyUploaded=[];
-  try{
-    const profileFile=$('#premiumEditProfilePhoto').files?.[0]||null;
-    const galleryFiles=[...($('#premiumEditGallery').files||[])];
-    if(galleryFiles.length>3)throw new Error('Choose a maximum of 3 gallery photos.');
-
-    let profilePath=premiumProfile.profile.profile_picture_path||'';
-    if(profileFile){
-      profilePath=await uploadPremiumPartnerFile('premium-profile-media',profileFile,5*1024*1024);
-      newlyUploaded.push(profilePath);
-    }
-
-    let replaceGallery=false;
-    let galleryPaths=[];
-    if(galleryFiles.length){
-      replaceGallery=true;
-      galleryPaths=await Promise.all(galleryFiles.map(async file=>{
-        const path=await uploadPremiumPartnerFile('premium-profile-media',file,5*1024*1024);
-        newlyUploaded.push(path);
-        return path;
-      }));
-    }
-
-    const {data,error}=await client.rpc('premium_partner_update_public_profile',{
-      p_display_name:$('#premiumEditDisplayName').value.trim(),
-      p_gender:$('#premiumEditGender').value,
-      p_age:Number($('#premiumEditAge').value),
-      p_orientation:$('#premiumEditOrientation').value,
-      p_general_location:$('#premiumEditLocation').value.trim(),
-      p_about:$('#premiumEditAbout').value.trim(),
-      p_profile_picture_path:profilePath,
-      p_replace_gallery:replaceGallery,
-      p_gallery_paths:galleryPaths
-    });
-    if(error)throw error;
-
-    premiumProfile=data?.profile||premiumProfile;
-    const oldPaths=Array.isArray(data?.old_paths_to_delete)?data.old_paths_to_delete:[];
-    const cleaned=await cleanupPremiumPartnerMedia(oldPaths);
-
-    await renderPremiumProfile();
-    openPremiumView('profile');
-    closePremiumPublicEditor();
-    status($('#premiumPublicProfileNotice'),cleaned?'Profile updated and replaced photos were deleted from LEOGO storage.':'Profile updated. Old photo cleanup is queued and will retry automatically.','success');
-  }catch(error){
-    if(newlyUploaded.length){
-      await client.storage.from('premium-profile-media').remove(newlyUploaded).catch(()=>{});
-    }
-    status($('#premiumPublicEditStatus'),error?.message||'Premium Profile could not be updated.','error');
-  }finally{
-    if(button){button.disabled=false;button.textContent=original;}
-  }
+$('#premiumPublicProfileSummary')?.addEventListener('click',(event)=>{
+  const button=event.target.closest?.('[data-premium-media-trigger]');
+  if(!button)return;
+  const slot=button.dataset.premiumMediaTrigger;
+  const input=document.querySelector('[data-premium-media-input="'+CSS.escape(slot)+'"]');
+  input?.click();
+});
+$('#premiumPublicProfileSummary')?.addEventListener('change',(event)=>{
+  const input=event.target.closest?.('[data-premium-media-input]');
+  if(!input)return;
+  const file=input.files?.[0]||null;
+  if(!file)return;
+  const slot=input.dataset.premiumMediaInput;
+  const button=document.querySelector('[data-premium-media-trigger="'+CSS.escape(slot)+'"]');
+  replacePremiumMediaSlot(slot,file,button);
 });
 
 $('#premiumAvailabilityToggle')?.addEventListener('change',async(event)=>{
