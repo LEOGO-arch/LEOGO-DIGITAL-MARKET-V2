@@ -603,6 +603,11 @@
     loadPremiumAccount(currentUser);
   };
 
+  document.addEventListener('leogo:premiumconsentaccepted', async () => {
+    if (!currentUser) return;
+    loadingFor = '';
+    await loadPremiumAccount(currentUser, true);
+  });
   document.addEventListener('leogo:authchange', (event) => handleUser(event.detail?.user));
   if (!client) {
     setMessage(applicationMessage, 'The secure Premium service did not load. Please refresh the page.', 'error');
