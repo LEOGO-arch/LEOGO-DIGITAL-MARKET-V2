@@ -552,7 +552,165 @@ $('#cyberProductForm')?.addEventListener('submit',async(e)=>{
 });
 $('#cancelCyberProductEdit')?.addEventListener('click',()=>fillProductForm());
 
-$$('[data-cyber-view]').forEach(b=>b.addEventListener('click',()=>openView(b.dataset.cyberView)));
+
+const formatCyberDate=(value)=>{
+  if(!value)return '—';
+  const d=new Date(value);
+  return Number.isNaN(d.getTime())?'—':new Intl.DateTimeFormat('en-KE',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Nairobi'}).format(d);
+};
+const cyberLocalInput=(value)=>{
+  if(!value)return '';
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime()))return '';
+  const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);
+  return local.toISOString().slice(0,16);
+};
+const fillCyberFlashForm=()=>{
+  const s=services.find(row=>row.id===$('#cyberFlashSaleService')?.value);
+  if($('#cyberFlashSaleNormalPrice'))$('#cyberFlashSaleNormalPrice').value=s?money(s.price_kes):'';
+  if(!s)return;
+  $('#cyberFlashSalePrice').value=s.flash_sale_price_kes??'';
+  $('#cyberFlashSaleStart').value=cyberLocalInput(s.flash_sale_starts_at);
+  $('#cyberFlashSaleEnd').value=cyberLocalInput(s.flash_sale_ends_at);
+};
+const renderFlashSale=()=>{
+  const select=$('#cyberFlashSaleService'),list=$('#cyberFlashSaleList');
+  if(!select||!list)return;
+  const keep=select.value;
+  const eligible=services.filter(s=>s.approval_status==='approved'&&s.is_available&&s.pricing_model!=='quote'&&Number(s.price_kes)>0);
+  select.innerHTML='<option value="">Choose approved service…</option>'+eligible.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.service_name)+' — '+money(s.price_kes)+'</option>').join('');
+  if(eligible.some(s=>s.id===keep))select.value=keep;
+  const requested=services.filter(s=>s.flash_sale_requested);
+  list.innerHTML=requested.length?requested.map(s=>`
+    <article class="cyber-list-card">
+      <header><div><strong>⚡ ${esc(s.service_name)}</strong><small>Normal ${money(s.price_kes)} · Flash ${money(s.flash_sale_price_kes)}</small></div><span class="cyber-pill ${esc(s.flash_sale_status||'requested')}">${esc((s.flash_sale_status||'requested').replaceAll('_',' '))}</span></header>
+      <div class="cyber-card-grid"><div><small>Starts</small><strong>${esc(formatCyberDate(s.flash_sale_starts_at))}</strong></div><div><small>Ends</small><strong>${esc(formatCyberDate(s.flash_sale_ends_at))}</strong></div><div><small>Saving</small><strong>${money(Math.max(0,Number(s.price_kes||0)-Number(s.flash_sale_price_kes||0)))}</strong></div></div>
+      ${s.flash_sale_admin_notes?'<small class="cyber-status error">Admin note: '+esc(s.flash_sale_admin_notes)+'</small>':''}
+    </article>`).join(''):'<div class="cyber-empty">No Cyber service Flash Sale requests yet.</div>';
+};
+const updateCyberNotificationBadges=(count=0)=>{
+  const unread=Number(count||0);
+  const local=$('#cyberNotificationBadge');
+  if(local){local.hidden=!unread;local.textContent=unread>99?'99+':String(unread);}
+  if(partnerBellBadge){partnerBellBadge.hidden=!unread;partnerBellBadge.textContent=unread>99?'99+':String(unread);}
+  if(partnerBell)partnerBell.classList.toggle('has-unread',unread>0);
+};
+const loadCyberNotifications=async()=>{
+  if(!user)return;
+  const {data,error}=await client.from('partner_notifications').select('*').eq('partner_type','cyber').order('created_at',{ascending:false}).limit(80);
+  if(error)throw error;
+  cyberNotifications=data||[];
+  const list=$('#cyberNotificationList');
+  const unread=cyberNotifications.filter(n=>!n.read_at).length;
+  updateCyberNotificationBadges(unread);
+  if(!list)return;
+  list.innerHTML=cyberNotifications.length?cyberNotifications.map(n=>`
+    <article class="cyber-list-card ${n.read_at?'':'cyber-notification-unread'}">
+      <header><div><strong>${esc(n.title)}</strong><small>${esc(formatCyberDate(n.created_at))}</small></div>${n.read_at?'':'<span class="cyber-pill pending">New</span>'}</header>
+      <p>${esc(n.message)}</p>
+      <div class="cyber-card-actions">${n.action_view?'<button type="button" data-open-cyber-notification="'+esc(n.id)+'">Open</button>':''}${n.read_at?'':'<button class="secondary" type="button" data-read-cyber-notification="'+esc(n.id)+'">Mark read</button>'}</div>
+    </article>`).join(''):'<div class="cyber-empty">No Cyber notifications yet.</div>';
+};
+const loadCyberChatThreads=async()=>{
+  const {data,error}=await client.rpc('cyber_provider_list_chat_threads');
+  if(error)throw error;
+  cyberChatThreads=data||[];
+  const list=$('#cyberChatThreadList');
+  const unread=cyberChatThreads.reduce((sum,row)=>sum+Number(row.unread_count||0),0);
+  const badge=$('#cyberChatBadge');
+  if(badge){badge.hidden=!unread;badge.textContent=unread>99?'99+':String(unread);}
+  if(!list)return;
+  list.innerHTML=cyberChatThreads.length?cyberChatThreads.map(t=>`
+    <button type="button" class="cyber-chat-thread ${String(t.order_id)===String(activeCyberChatOrderId)?'active':''}" data-open-cyber-chat-thread="${esc(t.order_id)}">
+      <span><strong>${esc(t.customer_name||'Customer')}</strong><small>${esc(t.order_reference)} · ${esc(t.item_name)}</small></span>
+      <span class="cyber-chat-thread-meta">${Number(t.unread_count||0)?'<b>'+Number(t.unread_count)+'</b>':''}<small>${esc(t.last_message_preview||'Start conversation')}</small></span>
+    </button>`).join(''):'<div class="cyber-empty">No Cyber orders are available for chat yet.</div>';
+};
+const openCyberOrderChat=async(orderId)=>{
+  activeCyberChatOrderId=orderId;
+  const panel=$('#cyberChatConversation');if(panel)panel.hidden=false;
+  const order=orders.find(o=>String(o.id)===String(orderId));
+  const thread=cyberChatThreads.find(t=>String(t.order_id)===String(orderId));
+  if($('#cyberChatTitle'))$('#cyberChatTitle').textContent=(order?.order_reference||thread?.order_reference||'Cyber Order')+' · '+(order?.customer_name||thread?.customer_name||'Customer');
+  const results=await Promise.all([
+    client.rpc('cyber_provider_list_order_messages',{p_order_id:orderId}),
+    client.rpc('cyber_provider_mark_order_chat_read',{p_order_id:orderId})
+  ]);
+  const data=results[0].data,error=results[0].error||results[1].error;
+  if(error){setStatus($('#cyberChatStatus'),error.message,'error');return;}
+  const box=$('#cyberChatMessages');
+  if(box){
+    box.innerHTML=(data||[]).length?(data||[]).map(m=>`<article class="cyber-chat-message ${m.sender_role==='provider'?'mine':'theirs'}"><div><strong>${m.sender_role==='provider'?'You':'Customer'}</strong><small>${esc(formatCyberDate(m.created_at))}</small></div><p>${esc(m.body).replace(/\n/g,'<br>')}</p></article>`).join(''):'<div class="cyber-empty">No messages yet. Start the conversation.</div>';
+    box.scrollTop=box.scrollHeight;
+  }
+  setStatus($('#cyberChatStatus'),'');
+  await loadCyberChatThreads();
+};
+$('#cyberServiceList')?.addEventListener('click',(e)=>{
+  const b=e.target.closest('[data-cyber-flash-service]');
+  if(!b)return;
+  openView('flashsale');
+  $('#cyberFlashSaleService').value=b.dataset.cyberFlashService;
+  fillCyberFlashForm();
+});
+$('#cyberFlashSaleService')?.addEventListener('change',fillCyberFlashForm);
+$('#cyberFlashSaleForm')?.addEventListener('submit',async(e)=>{
+  e.preventDefault();
+  const service=services.find(s=>s.id===$('#cyberFlashSaleService').value);
+  const out=$('#cyberFlashSaleStatus');
+  const price=Number($('#cyberFlashSalePrice').value),start=$('#cyberFlashSaleStart').value,end=$('#cyberFlashSaleEnd').value;
+  if(!service){setStatus(out,'Choose an approved service.','error');return;}
+  if(!price||price<=0||price>=Number(service.price_kes)){setStatus(out,'Flash Sale price must be lower than the normal price.','error');return;}
+  if(!start||!end||new Date(end)<=new Date(start)){setStatus(out,'Choose a valid Flash Sale start and end time.','error');return;}
+  const b=e.submitter,old=b.textContent;b.disabled=true;b.textContent='Sending…';
+  try{
+    const {error}=await client.rpc('cyber_provider_request_service_flash_sale',{p_service_id:service.id,p_flash_price_kes:price,p_starts_at:new Date(start).toISOString(),p_ends_at:new Date(end).toISOString()});
+    if(error)throw error;
+    setStatus(out,'Flash Sale request sent to LEOGO Admin for approval.','success');
+    e.target.reset();await loadServices();
+  }catch(error){setStatus(out,error.message||'Flash Sale request could not be sent.','error');}
+  finally{b.disabled=false;b.textContent=old;}
+});
+$('#cyberNotificationList')?.addEventListener('click',async(e)=>{
+  const read=e.target.closest('[data-read-cyber-notification]');
+  const open=e.target.closest('[data-open-cyber-notification]');
+  const id=read?.dataset.readCyberNotification||open?.dataset.openCyberNotification;
+  if(!id)return;
+  const n=cyberNotifications.find(x=>String(x.id)===String(id));
+  await client.rpc('mark_partner_notification_read',{p_notification_id:id});
+  if(open){
+    const action=String(n?.action_view||'');
+    if(action.includes('chat')){openView('chat');if(n?.metadata?.order_id)await openCyberOrderChat(n.metadata.order_id);}
+    else if(action.includes('order'))openView('orders');
+    else if(action.includes('flash'))openView('flashsale');
+    else if(action.includes('service'))openView('services');
+    else if(action.includes('product'))openView('products');
+    else if(action.includes('profile'))openView('profile');
+  }
+  await loadCyberNotifications();
+});
+$('#markAllCyberNotificationsRead')?.addEventListener('click',async()=>{
+  const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'cyber'});
+  if(error){alert(error.message);return;}await loadCyberNotifications();
+});
+$('#cyberChatThreadList')?.addEventListener('click',(e)=>{
+  const b=e.target.closest('[data-open-cyber-chat-thread]');if(b)openCyberOrderChat(b.dataset.openCyberChatThread);
+});
+$('#cyberChatForm')?.addEventListener('submit',async(e)=>{
+  e.preventDefault();if(!activeCyberChatOrderId)return;
+  const body=$('#cyberChatMessage').value.trim();if(!body)return;
+  const b=e.submitter,old=b.textContent;b.disabled=true;b.textContent='Sending…';
+  try{
+    const {error}=await client.rpc('cyber_provider_send_order_message',{p_order_id:activeCyberChatOrderId,p_body:body});
+    if(error)throw error;$('#cyberChatMessage').value='';await openCyberOrderChat(activeCyberChatOrderId);await loadCyberNotifications();
+  }catch(error){setStatus($('#cyberChatStatus'),error.message||'Message could not be sent.','error');}
+  finally{b.disabled=false;b.textContent=old;}
+});
+$('#closeCyberChat')?.addEventListener('click',()=>{activeCyberChatOrderId=null;$('#cyberChatConversation').hidden=true;loadCyberChatThreads().catch(console.warn);});
+$('#refreshCyberChats')?.addEventListener('click',()=>loadCyberChatThreads().catch(e=>alert(e.message)));
+partnerBell?.addEventListener('click',()=>{if(document.body.classList.contains('cyber-role-open'))openView('notifications');});
+
+$('[data-cyber-view]').forEach(b=>b.addEventListener('click',()=>openView(b.dataset.cyberView)));
 $('#backFromCyberPortal')?.addEventListener('click',showRolePicker);
 $('#refreshCyberOrders')?.addEventListener('click',()=>loadOrders().catch(e=>alert(e.message)));
 $('#refreshCyberServices')?.addEventListener('click',()=>loadServices().catch(e=>alert(e.message)));
