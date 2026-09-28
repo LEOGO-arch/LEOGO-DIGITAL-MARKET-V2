@@ -162,6 +162,19 @@
       });
     });
 
+    (state.supportApprovals||[]).filter((item)=>item.approval_status==='submitted').forEach((item)=>{
+      items.push({
+        key:'support-approval:'+String(item.approval_id),
+        category:'Customer Care',
+        title:'Customer Care update awaiting approval',
+        message:(item.proposed_by_name||'Customer Support Officer')+' → '+(item.customer_name||'Customer')+' · '+(item.update_type==='message'?'Reply waiting for release':'Chat status update waiting for release'),
+        created_at:item.created_at,
+        view:'chat',
+        sourceId:item.approval_id,
+        priority:true
+      });
+    });
+
     (state.paymentActions||[]).forEach((item)=>{
       const source=String(item.record_id||item.source_id||item.payment_id||item.id||item.submitted_at||item.title||'payment');
       items.push({
@@ -3024,7 +3037,8 @@
     const waiting=state.supportThreads.filter((thread)=>!thread.assigned_staff_id&&thread.status!=='closed').length;
     const mine=state.supportThreads.filter((thread)=>thread.assigned_staff_id===uid&&thread.status!=='closed').length;
     const unread=state.supportThreads.reduce((sum,thread)=>sum+Number(thread.unread_count||0),0);
-    const attention=state.supportThreads.filter((thread)=>!thread.assigned_staff_id||Number(thread.unread_count||0)>0).length;
+    const pendingApprovals=state.supportApprovals.filter((item)=>item.approval_status==='submitted').length;
+    const attention=state.supportThreads.filter((thread)=>!thread.assigned_staff_id||Number(thread.unread_count||0)>0).length+pendingApprovals;
 
     if($('#supportChatWaitingCount')) $('#supportChatWaitingCount').textContent=waiting;
     if($('#supportChatMineCount')) $('#supportChatMineCount').textContent=mine;
