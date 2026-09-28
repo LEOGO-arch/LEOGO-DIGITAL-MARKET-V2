@@ -201,7 +201,7 @@ const loadAccount=async()=>{
   if(error)throw error;
   account=data||null;
   if(account?.application_status==='approved'){
-    await Promise.allSettled([loadServices(),loadProducts(),loadOrders(),loadCyberNotifications()]);
+    await Promise.allSettled([loadServices(),loadProducts(),loadOrders(),loadCyberNotifications(),loadCyberChatThreads()]);
   }
   renderAccount();
 };
@@ -273,10 +273,16 @@ const renderServices=()=>{
 };
 
 const loadServices=async()=>{
-  const {data,error}=await client.rpc('cyber_provider_list_services');
-  if(error)throw error;
-  services=data||[];
+  const [serviceResult,flashResult]=await Promise.all([
+    client.rpc('cyber_provider_list_services'),
+    client.rpc('cyber_provider_list_service_flash_sales')
+  ]);
+  if(serviceResult.error)throw serviceResult.error;
+  if(flashResult.error)throw flashResult.error;
+  const flashByService=new Map((flashResult.data||[]).map(row=>[String(row.service_id),row]));
+  services=(serviceResult.data||[]).map(row=>({...row,...(flashByService.get(String(row.id))||{})}));
   renderServices();
+  renderFlashSale();
   renderOverview();
 };
 
@@ -338,6 +344,7 @@ const renderOrders=()=>{
     if(canWork&&o.order_status==='processing'&&o.fulfilment_method==='pickup')actions+='<button class="primary" type="button" data-cyber-status="'+o.id+'" data-status="ready_for_pickup">Ready for Pickup</button>';
     if(canWork&&o.order_status==='processing'&&o.fulfilment_method==='delivery')actions+='<button class="primary" type="button" data-cyber-status="'+o.id+'" data-status="out_for_delivery">Out for Delivery</button>';
     if(canWork&&['ready_for_pickup','out_for_delivery','processing'].includes(o.order_status))actions+='<button class="primary" type="button" data-cyber-status="'+o.id+'" data-status="completed">Complete</button>';
+    actions+='<button type="button" data-open-cyber-order-chat="'+o.id+'">💬 Chat</button>';
     return `
       <article class="cyber-list-card">
         <header><div><strong>${esc(o.order_reference)} · ${esc(o.item_name)}</strong><small>${esc(o.customer_name||'Customer')} · ${esc(o.item_type)} · ${new Date(o.created_at).toLocaleString()}</small></div><span class="cyber-pill ${esc(o.order_status)}">${esc(o.order_status.replaceAll('_',' '))}</span></header>
@@ -366,10 +373,14 @@ const renderOrders=()=>{
     if(error){alert(error.message);return;}
     await loadOrders();
   }));
-  $$('[data-cyber-status]').forEach(b=>b.addEventListener('click',async()=>{
+  $('[data-cyber-status]').forEach(b=>b.addEventListener('click',async()=>{
     const {error}=await client.rpc('cyber_provider_update_order_status',{p_order_id:b.dataset.cyberStatus,p_status:b.dataset.status,p_notes:null});
     if(error){alert(error.message);return;}
     await loadOrders();
+  }));
+  $('[data-open-cyber-order-chat]').forEach(b=>b.addEventListener('click',async()=>{
+    openView('chat');
+    await openCyberOrderChat(b.dataset.openCyberOrderChat);
   }));
 };
 
