@@ -349,7 +349,7 @@ $('#partnerLoginForm').addEventListener('submit',async e=>{
 $('#partnerRegisterForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Creating account…');const {data,error}=await client.auth.signUp({email:$('#partnerRegisterEmail').value.trim(),password:$('#partnerRegisterPassword').value,options:{data:{full_name:$('#partnerRegisterName').value.trim()}}});if(error){status($('#partnerAuthStatus'),error.message,'error');return;}status($('#partnerAuthStatus'),data.session?'Account created. Choose the partnership you want to register for.':'Account created. Sign in to continue to partnership selection.','success');});
 logout.addEventListener('click',()=>client.auth.signOut());
 $('#backToPartnerships').addEventListener('click',()=>showRolePicker());
-$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
+$$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   if(button.disabled)return;
   const target=button.dataset.roleTarget;
   if(target==='seller')openSellerRole();
@@ -4067,12 +4067,12 @@ function renderAccommodationNotifications(){
     '</article>'
   ).join(''):'<div class="empty-card">No Accommodation notifications yet.</div>';
 
-  $('[data-mark-accommodation-notification]').forEach(button=>button.addEventListener('click',async()=>{
+  $$('[data-mark-accommodation-notification]').forEach(button=>button.addEventListener('click',async()=>{
     const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markAccommodationNotification});
     if(error){console.warn(error);return;}
     await loadAccommodationNotifications();
   }));
-  $('[data-open-accommodation-notification]').forEach(button=>button.addEventListener('click',async()=>{
+  $$('[data-open-accommodation-notification]').forEach(button=>button.addEventListener('click',async()=>{
     await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.openAccommodationNotification}).catch?.(()=>{});
     const target=accommodationNotificationTarget(button.dataset.accommodationNotificationView);
     openAccommodationView(target);
