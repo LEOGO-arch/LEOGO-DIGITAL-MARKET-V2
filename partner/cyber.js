@@ -30,6 +30,11 @@ let subcounties=[];
 let editServiceId=null;
 let editProductId=null;
 let editApprovedProfile=false;
+let cyberNotifications=[];
+let cyberChatThreads=[];
+let activeCyberChatOrderId=null;
+const partnerBell=$('#partnerNotificationBell');
+const partnerBellBadge=$('#partnerNotificationBadge');
 
 const hideOtherPartnerShells=()=>{
   ['sellerShell','providerShell','transportShell','premiumShell','accommodationShell'].forEach(id=>{const el=$('#'+id);if(el)el.hidden=true;});
@@ -126,11 +131,14 @@ const accountStatusCopy=(s)=>{
 };
 
 const openView=(view='overview')=>{
-  $$('[data-cyber-content]').forEach(p=>p.classList.toggle('active',p.dataset.cyberContent===view));
-  $$('[data-cyber-view]').forEach(b=>b.classList.toggle('active',b.dataset.cyberView===view));
+  $('[data-cyber-content]').forEach(p=>p.classList.toggle('active',p.dataset.cyberContent===view));
+  $('[data-cyber-view]').forEach(b=>b.classList.toggle('active',b.dataset.cyberView===view));
   if(view==='orders')loadOrders().catch(console.warn);
   if(view==='services')loadServices().catch(console.warn);
+  if(view==='flashsale'){loadServices().then(renderFlashSale).catch(console.warn);}
   if(view==='products')loadProducts().catch(console.warn);
+  if(view==='notifications')loadCyberNotifications().catch(console.warn);
+  if(view==='chat')loadCyberChatThreads().catch(console.warn);
   if(view==='profile')renderProfile();
 };
 
@@ -193,7 +201,7 @@ const loadAccount=async()=>{
   if(error)throw error;
   account=data||null;
   if(account?.application_status==='approved'){
-    await Promise.allSettled([loadServices(),loadProducts(),loadOrders()]);
+    await Promise.allSettled([loadServices(),loadProducts(),loadOrders(),loadCyberNotifications()]);
   }
   renderAccount();
 };
@@ -210,6 +218,7 @@ const openCyber=async()=>{
   }
   user=data.session.user;
   document.body.classList.add('cyber-role-open');
+  if(partnerBell)partnerBell.hidden=false;
   hideOtherPartnerShells();
   if(rolePicker)rolePicker.hidden=true;
   if(authShell)authShell.hidden=true;
@@ -255,8 +264,10 @@ const renderServices=()=>{
         <div><small>Customer file</small><strong>${s.requires_file_upload?'Required':'Optional'}</strong></div>
         <div><small>Availability</small><strong>${s.is_available?'Available':'Paused'}</strong></div>
       </div>
+      ${s.flash_sale_requested?'<div class="cyber-flash-strip"><strong>⚡ Flash Sale '+esc((s.flash_sale_status||'requested').replaceAll('_',' '))+'</strong><span>'+money(s.flash_sale_price_kes)+' · '+esc(formatCyberDate(s.flash_sale_starts_at))+' → '+esc(formatCyberDate(s.flash_sale_ends_at))+'</span></div>':''}
+      ${s.flash_sale_admin_notes?'<small class="cyber-status error">Flash Sale Admin note: '+esc(s.flash_sale_admin_notes)+'</small>':''}
       ${s.admin_notes?'<small class="cyber-status error">Admin note: '+esc(s.admin_notes)+'</small>':''}
-      <div class="cyber-card-actions"><button type="button" class="secondary" data-edit-cyber-service="${s.id}">Edit</button></div>
+      <div class="cyber-card-actions"><button type="button" class="secondary" data-edit-cyber-service="${s.id}">Edit</button>${s.approval_status==='approved'&&s.pricing_model!=='quote'?'<button type="button" data-cyber-flash-service="'+s.id+'">⚡ Flash Sale</button>':''}</div>
     </article>`).join(''):'<div class="cyber-empty">No Cyber services added yet.</div>';
   $$('[data-edit-cyber-service]').forEach(b=>b.addEventListener('click',()=>fillServiceForm(services.find(s=>s.id===b.dataset.editCyberService))));
 };
