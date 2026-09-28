@@ -115,7 +115,7 @@
     loan_repayment: 'Loan Repayment', marketplace_orders: 'Marketplace Orders',
     lipa_pole_pole: 'Lipa Pole Pole', premium_payments: 'Premium Payments',
     accommodation_payments: 'Accommodation Payments', service_payments: 'Service Payments',
-    transport_payments: 'Transport & Parcel Delivery', other_revenue: 'Other Revenue'
+    transport_payments: 'Transport & Parcel Delivery', cyber_orders: 'Cyber Orders', other_revenue: 'Other Revenue'
   };
 
   const escapeHtml = (value = '') => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
