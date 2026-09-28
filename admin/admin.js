@@ -35,6 +35,7 @@
     customers: [],
     supportThreads: [],
     supportMessages: [],
+    supportApprovals: [],
     activeSupportThreadId: null,
     business: null,
     paymentAccounts: [],
@@ -3047,6 +3048,78 @@
     }).join(''):'<div class="loading-card">No Customer Care chats match this filter.</div>';
   };
 
+  const supportChatApprovalStatusLabel=(status)=>({
+    submitted:'Pending Admin approval',
+    approved:'Approved',
+    rejected:'Rejected'
+  }[status]||String(status||'').replaceAll('_',' '));
+
+  const renderSupportChatApprovals=()=>{
+    const panel=$('#supportChatApprovalPanel');
+    const list=$('#supportChatApprovalList');
+    const elevated=['super_admin','admin'].includes(state.admin?.role||'');
+    if(panel) panel.hidden=!elevated;
+    if(!list) return;
+
+    const pending=state.supportApprovals.filter((item)=>item.approval_status==='submitted').length;
+    if($('#supportChatApprovalCount')) $('#supportChatApprovalCount').textContent=elevated?pending:'—';
+
+    if(!elevated){
+      list.innerHTML='';
+      return;
+    }
+
+    const filter=$('#supportChatApprovalFilter')?.value||'submitted';
+    const rows=state.supportApprovals.filter((item)=>filter==='all'||item.approval_status===filter);
+    list.innerHTML=rows.length?rows.map((item)=>{
+      const isMessage=item.update_type==='message';
+      const submitted=item.approval_status==='submitted';
+      const updateText=isMessage
+        ? escapeHtml(item.proposed_body||'')
+        : 'Change conversation status to <strong>'+escapeHtml(supportChatStatusLabel(item.proposed_status))+'</strong>';
+      return '<article class="support-chat-approval-card" data-support-approval-card="'+escapeHtml(item.approval_id)+'">'+
+        '<header><div><span>'+escapeHtml(isMessage?'STAFF REPLY':'CHAT STATUS UPDATE')+'</span><h4>'+escapeHtml(item.customer_name||'Customer')+'</h4><p>Proposed by '+escapeHtml(item.proposed_by_name||'Customer Care Officer')+' · '+escapeHtml(formatDate(item.created_at,true))+'</p></div>'+
+          '<b class="status-chip">'+escapeHtml(supportChatApprovalStatusLabel(item.approval_status))+'</b></header>'+
+        '<div class="support-chat-approval-copy">'+(isMessage?'<p>'+updateText+'</p>':'<p>'+updateText+'</p>')+'</div>'+
+        '<label><span>Admin note</span><textarea data-support-approval-note rows="2" maxlength="1500" placeholder="Optional when approving; required when rejecting…">'+escapeHtml(item.admin_notes||'')+'</textarea></label>'+
+        (submitted?'<div class="support-chat-approval-actions"><button type="button" data-support-approval-action="approved" data-approval-id="'+escapeHtml(item.approval_id)+'">Approve & Release</button><button type="button" class="danger" data-support-approval-action="rejected" data-approval-id="'+escapeHtml(item.approval_id)+'">Reject</button></div>':'')+
+      '</article>';
+    }).join(''):'<div class="loading-card">No Customer Care updates match this filter.</div>';
+  };
+
+  const reviewSupportChatUpdate=async(button)=>{
+    const approvalId=button.dataset.approvalId;
+    const action=button.dataset.supportApprovalAction;
+    const card=button.closest('[data-support-approval-card]');
+    const notes=card?.querySelector('[data-support-approval-note]')?.value.trim()||'';
+    if(action==='rejected'&&!notes){
+      globalStatus('Add an Admin note before rejecting this Customer Care update.','error');
+      card?.querySelector('[data-support-approval-note]')?.focus();
+      return;
+    }
+    const confirmed=window.confirm(action==='approved'
+      ? 'Approve this Customer Care update and release it to the customer?'
+      : 'Reject this Customer Care update? It will not be released to the customer.');
+    if(!confirmed) return;
+
+    await withButtonLock(button,action==='approved'?'Approving…':'Rejecting…',async()=>{
+      const {data,error}=await db.rpc('admin_review_support_update',{
+        p_approval_id:approvalId,
+        p_action:action,
+        p_admin_notes:notes||null
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+      await Promise.all([
+        loadSupportChats({refreshActive:true}),
+        isSuperAdmin()?loadAuditLog():Promise.resolve()
+      ]);
+      globalStatus(action==='approved'
+        ? 'Customer Care update approved and released to the customer.'
+        : 'Customer Care update rejected.');
+    });
+  };
+
   const renderSupportChatConversation=()=>{
     const empty=$('#supportChatEmpty');
     const active=$('#supportChatActive');
@@ -3080,8 +3153,13 @@
     }
     const reply=$('#supportChatReply');
     const send=$('#sendSupportChatReply');
+    const approvalNotice=$('#supportChatApprovalNotice');
     if(reply) reply.disabled=!mine||thread.status==='closed';
-    if(send) send.disabled=!mine||thread.status==='closed';
+    if(send){
+      send.disabled=!mine||thread.status==='closed';
+      send.textContent=elevated?'Send Reply':'Send for Approval';
+    }
+    if(approvalNotice) approvalNotice.hidden=elevated;
 
     const box=$('#supportChatMessages');
     if(box){
@@ -3111,14 +3189,21 @@
   };
 
   const loadSupportChats=async({refreshActive=false}={})=>{
-    const {data,error}=await db.rpc('staff_list_support_threads');
-    if(error) throw error;
-    state.supportThreads=Array.isArray(data)?data:[];
+    const elevated=['super_admin','admin'].includes(state.admin?.role||'');
+    const [threadsResult,approvalsResult]=await Promise.all([
+      db.rpc('staff_list_support_threads'),
+      elevated?db.rpc('admin_list_support_update_approvals'):Promise.resolve({data:[],error:null})
+    ]);
+    if(threadsResult.error) throw threadsResult.error;
+    if(approvalsResult.error) throw approvalsResult.error;
+    state.supportThreads=Array.isArray(threadsResult.data)?threadsResult.data:[];
+    state.supportApprovals=Array.isArray(approvalsResult.data)?approvalsResult.data:[];
     if(state.activeSupportThreadId&&!state.supportThreads.some((thread)=>thread.thread_id===state.activeSupportThreadId)){
       state.activeSupportThreadId=null;
       state.supportMessages=[];
     }
     renderSupportChatThreads();
+    renderSupportChatApprovals();
     renderSupportChatConversation();
     if(refreshActive&&state.activeSupportThreadId){
       await loadSupportThread(state.activeSupportThreadId,{silent:true});
@@ -3151,7 +3236,11 @@
       if(data?.error) throw new Error(data.error);
       await loadSupportChats();
       await loadSupportThread(thread.thread_id,{silent:true});
-      globalStatus(next==='closed'?'Customer Care chat closed.':'Customer Care chat reopened.');
+      if(data?.pending_approval){
+        globalStatus(next==='closed'?'Close-chat update sent to Admin for approval.':'Reopen-chat update sent to Admin for approval.');
+      }else{
+        globalStatus(next==='closed'?'Customer Care chat closed.':'Customer Care chat reopened.');
+      }
     });
   };
 
@@ -3163,7 +3252,7 @@
     if(!thread||!body) return;
     const button=$('#sendSupportChatReply');
     await withButtonLock(button,'Sending…',async()=>{
-      setFormStatus($('#supportChatStatus'),'Sending private reply…');
+      setFormStatus($('#supportChatStatus'),'Submitting Customer Care reply…');
       const {data,error}=await db.rpc('staff_send_support_message',{
         p_thread_id:thread.thread_id,
         p_body:body
@@ -3175,7 +3264,13 @@
         loadSupportChats(),
         loadSupportThread(thread.thread_id,{silent:true})
       ]);
-      setFormStatus($('#supportChatStatus'),'Reply sent to customer.','success');
+      setFormStatus(
+        $('#supportChatStatus'),
+        data?.pending_approval
+          ? 'Reply sent to Admin for approval. The customer cannot see it yet.'
+          : 'Reply sent to customer.',
+        'success'
+      );
     });
   };
 
@@ -5059,6 +5154,11 @@
     $('#refreshSupportChats')?.addEventListener('click',()=>withButtonLock($('#refreshSupportChats'),'Refreshing…',async()=>loadSupportChats({refreshActive:true})));
     $('#supportChatSearch')?.addEventListener('input',renderSupportChatThreads);
     $('#supportChatFilter')?.addEventListener('change',renderSupportChatThreads);
+    $('#supportChatApprovalFilter')?.addEventListener('change',renderSupportChatApprovals);
+    $('#supportChatApprovalList')?.addEventListener('click',(event)=>{
+      const button=event.target.closest?.('[data-support-approval-action]');
+      if(button) reviewSupportChatUpdate(button);
+    });
     $('#supportChatThreadList')?.addEventListener('click',(event)=>{
       const button=event.target.closest?.('[data-support-thread]');
       if(!button) return;
