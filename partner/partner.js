@@ -57,12 +57,13 @@ const applyInitialServiceAreas=()=>{
   kenyaSubcounties=[];
 };
 
-const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),providerShell=$('#providerShell'),transportShell=$('#transportShell'),premiumShell=$('#premiumShell'),accommodationShell=$('#accommodationShell'),logout=$('#partnerLogout'),hero=$('.hero');
+const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),providerShell=$('#providerShell'),transportShell=$('#transportShell'),premiumShell=$('#premiumShell'),accommodationShell=$('#accommodationShell'),cyberShell=$('#cyberShell'),logout=$('#partnerLogout'),hero=$('.hero');
 const partnerNotificationBell=$('#partnerNotificationBell'),partnerNotificationBadge=$('#partnerNotificationBadge');
 const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
 const sellerProfilePanel=$('#sellerProfilePanel'),sellerNotificationPanel=$('#sellerNotificationPanel'),sellerSettlementPanel=$('#sellerSettlementPanel'),sellerPendingArea=$('#sellerPendingArea'),sellerSidebar=$('#sellerSidebar'),sellerBootStatus=$('#sellerBootStatus');
 let activeRole='';
+window.leogoSetPartnerActiveRole=(role='')=>{activeRole=String(role||'');};
 
 const waitTimeout=(ms,message='Request timed out')=>new Promise((_,reject)=>window.setTimeout(()=>reject(new Error(message)),ms));
 
@@ -353,6 +354,7 @@ $$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   if(button.dataset.roleTarget==='seller')openSellerRole();
   if(button.dataset.roleTarget==='service_provider')openProviderRole();
   if(button.dataset.roleTarget==='transport')openTransportRole();
+  if(button.dataset.roleTarget==='cyber')activeRole='cyber';
   if(button.dataset.roleTarget==='premium')openPremiumRole();
   if(button.dataset.roleTarget==='accommodation')openAccommodationRole();
 }));
@@ -584,11 +586,14 @@ function showRolePicker(){
   if(transportShell)transportShell.hidden=true;
   if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
+  if(cyberShell)cyberShell.hidden=true;
   authShell.hidden=true;
   if(hero)hero.hidden=false;
 }
+window.leogoShowPartnerRolePicker=showRolePicker;
 async function openSellerRole(){
   activeRole='seller';
+  if(cyberShell)cyberShell.hidden=true;
   if(partnerNotificationBell)partnerNotificationBell.hidden=false;
   rolePicker.hidden=true;
   sellerShell.hidden=false;
@@ -2168,6 +2173,7 @@ async function loadProvider(){
 }
 async function openProviderRole(){
   activeRole='service_provider';
+  if(cyberShell)cyberShell.hidden=true;
   if(partnerNotificationBell)partnerNotificationBell.hidden=false;
   rolePicker.hidden=true;
   sellerShell.hidden=true;
@@ -3169,6 +3175,7 @@ async function loadPremiumProfile(){
 }
 async function openPremiumRole(){
   activeRole='premium';
+  if(cyberShell)cyberShell.hidden=true;
   if(partnerNotificationBell)partnerNotificationBell.hidden=false;
   rolePicker.hidden=true;sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
@@ -4284,6 +4291,7 @@ function accommodationDraftWasOpen(){
 
 async function openAccommodationRole(){
   activeRole='accommodation';
+  if(cyberShell)cyberShell.hidden=true;
   if(partnerNotificationBell)partnerNotificationBell.hidden=false;
   rolePicker.hidden=true;
   sellerShell.hidden=true;
@@ -4812,6 +4820,7 @@ async function loadTransportProvider(){
 }
 async function openTransportRole(){
   activeRole='transport';
+  if(cyberShell)cyberShell.hidden=true;
   if(partnerNotificationBell)partnerNotificationBell.hidden=false;
   rolePicker.hidden=true;
   sellerShell.hidden=true;
@@ -5428,6 +5437,7 @@ async function handleSession(session){
     if(transportShell)transportShell.hidden=true;
     if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
+    if(cyberShell)cyberShell.hidden=true;
     if(hero)hero.hidden=false;
     return;
   }
@@ -5437,13 +5447,16 @@ async function handleSession(session){
   if(transportShell)transportShell.hidden=true;
   if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
-  rolePicker.hidden=false;
-  if(hero)hero.hidden=false;
+  if(cyberShell)cyberShell.hidden=true;
+  const reopeningCyber=activeRole==='cyber';
+  rolePicker.hidden=reopeningCyber;
+  if(hero)hero.hidden=reopeningCyber;
   if(activeRole==='seller')await openSellerRole();
   if(activeRole==='service_provider')await openProviderRole();
   if(activeRole==='transport')await openTransportRole();
   if(activeRole==='premium')await openPremiumRole();
   if(activeRole==='accommodation')await openAccommodationRole();
+  if(reopeningCyber && typeof window.leogoOpenCyberPartner==='function')await window.leogoOpenCyberPartner();
 }
 
 window.addEventListener('unhandledrejection',event=>{
