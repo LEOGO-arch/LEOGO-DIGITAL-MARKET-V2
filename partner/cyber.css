@@ -1,0 +1,91 @@
+
+/* LEOGO Cyber Partner Portal */
+.cyber-shell{display:grid;gap:16px}
+.cyber-shell[hidden]{display:none!important}
+.cyber-boot,.cyber-onboarding,.cyber-panel,.cyber-registration{border:1px solid #dce4ee;border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(7,27,61,.07)}
+.cyber-boot{display:flex;align-items:center;gap:15px;padding:20px}
+.cyber-onboarding{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;padding:22px}
+.cyber-onboarding .cyber-icon{font-size:38px}
+.cyber-onboarding span,.cyber-eyebrow{color:#ff7200;font-size:9px;font-weight:900;letter-spacing:.12em}
+.cyber-onboarding h2,.cyber-panel h2,.cyber-panel h3,.cyber-registration h3{margin:5px 0;color:#07152f}
+.cyber-onboarding p,.cyber-panel p,.cyber-registration p{margin:0;color:#68768a;line-height:1.5}
+.cyber-button,.cyber-shell button{border:0;border-radius:10px;padding:11px 14px;background:#071b3d;color:#fff;font-weight:900;cursor:pointer}
+.cyber-shell button.primary,.cyber-shell .primary{background:#ff7200;color:#fff}
+.cyber-shell button.secondary{background:#eef3f8;color:#071b3d}
+.cyber-shell button.danger{background:#a42832;color:#fff}
+.cyber-registration{padding:20px}
+.cyber-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cyber-form-grid label{display:grid;gap:6px;color:#142541;font-size:10px;font-weight:900}
+.cyber-form-grid label.wide,.cyber-wide{grid-column:1/-1}
+.cyber-form-grid input,.cyber-form-grid select,.cyber-form-grid textarea,.cyber-inline-form input,.cyber-inline-form select,.cyber-inline-form textarea{
+  width:100%;box-sizing:border-box;border:1px solid #d5dfea;border-radius:10px;padding:11px;background:#fff;color:#07152f;font:inherit
+}
+.cyber-file-note{font-size:8px;color:#7c8797;font-weight:600}
+.cyber-pin-box{padding:14px;border:1px solid #d7e4ee;border-radius:13px;background:#f7fbfe}
+.cyber-pin-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.cyber-pin-status{margin-top:8px;color:#52637b;font-size:9px;font-weight:800}
+.cyber-status{min-height:20px;margin:10px 0 0;font-size:10px;font-weight:800}
+.cyber-status.error{color:#b42318}.cyber-status.success{color:#16823b}
+.cyber-dashboard{display:grid;grid-template-columns:220px minmax(0,1fr);gap:16px}
+.cyber-sidebar{position:sticky;top:14px;align-self:start;display:grid;gap:8px;padding:14px;border:1px solid #dce4ee;border-radius:18px;background:#071b3d;color:#fff}
+.cyber-sidebar-head{padding:6px 5px 12px;border-bottom:1px solid rgba(255,255,255,.12)}
+.cyber-sidebar-head strong{display:block;font-size:14px}.cyber-sidebar-head small{display:block;margin-top:4px;color:#bdc9da;font-size:9px}
+.cyber-sidebar button{display:flex;align-items:center;gap:9px;text-align:left;background:transparent;color:#dce6f5;padding:10px}
+.cyber-sidebar button.active{background:#ff7200;color:#fff}
+.cyber-content{min-width:0}
+.cyber-view{display:none}.cyber-view.active{display:grid;gap:14px}
+.cyber-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.cyber-summary article{padding:14px;border:1px solid #dde5ef;border-radius:14px;background:#fff}
+.cyber-summary span,.cyber-summary small{display:block;color:#718096;font-size:8px}
+.cyber-summary strong{display:block;margin:5px 0;color:#07152f;font-size:19px}
+.cyber-panel{padding:16px}
+.cyber-panel-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.cyber-panel-head>div>span{color:#ff7200;font-size:8px;font-weight:900;letter-spacing:.12em}
+.cyber-inline-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:13px;border:1px solid #e0e7ef;border-radius:13px;background:#f8fafc}
+.cyber-inline-form label{display:grid;gap:5px;font-size:9px;font-weight:900;color:#21344f}
+.cyber-inline-form .wide{grid-column:1/-1}
+.cyber-inline-actions{display:flex;justify-content:flex-end;gap:8px;grid-column:1/-1}
+.cyber-list{display:grid;gap:10px}
+.cyber-list-card{display:grid;gap:8px;padding:12px;border:1px solid #dfe6ee;border-radius:13px;background:#fff}
+.cyber-list-card header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.cyber-list-card header strong{color:#07152f;font-size:12px}.cyber-list-card header small{display:block;color:#718096;font-size:8px;margin-top:3px}
+.cyber-pill{display:inline-flex;width:max-content;max-width:100%;padding:4px 7px;border-radius:999px;background:#eef4fb;color:#234b75;font-size:7px;font-weight:900;text-transform:capitalize}
+.cyber-pill.approved,.cyber-pill.completed{background:#eaf8ee;color:#147238}
+.cyber-pill.pending,.cyber-pill.submitted,.cyber-pill.awaiting_payment,.cyber-pill.awaiting_quote{background:#fff5e5;color:#9b5a00}
+.cyber-pill.rejected,.cyber-pill.suspended{background:#feeceb;color:#a42832}
+.cyber-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.cyber-card-grid div{padding:8px;border-radius:9px;background:#f5f8fb;min-width:0}
+.cyber-card-grid small,.cyber-card-grid strong{display:block}.cyber-card-grid small{color:#778498;font-size:7px}.cyber-card-grid strong{margin-top:3px;color:#142541;font-size:9px;overflow-wrap:anywhere}
+.cyber-card-actions{display:flex;gap:7px;flex-wrap:wrap}
+.cyber-card-actions button{padding:8px 10px;font-size:9px}
+.cyber-file-list{display:flex;gap:6px;flex-wrap:wrap}
+.cyber-file-list button{padding:7px 9px;background:#edf4ff;color:#164f98;font-size:8px}
+.cyber-location-link{display:inline-flex;align-items:center;gap:6px;color:#cf5e00;font-size:9px;font-weight:900;text-decoration:none}
+.cyber-empty{padding:24px;border:1px dashed #cbd8e5;border-radius:13px;text-align:center;color:#718096;background:#fbfcfe}
+.cyber-product-thumb{width:46px;height:46px;border-radius:9px;overflow:hidden;background:#edf2f7;display:grid;place-items:center;font-size:22px}
+.cyber-product-thumb img{width:100%;height:100%;object-fit:cover}
+.cyber-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.cyber-profile-grid div{padding:9px;border-radius:9px;background:#f5f8fb}
+.cyber-profile-grid small,.cyber-profile-grid strong{display:block}.cyber-profile-grid small{color:#758196;font-size:7px}.cyber-profile-grid strong{margin-top:4px;font-size:9px;color:#07152f;overflow-wrap:anywhere}
+@media(max-width:850px){
+  .cyber-dashboard{grid-template-columns:1fr}
+  .cyber-sidebar{position:static;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cyber-sidebar-head{grid-column:1/-1}
+  .cyber-sidebar button{justify-content:center;text-align:center}
+  .cyber-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .cyber-onboarding{grid-template-columns:auto 1fr}.cyber-onboarding>button{grid-column:1/-1}
+  .cyber-form-grid,.cyber-inline-form{grid-template-columns:1fr}
+  .cyber-form-grid label.wide,.cyber-inline-form .wide,.cyber-wide,.cyber-inline-actions{grid-column:1}
+  .cyber-dashboard{gap:10px}
+  .cyber-sidebar{grid-template-columns:repeat(2,minmax(0,1fr));padding:9px;border-radius:14px}
+  .cyber-sidebar button{padding:8px;font-size:9px}
+  .cyber-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .cyber-summary article{padding:10px}.cyber-summary strong{font-size:15px}
+  .cyber-panel{padding:11px;border-radius:14px}
+  .cyber-panel-head{align-items:stretch;flex-direction:column}
+  .cyber-card-grid{grid-template-columns:1fr 1fr}
+  .cyber-list-card{padding:10px}
+  .cyber-profile-grid{grid-template-columns:1fr}
+}
