@@ -303,13 +303,13 @@ const renderCustomerOrders=async()=>{
     if(error){alert(error.message);return;}
     await renderCustomerOrders();
   }));
-  $('[data-cyber-reject-quote]').forEach(b=>b.addEventListener('click',async()=>{
+  $$('[data-cyber-reject-quote]').forEach(b=>b.addEventListener('click',async()=>{
     if(!confirm('Reject this Cyber quotation?'))return;
     const {error}=await client.rpc('customer_decide_cyber_quote',{p_order_id:b.dataset.cyberRejectQuote,p_decision:'reject',p_payment_reference:null});
     if(error){alert(error.message);return;}
     await renderCustomerOrders();
   }));
-  $('[data-customer-cyber-chat]').forEach(b=>b.addEventListener('click',()=>openCustomerCyberChat(b.dataset.customerCyberChat,b.dataset.customerCyberRef,b.dataset.customerCyberProvider)));
+  $$('[data-customer-cyber-chat]').forEach(b=>b.addEventListener('click',()=>openCustomerCyberChat(b.dataset.customerCyberChat,b.dataset.customerCyberRef,b.dataset.customerCyberProvider)));
 };
 
 const customerChatStatus=(msg='',type='')=>{
@@ -361,8 +361,8 @@ $('#openCyberCustomerOrders')?.addEventListener('click',async()=>{
   try{$('#cyberCustomerOrders').classList.add('open');$('#cyberCatalogue').classList.remove('active');await renderCustomerOrders();}catch(e){status(e.message,'error');}
 });
 $('#closeCyberCustomerOrders')?.addEventListener('click',()=>$('#cyberCustomerOrders').classList.remove('open'));
-$('[data-close-cyber-order]').forEach(b=>b.addEventListener('click',closeOrder));
-$('[data-close-cyber-customer-chat]').forEach(b=>b.addEventListener('click',closeCustomerCyberChat));
+$$('[data-close-cyber-order]').forEach(b=>b.addEventListener('click',closeOrder));
+$$('[data-close-cyber-customer-chat]').forEach(b=>b.addEventListener('click',closeCustomerCyberChat));
 $('#cyberCustomerChatForm')?.addEventListener('submit',async(e)=>{
   e.preventDefault();
   if(!activeCustomerChatOrderId)return;
