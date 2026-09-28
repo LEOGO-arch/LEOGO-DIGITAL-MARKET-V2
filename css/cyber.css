@@ -58,3 +58,32 @@
  .cyber-catalogue-head{align-items:stretch;flex-direction:column}.cyber-product-img{height:88px}
  .cyber-order-grid{grid-template-columns:1fr}.cyber-order-wide{grid-column:1}.cyber-order-dialog{border-radius:14px}.cyber-order-form{padding:12px}
 }
+
+
+/* Cyber Flash Sale, standard delivery note and person-to-person order chat */
+.cyber-item-flash{border-color:#ffc48f;background:linear-gradient(180deg,#fffaf4,#fff)}
+.cyber-flash-badge{display:inline-flex;width:max-content;max-width:100%;padding:5px 7px;border-radius:999px;background:#ff7200;color:#fff;font-size:7px;font-weight:900}
+.cyber-flash-price{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.cyber-flash-price del{color:#8a96a7;font-size:8px;font-weight:700}
+.cyber-flash-price strong{color:#d85f00;font-size:12px}
+.cyber-delivery-rule-note{margin:8px 0 0;color:#65748a;font-size:8px;line-height:1.45}
+.cyber-order-chat-actions{display:flex;gap:6px;flex-wrap:wrap}
+.cyber-order-chat-actions button{background:#071b3d!important;color:#fff!important}
+.cyber-customer-chat-dialog{width:min(650px,100%)}
+.cyber-customer-chat-messages{display:flex;flex-direction:column;gap:8px;min-height:260px;max-height:58vh;padding:14px;overflow:auto;background:#f5f8fb}
+.cyber-customer-chat-message{max-width:82%;padding:9px 11px;border-radius:13px;background:#fff;box-shadow:0 2px 8px rgba(7,27,61,.08)}
+.cyber-customer-chat-message.mine{align-self:flex-end;background:#071b3d;color:#fff}
+.cyber-customer-chat-message.theirs{align-self:flex-start}
+.cyber-customer-chat-message div{display:flex;justify-content:space-between;gap:10px}
+.cyber-customer-chat-message strong,.cyber-customer-chat-message small{font-size:7px}.cyber-customer-chat-message small{opacity:.72}
+.cyber-customer-chat-message p{margin:5px 0 0;color:inherit;font-size:9px;line-height:1.45;overflow-wrap:anywhere}
+.cyber-customer-chat-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:12px;border-top:1px solid #e1e7ef}
+.cyber-customer-chat-form textarea{width:100%;box-sizing:border-box;min-height:58px;border:1px solid #d5dfea;border-radius:9px;padding:10px;resize:vertical;font:inherit}
+.cyber-customer-chat-form button{align-self:end;padding:10px 14px;background:#ff7200}
+.cyber-customer-chat-dialog>.cyber-market-status{display:block;padding:0 12px 10px;margin:0}
+@media(max-width:650px){
+ .cyber-flash-price{gap:5px}
+ .cyber-customer-chat-message{max-width:91%}
+ .cyber-customer-chat-form{grid-template-columns:1fr}
+ .cyber-customer-chat-form button{width:100%}
+}
