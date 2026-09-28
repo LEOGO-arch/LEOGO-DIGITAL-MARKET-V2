@@ -2,7 +2,7 @@
 /* LEOGO Admin — Cyber Services */
 .cyber-admin-panel{display:none}
 .cyber-admin-panel.active{display:block}
-.cyber-admin-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:14px 0}
+.cyber-admin-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:14px 0}
 .cyber-admin-summary article{padding:14px;border:1px solid #dce4ed;border-radius:14px;background:#fff}
 .cyber-admin-summary span,.cyber-admin-summary small{display:block;color:#728095;font-size:8px}
 .cyber-admin-summary strong{display:block;margin:5px 0;color:#07152f;font-size:20px}
