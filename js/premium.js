@@ -31,6 +31,9 @@
   let currentUser = null;
   let currentCustomer = null;
   let loadingFor = '';
+  let premiumGalleryPhotos = [];
+  let premiumGalleryIndex = 0;
+  let premiumGalleryName = '';
 
   const fields = {
     realName: document.getElementById('premiumRealName'),
@@ -234,6 +237,85 @@
     return error ? '' : (data?.signedUrl || '');
   };
 
+  const premiumPhotoViewer = document.getElementById('premiumPhotoViewer');
+  const premiumPhotoViewerImage = document.getElementById('premiumPhotoViewerImage');
+  const premiumPhotoViewerTitle = document.getElementById('premiumPhotoViewerTitle');
+  const premiumPhotoCount = document.getElementById('premiumPhotoCount');
+  const premiumPhotoThumbs = document.getElementById('premiumPhotoThumbs');
+
+  const renderPremiumPhotoViewer = () => {
+    if (!premiumGalleryPhotos.length || !premiumPhotoViewerImage) return;
+    premiumGalleryIndex = Math.max(0, Math.min(premiumGalleryIndex, premiumGalleryPhotos.length - 1));
+    const url = premiumGalleryPhotos[premiumGalleryIndex];
+    premiumPhotoViewerImage.src = url;
+    premiumPhotoViewerImage.alt = `${premiumGalleryName || 'Premium profile'} photo ${premiumGalleryIndex + 1}`;
+    if (premiumPhotoViewerTitle) premiumPhotoViewerTitle.textContent = premiumGalleryName ? `${premiumGalleryName} · Photos` : 'Profile Photos';
+    if (premiumPhotoCount) premiumPhotoCount.textContent = `${premiumGalleryIndex + 1} of ${premiumGalleryPhotos.length}`;
+    if (premiumPhotoThumbs) {
+      premiumPhotoThumbs.innerHTML = '';
+      premiumGalleryPhotos.forEach((thumbUrl, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = index === premiumGalleryIndex ? 'active' : '';
+        button.setAttribute('aria-label', `View photo ${index + 1}`);
+        const img = document.createElement('img');
+        img.src = thumbUrl;
+        img.alt = '';
+        button.appendChild(img);
+        button.addEventListener('click', () => {
+          premiumGalleryIndex = index;
+          renderPremiumPhotoViewer();
+        });
+        premiumPhotoThumbs.appendChild(button);
+      });
+    }
+    const multiple = premiumGalleryPhotos.length > 1;
+    const prev = document.getElementById('premiumPhotoPrev');
+    const next = document.getElementById('premiumPhotoNext');
+    if (prev) prev.hidden = !multiple;
+    if (next) next.hidden = !multiple;
+  };
+
+  const openPremiumPhotoViewer = (profile) => {
+    const photos = Array.isArray(profile?.galleryUrls) ? profile.galleryUrls.filter(Boolean) : [];
+    if (!photos.length || !premiumPhotoViewer) return;
+    premiumGalleryPhotos = photos;
+    premiumGalleryIndex = 0;
+    premiumGalleryName = profile.display_name || 'Premium Profile';
+    premiumPhotoViewer.hidden = false;
+    premiumPhotoViewer.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('premium-photo-viewer-open');
+    renderPremiumPhotoViewer();
+  };
+
+  const closePremiumPhotoViewer = () => {
+    if (!premiumPhotoViewer) return;
+    premiumPhotoViewer.hidden = true;
+    premiumPhotoViewer.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('premium-photo-viewer-open');
+    if (premiumPhotoViewerImage) premiumPhotoViewerImage.removeAttribute('src');
+    premiumGalleryPhotos = [];
+    premiumGalleryIndex = 0;
+    premiumGalleryName = '';
+  };
+
+  const movePremiumPhoto = (direction) => {
+    if (premiumGalleryPhotos.length < 2) return;
+    premiumGalleryIndex = (premiumGalleryIndex + direction + premiumGalleryPhotos.length) % premiumGalleryPhotos.length;
+    renderPremiumPhotoViewer();
+  };
+
+  document.getElementById('closePremiumPhotoViewer')?.addEventListener('click', closePremiumPhotoViewer);
+  premiumPhotoViewer?.querySelectorAll('[data-close-premium-photos]').forEach((element) => element.addEventListener('click', closePremiumPhotoViewer));
+  document.getElementById('premiumPhotoPrev')?.addEventListener('click', () => movePremiumPhoto(-1));
+  document.getElementById('premiumPhotoNext')?.addEventListener('click', () => movePremiumPhoto(1));
+  document.addEventListener('keydown', (event) => {
+    if (!premiumPhotoViewer || premiumPhotoViewer.hidden) return;
+    if (event.key === 'Escape') closePremiumPhotoViewer();
+    if (event.key === 'ArrowLeft') movePremiumPhoto(-1);
+    if (event.key === 'ArrowRight') movePremiumPhoto(1);
+  });
+
   const sendPremiumMeetupRequest = async (profile, button) => {
     if (!currentUser || !profile?.profile_user_id) return;
     const original = button?.textContent || 'Send Meetup Request';
@@ -345,15 +427,12 @@
         body.append(lock, action);
       } else {
         if (profile.galleryUrls?.length) {
-          const gallery = document.createElement('div');
-          gallery.className = 'premium-directory-gallery';
-          profile.galleryUrls.forEach((url, index) => {
-            const img = document.createElement('img');
-            img.src = url;
-            img.alt = `${profile.display_name} gallery photo ${index + 1}`;
-            gallery.appendChild(img);
-          });
-          body.appendChild(gallery);
+          const viewPhotos = document.createElement('button');
+          viewPhotos.type = 'button';
+          viewPhotos.className = 'premium-view-photos-button';
+          viewPhotos.textContent = `View Photos (${profile.galleryUrls.length})`;
+          viewPhotos.addEventListener('click', () => openPremiumPhotoViewer(profile));
+          body.appendChild(viewPhotos);
         }
 
         if (profile.request_status === 'accepted' && profile.contact_phone) {
