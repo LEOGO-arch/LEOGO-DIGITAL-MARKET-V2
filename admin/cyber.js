@@ -3,7 +3,12 @@
 'use strict';
 const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
 const PUBLISHABLE_KEY='sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
-const client=window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const STAFF_AUTH_STORAGE_KEY=window.leogoStaffAuthStorageKey||'leogo-staff-auth-v2';
+// Reuse the authenticated Admin client. Never create a second default-session client here,
+// otherwise Customer/Partner auth from another tab can replace the Admin identity.
+const client=window.leogoAdminDb||window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{
+  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:STAFF_AUTH_STORAGE_KEY}
+});
 if(!client)return;
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
