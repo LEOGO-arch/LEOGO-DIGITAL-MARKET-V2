@@ -2783,6 +2783,7 @@ function populatePremiumPublicEditForm(){
   $('#premiumEditProfilePhoto').value='';
   $('#premiumEditGallery').value='';
   status($('#premiumPublicEditStatus'),'');
+  status($('#premiumPublicProfileNotice'),'');
 }
 function openPremiumPublicEditor(){
   if(premiumProfile?.profile?.application_status!=='approved')return;
@@ -3150,7 +3151,7 @@ $('#premiumPublicProfileEditForm')?.addEventListener('submit',async(event)=>{
     await renderPremiumProfile();
     openPremiumView('profile');
     closePremiumPublicEditor();
-    status($('#premiumPublicEditStatus'),cleaned?'Profile updated and replaced photos were deleted from LEOGO storage.':'Profile updated. Old photo cleanup is queued and will retry automatically.','success');
+    status($('#premiumPublicProfileNotice'),cleaned?'Profile updated and replaced photos were deleted from LEOGO storage.':'Profile updated. Old photo cleanup is queued and will retry automatically.','success');
   }catch(error){
     if(newlyUploaded.length){
       await client.storage.from('premium-profile-media').remove(newlyUploaded).catch(()=>{});
