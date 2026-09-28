@@ -3073,18 +3073,21 @@
     const directFee=Number(customerServiceConfig.direct_request_fee_kes??50);
     const quotationFee=Number(customerServiceConfig.quotation_fee_kes??50);
     const card=document.createElement('article');
-    card.className='service-provider-public-card';
-    card.innerHTML='<div class="service-provider-public-photo">'+(photo?'<img src="'+receiptEscape(photo)+'" alt="'+receiptEscape(item.business_name||'Service Provider')+'" loading="lazy">':'<span>🛠️</span>')+'</div>'+
-      '<div class="service-provider-public-body"><span class="service-provider-public-badge">✓ LEOGO Approved</span>'+
-      '<strong>'+receiptEscape(item.service_name||'Professional Service')+'</strong>'+
-      '<b>'+receiptEscape(item.business_name||'Service Provider')+'</b>'+
-      '<div class="service-provider-rating-summary"><span>'+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</span></div>'+
-      '<p>'+receiptEscape(item.description||'Approved professional service available through LEOGO.')+'</p>'+
-      '<small>'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
-      '<strong class="service-provider-price">'+receiptEscape(servicePriceText(item))+'</strong>'+
-      '<div class="service-provider-actions"><button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="direct">Request Service · '+receiptEscape(money(directFee))+'</button>'+
-      '<button class="reviews" type="button" data-view-public-reviews="service_provider" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-service-id="'+receiptEscape(item.service_id||'')+'" data-review-title="'+receiptEscape(item.business_name||'Service Provider')+'">Reviews</button>'+
-      '<button class="quote" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="quotation">Request Quotation · '+receiptEscape(money(quotationFee))+'</button></div></div>';
+    card.className='leogo-compact-partner-card leogo-compact-service-card';
+    card.innerHTML='<div class="leogo-compact-partner-photo">'+(photo?'<img src="'+receiptEscape(photo)+'" alt="'+receiptEscape(item.business_name||'Service Provider')+'" loading="lazy">':'<span>🛠️</span>')+'</div>'+
+      '<div class="leogo-compact-partner-body">'+
+        '<div class="leogo-compact-partner-top"><span class="leogo-compact-approved">✓ LEOGO Approved</span><span class="leogo-compact-rating">'+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</span></div>'+
+        '<h3>'+receiptEscape(item.service_name||'Professional Service')+'</h3>'+
+        '<b>'+receiptEscape(item.business_name||'Service Provider')+'</b>'+
+        '<p class="leogo-compact-description">'+receiptEscape(item.description||'Approved professional service available through LEOGO.')+'</p>'+
+        '<small class="leogo-compact-location">'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
+        '<strong class="leogo-compact-price">'+receiptEscape(servicePriceText(item))+'</strong>'+
+        '<div class="leogo-compact-actions">'+
+          '<button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="direct">Request Service · '+receiptEscape(money(directFee))+'</button>'+
+          '<button class="reviews" type="button" data-view-public-reviews="service_provider" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-service-id="'+receiptEscape(item.service_id||'')+'" data-review-title="'+receiptEscape(item.business_name||'Service Provider')+'">Reviews</button>'+
+          '<button class="quote" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="quotation">Request Quotation · '+receiptEscape(money(quotationFee))+'</button>'+
+        '</div>'+
+      '</div>';
     return card;
   };
 
@@ -3097,22 +3100,23 @@
     const photo=item.vehicle_profile_picture_path
       ? window.leogoAuth?.client?.storage.from('transport-public-media').getPublicUrl(item.vehicle_profile_picture_path)?.data?.publicUrl
       : '';
-    const ownReview=transportReviewForVehicle(item);
-    const reviewState=ownReview
-      ? '<small class="transport-own-review-state">'+receiptEscape(serviceReviewStatusText(ownReview.moderation_status))+(ownReview.rating?' · '+receiptEscape(serviceReviewStars(ownReview.rating)):'')+'</small>'
-      : '<small class="transport-own-review-state">Used this Transport Provider? Share your experience.</small>';
     const card=document.createElement('article');
-    card.className='service-provider-public-card transport-provider-public-card';
-    card.innerHTML='<div class="service-provider-public-photo">'+(photo?'<img src="'+receiptEscape(photo)+'" alt="'+receiptEscape(item.provider_name||'Transport Provider')+'" loading="lazy">':'<span>🚚</span>')+'</div>'+
-      '<div class="service-provider-public-body"><span class="service-provider-public-badge">✓ LEOGO Approved Transport</span>'+
-      '<strong>'+receiptEscape(item.vehicle_type||'Transport Vehicle')+(item.registration_number?' · '+receiptEscape(item.registration_number):'')+'</strong>'+
-      '<b>'+receiptEscape(item.provider_name||'Transport Provider')+'</b>'+
-      '<div class="service-provider-rating-summary"><span>'+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</span></div>'+
-      '<p>'+receiptEscape([item.make_model,item.colour,item.capacity_description].filter(Boolean).join(' · ')||'Approved Transport & Parcel vehicle')+'</p>'+
-      '<small>'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
-      '<small>'+receiptEscape((item.service_types||item.services_offered||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'Transport & Parcel Delivery')+'</small>'+
-      '<small class="transport-own-review-state">Complete a LEOGO booking to leave a verified review.</small>'+
-      '<div class="service-provider-actions"><button class="direct" type="button" data-request-transport="'+receiptEscape(item.vehicle_id||'')+'">Request Transport</button><button class="reviews" type="button" data-view-public-reviews="transport" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-vehicle-id="'+receiptEscape(item.vehicle_id||'')+'" data-review-title="'+receiptEscape(item.provider_name||'Transport Provider')+'">Reviews</button><button class="quote" type="button" data-view-transport-vehicle="'+receiptEscape(item.vehicle_id||'')+'">View Vehicle Details</button></div></div>';
+    card.className='leogo-compact-partner-card leogo-compact-transport-card';
+    card.innerHTML='<div class="leogo-compact-partner-photo">'+(photo?'<img src="'+receiptEscape(photo)+'" alt="'+receiptEscape(item.provider_name||'Transport Provider')+'" loading="lazy">':'<span>🚚</span>')+'</div>'+
+      '<div class="leogo-compact-partner-body">'+
+        '<div class="leogo-compact-partner-top"><span class="leogo-compact-approved">✓ LEOGO Approved Transport</span><span class="leogo-compact-rating">'+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</span></div>'+
+        '<h3>'+receiptEscape(item.vehicle_type||'Transport Vehicle')+(item.registration_number?' · '+receiptEscape(item.registration_number):'')+'</h3>'+
+        '<b>'+receiptEscape(item.provider_name||'Transport Provider')+'</b>'+
+        '<p class="leogo-compact-description">'+receiptEscape([item.make_model,item.colour,item.capacity_description].filter(Boolean).join(' · ')||'Approved Transport & Parcel vehicle')+'</p>'+
+        '<small class="leogo-compact-location">'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
+        '<small class="leogo-compact-services">'+receiptEscape((item.service_types||item.services_offered||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'Transport & Parcel Delivery')+'</small>'+
+        '<small class="leogo-compact-review-note">Complete a LEOGO booking to leave a verified review.</small>'+
+        '<div class="leogo-compact-actions">'+
+          '<button class="direct" type="button" data-request-transport="'+receiptEscape(item.vehicle_id||'')+'">Request Transport</button>'+
+          '<button class="reviews" type="button" data-view-public-reviews="transport" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-vehicle-id="'+receiptEscape(item.vehicle_id||'')+'" data-review-title="'+receiptEscape(item.provider_name||'Transport Provider')+'">Reviews</button>'+
+          '<button class="quote" type="button" data-view-transport-vehicle="'+receiptEscape(item.vehicle_id||'')+'">View Vehicle Details</button>'+
+        '</div>'+
+      '</div>';
     return card;
   };
 
