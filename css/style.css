@@ -1226,3 +1226,182 @@ body.accommodation-modal-open{overflow:hidden}
     flex-basis:132px!important;
   }
 }
+
+/* Premium gallery: keep photos out of profile cards */
+.premium-directory-gallery{display:none!important}
+.premium-view-photos-button{
+  width:100%;
+  min-height:32px!important;
+  margin:6px 0 4px;
+  border:1px solid #d8e0ea!important;
+  border-radius:8px!important;
+  background:#f7f9fc!important;
+  color:#071a3a!important;
+  font-size:8px!important;
+  font-weight:900!important;
+  padding:7px!important;
+}
+.premium-directory-photo{
+  height:132px!important;
+  min-height:132px!important;
+  max-height:132px!important;
+  flex-basis:132px!important;
+}
+.premium-directory-body>p{
+  -webkit-line-clamp:1!important;
+  margin:4px 0!important;
+}
+.premium-photo-viewer[hidden]{display:none!important}
+.premium-photo-viewer{
+  position:fixed;
+  inset:0;
+  z-index:220;
+  display:grid;
+  place-items:center;
+  padding:14px;
+}
+.premium-photo-viewer-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(3,12,28,.86);
+}
+.premium-photo-viewer-dialog{
+  position:relative;
+  z-index:1;
+  width:min(760px,96vw);
+  max-height:94dvh;
+  overflow:auto;
+  border-radius:16px;
+  background:#fff;
+  box-shadow:0 22px 70px rgba(0,0,0,.42);
+}
+.premium-photo-viewer-dialog>header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  border-bottom:1px solid #e5eaf1;
+}
+.premium-photo-viewer-dialog>header span{
+  display:block;
+  color:#ff7200;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.08em;
+}
+.premium-photo-viewer-dialog>header h3{
+  margin:2px 0 0;
+  color:#071a3a;
+  font-size:15px;
+}
+#closePremiumPhotoViewer{
+  width:38px;
+  height:38px;
+  border:0;
+  border-radius:10px;
+  background:#071b3d;
+  color:#fff;
+  font-size:25px;
+  line-height:1;
+}
+.premium-photo-stage{
+  position:relative;
+  display:grid;
+  place-items:center;
+  min-height:320px;
+  max-height:68dvh;
+  background:#0a1220;
+  overflow:hidden;
+}
+.premium-photo-stage>img{
+  display:block;
+  width:100%;
+  height:auto;
+  max-height:68dvh;
+  object-fit:contain;
+  background:#0a1220;
+}
+.premium-photo-nav{
+  position:absolute;
+  z-index:2;
+  top:50%;
+  transform:translateY(-50%);
+  width:42px!important;
+  height:42px!important;
+  min-height:42px!important;
+  border:0!important;
+  border-radius:50%!important;
+  background:rgba(255,255,255,.9)!important;
+  color:#071a3a!important;
+  font-size:28px!important;
+  padding:0!important;
+}
+.premium-photo-prev{left:10px}
+.premium-photo-next{right:10px}
+.premium-photo-count{
+  padding:8px 12px 4px;
+  text-align:center;
+  color:#607087;
+  font-size:9px;
+  font-weight:800;
+}
+.premium-photo-thumbs{
+  display:flex;
+  gap:7px;
+  padding:8px 12px 12px;
+  overflow-x:auto;
+  justify-content:center;
+}
+.premium-photo-thumbs button{
+  flex:0 0 58px;
+  width:58px!important;
+  height:58px!important;
+  min-height:58px!important;
+  padding:0!important;
+  overflow:hidden;
+  border:2px solid transparent!important;
+  border-radius:8px!important;
+  background:#eef2f7!important;
+}
+.premium-photo-thumbs button.active{
+  border-color:#ff7200!important;
+}
+.premium-photo-thumbs img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+body.premium-photo-viewer-open{overflow:hidden}
+@media(max-width:600px){
+  .premium-directory-photo{
+    height:124px!important;
+    min-height:124px!important;
+    max-height:124px!important;
+    flex-basis:124px!important;
+  }
+  .premium-view-photos-button{
+    min-height:29px!important;
+    font-size:7px!important;
+    margin:4px 0!important;
+  }
+  .premium-photo-viewer{padding:8px}
+  .premium-photo-viewer-dialog{
+    width:100%;
+    max-height:96dvh;
+    border-radius:14px;
+  }
+  .premium-photo-stage{
+    min-height:280px;
+    max-height:72dvh;
+  }
+  .premium-photo-stage>img{
+    max-height:72dvh;
+  }
+  .premium-photo-nav{
+    width:38px!important;
+    height:38px!important;
+    min-height:38px!important;
+    font-size:24px!important;
+  }
+}
