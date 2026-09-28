@@ -1,0 +1,30 @@
+
+/* LEOGO Admin — Cyber Services */
+.cyber-admin-panel{display:none}
+.cyber-admin-panel.active{display:block}
+.cyber-admin-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:14px 0}
+.cyber-admin-summary article{padding:14px;border:1px solid #dce4ed;border-radius:14px;background:#fff}
+.cyber-admin-summary span,.cyber-admin-summary small{display:block;color:#728095;font-size:8px}
+.cyber-admin-summary strong{display:block;margin:5px 0;color:#07152f;font-size:20px}
+.cyber-admin-card{margin-top:14px;padding:16px;border:1px solid #dce4ed;border-radius:16px;background:#fff}
+.cyber-admin-card-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.cyber-admin-card-head span{color:#ff7200;font-size:8px;font-weight:900;letter-spacing:.12em}
+.cyber-admin-card-head h3{margin:4px 0;color:#07152f}.cyber-admin-card-head p{margin:0;color:#6b788c}
+.cyber-admin-table{width:100%;border-collapse:collapse}.cyber-admin-table th,.cyber-admin-table td{padding:10px;border-bottom:1px solid #edf1f5;text-align:left;vertical-align:top;font-size:9px}
+.cyber-admin-table th{color:#65748a;font-size:8px;text-transform:uppercase}.cyber-admin-table strong,.cyber-admin-table small{display:block}.cyber-admin-table small{margin-top:3px;color:#758196}
+.cyber-admin-actions{display:flex;gap:5px;flex-wrap:wrap}.cyber-admin-actions button{border:0;border-radius:8px;padding:7px 9px;font-size:8px;font-weight:900;cursor:pointer}
+.cyber-admin-actions .approve{background:#17813f;color:#fff}.cyber-admin-actions .review{background:#edf3f8;color:#07152f}.cyber-admin-actions .change{background:#fff1df;color:#985300}.cyber-admin-actions .reject{background:#feeceb;color:#a42832}
+.cyber-admin-actions .verify{background:#ff7200;color:#fff}
+.cyber-admin-status{display:inline-flex;padding:4px 7px;border-radius:999px;background:#eef3f8;color:#314b68;font-size:7px;font-weight:900;text-transform:capitalize}
+.cyber-admin-status.approved,.cyber-admin-status.verified,.cyber-admin-status.completed{background:#eaf8ee;color:#147238}
+.cyber-admin-status.pending,.cyber-admin-status.submitted,.cyber-admin-status.pending_verification,.cyber-admin-status.awaiting_payment,.cyber-admin-status.awaiting_quote{background:#fff4e5;color:#9a5900}
+.cyber-admin-status.rejected,.cyber-admin-status.suspended{background:#feeceb;color:#a42832}
+.cyber-admin-settings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.cyber-admin-settings label{display:grid;gap:5px;color:#21344f;font-size:9px;font-weight:900}.cyber-admin-settings input,.cyber-admin-settings textarea{width:100%;box-sizing:border-box;border:1px solid #d5dfea;border-radius:9px;padding:10px;font:inherit}
+.cyber-admin-settings label.wide{grid-column:1/-1}.cyber-admin-settings-actions{grid-column:1/-1;display:flex;justify-content:flex-end}
+.cyber-admin-settings-actions button{border:0;border-radius:9px;padding:10px 13px;background:#ff7200;color:#fff;font-weight:900}
+.cyber-admin-form-status{min-height:18px;margin-top:8px;font-size:9px;font-weight:800}.cyber-admin-form-status.error{color:#b42318}.cyber-admin-form-status.success{color:#16823b}
+.cyber-admin-empty{padding:18px;text-align:center;color:#718096}
+.cyber-admin-file-buttons{display:flex;gap:5px;flex-wrap:wrap}.cyber-admin-file-buttons button{border:0;border-radius:7px;padding:6px 8px;background:#edf4ff;color:#164f98;font-size:7px;font-weight:900}
+@media(max-width:1050px){.cyber-admin-summary{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:720px){.cyber-admin-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.cyber-admin-card{padding:11px}.cyber-admin-card-head{align-items:stretch;flex-direction:column}.cyber-admin-settings{grid-template-columns:1fr}.cyber-admin-settings label.wide,.cyber-admin-settings-actions{grid-column:1}.cyber-admin-table th,.cyber-admin-table td{padding:8px;font-size:8px}}
