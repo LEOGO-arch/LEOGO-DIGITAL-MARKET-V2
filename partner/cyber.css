@@ -99,3 +99,37 @@ body.cyber-role-open #providerShell,
 body.cyber-role-open #transportShell,
 body.cyber-role-open #premiumShell,
 body.cyber-role-open #accommodationShell{display:none!important}
+
+
+/* Cyber notifications, Flash Sale and customer chat */
+.cyber-nav-badge{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:auto;padding:0 5px;border-radius:999px;background:#ff7200;color:#fff;font-size:8px;font-style:normal}
+.cyber-sidebar button.active .cyber-nav-badge{background:#071b3d}
+.cyber-flash-strip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border:1px solid #ffd5ae;border-radius:10px;background:#fff8ef;color:#8f4c00}
+.cyber-flash-strip strong,.cyber-flash-strip span{font-size:8px}
+.cyber-notification-unread{border-color:#ffb36f;background:#fffaf4}
+.cyber-chat-layout{display:grid;grid-template-columns:minmax(210px,34%) minmax(0,1fr);gap:12px;align-items:start}
+.cyber-chat-threads{display:grid;gap:7px;max-height:560px;overflow:auto}
+.cyber-chat-thread{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:8px!important;width:100%;padding:10px!important;border:1px solid #dfe6ee!important;border-radius:11px!important;background:#f8fafc!important;color:#142541!important;text-align:left!important}
+.cyber-chat-thread.active{border-color:#ff7200!important;background:#fff7ef!important}
+.cyber-chat-thread>span{display:grid;gap:3px;min-width:0}
+.cyber-chat-thread strong{font-size:9px}.cyber-chat-thread small{overflow:hidden;color:#718096;font-size:7px;text-overflow:ellipsis;white-space:nowrap}
+.cyber-chat-thread-meta{justify-items:end;max-width:44%}.cyber-chat-thread-meta b{display:grid;place-items:center;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#ff7200;color:#fff;font-size:7px}
+.cyber-chat-conversation{overflow:hidden;border:1px solid #dfe6ee;border-radius:13px;background:#fff}
+.cyber-chat-conversation[hidden]{display:none!important}
+.cyber-chat-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:#071b3d;color:#fff}
+.cyber-chat-head small,.cyber-chat-head strong{display:block}.cyber-chat-head small{color:#ff9a3d;font-size:7px}.cyber-chat-head strong{margin-top:2px;font-size:10px}
+.cyber-chat-head button{padding:7px 9px!important;background:#ffffff18!important;font-size:8px!important}
+.cyber-chat-messages{display:flex;flex-direction:column;gap:8px;min-height:260px;max-height:410px;padding:12px;overflow:auto;background:#f6f8fb}
+.cyber-chat-message{max-width:82%;padding:9px 10px;border-radius:12px;background:#fff;box-shadow:0 2px 7px rgba(7,27,61,.08)}
+.cyber-chat-message.mine{align-self:flex-end;background:#071b3d;color:#fff}.cyber-chat-message.theirs{align-self:flex-start}
+.cyber-chat-message div{display:flex;justify-content:space-between;gap:8px}.cyber-chat-message strong,.cyber-chat-message small{font-size:7px}.cyber-chat-message small{opacity:.7}
+.cyber-chat-message p{margin:5px 0 0!important;color:inherit!important;font-size:9px!important;overflow-wrap:anywhere}
+.cyber-chat-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:10px;border-top:1px solid #e4eaf1}
+.cyber-chat-form textarea{min-height:58px;resize:vertical;border:1px solid #d5dfea;border-radius:9px;padding:9px;font:inherit}
+.cyber-chat-form button{align-self:end}
+@media(max-width:720px){
+  .cyber-chat-layout{grid-template-columns:1fr}
+  .cyber-chat-threads{max-height:260px}
+  .cyber-chat-message{max-width:90%}
+  .cyber-flash-strip{align-items:flex-start;flex-direction:column}
+}
