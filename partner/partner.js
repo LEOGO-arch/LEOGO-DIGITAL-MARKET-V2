@@ -2749,6 +2749,53 @@ async function premiumSignedUrl(path){
   const {data}=await client.storage.from('premium-profile-media').createSignedUrl(path,900);
   return data?.signedUrl||'';
 }
+async function cleanupPremiumPartnerMedia(paths=null){
+  try{
+    let targets=Array.isArray(paths)?paths.filter(Boolean):null;
+    if(!targets){
+      const {data,error}=await client.rpc('premium_partner_list_media_cleanup');
+      if(error)throw error;
+      targets=Array.isArray(data)?data.filter(Boolean):[];
+    }
+    if(!targets.length)return true;
+    let removal=await client.storage.from('premium-profile-media').remove(targets);
+    if(removal.error){
+      await new Promise(resolve=>setTimeout(resolve,250));
+      removal=await client.storage.from('premium-profile-media').remove(targets);
+    }
+    if(removal.error)throw removal.error;
+    await client.rpc('premium_partner_ack_media_cleanup',{p_paths:targets});
+    return true;
+  }catch(error){
+    console.warn('Premium media cleanup pending:',error);
+    return false;
+  }
+}
+function populatePremiumPublicEditForm(){
+  const p=premiumProfile?.profile,d=premiumProfile?.details||{};
+  if(!p)return;
+  $('#premiumEditDisplayName').value=p.display_name||'';
+  $('#premiumEditGender').value=p.gender||'';
+  $('#premiumEditAge').value=d.age||'';
+  $('#premiumEditOrientation').value=d.orientation||'';
+  $('#premiumEditLocation').value=p.general_location||'';
+  $('#premiumEditAbout').value=p.about||'';
+  $('#premiumEditProfilePhoto').value='';
+  $('#premiumEditGallery').value='';
+  status($('#premiumPublicEditStatus'),'');
+}
+function openPremiumPublicEditor(){
+  if(premiumProfile?.profile?.application_status!=='approved')return;
+  populatePremiumPublicEditForm();
+  $('#premiumPublicProfileEditForm').hidden=false;
+  $('#editPremiumPublicProfile').hidden=true;
+  $('#premiumPublicProfileEditForm').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function closePremiumPublicEditor(){
+  $('#premiumPublicProfileEditForm').hidden=true;
+  $('#editPremiumPublicProfile').hidden=false;
+  status($('#premiumPublicEditStatus'),'');
+}
 async function renderPremiumProfile(){
   hidePremiumBoot();
   premiumOnboarding.hidden=true;premiumReg.hidden=true;premiumPendingArea.hidden=true;premiumDashboard.hidden=true;
@@ -2769,6 +2816,8 @@ async function renderPremiumProfile(){
     $('#premiumPublicProfileSummary').innerHTML=
       '<div class="premium-profile-preview"><div class="premium-profile-preview-photo">'+(photo?'<img src="'+escapeHtml(photo)+'" alt="">':'<span>👤</span>')+'</div><div><span>VERIFIED PREMIUM PROFILE</span><h3>'+escapeHtml(p.display_name)+'</h3><p>'+escapeHtml(p.gender)+' · '+escapeHtml(String(d.age||''))+' · '+escapeHtml(d.orientation||'')+'</p><p>📍 '+escapeHtml(p.general_location||'')+'</p><p>'+escapeHtml(p.about||'')+'</p></div></div>'+
       (gallery.length?'<div class="premium-gallery-preview">'+gallery.map(item=>item.url?'<img src="'+escapeHtml(item.url)+'" alt="">':'').join('')+'</div>':'');
+    $('#editPremiumPublicProfile').hidden=false;
+    $('#premiumPublicProfileEditForm').hidden=true;
     openPremiumView('overview');
   }else{
     premiumPendingArea.hidden=false;
@@ -2962,6 +3011,7 @@ async function loadPremiumProfile(){
     const {data,error}=await client.rpc('premium_partner_get_own_profile');
     if(error)throw error;
     premiumProfile=data||null;
+    await cleanupPremiumPartnerMedia().catch(()=>{});
     await renderPremiumProfile();
     if(premiumProfile){
       await Promise.all([
@@ -3050,6 +3100,67 @@ $('#premiumRequestList')?.addEventListener('click',(event)=>{
   const button=event.target.closest?.('[data-premium-request-action]');
   if(button)respondPremiumMeetupRequest(button);
 });
+$('#editPremiumPublicProfile')?.addEventListener('click',openPremiumPublicEditor);
+$('#cancelPremiumPublicEdit')?.addEventListener('click',closePremiumPublicEditor);
+$('#premiumPublicProfileEditForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  if(!premiumProfile?.profile)return;
+  const button=event.submitter,original=button?.textContent||'Save Changes';
+  if(button){button.disabled=true;button.textContent='Saving…';}
+  const newlyUploaded=[];
+  try{
+    const profileFile=$('#premiumEditProfilePhoto').files?.[0]||null;
+    const galleryFiles=[...($('#premiumEditGallery').files||[])];
+    if(galleryFiles.length>3)throw new Error('Choose a maximum of 3 gallery photos.');
+
+    let profilePath=premiumProfile.profile.profile_picture_path||'';
+    if(profileFile){
+      profilePath=await uploadPremiumPartnerFile('premium-profile-media',profileFile,5*1024*1024);
+      newlyUploaded.push(profilePath);
+    }
+
+    let replaceGallery=false;
+    let galleryPaths=[];
+    if(galleryFiles.length){
+      replaceGallery=true;
+      galleryPaths=await Promise.all(galleryFiles.map(async file=>{
+        const path=await uploadPremiumPartnerFile('premium-profile-media',file,5*1024*1024);
+        newlyUploaded.push(path);
+        return path;
+      }));
+    }
+
+    const {data,error}=await client.rpc('premium_partner_update_public_profile',{
+      p_display_name:$('#premiumEditDisplayName').value.trim(),
+      p_gender:$('#premiumEditGender').value,
+      p_age:Number($('#premiumEditAge').value),
+      p_orientation:$('#premiumEditOrientation').value,
+      p_general_location:$('#premiumEditLocation').value.trim(),
+      p_about:$('#premiumEditAbout').value.trim(),
+      p_profile_picture_path:profilePath,
+      p_replace_gallery:replaceGallery,
+      p_gallery_paths:galleryPaths
+    });
+    if(error)throw error;
+
+    premiumProfile=data?.profile||premiumProfile;
+    const oldPaths=Array.isArray(data?.old_paths_to_delete)?data.old_paths_to_delete:[];
+    const cleaned=await cleanupPremiumPartnerMedia(oldPaths);
+
+    await renderPremiumProfile();
+    openPremiumView('profile');
+    closePremiumPublicEditor();
+    status($('#premiumPublicEditStatus'),cleaned?'Profile updated and replaced photos were deleted from LEOGO storage.':'Profile updated. Old photo cleanup is queued and will retry automatically.','success');
+  }catch(error){
+    if(newlyUploaded.length){
+      await client.storage.from('premium-profile-media').remove(newlyUploaded).catch(()=>{});
+    }
+    status($('#premiumPublicEditStatus'),error?.message||'Premium Profile could not be updated.','error');
+  }finally{
+    if(button){button.disabled=false;button.textContent=original;}
+  }
+});
+
 $('#premiumAvailabilityToggle')?.addEventListener('change',async(event)=>{
   const desired=event.target.checked;event.target.disabled=true;
   try{
