@@ -178,7 +178,7 @@ const requireLogin=async()=>{
 };
 
 const openOrder=async(type,data)=>{
-  try{await requireLogin();}catch(e){status(e.message,'error');return;}
+  try{await requireLogin();await loadPayment();}catch(e){status(e.message,'error');return;}
   selectedItem={type,data};
   selectedShop=shops.find(s=>s.provider_id===data.provider_id)||selectedShop;
   const quote=type==='service'&&data.pricing_model==='quote';
@@ -306,7 +306,7 @@ $('#useCyberDeliveryLocation')?.addEventListener('click',()=>{
 $('#cyberOrderForm')?.addEventListener('submit',async(e)=>{
   e.preventDefault();
   if(!selectedItem)return;
-  const button=e.submitter,old=button.textContent;button.disabled=true;button.textContent='Submitting…';
+  const button=e.submitter||$('#cyberOrderForm button[type="submit"]'),old=button.textContent;button.disabled=true;button.textContent='Submitting…';
   $('#cyberOrderStatus').textContent='Uploading files and creating order…';
   try{
     const user=await requireLogin();
