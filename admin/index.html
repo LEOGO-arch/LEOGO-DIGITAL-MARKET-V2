@@ -321,7 +321,21 @@
           <article><span>Waiting</span><strong id="supportChatWaitingCount">0</strong><small>Needs Customer Care assignment</small></article>
           <article><span>My Open Chats</span><strong id="supportChatMineCount">0</strong><small>Assigned to this desk</small></article>
           <article><span>Unread</span><strong id="supportChatUnreadCount">0</strong><small>New customer messages</small></article>
+          <article><span>Pending Approval</span><strong id="supportChatApprovalCount">0</strong><small>Staff replies / updates waiting for Admin</small></article>
         </div>
+
+        <section id="supportChatApprovalPanel" class="support-chat-approval-panel" hidden>
+          <div class="card-head">
+            <div><span>ADMIN APPROVAL</span><h3>Pending Customer Care Updates</h3><p>Customer Support Officer replies and customer-visible status changes remain private until Admin approves them.</p></div>
+            <select id="supportChatApprovalFilter">
+              <option value="submitted">Pending approval</option>
+              <option value="all">All updates</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          <div id="supportChatApprovalList" class="support-chat-approval-list"><div class="loading-card">Loading pending Customer Care updates…</div></div>
+        </section>
 
         <div class="support-chat-workspace">
           <aside class="support-chat-inbox">
@@ -354,7 +368,8 @@
               <div id="supportChatMessages" class="support-chat-messages" aria-live="polite"></div>
               <form id="supportChatReplyForm" class="support-chat-reply">
                 <label for="supportChatReply">Reply as LEOGO Customer Care</label>
-                <div><textarea id="supportChatReply" rows="2" maxlength="2000" placeholder="Write a private reply to the customer…" required></textarea><button id="sendSupportChatReply" type="submit">Send Reply</button></div>
+                <div><textarea id="supportChatReply" rows="2" maxlength="2000" placeholder="Write a private reply to the customer…" required></textarea><button id="sendSupportChatReply" type="submit">Send for Approval</button></div>
+                <div id="supportChatApprovalNotice" class="support-chat-approval-notice">Customer Support Officer replies are sent to Admin for approval before the customer can see them.</div>
                 <small id="supportChatStatus" role="status" aria-live="polite"></small>
               </form>
             </div>
