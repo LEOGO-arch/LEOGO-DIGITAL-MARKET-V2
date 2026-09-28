@@ -776,7 +776,7 @@
 
             <form id="premiumPublicProfileEditForm" class="premium-profile-edit-form" hidden>
               <div class="premium-profile-edit-head">
-                <div><span>EDIT PUBLIC PROFILE</span><h4>Update Profile Information</h4><p>These are the details Premium Customers can see. Private verification details are not changed here.</p></div>
+                <div><span>EDIT PUBLIC PROFILE</span><h4>Propose Profile Changes</h4><p>These changes will be sent to LEOGO Admin. Your current approved profile remains public until Admin approves the update.</p></div>
               </div>
               <div class="premium-profile-edit-grid">
                 <label><span>Display name / username</span><input id="premiumEditDisplayName" type="text" minlength="2" maxlength="50" required></label>
@@ -788,7 +788,7 @@
               </div>
               <div class="premium-profile-edit-actions">
                 <button id="cancelPremiumProfileEdit" class="secondary" type="button">Cancel</button>
-                <button id="savePremiumProfileEdit" type="submit">Save Changes</button>
+                <button id="savePremiumProfileEdit" type="submit">Send Changes for Approval</button>
               </div>
               <p id="premiumProfileEditStatus" class="status"></p>
             </form>
@@ -1032,7 +1032,7 @@
         <section class="accommodation-view" data-accommodation-content="earnings"><section class="panel"><div class="section-title"><span>EARNINGS</span><h3>Accommodation Earnings</h3><p>Completed-stay earnings and LEOGO commission reporting will be connected after the booking workflow.</p></div></section></section>
         <section class="accommodation-view" data-accommodation-content="settlements"><section class="panel"><div class="section-title"><span>SETTLEMENTS</span><h3>Accommodation Payouts</h3><p>Approved payout accounts, payout requests and Admin-initiated settlements will use the same Partner settlement standard already used elsewhere in LEOGO.</p></div></section></section>
         <section class="accommodation-view" data-accommodation-content="notifications"><section class="panel"><div class="section-title"><span>NOTIFICATIONS</span><h3>Accommodation Activity</h3><p>Booking requests, listing approvals and LEOGO Admin updates appear here.</p></div><div class="product-actions"><button id="markAllAccommodationNotificationsRead" class="secondary" type="button">Mark All Read</button><button id="refreshAccommodationNotifications" type="button">↻ Refresh Notifications</button></div><div id="accommodationNotificationList" class="seller-notification-list"><div class="empty-card">Loading Accommodation notifications…</div></div></section></section>
-        <section class="accommodation-view" data-accommodation-content="profile"><section class="panel"><div class="section-title"><span>MY PROFILE</span><h3>Accommodation Provider Details</h3><p>Your approved provider information and Admin verification status.</p></div><div id="accommodationProfileSummary" class="summary-grid"></div></section></section>
+        <section class="accommodation-view" data-accommodation-content="profile"><section class="panel"><div class="section-title premium-profile-section-title"><div><span>MY PROFILE</span><h3>Accommodation Provider Details</h3><p>Your approved provider information. Any profile changes are sent to LEOGO Admin before they become active.</p></div><button id="editApprovedAccommodationProfile" type="button">✎ Edit Profile</button></div><div id="accommodationProfileSummary" class="summary-grid"></div><p id="accommodationProfileEditStatus" class="status"></p></section></section>
       </div>
     </section>
   </section>
