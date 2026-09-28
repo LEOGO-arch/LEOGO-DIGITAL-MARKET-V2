@@ -2794,46 +2794,37 @@ async function replacePremiumMediaSlot(slot,file,button=null){
     return;
   }
 
-  const existingPath=premiumMediaPathForSlot(slot);
   const original=button?.textContent||'Update Photo';
-  if(button){button.disabled=true;button.textContent='Updating…';}
-  status($('#premiumPublicProfileNotice'),'Updating '+premiumMediaLabel(slot)+'…');
+  if(button){button.disabled=true;button.textContent='Uploading…';}
+  status($('#premiumPublicProfileNotice'),'Uploading '+premiumMediaLabel(slot)+' for Admin approval…');
 
-  let newPath=existingPath;
-  let uploadedNew=false;
+  let newPath='';
   try{
-    if(existingPath){
-      const {error:updateError}=await client.storage
-        .from('premium-profile-media')
-        .update(existingPath,file,{cacheControl:'0',contentType:file.type});
-      if(updateError)throw updateError;
-
-      const {data,error}=await client.rpc('premium_partner_replace_media',{
-        p_slot:slot,
-        p_media_path:existingPath
-      });
-      if(error)throw error;
-      premiumProfile=data?.profile||premiumProfile;
+    newPath=await uploadPremiumPartnerFile('premium-profile-media',file,5*1024*1024);
+    const payload={};
+    if(slot==='profile'){
+      payload.profile_picture_path=newPath;
     }else{
-      newPath=await uploadPremiumPartnerFile('premium-profile-media',file,5*1024*1024);
-      uploadedNew=true;
-      const {data,error}=await client.rpc('premium_partner_replace_media',{
-        p_slot:slot,
-        p_media_path:newPath
-      });
-      if(error)throw error;
-      premiumProfile=data?.profile||premiumProfile;
-      uploadedNew=false;
+      const targetSlot=Number(String(slot||'').replace('gallery_',''));
+      const gallery=[1,2,3].map((index)=>{
+        if(index===targetSlot)return newPath;
+        return premiumGalleryItemForSlot('gallery_'+index)?.media_path||'';
+      }).filter(Boolean);
+      payload.gallery_paths=gallery;
     }
 
-    await renderPremiumProfile();
+    const {data,error}=await client.rpc('premium_partner_submit_profile_change',{p_payload:payload});
+    if(error)throw error;
+    if(data?.error)throw new Error(data.error);
+
     openPremiumView('profile');
-    status($('#premiumPublicProfileNotice'),premiumMediaLabel(slot)+' updated.','success');
+    status($('#premiumPublicProfileNotice'),premiumMediaLabel(slot)+' sent to LEOGO Admin for approval. Your current approved photo remains visible until approval.','success');
+    await loadPremiumNotifications().catch(()=>{});
   }catch(error){
-    if(uploadedNew&&newPath){
-      await client.storage.from('premium-profile-media').remove([newPath]).catch(()=>{});
+    if(newPath){
+      try{await client.storage.from('premium-profile-media').remove([newPath]);}catch(_error){}
     }
-    status($('#premiumPublicProfileNotice'),error?.message||'Photo could not be updated.','error');
+    status($('#premiumPublicProfileNotice'),error?.message||'Photo change could not be submitted.','error');
   }finally{
     if(button){button.disabled=false;button.textContent=original;}
   }
@@ -3045,28 +3036,27 @@ $('#premiumPublicProfileEditForm')?.addEventListener('submit',async(event)=>{
 
   const button=$('#savePremiumProfileEdit');
   const original=button?.textContent||'Save Changes';
-  if(button){button.disabled=true;button.textContent='Saving…';}
-  status($('#premiumProfileEditStatus'),'Saving profile changes…');
+  if(button){button.disabled=true;button.textContent='Sending…';}
+  status($('#premiumProfileEditStatus'),'Sending profile changes to LEOGO Admin…');
 
   try{
-    const {data,error}=await client.rpc('premium_partner_update_public_profile',{
-      p_display_name:$('#premiumEditDisplayName').value.trim(),
-      p_gender:$('#premiumEditGender').value.trim(),
-      p_age:Number($('#premiumEditAge').value),
-      p_orientation:$('#premiumEditOrientation').value.trim(),
-      p_general_location:$('#premiumEditLocation').value.trim(),
-      p_about:$('#premiumEditAbout').value.trim(),
-      p_profile_picture_path:p.profile_picture_path,
-      p_replace_gallery:false,
-      p_gallery_paths:[]
+    const {data,error}=await client.rpc('premium_partner_submit_profile_change',{
+      p_payload:{
+        display_name:$('#premiumEditDisplayName').value.trim(),
+        gender:$('#premiumEditGender').value.trim(),
+        age:Number($('#premiumEditAge').value),
+        orientation:$('#premiumEditOrientation').value.trim(),
+        general_location:$('#premiumEditLocation').value.trim(),
+        about:$('#premiumEditAbout').value.trim()
+      }
     });
     if(error)throw error;
     if(data?.error)throw new Error(data.error);
 
-    premiumProfile=data?.profile||premiumProfile;
-    await renderPremiumProfile();
+    setPremiumPublicProfileEditOpen(false);
     openPremiumView('profile');
-    status($('#premiumPublicProfileNotice'),'Profile information updated successfully.','success');
+    status($('#premiumPublicProfileNotice'),'Profile changes sent to LEOGO Admin for approval. Your current approved Premium Profile remains active until approval.','success');
+    await loadPremiumNotifications().catch(()=>{});
   }catch(error){
     status($('#premiumProfileEditStatus'),error?.message||'Profile changes could not be saved.','error');
   }finally{
