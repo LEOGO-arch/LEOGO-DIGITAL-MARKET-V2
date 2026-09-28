@@ -34,6 +34,10 @@
   let premiumGalleryPhotos = [];
   let premiumGalleryIndex = 0;
   let premiumGalleryName = '';
+  let premiumPeerChatRequestId = null;
+  let premiumPeerChatProfile = null;
+  let premiumPeerChatTimer = null;
+  let premiumPeerChatLoading = false;
 
   const fields = {
     realName: document.getElementById('premiumRealName'),
@@ -316,6 +320,131 @@
     if (event.key === 'ArrowRight') movePremiumPhoto(1);
   });
 
+  const premiumPeerChatModal = document.getElementById('premiumPeerChatModal');
+  const premiumPeerMessageList = document.getElementById('premiumPeerMessageList');
+  const premiumPeerChatForm = document.getElementById('premiumPeerChatForm');
+  const premiumPeerChatMessage = document.getElementById('premiumPeerChatMessage');
+  const premiumPeerChatStatus = document.getElementById('premiumPeerChatStatus');
+
+  const premiumPeerTime = (value) => {
+    if (!value) return '';
+    try {
+      return new Intl.DateTimeFormat('en-KE', {
+        timeZone: 'Africa/Nairobi', hour: '2-digit', minute: '2-digit',
+        day: '2-digit', month: 'short'
+      }).format(new Date(value));
+    } catch (_error) { return ''; }
+  };
+
+  const renderPremiumPeerMessages = (messages=[]) => {
+    if (!premiumPeerMessageList) return;
+    if (!messages.length) {
+      premiumPeerMessageList.innerHTML = '<div class="premium-peer-chat-empty"><span>💬</span><strong>Start the conversation</strong><small>You can chat here before the meetup request is accepted.</small></div>';
+      return;
+    }
+    premiumPeerMessageList.innerHTML = messages.map((message) => {
+      const mine = message.sender_role === 'customer';
+      return '<article class="premium-peer-message '+(mine?'mine':'theirs')+'">'+
+        '<div><strong>'+(mine?'You':escapeHtml(premiumPeerChatProfile?.display_name||'Premium Profile'))+'</strong><span>'+escapeHtml(premiumPeerTime(message.created_at))+'</span></div>'+
+        '<p>'+escapeHtml(message.body||'').replace(/\n/g,'<br>')+'</p>'+
+      '</article>';
+    }).join('');
+  };
+
+  const loadPremiumPeerChat = async ({scroll=false,silent=false}={}) => {
+    if (!premiumPeerChatRequestId || premiumPeerChatLoading) return;
+    premiumPeerChatLoading = true;
+    if (!silent && premiumPeerChatStatus) premiumPeerChatStatus.textContent = 'Loading chat…';
+    try {
+      const [openResult,messageResult] = await Promise.all([
+        client.rpc('premium_open_chat',{p_request_id:premiumPeerChatRequestId}),
+        client.rpc('premium_list_chat_messages',{p_request_id:premiumPeerChatRequestId})
+      ]);
+      if (openResult.error) throw openResult.error;
+      if (messageResult.error) throw messageResult.error;
+      const info=openResult.data||{};
+      if (document.getElementById('premiumPeerChatTitle')) document.getElementById('premiumPeerChatTitle').textContent=info.other_name||premiumPeerChatProfile?.display_name||'Premium Profile';
+      if (document.getElementById('premiumPeerChatState')) {
+        document.getElementById('premiumPeerChatState').textContent=info.contact_released
+          ? 'Meetup accepted · Contact access is available under your Premium access rules.'
+          : 'Awaiting acceptance · Contact details remain hidden.';
+      }
+      renderPremiumPeerMessages(Array.isArray(messageResult.data)?messageResult.data:[]);
+      await client.rpc('premium_mark_chat_read',{p_request_id:premiumPeerChatRequestId});
+      if (premiumPeerChatStatus) premiumPeerChatStatus.textContent='';
+      if (scroll && premiumPeerMessageList) {
+        window.setTimeout(()=>{premiumPeerMessageList.scrollTop=premiumPeerMessageList.scrollHeight;},20);
+      }
+    } catch (error) {
+      if (premiumPeerChatStatus) premiumPeerChatStatus.textContent=error?.message||'Premium chat could not load.';
+    } finally {
+      premiumPeerChatLoading=false;
+    }
+  };
+
+  const closePremiumPeerChat = () => {
+    if (premiumPeerChatTimer) { clearInterval(premiumPeerChatTimer); premiumPeerChatTimer=null; }
+    premiumPeerChatRequestId=null;
+    premiumPeerChatProfile=null;
+    if (premiumPeerChatModal) {
+      premiumPeerChatModal.hidden=true;
+      premiumPeerChatModal.setAttribute('aria-hidden','true');
+    }
+    document.body.classList.remove('premium-peer-chat-open');
+  };
+
+  const openPremiumPeerChat = async (profile) => {
+    if (!profile?.request_status || !['submitted','accepted'].includes(profile.request_status)) return;
+    const request = await client.rpc('premium_customer_request_meetup',{
+      p_profile_user_id:profile.profile_user_id,
+      p_message:null
+    });
+    if (request.error) {
+      setMessage(applicationMessage,request.error.message||'Premium chat could not open.','error');
+      return;
+    }
+    premiumPeerChatRequestId=request.data?.request_id||null;
+    premiumPeerChatProfile=profile;
+    if (!premiumPeerChatRequestId) return;
+    if (premiumPeerChatModal) {
+      premiumPeerChatModal.hidden=false;
+      premiumPeerChatModal.setAttribute('aria-hidden','false');
+    }
+    document.body.classList.add('premium-peer-chat-open');
+    await loadPremiumPeerChat({scroll:true});
+    if (premiumPeerChatTimer) clearInterval(premiumPeerChatTimer);
+    premiumPeerChatTimer=window.setInterval(()=>{
+      if (!premiumPeerChatModal?.hidden && document.visibilityState==='visible') {
+        loadPremiumPeerChat({scroll:false,silent:true});
+      }
+    },4000);
+  };
+
+  document.getElementById('closePremiumPeerChat')?.addEventListener('click',closePremiumPeerChat);
+  premiumPeerChatModal?.querySelectorAll('[data-close-premium-chat]').forEach((node)=>node.addEventListener('click',closePremiumPeerChat));
+  premiumPeerChatForm?.addEventListener('submit',async(event)=>{
+    event.preventDefault();
+    const text=premiumPeerChatMessage?.value.trim()||'';
+    if (!text || !premiumPeerChatRequestId) return;
+    const button=document.getElementById('sendPremiumPeerMessage');
+    const original=button?.textContent||'Send';
+    if (button){button.disabled=true;button.textContent='Sending…';}
+    try{
+      const {error}=await client.rpc('premium_send_chat_message',{
+        p_request_id:premiumPeerChatRequestId,
+        p_body:text
+      });
+      if(error)throw error;
+      if(premiumPeerChatMessage)premiumPeerChatMessage.value='';
+      await loadPremiumPeerChat({scroll:true,silent:true});
+    }catch(error){
+      if(premiumPeerChatStatus)premiumPeerChatStatus.textContent=error?.message||'Message could not be sent.';
+    }finally{
+      if(button){button.disabled=false;button.textContent=original;}
+      premiumPeerChatMessage?.focus();
+    }
+  });
+
   const sendPremiumMeetupRequest = async (profile, button) => {
     if (!currentUser || !profile?.profile_user_id) return;
     const original = button?.textContent || 'Send Meetup Request';
@@ -326,7 +455,7 @@
         p_message: null
       });
       if (error) throw error;
-      setMessage(applicationMessage, 'Meetup request sent. The Premium Profile must accept before contact details are released.', 'success');
+      setMessage(applicationMessage, 'Meetup request sent. You can chat privately inside LEOGO now; contact details stay hidden until the Premium Profile accepts.', 'success');
       await loadVerifiedProfileDirectory(currentCustomer, true);
     } catch (error) {
       setMessage(applicationMessage, error?.message || 'The meetup request could not be sent.', 'error');
@@ -433,6 +562,15 @@
           viewPhotos.textContent = `View Photos (${profile.galleryUrls.length})`;
           viewPhotos.addEventListener('click', () => openPremiumPhotoViewer(profile));
           body.appendChild(viewPhotos);
+        }
+
+        if (['submitted','accepted'].includes(profile.request_status)) {
+          const chatButton=document.createElement('button');
+          chatButton.type='button';
+          chatButton.className='premium-chat-profile-button';
+          chatButton.textContent='💬 Chat';
+          chatButton.addEventListener('click',()=>openPremiumPeerChat(profile));
+          body.appendChild(chatButton);
         }
 
         if (profile.request_status === 'accepted' && profile.contact_phone) {
