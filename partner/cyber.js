@@ -36,6 +36,10 @@ const hideOtherPartnerShells=()=>{
 };
 
 const showRolePicker=()=>{
+  if(typeof window.leogoShowPartnerRolePicker==='function'){
+    window.leogoShowPartnerRolePicker();
+    return;
+  }
   shell.hidden=true;
   if(rolePicker)rolePicker.hidden=false;
   if(authShell)authShell.hidden=true;
@@ -193,6 +197,7 @@ const loadAccount=async()=>{
 };
 
 const openCyber=async()=>{
+  window.leogoSetPartnerActiveRole?.('cyber');
   const {data,error}=await client.auth.getSession();
   if(error||!data.session?.user){
     if(authShell)authShell.hidden=false;
