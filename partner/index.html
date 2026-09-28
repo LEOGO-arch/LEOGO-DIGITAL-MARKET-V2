@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=premium-profile-edit-1">
+  <link rel="stylesheet" href="partner.css?v=premium-media-slots-1">
 <style>
 .transport-priority-nav{order:-1}.transport-application-progress{display:grid;gap:14px}.transport-progress-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.transport-progress-steps span{border:1px solid #dce3ed;border-radius:12px;padding:12px;display:grid;gap:3px;background:#f8fafc}.transport-progress-steps span i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e8edf4;font-style:normal;font-weight:900}.transport-progress-steps span.done i{background:#071a3a;color:#fff}.transport-progress-steps span.current{border-color:#ff7200;background:#fff8f2}.transport-progress-steps span.current i{background:#ff7200;color:#fff}.transport-progress-steps span.alert{border-color:#c98724;background:#fff9ec}.transport-progress-steps span.alert i{background:#c98724;color:#fff}.seller-icon-button{position:relative}.seller-icon-button #transportHeaderNotificationBadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:999px;background:#ff7200;color:#fff;font-size:10px;display:grid;place-items:center;padding:0 4px}.seller-icon-button #transportHeaderNotificationBadge[hidden]{display:none}.transport-view-lock-note{padding:12px;border-radius:10px;background:#fff8f2;color:#7a4108;font-weight:700}@media(max-width:700px){.transport-progress-steps{grid-template-columns:1fr}}
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
@@ -765,48 +765,13 @@
         </div>
         <section class="premium-view" data-premium-content="profile">
           <section class="panel">
-            <div class="section-title"><span>PUBLIC PROFILE</span><h3>What Premium Customers See</h3><p>Edit your public Premium Profile. Your real identity and verification documents remain private.</p></div>
+            <div class="section-title">
+              <span>MY PROFILE</span>
+              <h3>My Premium Profile</h3>
+              <p>Your submitted Premium Profile information and photos.</p>
+            </div>
             <div id="premiumPublicProfileSummary" class="premium-public-profile-summary"></div>
-            <div class="product-actions"><button id="editPremiumPublicProfile" type="button">Edit Profile</button></div>
             <p id="premiumPublicProfileNotice" class="status"></p>
-
-            <form id="premiumPublicProfileEditForm" class="premium-profile-edit-form" hidden>
-              <div class="section-title"><span>EDIT PUBLIC PROFILE</span><h3>Update profile details and photos</h3><p>Replacing the main photo or gallery permanently removes the previous files from LEOGO storage after the new version is saved.</p></div>
-              <div class="form-grid">
-                <label>Display name / username<input id="premiumEditDisplayName" type="text" minlength="2" maxlength="50" required></label>
-                <label>Gender
-                  <select id="premiumEditGender" required>
-                    <option value="">Select gender</option>
-                    <option value="Female">Female</option>
-                    <option value="Male">Male</option>
-                    <option value="Non-binary">Non-binary</option>
-                    <option value="Other">Other</option>
-                    <option value="Prefer not to say">Prefer not to say</option>
-                  </select>
-                </label>
-                <label>Age<input id="premiumEditAge" type="number" min="18" max="100" required></label>
-                <label>Orientation
-                  <select id="premiumEditOrientation" required>
-                    <option value="">Select orientation</option>
-                    <option value="Straight">Straight / Heterosexual</option>
-                    <option value="Gay">Gay</option>
-                    <option value="Lesbian">Lesbian</option>
-                    <option value="Bisexual">Bisexual</option>
-                    <option value="Pansexual">Pansexual</option>
-                    <option value="Asexual">Asexual</option>
-                    <option value="Other">Other</option>
-                    <option value="Prefer not to say">Prefer not to say</option>
-                  </select>
-                </label>
-                <label class="wide">General location<input id="premiumEditLocation" type="text" minlength="2" maxlength="100" required></label>
-                <label class="wide">About<textarea id="premiumEditAbout" rows="4" minlength="20" maxlength="1000" required></textarea></label>
-                <label>Replace main profile picture <small>Optional. JPG, PNG or WEBP.</small><input id="premiumEditProfilePhoto" type="file" accept="image/jpeg,image/png,image/webp"></label>
-                <label>Replace gallery <small>Optional. Choose up to 3 new photos. Selecting photos replaces the entire current gallery.</small><input id="premiumEditGallery" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
-              </div>
-              <div class="premium-edit-warning">⚠ When a replacement succeeds, the old main photo/gallery files are permanently deleted from LEOGO storage.</div>
-              <div class="product-actions"><button id="cancelPremiumPublicEdit" class="secondary" type="button">Cancel</button><button type="submit">Save Changes</button></div>
-              <p id="premiumPublicEditStatus" class="status"></p>
-            </form>
           </section>
         </section>
         <section class="premium-view" data-premium-content="notifications"><section class="panel"><div class="section-title"><span>NOTIFICATIONS</span><h3>Premium Activity</h3><p>Admin decisions and Premium request activity appear here.</p></div><div class="product-actions"><button id="markAllPremiumNotificationsRead" class="secondary" type="button">Mark All Read</button><button id="refreshPremiumNotifications" type="button">↻ Refresh</button></div><div id="premiumNotificationList" class="seller-notification-list"><div class="empty-card">No Premium notifications yet.</div></div></section></section>
@@ -1426,5 +1391,5 @@
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=premium-profile-edit-1" defer></script>
+<script src="partner.js?v=premium-media-slots-1" defer></script>
 </body></html>
