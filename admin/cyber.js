@@ -10,7 +10,7 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=(v)=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const money=(v)=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const pill=(s)=>'<span class="cyber-admin-status '+esc(s||'')+'">'+esc(String(s||'—').replaceAll('_',' '))+'</span>';
-let providers=[],services=[],products=[],orders=[],profileChanges=[],settings=null;
+let providers=[],services=[],products=[],orders=[],profileChanges=[],flashSales=[];
 
 const ensureUI=()=>{
   const nav=$('.admin-nav');
@@ -28,7 +28,7 @@ const ensureUI=()=>{
     panel.id='cyberAdminPanel';
     panel.dataset.adminPanel='cyber';
     panel.innerHTML=`
-      <div class="section-head"><div><span>CYBER & DIGITAL SERVICES</span><h2>Cyber Services</h2><p>Approve Cyber shops, service listings and products, verify customer payments, and manage delivery fees.</p></div><button id="refreshCyberAdmin" class="primary-button" type="button">↻ Refresh Cyber</button></div>
+      <div class="section-head"><div><span>CYBER & DIGITAL SERVICES</span><h2>Cyber Services</h2><p>Approve Cyber shops, service listings, products and Flash Sales, verify customer payments, and supervise the standard LEOGO delivery rule.</p></div><button id="refreshCyberAdmin" class="primary-button" type="button">↻ Refresh Cyber</button></div>
       <div class="cyber-admin-summary">
         <article><span>Cyber Shops</span><strong id="cyberAdminProviderCount">0</strong><small>All registrations</small></article>
         <article><span>Pending Shops</span><strong id="cyberAdminPendingProviders">0</strong><small>Need approval</small></article>
@@ -38,15 +38,13 @@ const ensureUI=()=>{
       </div>
 
       <section class="cyber-admin-card">
-        <div class="cyber-admin-card-head"><div><span>DELIVERY SETTINGS</span><h3>Cyber Delivery Fees</h3><p>Customers can pick up from the pinned Cyber shop or choose delivery using these Admin-controlled rates.</p></div></div>
-        <form id="cyberAdminSettingsForm" class="cyber-admin-settings">
-          <label>CBD / Town Centre fee (KSh)<input id="cyberAdminCbdFee" type="number" min="0" step="1" required></label>
-          <label>Estate / Nearby fee (KSh)<input id="cyberAdminEstateFee" type="number" min="0" step="1" required></label>
-          <label>Outside Town fee (KSh)<input id="cyberAdminOutsideFee" type="number" min="0" step="1" required></label>
-          <label class="wide">Customer delivery note<textarea id="cyberAdminDeliveryNote" rows="2"></textarea></label>
-          <div class="cyber-admin-settings-actions"><button type="submit">Save Delivery Fees</button></div>
-        </form>
-        <div id="cyberAdminSettingsStatus" class="cyber-admin-form-status"></div>
+        <div class="cyber-admin-card-head"><div><span>STANDARD DELIVERY RULE</span><h3>Cyber Uses the Same Delivery Charges as Orders</h3><p>Cyber orders no longer keep a separate delivery-rate setting. The supported standard order rule is used on both the customer screen and server calculation.</p></div></div>
+        <div class="cyber-admin-delivery-rules">
+          <article><small>Same local town — CBD</small><strong>KSh 50</strong></article>
+          <article><small>Local estate / nearby area</small><strong>KSh 80</strong></article>
+          <article><small>Outside town</small><strong>From KSh 200</strong></article>
+        </div>
+        <div class="cyber-admin-delivery-note">Standard KSh 50/80 rates are intended for parcels below 50 kg and up to 1 m². Cyber pickup remains free of delivery charge.</div>
       </section>
 
       <section class="cyber-admin-card">
@@ -62,6 +60,11 @@ const ensureUI=()=>{
       <section class="cyber-admin-card">
         <div class="cyber-admin-card-head"><div><span>SERVICE APPROVALS</span><h3>Cyber Services</h3><p>Printing, photocopying, typesetting, online services and other Cyber listings.</p></div></div>
         <div class="responsive-table"><table class="cyber-admin-table"><thead><tr><th>Service</th><th>Cyber</th><th>Pricing</th><th>File Upload</th><th>Status</th><th>Action</th></tr></thead><tbody id="cyberAdminServicesBody"></tbody></table></div>
+      </section>
+
+      <section class="cyber-admin-card">
+        <div class="cyber-admin-card-head"><div><span>FLASH SALE APPROVALS</span><h3>Cyber Service Flash Sales</h3><p>Cyber partners can discount an already-approved service. The lower price is customer-facing only after Admin approval and only during its approved time window.</p></div></div>
+        <div class="responsive-table"><table class="cyber-admin-table"><thead><tr><th>Service</th><th>Cyber</th><th>Normal</th><th>Flash Sale</th><th>Period</th><th>Status</th><th>Action</th></tr></thead><tbody id="cyberAdminFlashSalesBody"></tbody></table></div>
       </section>
 
       <section class="cyber-admin-card">
@@ -104,6 +107,7 @@ const render=()=>{
     services.filter(s=>['pending','under_review','changes_requested'].includes(s.approval_status)).length+
     products.filter(p=>['pending','under_review','changes_requested'].includes(p.approval_status)).length+
     orders.filter(o=>o.payment_status==='pending_verification').length+
+    flashSales.filter(f=>f.flash_sale_status==='requested').length+
     profileChanges.length;
   const badge=$('#sidebarCyberCount');if(badge){badge.textContent=pending;badge.hidden=pending<1;}
 
@@ -124,6 +128,14 @@ const render=()=>{
   $('#cyberAdminServicesBody').innerHTML=services.length?services.map(s=>`
     <tr><td><strong>${esc(s.service_name)}</strong><small>${esc(s.service_category.replaceAll('_',' '))}</small></td><td>${esc(s.provider_name)}</td><td><strong>${s.pricing_model==='quote'?'Quotation':money(s.price_kes)}</strong><small>${esc(s.pricing_model.replaceAll('_',' '))}${s.unit_label?' · '+esc(s.unit_label):''}</small></td><td>${s.requires_file_upload?'Required':'Optional'}</td><td>${pill(s.approval_status)}</td><td>${normalApprovalButtons('service',s.id,s.approval_status)}</td></tr>`).join(''):'<tr><td colspan="6" class="cyber-admin-empty">No Cyber services yet.</td></tr>';
 
+  $('#cyberAdminFlashSalesBody').innerHTML=flashSales.length?flashSales.map(f=>{
+    const active=f.flash_sale_status==='approved'&&new Date(f.flash_sale_starts_at)<=new Date()&&new Date(f.flash_sale_ends_at)>new Date();
+    const actions=f.flash_sale_status==='requested'
+      ? '<div class="cyber-admin-actions"><button class="approve" data-cyber-flash-review="'+f.service_id+'" data-decision="approve">Approve</button><button class="reject" data-cyber-flash-review="'+f.service_id+'" data-decision="reject">Reject</button></div>'
+      : (active?'<span class="cyber-admin-live-sale">⚡ Live now</span>':'');
+    return '<tr><td><strong>'+esc(f.service_name)+'</strong></td><td>'+esc(f.provider_name)+'</td><td>'+money(f.normal_price_kes)+'</td><td><strong>'+money(f.flash_sale_price_kes)+'</strong></td><td><small>'+new Date(f.flash_sale_starts_at).toLocaleString()+'</small><small>to '+new Date(f.flash_sale_ends_at).toLocaleString()+'</small></td><td>'+pill(f.flash_sale_status)+(f.flash_sale_admin_notes?'<small>'+esc(f.flash_sale_admin_notes)+'</small>':'')+'</td><td>'+actions+'</td></tr>';
+  }).join(''):'<tr><td colspan="7" class="cyber-admin-empty">No Cyber service Flash Sale requests yet.</td></tr>';
+
   $('#cyberAdminProductsBody').innerHTML=products.length?products.map(p=>`
     <tr><td><strong>${esc(p.product_name)}</strong><small>${esc(p.description||'')}</small></td><td>${esc(p.provider_name)}</td><td>${money(p.price_kes)}</td><td>${esc(p.quantity_available)} ${esc(p.measurement_unit)}</td><td>${pill(p.approval_status)}</td><td>${normalApprovalButtons('product',p.id,p.approval_status)}</td></tr>`).join(''):'<tr><td colspan="6" class="cyber-admin-empty">No Cyber products yet.</td></tr>';
 
@@ -135,12 +147,6 @@ const render=()=>{
     return `<tr><td><strong>${esc(o.order_reference)}</strong><small>${esc(o.item_name)} · ${esc(o.item_type)}</small></td><td>${esc(o.customer_name)}</td><td>${esc(o.provider_name)}</td><td><strong>${esc(o.fulfilment_method)}</strong><small>${esc(o.delivery_address||'Shop pickup')}</small></td><td><strong>${money(o.total_kes)}</strong><small>Delivery ${money(o.delivery_fee_kes)}</small></td><td>${pill(o.payment_status)}<small>${esc(o.payment_reference||'')}</small></td><td>${pill(o.order_status)}</td><td><div class="cyber-admin-file-buttons">${files.map((f,i)=>'<button data-admin-cyber-file="cyber-order-files|'+esc(f.path)+'">File '+(i+1)+'</button>').join('')}</div></td><td>${action}</td></tr>`;
   }).join(''):'<tr><td colspan="9" class="cyber-admin-empty">No Cyber customer orders yet.</td></tr>';
 
-  if(settings){
-    $('#cyberAdminCbdFee').value=settings.cbd_delivery_fee_kes??50;
-    $('#cyberAdminEstateFee').value=settings.estate_delivery_fee_kes??80;
-    $('#cyberAdminOutsideFee').value=settings.outside_town_delivery_fee_kes??200;
-    $('#cyberAdminDeliveryNote').value=settings.delivery_note||'';
-  }
   bindActions();
 };
 
@@ -151,7 +157,8 @@ const bindActions=()=>{
     signedUrl(bucket,path).catch(e=>alert(e.message));
   }));
   $$('[data-cyber-action]').forEach(b=>b.addEventListener('click',()=>reviewRecord(b)));
-  $$('[data-cyber-payment]').forEach(b=>b.addEventListener('click',()=>reviewPayment(b)));
+  $('[data-cyber-payment]').forEach(b=>b.addEventListener('click',()=>reviewPayment(b)));
+  $('[data-cyber-flash-review]').forEach(b=>b.addEventListener('click',()=>reviewFlashSale(b)));
 };
 
 const reviewRecord=async(button)=>{
@@ -167,6 +174,24 @@ const reviewRecord=async(button)=>{
   const args=kind==='provider'?{p_user_id:id,p_decision:decision,p_notes:notes||null}:kind==='service'?{p_service_id:id,p_decision:decision,p_notes:notes||null}:kind==='product'?{p_product_id:id,p_decision:decision,p_notes:notes||null}:{p_change_id:id,p_decision:decision,p_notes:notes||null};
   button.disabled=true;
   const {error}=await client.rpc(rpc,args);
+  button.disabled=false;
+  if(error){alert(error.message);return;}
+  await loadAll();
+};
+
+const reviewFlashSale=async(button)=>{
+  const decision=button.dataset.decision;
+  let notes='';
+  if(decision==='reject'){
+    notes=prompt('Enter the reason the Cyber Flash Sale is not approved:','')||'';
+    if(notes.trim().length<3)return;
+  }else{
+    notes=prompt('Optional Admin note for this Flash Sale:','')||'';
+  }
+  button.disabled=true;
+  const {error}=await client.rpc('admin_review_cyber_service_flash_sale',{
+    p_service_id:button.dataset.cyberFlashReview,p_decision:decision,p_notes:notes||null
+  });
   button.disabled=false;
   if(error){alert(error.message);return;}
   await loadAll();
@@ -190,12 +215,12 @@ const loadAll=async()=>{
     client.rpc('admin_list_cyber_products'),
     client.rpc('admin_list_cyber_orders'),
     client.rpc('admin_list_cyber_profile_changes'),
-    client.rpc('admin_get_cyber_settings')
+    client.rpc('admin_list_cyber_flash_sale_requests')
   ]);
   const firstError=results.find(r=>r.error)?.error;
   if(firstError)throw firstError;
   providers=results[0].data||[];services=results[1].data||[];products=results[2].data||[];orders=results[3].data||[];
-  profileChanges=results[4].data||[];settings=results[5].data||null;
+  profileChanges=results[4].data||[];flashSales=results[5].data||[];
   render();
 };
 
@@ -222,16 +247,6 @@ const openCyberAdmin=async()=>{
 ensureUI();
 $('#openCyberAdmin')?.addEventListener('click',openCyberAdmin);
 $('#refreshCyberAdmin')?.addEventListener('click',()=>loadAll().catch(e=>alert(e.message)));
-$('#cyberAdminSettingsForm')?.addEventListener('submit',async(e)=>{
-  e.preventDefault();
-  const out=$('#cyberAdminSettingsStatus');out.textContent='Saving Cyber delivery fees…';out.className='cyber-admin-form-status';
-  const {data,error}=await client.rpc('admin_update_cyber_settings',{
-    p_cbd_fee:Number($('#cyberAdminCbdFee').value),p_estate_fee:Number($('#cyberAdminEstateFee').value),
-    p_outside_town_fee:Number($('#cyberAdminOutsideFee').value),p_delivery_note:$('#cyberAdminDeliveryNote').value.trim()
-  });
-  if(error){out.textContent=error.message;out.className='cyber-admin-form-status error';return;}
-  settings=data;out.textContent='Cyber delivery fees saved.';out.className='cyber-admin-form-status success';render();
-});
 $$('.admin-nav [data-admin-view]').forEach(b=>b.addEventListener('click',()=>$('#openCyberAdmin')?.classList.remove('active')));
 
 client.auth.getSession().then(async({data})=>{
