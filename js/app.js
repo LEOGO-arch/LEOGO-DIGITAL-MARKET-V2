@@ -511,7 +511,7 @@
     }).join('');
   };
 
-  async function loadCustomerSupportChat({scroll=true,silent=false}={}){
+  async function loadCustomerSupportChat({scroll=true,silent=false,markRead=true}={}){
     if(customerCareLoading) return;
     if(!window.leogoAuth?.isAuthenticated?.()) return;
     const client=window.leogoAuth?.client;
@@ -528,10 +528,12 @@
       customerCareThread=threadResult.data||null;
       customerCareMessages=Array.isArray(messageResult.data)?messageResult.data:[];
       renderCustomerCareChat();
-      await client.rpc('customer_mark_support_chat_read');
-      if(customerCareThread){
-        customerCareThread.unread_count=0;
-        renderCustomerCareChat();
+      if(markRead){
+        await client.rpc('customer_mark_support_chat_read');
+        if(customerCareThread){
+          customerCareThread.unread_count=0;
+          renderCustomerCareChat();
+        }
       }
       if(customerCareChatStatus) customerCareChatStatus.textContent='';
       if(scroll&&customerCareMessageList){
@@ -588,6 +590,22 @@
   });
 
   refreshCustomerCareChat?.addEventListener('click',()=>loadCustomerSupportChat({scroll:true}));
+  document.addEventListener('leogo:authchange',()=>{
+    window.setTimeout(()=>{
+      if(window.leogoAuth?.isAuthenticated?.()) loadCustomerSupportChat({scroll:false,silent:true,markRead:false});
+      else{
+        customerCareThread=null;
+        customerCareMessages=[];
+        renderCustomerCareChat();
+      }
+    },120);
+  });
+  document.addEventListener('leogo:customer-data-refresh',()=>{
+    if(!window.leogoAuth?.isAuthenticated?.()) return;
+    const chatOpen=customerShellModal?.classList.contains('is-open')
+      && customerShellModal?.querySelector('[data-customer-panel="chat"]')?.classList.contains('active');
+    loadCustomerSupportChat({scroll:false,silent:true,markRead:chatOpen});
+  });
 
   const refreshCustomerCareSummary=async()=>{
     if(!window.leogoAuth?.isAuthenticated?.()){
