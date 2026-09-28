@@ -238,6 +238,8 @@ const openCyber=async()=>{
   }
 };
 
+window.leogoOpenCyberPartner=openCyber;
+
 const fillServiceForm=(row=null)=>{
   editServiceId=row?.id||null;
   $('#cyberServiceName').value=row?.service_name||'';
@@ -730,10 +732,8 @@ $('#refreshCyberProducts')?.addEventListener('click',()=>loadProducts().catch(e=
 const cyberRoleButton=$('[data-role-target="cyber"]');
 if(cyberRoleButton){
   cyberRoleButton.disabled=false;
-  cyberRoleButton.querySelector('small').textContent='Printing, online services, files & shop items';
-  cyberRoleButton.addEventListener('click',(e)=>{e.preventDefault();openCyber();});
+  const helper=cyberRoleButton.querySelector('small');
+  if(helper)helper.textContent='Printing, online services, files & shop items';
 }
-$$('[data-role-target]').filter(b=>b.dataset.roleTarget!=='cyber').forEach(b=>b.addEventListener('click',()=>{shell.hidden=true;}));
-
-window.leogoOpenCyberPartner=openCyber;
+$('[data-role-target]').filter(b=>b.dataset.roleTarget!=='cyber').forEach(b=>b.addEventListener('click',()=>{shell.hidden=true;}));
 })();
