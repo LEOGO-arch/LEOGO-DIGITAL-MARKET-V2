@@ -33,6 +33,7 @@ const ensureUI=()=>{
         <article><span>Cyber Shops</span><strong id="cyberAdminProviderCount">0</strong><small>All registrations</small></article>
         <article><span>Pending Shops</span><strong id="cyberAdminPendingProviders">0</strong><small>Need approval</small></article>
         <article><span>Services</span><strong id="cyberAdminServiceCount">0</strong><small>Cyber services</small></article>
+        <article><span>Flash Sales</span><strong id="cyberAdminFlashSaleCount">0</strong><small>Requests / history</small></article>
         <article><span>Products</span><strong id="cyberAdminProductCount">0</strong><small>Shop items</small></article>
         <article><span>Payments to Verify</span><strong id="cyberAdminPaymentCount">0</strong><small>Cyber orders</small></article>
       </div>
@@ -101,6 +102,7 @@ const render=()=>{
   $('#cyberAdminProviderCount').textContent=providers.length;
   $('#cyberAdminPendingProviders').textContent=providers.filter(p=>['submitted','under_review','changes_requested'].includes(p.application_status)).length;
   $('#cyberAdminServiceCount').textContent=services.length;
+  $('#cyberAdminFlashSaleCount').textContent=flashSales.length;
   $('#cyberAdminProductCount').textContent=products.length;
   $('#cyberAdminPaymentCount').textContent=orders.filter(o=>o.payment_status==='pending_verification').length;
   const pending=providers.filter(p=>['submitted','under_review','changes_requested'].includes(p.application_status)).length+
