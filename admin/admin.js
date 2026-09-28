@@ -722,6 +722,7 @@
     const premium = state.approvals.filter((item) => approvalGroup(item.kind) === 'premium').length;
     const providers = state.approvals.filter((item) => approvalGroup(item.kind) === 'providers').length;
     const transport = state.approvals.filter((item) => approvalGroup(item.kind) === 'transport').length;
+    const cyber = state.approvals.filter((item) => approvalGroup(item.kind) === 'cyber').length;
     const accommodation = state.approvals.filter((item) => approvalGroup(item.kind) === 'accommodation').length;
     const oldest = [...state.approvals].filter((item) => item.submitted_at).sort((a,b) => new Date(a.submitted_at) - new Date(b.submitted_at))[0];
     $('#approvalTotalCount').textContent = state.approvals.length;
@@ -729,7 +730,7 @@
     $('#approvalPremiumCount').textContent = premium;
     $('#approvalAccommodationCount').textContent = accommodation;
     $('#approvalOldestWaiting').textContent = oldest ? waitingAge(oldest.submitted_at) : '—';
-    const counts = { all: state.approvals.length, financial, wallet, sellers, providers, transport, premium, accommodation };
+    const counts = { all: state.approvals.length, financial, wallet, sellers, providers, transport, cyber, premium, accommodation };
     Object.entries(counts).forEach(([key, count]) => {
       const target = $(`#approvalFilters [data-approval-filter="${key}"] b`);
       if (target) target.textContent = count;
