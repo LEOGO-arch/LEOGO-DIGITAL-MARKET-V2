@@ -108,7 +108,8 @@
     premium_payment: 'Premium Payment', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
     accommodation_property: 'Accommodation Property',
-    accommodation_unit: 'Accommodation Room / Unit'
+    accommodation_unit: 'Accommodation Room / Unit',
+    cyber_application: 'Cyber Partner Registration', cyber_service: 'Cyber Service', cyber_product: 'Cyber Shop Item', cyber_profile_change: 'Cyber Profile Update'
   };
   const functionLabels = {
     wallet_sacco_deposits: 'Wallet / SACCO Deposits', savings_challenge: 'Savings Challenge',
@@ -601,7 +602,7 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
       db.rpc('admin_list_service_provider_approvals'),
@@ -610,6 +611,7 @@
       db.rpc('admin_list_partner_settlement_approvals'),
       db.rpc('admin_list_accommodation_corrections'),
       db.rpc('admin_list_accommodation_unit_approvals'),
+      db.rpc('admin_list_cyber_approvals'),
       db.rpc('admin_list_pending_payment_actions'),
       db.rpc('admin_list_transport_requests')
     ]);
@@ -621,6 +623,7 @@
     if (partnerSettlementResult.error) throw partnerSettlementResult.error;
     if (accommodationCorrectionsResult.error) throw accommodationCorrectionsResult.error;
     if (accommodationUnitsResult.error) throw accommodationUnitsResult.error;
+    if (cyberResult.error) throw cyberResult.error;
     if (paymentActionsResult.error) throw paymentActionsResult.error;
     if (transportRequestsResult.error) throw transportRequestsResult.error;
 
@@ -632,7 +635,8 @@
       ...(Array.isArray(profileChangesResult.data) ? profileChangesResult.data : []),
       ...(Array.isArray(partnerSettlementResult.data) ? partnerSettlementResult.data : []),
       ...(Array.isArray(accommodationCorrectionsResult.data) ? accommodationCorrectionsResult.data : []),
-      ...(Array.isArray(accommodationUnitsResult.data) ? accommodationUnitsResult.data : [])
+      ...(Array.isArray(accommodationUnitsResult.data) ? accommodationUnitsResult.data : []),
+      ...(Array.isArray(cyberResult.data) ? cyberResult.data : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     state.paymentActions=Array.isArray(paymentActionsResult.data)?paymentActionsResult.data:[];
     state.transportRequests=Array.isArray(transportRequestsResult.data)?transportRequestsResult.data:state.transportRequests;
@@ -685,7 +689,7 @@
     renderAdminNotifications();
   };
 
-  const approvalGroup = (kind) => ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle','transport_provider_settlement_account'].includes(kind) ? 'transport' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalGroup = (kind) => ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle','transport_provider_settlement_account'].includes(kind) ? 'transport' : kind.startsWith('cyber_') ? 'cyber' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
   const approvalIsFinancial = (item) => item.kind === 'premium_payment' || item.kind.startsWith('wallet') || item.kind.endsWith('_settlement_account');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
@@ -784,6 +788,7 @@
     variant_image_paths: { label: 'Variant Image', bucket: 'seller-product-media', multiple: true },
     item_image_path: { label: 'Item Picture', bucket: 'customer-sale-media' },
     ownership_proof_path: { label: 'Ownership Proof', bucket: 'customer-sale-verification' },
+    cyber_product_image_path: { label: 'Cyber Product Picture', bucket: 'cyber-public-media', publicBucket: true },
 
     cover_image_url: { label: 'Property Cover Image', directUrl: true },
     gallery_image_urls: { label: 'Property Gallery Image', directUrl: true, multiple: true },
@@ -791,12 +796,43 @@
   };
 
   const adminMediaEntries = (payload = {}, kind = '') => {
+    // Customer one-off sale media is deliberately isolated from every partner bucket.
+    // This prevents a Cyber, Seller, Premium, Transport or Accommodation upload from
+    // ever being rendered inside a Customer Item Sale review card.
+    if (kind === 'customer_personal_sale') {
+      const entries = [];
+      if (payload?.item_image_path) {
+        entries.push({
+          key:'item_image_path',
+          config:{ label:'Item Picture', bucket:'customer-sale-media' },
+          value:String(payload.item_image_path),
+          label:'Item Picture'
+        });
+      }
+      if (payload?.ownership_proof_path) {
+        entries.push({
+          key:'ownership_proof_path',
+          config:{ label:'Ownership Proof', bucket:'customer-sale-verification' },
+          value:String(payload.ownership_proof_path),
+          label:'Ownership Proof'
+        });
+      }
+      return entries;
+    }
+
     const entries = [];
     const providerVerificationFields = new Set(['passport_photo_path','business_id_document_path','business_licence_path','registration_certificate_path','professional_licence_path','other_permit_paths']);
     const transportVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','transport_operator_permit_path','other_permit_paths']);
+    const cyberVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','other_permit_paths']);
     Object.entries(approvalMediaFields).forEach(([key, config]) => {
       let resolvedConfig = config;
-      if (['service_provider_application','service_provider_profile_change'].includes(kind) && key === 'profile_picture_path') {
+      if (['cyber_application','cyber_profile_change'].includes(kind) && key === 'profile_picture_path') {
+        resolvedConfig = { ...config, bucket:'cyber-public-media', publicBucket:true, label:'Cyber Shop Profile Picture' };
+      } else if (['cyber_application','cyber_profile_change'].includes(kind) && cyberVerificationFields.has(key)) {
+        resolvedConfig = { ...config, bucket:'cyber-verification', publicBucket:false };
+      } else if (kind === 'cyber_product' && key === 'cyber_product_image_path') {
+        resolvedConfig = { ...config, bucket:'cyber-public-media', publicBucket:true, label:'Cyber Product Picture' };
+      } else if (['service_provider_application','service_provider_profile_change'].includes(kind) && key === 'profile_picture_path') {
         resolvedConfig = { ...config, bucket: 'service-provider-public-media', publicBucket: true, label: 'Customer Profile Picture' };
       } else if (['service_provider_application','service_provider_profile_change'].includes(kind) && key === 'passport_photo_path') {
         resolvedConfig = { ...config, bucket: 'service-provider-passport-photo', label: 'Passport-size Photo (Admin Only)' };
@@ -881,7 +917,9 @@
     return card;
   };
 
+  let approvalMediaRenderToken = 0;
   const approvalMediaPreview = async (payload = {}, kind = '') => {
+    const renderToken = ++approvalMediaRenderToken;
     const media = $('#reviewMedia');
     if (!media) return;
 
@@ -897,7 +935,9 @@
     const grid = $('#reviewMediaGrid');
 
     for (const entry of entries) {
-      grid.appendChild(await renderAdminMediaCard(entry));
+      const card = await renderAdminMediaCard(entry);
+      if (renderToken !== approvalMediaRenderToken || !grid?.isConnected) return;
+      grid.appendChild(card);
     }
   };
 
@@ -932,10 +972,10 @@
     const requestChanges = $('[data-review-action="changes_requested"]');
     const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
-    const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change'].includes(kind) && item.status === 'changes_requested';
+    const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change'].includes(kind) && item.status === 'changes_requested';
     const settlementAccountApproval = ['seller_settlement_account','service_provider_settlement_account','transport_provider_settlement_account'].includes(kind);
     underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection || settlementAccountApproval;
-    requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
+    requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
@@ -957,44 +997,60 @@
       setFormStatus($('#reviewStatus'), decision === 'changes_requested' ? 'Explain what the applicant needs to correct before resubmitting.' : 'Add a clear rejection reason before rejecting.', 'error'); return;
     }
     await withButtonLock(button, 'Saving…', async () => {
-      const rpcName = item.kind === 'seller_application'
-        ? 'admin_review_seller_application'
-        : item.kind === 'seller_product'
-          ? 'admin_review_seller_product'
-          : item.kind === 'customer_personal_sale'
-            ? 'admin_review_personal_sale'
-            : item.kind === 'service_provider_application'
-              ? 'admin_review_service_provider_application'
-              : item.kind === 'service_listing'
-                ? 'admin_review_service_listing'
-                : item.kind === 'transport_provider_application'
-                  ? 'admin_review_transport_provider_application'
-                  : item.kind === 'transport_vehicle'
-                    ? 'admin_review_transport_vehicle'
-                    : item.kind === 'accommodation_unit'
-                      ? 'admin_review_accommodation_unit'
-                    : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change'].includes(item.kind)
-                      ? 'admin_review_partner_profile_change'
-                    : item.kind === 'accommodation_provider_profile_change'
-                      ? 'admin_review_accommodation_profile_change'
-                    : item.kind === 'premium_partner_profile_change'
-                      ? 'admin_review_premium_profile_change'
-                    : item.kind === 'seller_settlement_account'
-                  ? 'admin_review_seller_settlement_account'
-                  : item.kind === 'service_provider_settlement_account'
-                    ? 'admin_review_service_provider_settlement_account'
-                    : item.kind === 'transport_provider_settlement_account'
-                      ? 'admin_review_transport_provider_settlement_account'
-                      : 'admin_review_approval';
-      const rpcArgs = ['seller_settlement_account','service_provider_settlement_account','transport_provider_settlement_account'].includes(item.kind)
-        ? { p_account_id: item.record_id, p_decision: decision, p_notes: notes || null }
-        : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change','accommodation_provider_profile_change','premium_partner_profile_change'].includes(item.kind)
-          ? { p_change_id: item.record_id, p_decision: decision, p_notes: notes || null }
-          : item.kind === 'accommodation_unit'
-            ? { p_unit_id: item.record_id, p_decision: decision, p_notes: notes || null }
-          : ['seller_application','seller_product','customer_personal_sale','service_provider_application','service_listing','transport_provider_application','transport_vehicle'].includes(item.kind)
-            ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
-            : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
+      const rpcName = item.kind === 'cyber_application'
+        ? 'admin_review_cyber_provider'
+        : item.kind === 'cyber_service'
+          ? 'admin_review_cyber_service'
+          : item.kind === 'cyber_product'
+            ? 'admin_review_cyber_product'
+            : item.kind === 'cyber_profile_change'
+              ? 'admin_review_cyber_profile_change'
+              : item.kind === 'seller_application'
+                ? 'admin_review_seller_application'
+                : item.kind === 'seller_product'
+                  ? 'admin_review_seller_product'
+                  : item.kind === 'customer_personal_sale'
+                    ? 'admin_review_personal_sale'
+                    : item.kind === 'service_provider_application'
+                      ? 'admin_review_service_provider_application'
+                      : item.kind === 'service_listing'
+                        ? 'admin_review_service_listing'
+                        : item.kind === 'transport_provider_application'
+                          ? 'admin_review_transport_provider_application'
+                          : item.kind === 'transport_vehicle'
+                            ? 'admin_review_transport_vehicle'
+                            : item.kind === 'accommodation_unit'
+                              ? 'admin_review_accommodation_unit'
+                              : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change'].includes(item.kind)
+                                ? 'admin_review_partner_profile_change'
+                                : item.kind === 'accommodation_provider_profile_change'
+                                  ? 'admin_review_accommodation_profile_change'
+                                  : item.kind === 'premium_partner_profile_change'
+                                    ? 'admin_review_premium_profile_change'
+                                    : item.kind === 'seller_settlement_account'
+                                      ? 'admin_review_seller_settlement_account'
+                                      : item.kind === 'service_provider_settlement_account'
+                                        ? 'admin_review_service_provider_settlement_account'
+                                        : item.kind === 'transport_provider_settlement_account'
+                                          ? 'admin_review_transport_provider_settlement_account'
+                                          : 'admin_review_approval';
+      const rpcArgs = item.kind === 'cyber_application'
+        ? { p_user_id: item.record_id, p_decision: decision, p_notes: notes || null }
+        : item.kind === 'cyber_service'
+          ? { p_service_id: item.record_id, p_decision: decision, p_notes: notes || null }
+          : item.kind === 'cyber_product'
+            ? { p_product_id: item.record_id, p_decision: decision, p_notes: notes || null }
+            : item.kind === 'cyber_profile_change'
+              ? { p_change_id: item.record_id, p_decision: decision, p_notes: notes || null }
+              : ['seller_settlement_account','service_provider_settlement_account','transport_provider_settlement_account'].includes(item.kind)
+                ? { p_account_id: item.record_id, p_decision: decision, p_notes: notes || null }
+                : ['seller_profile_change','service_provider_profile_change','transport_provider_profile_change','accommodation_provider_profile_change','premium_partner_profile_change'].includes(item.kind)
+                  ? { p_change_id: item.record_id, p_decision: decision, p_notes: notes || null }
+                  : item.kind === 'accommodation_unit'
+                    ? { p_unit_id: item.record_id, p_decision: decision, p_notes: notes || null }
+                    : ['seller_application','seller_product','customer_personal_sale','service_provider_application','service_listing','transport_provider_application','transport_vehicle'].includes(item.kind)
+                      ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
+                      : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
       const { error } = await db.rpc(rpcName, rpcArgs);
       if (error) { setFormStatus($('#reviewStatus'), friendlyError(error), 'error'); return; }
       closeModals();
