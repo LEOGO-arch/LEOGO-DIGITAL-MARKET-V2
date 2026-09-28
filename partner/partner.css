@@ -639,3 +639,34 @@
 @media(max-width:390px){
   .premium-gallery-slots .premium-media-photo{height:92px}
 }
+
+
+/* Premium approved profile editing */
+.premium-profile-section-title{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.premium-profile-section-title>div{min-width:0}
+#editPremiumPublicProfile{border:0;border-radius:9px;background:#ff7200;color:#fff;padding:10px 12px;font-weight:900;white-space:nowrap;cursor:pointer}
+#editPremiumPublicProfile:disabled{opacity:.6;cursor:default}
+.premium-profile-edit-form{display:grid;gap:14px;margin-bottom:14px;padding:14px;border:1px solid #dfe6ee;border-radius:14px;background:#f8fafc}
+.premium-profile-edit-form[hidden]{display:none!important}
+.premium-profile-edit-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.premium-profile-edit-head span{display:block;color:#ff7200;font-size:9px;font-weight:950;letter-spacing:.08em}
+.premium-profile-edit-head h4{margin:3px 0;font-size:16px;color:#071b3d}
+.premium-profile-edit-head p{margin:0;color:#667488;font-size:9px;line-height:1.45}
+.premium-profile-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.premium-profile-edit-grid label{display:grid;gap:5px}
+.premium-profile-edit-grid label.wide{grid-column:1/-1}
+.premium-profile-edit-grid label>span{font-size:8px;font-weight:900;color:#5c697a}
+.premium-profile-edit-grid input,.premium-profile-edit-grid textarea{width:100%;border:1px solid #cfd8e4;border-radius:9px;background:#fff;padding:10px;font:inherit;font-size:10px;color:#071b3d}
+.premium-profile-edit-grid textarea{resize:vertical}
+.premium-profile-edit-grid label>small{text-align:right;font-size:8px;color:#8a95a5}
+.premium-profile-edit-actions{display:flex;justify-content:flex-end;gap:8px}
+.premium-profile-edit-actions button{border:0;border-radius:9px;padding:10px 13px;background:#ff7200;color:#fff;font-weight:900;cursor:pointer}
+.premium-profile-edit-actions button.secondary{background:#fff;color:#071b3d;border:1px solid #cad4df}
+@media(max-width:650px){
+  .premium-profile-section-title{display:grid}
+  #editPremiumPublicProfile{width:100%}
+  .premium-profile-edit-grid{grid-template-columns:1fr}
+  .premium-profile-edit-grid label.wide{grid-column:auto}
+  .premium-profile-edit-actions{display:grid;grid-template-columns:1fr 1fr}
+  .premium-profile-edit-actions button{width:100%}
+}
