@@ -28,3 +28,13 @@
 .cyber-admin-file-buttons{display:flex;gap:5px;flex-wrap:wrap}.cyber-admin-file-buttons button{border:0;border-radius:7px;padding:6px 8px;background:#edf4ff;color:#164f98;font-size:7px;font-weight:900}
 @media(max-width:1050px){.cyber-admin-summary{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:720px){.cyber-admin-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.cyber-admin-card{padding:11px}.cyber-admin-card-head{align-items:stretch;flex-direction:column}.cyber-admin-settings{grid-template-columns:1fr}.cyber-admin-settings label.wide,.cyber-admin-settings-actions{grid-column:1}.cyber-admin-table th,.cyber-admin-table td{padding:8px;font-size:8px}}
+
+
+/* Standard Cyber delivery rule + service Flash Sale review */
+.cyber-admin-delivery-rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.cyber-admin-delivery-rules article{padding:12px;border:1px solid #dde5ed;border-radius:12px;background:#f8fafc}
+.cyber-admin-delivery-rules small,.cyber-admin-delivery-rules strong{display:block}.cyber-admin-delivery-rules small{color:#6f7d91;font-size:8px}.cyber-admin-delivery-rules strong{margin-top:5px;color:#07152f;font-size:16px}
+.cyber-admin-delivery-note{margin-top:9px;padding:9px 10px;border-radius:10px;background:#fff7ed;color:#7f4b17;font-size:8px;line-height:1.45}
+.cyber-admin-live-sale{display:inline-flex;padding:4px 7px;border-radius:999px;background:#fff0df;color:#a45200;font-size:7px;font-weight:900}
+.cyber-admin-status.requested{background:#fff4e5;color:#9a5900}
+@media(max-width:720px){.cyber-admin-delivery-rules{grid-template-columns:1fr}}
