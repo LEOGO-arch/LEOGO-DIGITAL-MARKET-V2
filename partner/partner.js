@@ -578,6 +578,7 @@ $('#providerDownloadEarnings')?.addEventListener('click',()=>{
 });
 
 function showRolePicker(){
+  document.body.classList.remove('cyber-role-open');
   activeRole='';
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   rolePicker.hidden=false;
@@ -5432,6 +5433,7 @@ async function handleSession(session){
     transportProvider=null;transportVehicles=[];transportJobs=[];transportNotifications=[];editingTransportVehicle=null;
     premiumProfile=null;premiumNotifications=[];
     accommodationProvider=null;accommodationNotifications=[];activeRole='';
+    document.body.classList.remove('cyber-role-open');
     authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;
     if(providerShell)providerShell.hidden=true;
     if(transportShell)transportShell.hidden=true;
@@ -5449,6 +5451,7 @@ async function handleSession(session){
   if(accommodationShell)accommodationShell.hidden=true;
   if(cyberShell)cyberShell.hidden=true;
   const reopeningCyber=activeRole==='cyber';
+  document.body.classList.toggle('cyber-role-open',reopeningCyber);
   rolePicker.hidden=reopeningCyber;
   if(hero)hero.hidden=reopeningCyber;
   if(activeRole==='seller')await openSellerRole();
