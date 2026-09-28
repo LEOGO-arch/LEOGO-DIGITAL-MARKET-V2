@@ -36,6 +36,8 @@ const hideOtherPartnerShells=()=>{
 };
 
 const showRolePicker=()=>{
+  document.body.classList.remove('cyber-role-open');
+  shell.hidden=true;
   if(typeof window.leogoShowPartnerRolePicker==='function'){
     window.leogoShowPartnerRolePicker();
     return;
@@ -200,12 +202,14 @@ const openCyber=async()=>{
   window.leogoSetPartnerActiveRole?.('cyber');
   const {data,error}=await client.auth.getSession();
   if(error||!data.session?.user){
+    document.body.classList.remove('cyber-role-open');
     if(authShell)authShell.hidden=false;
     shell.hidden=true;
     rolePicker.hidden=true;
     return;
   }
   user=data.session.user;
+  document.body.classList.add('cyber-role-open');
   hideOtherPartnerShells();
   if(rolePicker)rolePicker.hidden=true;
   if(authShell)authShell.hidden=true;
