@@ -159,8 +159,8 @@ const bindActions=()=>{
     signedUrl(bucket,path).catch(e=>alert(e.message));
   }));
   $$('[data-cyber-action]').forEach(b=>b.addEventListener('click',()=>reviewRecord(b)));
-  $('[data-cyber-payment]').forEach(b=>b.addEventListener('click',()=>reviewPayment(b)));
-  $('[data-cyber-flash-review]').forEach(b=>b.addEventListener('click',()=>reviewFlashSale(b)));
+  $$('[data-cyber-payment]').forEach(b=>b.addEventListener('click',()=>reviewPayment(b)));
+  $$('[data-cyber-flash-review]').forEach(b=>b.addEventListener('click',()=>reviewFlashSale(b)));
 };
 
 const reviewRecord=async(button)=>{
