@@ -4315,6 +4315,15 @@ function openAccommodationRegistration(editExisting=false,{preserveDraft=false}=
   accommodationPendingArea.hidden=true;
   accommodationDashboard.hidden=true;
   accommodationReg.hidden=false;
+  const approvedEdit=Boolean(editExisting&&accommodationProvider?.verification_status==='approved');
+  const submitButton=accommodationReg.querySelector('button[type="submit"]');
+  if(submitButton)submitButton.textContent=approvedEdit?'Send Profile Changes for Approval':'Submit Accommodation Application';
+  const title=accommodationReg.querySelector('.section-title h3');
+  const copy=accommodationReg.querySelector('.section-title p');
+  if(title)title.textContent=approvedEdit?'Edit Accommodation Provider Profile':'Operator / business verification';
+  if(copy)copy.textContent=approvedEdit
+    ? 'Your current approved profile stays active. These changes will only become active after LEOGO Admin approves them.'
+    : 'These details identify the person or business responsible for accommodation listings. Verification documents remain private to authorized LEOGO Admin.';
   status($('#accommodationRegistrationStatus'),'');
   try{if(currentUser)sessionStorage.setItem(ACCOMMODATION_DRAFT_OPEN_KEY,currentUser.id);}catch(_error){}
   if(preserveDraft){
@@ -4334,6 +4343,7 @@ function openAccommodationRegistration(editExisting=false,{preserveDraft=false}=
 $('#retryAccommodationBoot')?.addEventListener('click',()=>openAccommodationRole());
 $('#showAccommodationRegistration')?.addEventListener('click',()=>openAccommodationRegistration(false));
 $('#editAccommodationApplication')?.addEventListener('click',()=>openAccommodationRegistration(true));
+$('#editApprovedAccommodationProfile')?.addEventListener('click',()=>openAccommodationRegistration(true));
 $('#cancelAccommodationRegistration')?.addEventListener('click',()=>{
   clearAccommodationDraft();
   accommodationProvider?renderAccommodationProvider():openAccommodationRole();
@@ -4403,24 +4413,69 @@ accommodationReg?.addEventListener('submit',async event=>{
     ]);
     const county=kenyaCounties.find(item=>item.code===$('#accommodationCounty').value);
     const sub=kenyaSubcounties.find(item=>item.code===$('#accommodationSubCounty').value);
-    const {error}=await client.rpc('accommodation_provider_submit_application',{
-      p_business_name:$('#accommodationBusinessName').value.trim(),
-      p_owner_name:$('#accommodationOwnerName').value.trim(),
-      p_id_number:$('#accommodationIdNumber').value.trim(),
-      p_phone:phone,p_email:$('#accommodationEmail').value.trim()||null,
-      p_county_code:$('#accommodationCounty').value,p_county:county?.name||$('#accommodationCounty').selectedOptions[0]?.textContent||'',
-      p_sub_county_code:$('#accommodationSubCounty').value,p_sub_county:sub?.name||$('#accommodationSubCounty').selectedOptions[0]?.textContent||'',
-      p_town:$('#accommodationTown').value.trim(),p_location_details:$('#accommodationLocation').value.trim(),
-      p_base_map_link:$('#accommodationMapLink').value.trim()||null,p_base_latitude:latitude,p_base_longitude:longitude,
-      p_business_description:$('#accommodationDescription').value.trim()||null,
-      p_profile_picture_path:profilePicturePath,p_passport_photo_path:passportPhotoPath,
-      p_business_id_document_path:businessIdPath,p_business_licence_path:businessLicencePath,
-      p_registration_certificate_path:registrationCertificatePath,p_other_permit_paths:otherPermitPaths
-    });
-    if(error)throw error;
-    status($('#accommodationRegistrationStatus'),'Accommodation Provider application submitted to LEOGO Admin for approval.','success');
+    const approvedEdit=accommodationProvider?.verification_status==='approved';
+    const accommodationPayload={
+      business_name:$('#accommodationBusinessName').value.trim(),
+      owner_name:$('#accommodationOwnerName').value.trim(),
+      id_number:$('#accommodationIdNumber').value.trim(),
+      phone,
+      email:$('#accommodationEmail').value.trim()||null,
+      county_code:$('#accommodationCounty').value,
+      county:county?.name||$('#accommodationCounty').selectedOptions[0]?.textContent||'',
+      sub_county_code:$('#accommodationSubCounty').value,
+      sub_county:sub?.name||$('#accommodationSubCounty').selectedOptions[0]?.textContent||'',
+      town:$('#accommodationTown').value.trim(),
+      location_details:$('#accommodationLocation').value.trim(),
+      base_map_link:$('#accommodationMapLink').value.trim()||null,
+      base_latitude:latitude,
+      base_longitude:longitude,
+      business_description:$('#accommodationDescription').value.trim()||null,
+      profile_picture_path:profilePicturePath,
+      passport_photo_path:passportPhotoPath,
+      business_id_document_path:businessIdPath,
+      business_licence_path:businessLicencePath,
+      registration_certificate_path:registrationCertificatePath,
+      other_permit_paths:otherPermitPaths
+    };
+    const result=approvedEdit
+      ? await client.rpc('accommodation_provider_submit_profile_change',{p_payload:accommodationPayload})
+      : await client.rpc('accommodation_provider_submit_application',{
+          p_business_name:accommodationPayload.business_name,
+          p_owner_name:accommodationPayload.owner_name,
+          p_id_number:accommodationPayload.id_number,
+          p_phone:accommodationPayload.phone,
+          p_email:accommodationPayload.email,
+          p_county_code:accommodationPayload.county_code,
+          p_county:accommodationPayload.county,
+          p_sub_county_code:accommodationPayload.sub_county_code,
+          p_sub_county:accommodationPayload.sub_county,
+          p_town:accommodationPayload.town,
+          p_location_details:accommodationPayload.location_details,
+          p_base_map_link:accommodationPayload.base_map_link,
+          p_base_latitude:accommodationPayload.base_latitude,
+          p_base_longitude:accommodationPayload.base_longitude,
+          p_business_description:accommodationPayload.business_description,
+          p_profile_picture_path:accommodationPayload.profile_picture_path,
+          p_passport_photo_path:accommodationPayload.passport_photo_path,
+          p_business_id_document_path:accommodationPayload.business_id_document_path,
+          p_business_licence_path:accommodationPayload.business_licence_path,
+          p_registration_certificate_path:accommodationPayload.registration_certificate_path,
+          p_other_permit_paths:accommodationPayload.other_permit_paths
+        });
+    if(result.error)throw result.error;
     clearAccommodationDraft();
-    await loadAccommodationProvider();
+    if(approvedEdit){
+      status($('#accommodationRegistrationStatus'),'Profile changes sent to LEOGO Admin. Your current approved Accommodation profile remains active until approval.','success');
+      accommodationReg.hidden=true;
+      accommodationDashboard.hidden=false;
+      renderAccommodationProvider();
+      openAccommodationView('profile');
+      status($('#accommodationProfileEditStatus'),'Profile changes are awaiting Admin approval. Your current approved profile is still active.','success');
+      await loadAccommodationNotifications().catch(()=>{});
+    }else{
+      status($('#accommodationRegistrationStatus'),'Accommodation Provider application submitted to LEOGO Admin for approval.','success');
+      await loadAccommodationProvider();
+    }
   }catch(error){
     status($('#accommodationRegistrationStatus'),error?.message||'Accommodation Provider application could not be submitted.','error');
   }finally{
