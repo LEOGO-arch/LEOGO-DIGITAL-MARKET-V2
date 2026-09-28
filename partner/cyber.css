@@ -89,3 +89,13 @@
   .cyber-list-card{padding:10px}
   .cyber-profile-grid{grid-template-columns:1fr}
 }
+
+/* Exclusive Cyber route: the partnership picker must never share the screen with the Cyber workspace. */
+body.cyber-role-open #partnerRolePicker,
+body.cyber-role-open #partnerAuthShell,
+body.cyber-role-open .hero,
+body.cyber-role-open #sellerShell,
+body.cyber-role-open #providerShell,
+body.cyber-role-open #transportShell,
+body.cyber-role-open #premiumShell,
+body.cyber-role-open #accommodationShell{display:none!important}
