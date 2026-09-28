@@ -6,9 +6,19 @@
   const PUBLISHABLE_KEY = 'sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
   const STAFF_PORTAL_URL = 'https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/staff/';
   const supabaseFactory = window.supabase?.createClient;
+  const STAFF_AUTH_STORAGE_KEY = 'leogo-staff-auth-v2';
   const db = supabaseFactory ? supabaseFactory(PROJECT_URL, PUBLISHABLE_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      storageKey: STAFF_AUTH_STORAGE_KEY
+    }
   }) : null;
+  // Admin/Staff authentication is deliberately isolated from Customer/Partner authentication.
+  // This prevents a Partner login in another tab from replacing the active Admin JWT.
+  window.leogoAdminDb = db;
+  window.leogoStaffAuthStorageKey = STAFF_AUTH_STORAGE_KEY;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => root ? Array.from(root.querySelectorAll(selector)) : [];
