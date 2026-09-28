@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=premium-profile-edit-1">
+  <link rel="stylesheet" href="partner.css?v=cyber-partner-1">\n  <link rel="stylesheet" href="cyber.css?v=cyber-partner-1">
 <style>
 .transport-priority-nav{order:-1}.transport-application-progress{display:grid;gap:14px}.transport-progress-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.transport-progress-steps span{border:1px solid #dce3ed;border-radius:12px;padding:12px;display:grid;gap:3px;background:#f8fafc}.transport-progress-steps span i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e8edf4;font-style:normal;font-weight:900}.transport-progress-steps span.done i{background:#071a3a;color:#fff}.transport-progress-steps span.current{border-color:#ff7200;background:#fff8f2}.transport-progress-steps span.current i{background:#ff7200;color:#fff}.transport-progress-steps span.alert{border-color:#c98724;background:#fff9ec}.transport-progress-steps span.alert i{background:#c98724;color:#fff}.seller-icon-button{position:relative}.seller-icon-button #transportHeaderNotificationBadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:999px;background:#ff7200;color:#fff;font-size:10px;display:grid;place-items:center;padding:0 4px}.seller-icon-button #transportHeaderNotificationBadge[hidden]{display:none}.transport-view-lock-note{padding:12px;border-radius:10px;background:#fff8f2;color:#7a4108;font-weight:700}@media(max-width:700px){.transport-progress-steps{grid-template-columns:1fr}}
 .provider-job-filter{display:flex;justify-content:flex-end;margin-bottom:12px}.provider-job-filter label{display:grid;gap:5px;font-weight:800}.provider-job-filter select{border:1px solid #d8e0eb;border-radius:9px;padding:9px}.provider-job-list{display:grid;gap:14px}.provider-job-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.provider-job-card header{display:flex;justify-content:space-between;gap:12px}.provider-job-card header strong,.provider-job-card header small{display:block}.provider-job-card header b{background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;font-size:11px;text-transform:capitalize;height:max-content}.provider-job-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.provider-job-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.provider-job-grid small,.provider-job-grid strong{display:block}.provider-job-card p{margin:0;color:#526177}.provider-job-actions{display:flex;gap:8px;flex-wrap:wrap}.provider-job-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.provider-job-actions .primary{background:#ff7200}.provider-job-actions .danger{background:#a42832}.provider-quote-form{display:grid;grid-template-columns:180px 1fr auto;gap:8px}.provider-quote-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px}.provider-quote-form button{border:0;border-radius:9px;background:#ff7200;color:#fff;font-weight:900;padding:10px 14px}@media(max-width:700px){.provider-job-grid,.provider-quote-form{grid-template-columns:1fr}.provider-job-card header{display:grid}}
@@ -35,7 +35,7 @@
       <button data-role-target="seller"><span>🏪</span><strong>Seller</strong><small>Sell products & manage your shop</small></button>
       <button data-role-target="service_provider"><span>🛠️</span><strong>Service Provider</strong><small>Offer services & manage customer jobs</small></button>
       <button data-role-target="transport"><span>🚚</span><strong>Transport & Parcel</strong><small>Register vehicles and receive transport / parcel work</small></button>
-      <button data-role-target="cyber" disabled><span>🖥️</span><strong>Cyber Services</strong><small>Registration module comes next</small></button>
+      <button data-role-target="cyber"><span>🖥️</span><strong>Cyber Services</strong><small>Printing, online services, files &amp; shop items</small></button>
       <button data-role-target="premium"><span>🔞</span><strong>Premium Profile</strong><small>Apply, manage availability and receive Premium requests</small></button>
       <button data-role-target="accommodation"><span>🏨</span><strong>Accommodation Provider</strong><small>Register hotels, Airbnbs, guest houses and other stays</small></button>
     </div>
@@ -1037,6 +1037,131 @@
     </section>
   </section>
 
+
+  <section class="seller-shell cyber-shell" id="cyberShell" hidden>
+    <section id="cyberBootStatus" class="cyber-boot">
+      <div class="seller-boot-spinner" aria-hidden="true"></div>
+      <div><span class="cyber-eyebrow">CYBER PARTNER PORTAL</span><h2 id="cyberBootTitle">Opening your Cyber dashboard…</h2><p id="cyberBootMessage">Loading your Cyber shop, services, products and customer orders.</p></div>
+    </section>
+
+    <section id="cyberOnboarding" class="cyber-onboarding" hidden>
+      <div class="cyber-icon">🖥️</div>
+      <div><span>BECOME A CYBER PARTNER</span><h2>Offer Cyber Services through LEOGO</h2><p>Add printing, photocopying, typesetting, eCitizen, KRA, NTSA, NCA and other online services. You can also sell shop items.</p></div>
+      <button id="showCyberRegistration" class="primary" type="button">Register Cyber Shop</button>
+    </section>
+
+    <form id="cyberRegistrationForm" class="cyber-registration" hidden>
+      <div class="section-title"><span>CYBER PARTNER REGISTRATION</span><h3>Shop, owner &amp; verification details</h3><p>The exact shop pin is required. Verification documents remain private to authorized LEOGO Admin.</p></div>
+      <div class="cyber-form-grid">
+        <label>Cyber / business name<input id="cyberBusinessName" type="text" maxlength="120" required></label>
+        <label>Owner full name<input id="cyberOwnerName" type="text" maxlength="120" required></label>
+        <label>National ID / identification number<input id="cyberIdNumber" type="text" maxlength="40" required></label>
+        <label>Phone number<input id="cyberPhone" type="tel" placeholder="+2547XXXXXXXX" required></label>
+        <label>County<select id="cyberCounty" required><option value="">Select county</option></select></label>
+        <label>Sub-County<select id="cyberSubCounty" required disabled><option value="">Choose a county first</option></select></label>
+        <label>Town / area<input id="cyberTown" type="text" maxlength="100" required></label>
+        <label>Shop location / landmark<input id="cyberLocation" type="text" maxlength="220" required></label>
+        <div class="wide cyber-pin-box">
+          <div class="section-title compact"><span>📍 REQUIRED SHOP PIN</span><h4>Pin the exact Cyber shop</h4><p>Customers who choose self-pickup will use this location to find your shop.</p></div>
+          <div class="cyber-pin-actions"><button id="pinCyberLocation" type="button">Use Current Location</button><button id="readCyberMapLink" class="secondary" type="button">Read Pasted Map Link</button></div>
+          <label class="wide">Google Maps / shared location link<input id="cyberMapLink" type="url" placeholder="https://maps.google.com/..."></label>
+          <div class="cyber-form-grid">
+            <label>Latitude<input id="cyberLatitude" type="number" step="0.0000001" readonly required></label>
+            <label>Longitude<input id="cyberLongitude" type="number" step="0.0000001" readonly required></label>
+          </div>
+          <div id="cyberPinStatus" class="cyber-pin-status">Shop location has not been pinned.</div>
+        </div>
+        <label class="wide">About the Cyber shop<textarea id="cyberDescription" rows="3" maxlength="1000" placeholder="Services offered, opening hours or useful customer information"></textarea></label>
+        <label>Public shop/profile picture<input id="cyberProfilePicture" type="file" accept="image/jpeg,image/png,image/webp"><small class="cyber-file-note">Visible to customers after approval.</small></label>
+        <label>Business ID / identification document<input id="cyberBusinessIdDocument" type="file" accept=".pdf,image/jpeg,image/png,image/webp"><small class="cyber-file-note">Required for first registration. Admin only.</small></label>
+        <label>Business licence <small>(optional)</small><input id="cyberBusinessLicence" type="file" accept=".pdf,image/jpeg,image/png,image/webp"></label>
+        <label>Registration certificate <small>(optional)</small><input id="cyberRegistrationCertificate" type="file" accept=".pdf,image/jpeg,image/png,image/webp"></label>
+      </div>
+      <p id="cyberRegistrationStatus" class="cyber-status"></p>
+      <div class="cyber-inline-actions"><button id="cancelCyberRegistration" class="secondary" type="button">Cancel</button><button id="cyberRegistrationSubmit" class="primary" type="submit">Send to LEOGO Admin</button></div>
+    </form>
+
+    <section id="cyberDashboard" class="cyber-dashboard" hidden>
+      <aside class="cyber-sidebar">
+        <div class="cyber-sidebar-head"><strong id="cyberSidebarBusiness">Cyber Partner</strong><small id="cyberSidebarStatus">APPROVED</small></div>
+        <button type="button" data-cyber-view="overview" class="active">▦ Overview</button>
+        <button type="button" data-cyber-view="orders">▤ Customer Orders</button>
+        <button type="button" data-cyber-view="services">🖨️ Services</button>
+        <button type="button" data-cyber-view="products">🛍️ Shop Items</button>
+        <button type="button" data-cyber-view="profile">♙ My Profile</button>
+        <button id="backFromCyberPortal" type="button">← Partnerships</button>
+      </aside>
+
+      <div class="cyber-content">
+        <section class="cyber-view active" data-cyber-content="overview">
+          <section class="cyber-panel">
+            <span class="cyber-eyebrow">CYBER OVERVIEW</span><h2 id="cyberOverviewName">Cyber Services</h2><p id="cyberOverviewStatus"></p>
+          </section>
+          <div class="cyber-summary">
+            <article><span>Services</span><strong id="cyberServiceCount">0</strong><small>All listings</small></article>
+            <article><span>Shop Items</span><strong id="cyberProductCount">0</strong><small>Products listed</small></article>
+            <article><span>Orders</span><strong id="cyberOrderCount">0</strong><small>Customer orders</small></article>
+            <article><span>Active Orders</span><strong id="cyberPendingOrderCount">0</strong><small>Need attention</small></article>
+          </div>
+          <section class="cyber-panel"><h3>How Cyber orders work</h3><p>Approved services and products appear on the customer website. Customers can choose pickup from your pinned shop or delivery to their address. Printing, photocopying and typesetting orders can include uploaded files for you to download.</p></section>
+        </section>
+
+        <section class="cyber-view" data-cyber-content="orders">
+          <section class="cyber-panel">
+            <div class="cyber-panel-head"><div><span>CUSTOMER ORDERS</span><h3>Cyber Jobs &amp; Product Orders</h3><p>Download customer files, send quotations when needed and update fulfilment status.</p></div><button id="refreshCyberOrders" type="button">↻ Refresh</button></div>
+            <div id="cyberPartnerOrderList" class="cyber-list"><div class="cyber-empty">Loading Cyber orders…</div></div>
+          </section>
+        </section>
+
+        <section class="cyber-view" data-cyber-content="services">
+          <section class="cyber-panel">
+            <div class="cyber-panel-head"><div><span>CYBER SERVICES</span><h3>Add Services Offered</h3><p>Every new or edited service is sent to LEOGO Admin before it becomes customer-facing.</p></div><button id="refreshCyberServices" type="button">↻ Refresh</button></div>
+            <form id="cyberServiceForm" class="cyber-inline-form">
+              <label>Service name<input id="cyberServiceName" required placeholder="e.g. Black & white printing"></label>
+              <label>Category<select id="cyberServiceCategory" required><option value="printing">Printing</option><option value="photocopy">Photocopy</option><option value="typesetting">Typesetting</option><option value="online_service">Online Service — eCitizen / KRA / NTSA / NCA</option><option value="scanning">Scanning</option><option value="lamination">Lamination</option><option value="branding">Branding</option><option value="design">Design</option><option value="other">Other</option></select></label>
+              <label class="wide">Description<textarea id="cyberServiceDescription" rows="2" placeholder="Explain exactly what the customer receives"></textarea></label>
+              <label>Pricing<select id="cyberServicePricing"><option value="per_page">Per page</option><option value="per_item">Per item</option><option value="fixed">Fixed price</option><option value="quote">Quotation required</option></select></label>
+              <label>Price (KSh)<input id="cyberServicePrice" type="number" min="0" step="0.01" value="10"></label>
+              <label>Unit label<input id="cyberServiceUnit" placeholder="page, copy, job, passport"></label>
+              <label><span><input id="cyberServiceRequiresFile" type="checkbox"> Customer must upload a file</span></label>
+              <label><span><input id="cyberServiceMultipleFiles" type="checkbox" checked> Allow multiple files</span></label>
+              <label><span><input id="cyberServiceAvailable" type="checkbox" checked> Service is available</span></label>
+              <div class="cyber-inline-actions"><button id="cancelCyberServiceEdit" class="secondary" type="button">Clear</button><button id="cyberServiceSubmit" class="primary" type="submit">Add Service &amp; Send for Approval</button></div>
+            </form>
+            <p id="cyberServiceStatus" class="cyber-status"></p>
+            <div id="cyberServiceList" class="cyber-list"><div class="cyber-empty">No services yet.</div></div>
+          </section>
+        </section>
+
+        <section class="cyber-view" data-cyber-content="products">
+          <section class="cyber-panel">
+            <div class="cyber-panel-head"><div><span>CYBER SHOP ITEMS</span><h3>Products for Sale</h3><p>Add stationery, accessories, flash disks, papers and other items sold by your Cyber shop.</p></div><button id="refreshCyberProducts" type="button">↻ Refresh</button></div>
+            <form id="cyberProductForm" class="cyber-inline-form">
+              <label>Product name<input id="cyberProductName" required placeholder="e.g. 16GB Flash Disk"></label>
+              <label>Price (KSh)<input id="cyberProductPrice" type="number" min="0" step="0.01" required></label>
+              <label>Quantity available<input id="cyberProductQuantity" type="number" min="0" step="1" value="1" required></label>
+              <label>Measurement unit<input id="cyberProductUnit" value="piece" required></label>
+              <label>Availability<select id="cyberProductAvailability"><option value="available">Available</option><option value="out_of_stock">Out of Stock</option><option value="inactive">Inactive</option></select></label>
+              <label>Product image<input id="cyberProductImage" type="file" accept="image/jpeg,image/png,image/webp"></label>
+              <label class="wide">Description<textarea id="cyberProductDescription" rows="2"></textarea></label>
+              <div class="cyber-inline-actions"><button id="cancelCyberProductEdit" class="secondary" type="button">Clear</button><button id="cyberProductSubmit" class="primary" type="submit">Add Product &amp; Send for Approval</button></div>
+            </form>
+            <p id="cyberProductStatus" class="cyber-status"></p>
+            <div id="cyberProductList" class="cyber-list"><div class="cyber-empty">No products yet.</div></div>
+          </section>
+        </section>
+
+        <section class="cyber-view" data-cyber-content="profile">
+          <section class="cyber-panel">
+            <div class="cyber-panel-head"><div><span>MY PROFILE</span><h3>Approved Cyber Shop Profile</h3><p>Profile changes are sent to Admin before replacing the currently approved information.</p></div><button id="editCyberProfile" class="primary" type="button">Edit Profile &amp; Send to Admin</button></div>
+            <div id="cyberProfileSummary" class="cyber-profile-grid"></div>
+            <p><a id="cyberProfileMapLink" class="cyber-location-link" href="#" target="_blank" rel="noopener">📍 Open Shop Location</a></p>
+          </section>
+        </section>
+      </div>
+    </section>
+  </section>
+
   <section class="seller-shell" id="sellerShell" hidden>
     <section id="sellerBootStatus" class="panel seller-boot-status">
       <div class="seller-boot-spinner" aria-hidden="true"></div>
@@ -1414,5 +1539,5 @@
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=partner-profile-approval-1" defer></script>
+<script src="partner.js?v=cyber-partner-1" defer></script>\n<script src="cyber.js?v=cyber-partner-1" defer></script>
 </body></html>
