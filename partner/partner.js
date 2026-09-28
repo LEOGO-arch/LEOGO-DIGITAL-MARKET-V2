@@ -2838,6 +2838,34 @@ async function replacePremiumMediaSlot(slot,file,button=null){
     if(button){button.disabled=false;button.textContent=original;}
   }
 }
+function populatePremiumPublicProfileEditForm(){
+  const p=premiumProfile?.profile||{};
+  const d=premiumProfile?.details||{};
+  if($('#premiumEditDisplayName'))$('#premiumEditDisplayName').value=p.display_name||'';
+  if($('#premiumEditGender'))$('#premiumEditGender').value=p.gender||'';
+  if($('#premiumEditAge'))$('#premiumEditAge').value=d.age||'';
+  if($('#premiumEditOrientation'))$('#premiumEditOrientation').value=d.orientation||'';
+  if($('#premiumEditLocation'))$('#premiumEditLocation').value=p.general_location||'';
+  if($('#premiumEditAbout'))$('#premiumEditAbout').value=p.about||'';
+  if($('#premiumEditAboutCount'))$('#premiumEditAboutCount').textContent=String((p.about||'').length);
+}
+function setPremiumPublicProfileEditOpen(open){
+  const form=$('#premiumPublicProfileEditForm');
+  const summary=$('#premiumPublicProfileSummary');
+  const button=$('#editPremiumPublicProfile');
+  if(form)form.hidden=!open;
+  if(summary)summary.hidden=Boolean(open);
+  if(button){
+    button.disabled=Boolean(open);
+    button.textContent=open?'Editing Profile':'✎ Edit Profile';
+  }
+  if(open){
+    populatePremiumPublicProfileEditForm();
+    status($('#premiumProfileEditStatus'),'');
+    window.setTimeout(()=>$('#premiumEditDisplayName')?.focus(),40);
+  }
+}
+
 async function renderPremiumProfile(){
   hidePremiumBoot();
   premiumOnboarding.hidden=true;premiumReg.hidden=true;premiumPendingArea.hidden=true;premiumDashboard.hidden=true;
@@ -2899,6 +2927,7 @@ async function renderPremiumProfile(){
         '<h4>Gallery Photos</h4>'+
         '<div class="premium-gallery-slots">'+galleryHtml+'</div>'+
       '</div>';
+    setPremiumPublicProfileEditOpen(false);
   }else{
     premiumPendingArea.hidden=false;
     $('#premiumPendingTitle').textContent=state==='changes_requested'?'Premium Profile corrections required':state==='rejected'?'Premium Profile not approved':state==='under_review'?'Premium Profile under review':'Premium Profile application submitted';
@@ -2999,6 +3028,52 @@ async function openPremiumPartnerChat(requestId){
     if(!premiumPartnerChatModal?.hidden&&document.visibilityState==='visible')loadPremiumPartnerChat({scroll:false,silent:true});
   },4000);
 }
+$('#editPremiumPublicProfile')?.addEventListener('click',()=>setPremiumPublicProfileEditOpen(true));
+$('#cancelPremiumProfileEdit')?.addEventListener('click',()=>setPremiumPublicProfileEditOpen(false));
+$('#premiumEditAbout')?.addEventListener('input',(event)=>{
+  if($('#premiumEditAboutCount'))$('#premiumEditAboutCount').textContent=String(event.currentTarget.value.length);
+});
+$('#premiumPublicProfileEditForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const form=event.currentTarget;
+  if(!form.reportValidity())return;
+  const p=premiumProfile?.profile||{};
+  if(!p.profile_picture_path){
+    status($('#premiumProfileEditStatus'),'Profile picture is required before saving profile changes.','error');
+    return;
+  }
+
+  const button=$('#savePremiumProfileEdit');
+  const original=button?.textContent||'Save Changes';
+  if(button){button.disabled=true;button.textContent='Saving…';}
+  status($('#premiumProfileEditStatus'),'Saving profile changes…');
+
+  try{
+    const {data,error}=await client.rpc('premium_partner_update_public_profile',{
+      p_display_name:$('#premiumEditDisplayName').value.trim(),
+      p_gender:$('#premiumEditGender').value.trim(),
+      p_age:Number($('#premiumEditAge').value),
+      p_orientation:$('#premiumEditOrientation').value.trim(),
+      p_general_location:$('#premiumEditLocation').value.trim(),
+      p_about:$('#premiumEditAbout').value.trim(),
+      p_profile_picture_path:p.profile_picture_path,
+      p_replace_gallery:false,
+      p_gallery_paths:[]
+    });
+    if(error)throw error;
+    if(data?.error)throw new Error(data.error);
+
+    premiumProfile=data?.profile||premiumProfile;
+    await renderPremiumProfile();
+    openPremiumView('profile');
+    status($('#premiumPublicProfileNotice'),'Profile information updated successfully.','success');
+  }catch(error){
+    status($('#premiumProfileEditStatus'),error?.message||'Profile changes could not be saved.','error');
+  }finally{
+    if(button){button.disabled=false;button.textContent=original;}
+  }
+});
+
 $('#closePremiumPartnerChat')?.addEventListener('click',closePremiumPartnerChat);
 premiumPartnerChatModal?.querySelectorAll('[data-close-premium-partner-chat]').forEach(node=>node.addEventListener('click',closePremiumPartnerChat));
 premiumPartnerChatForm?.addEventListener('submit',async(event)=>{
