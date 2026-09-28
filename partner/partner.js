@@ -349,14 +349,36 @@ $('#partnerLoginForm').addEventListener('submit',async e=>{
 $('#partnerRegisterForm').addEventListener('submit',async e=>{e.preventDefault();status($('#partnerAuthStatus'),'Creating account…');const {data,error}=await client.auth.signUp({email:$('#partnerRegisterEmail').value.trim(),password:$('#partnerRegisterPassword').value,options:{data:{full_name:$('#partnerRegisterName').value.trim()}}});if(error){status($('#partnerAuthStatus'),error.message,'error');return;}status($('#partnerAuthStatus'),data.session?'Account created. Choose the partnership you want to register for.':'Account created. Sign in to continue to partnership selection.','success');});
 logout.addEventListener('click',()=>client.auth.signOut());
 $('#backToPartnerships').addEventListener('click',()=>showRolePicker());
-$$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
+$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   if(button.disabled)return;
-  if(button.dataset.roleTarget==='seller')openSellerRole();
-  if(button.dataset.roleTarget==='service_provider')openProviderRole();
-  if(button.dataset.roleTarget==='transport')openTransportRole();
-  if(button.dataset.roleTarget==='cyber')activeRole='cyber';
-  if(button.dataset.roleTarget==='premium')openPremiumRole();
-  if(button.dataset.roleTarget==='accommodation')openAccommodationRole();
+  const target=button.dataset.roleTarget;
+  if(target==='seller')openSellerRole();
+  if(target==='service_provider')openProviderRole();
+  if(target==='transport')openTransportRole();
+  if(target==='cyber'){
+    activeRole='cyber';
+    document.body.classList.add('cyber-role-open');
+    rolePicker.hidden=true;
+    authShell.hidden=true;
+    hero.hidden=true;
+    if(typeof window.leogoOpenCyberPartner==='function'){
+      window.leogoOpenCyberPartner();
+    }else{
+      // Fail-safe: never leave the Cyber card looking dead if its module is still loading.
+      window.setTimeout(()=>{
+        if(typeof window.leogoOpenCyberPartner==='function')window.leogoOpenCyberPartner();
+        else{
+          document.body.classList.remove('cyber-role-open');
+          activeRole='';
+          rolePicker.hidden=false;
+          hero.hidden=false;
+          showAuthStatus('Cyber Services is still loading. Refresh the page once and try again.','error');
+        }
+      },250);
+    }
+  }
+  if(target==='premium')openPremiumRole();
+  if(target==='accommodation')openAccommodationRole();
 }));
 
 async function uploadSellerVerification(file,prefix){
