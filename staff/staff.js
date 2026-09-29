@@ -27,6 +27,7 @@ const deliveryStatusLabel=status=>({
   sorting_received:'Received at LEOGO Sorting Center',
   ready_for_dispatch:'Ready for dispatch',
   on_the_way:'On the way to customer',
+  ready_for_pickup:'Ready for Pickup',
   delivered:'Delivered',
   cancelled:'Cancelled',
   failed:'Failed'
@@ -141,7 +142,7 @@ async function loadJobs(){
 function render(){
   $('#riderAssignedCount').textContent=jobs.filter(j=>j.status==='assigned').length;
   $('#riderPickedCount').textContent=jobs.filter(j=>['picked_up','arrived_sorting_center','sorting_received','ready_for_dispatch'].includes(j.status)).length;
-  $('#riderTransitCount').textContent=jobs.filter(j=>j.status==='on_the_way').length;
+  $('#riderTransitCount').textContent=jobs.filter(j=>['on_the_way','ready_for_pickup'].includes(j.status)).length;
   $('#riderDeliveredCount').textContent=jobs.filter(j=>j.status==='delivered').length;
 
   const qrOrder=requestedOrderId();
@@ -151,7 +152,7 @@ function render(){
       ?jobs
       :filter==='delivered'
         ?jobs.filter(j=>j.status==='delivered')
-        :jobs.filter(j=>['assigned','picked_up','arrived_sorting_center','sorting_received','ready_for_dispatch','on_the_way'].includes(j.status));
+        :jobs.filter(j=>['assigned','picked_up','arrived_sorting_center','sorting_received','ready_for_dispatch','on_the_way','ready_for_pickup'].includes(j.status));
 
   $('#riderJobList').innerHTML=visible.length?visible.map(job=>{
     const pickups=(job.seller_pickups||[]).map(s=>{
@@ -171,14 +172,18 @@ function render(){
         :job.status==='ready_for_dispatch'
           ?['on_the_way','Start Delivery from Sorting Center']
           :job.status==='on_the_way'
-            ?['delivered','Mark Delivered']
+            ?(job.delivery_zone==='pickup'?null:['delivered','Mark Delivered'])
             :null;
 
     const waitingMessage=job.status==='arrived_sorting_center'
       ?'Waiting for LEOGO staff to confirm receipt at the Sorting Center.'
       :job.status==='sorting_received'
         ?'Order received at the Sorting Center. Waiting for staff to mark it Ready for Dispatch.'
-        :'';
+        :job.status==='on_the_way'&&job.delivery_zone==='pickup'
+          ?'Deliver this parcel to the selected Pickup Station. The Pickup Station Partner must scan it to confirm receipt.'
+          :job.status==='ready_for_pickup'
+            ?'Pickup Station has received this parcel. It is now waiting for customer collection.'
+            :'';
 
     const codWarning=job.cod_payment_required
       ? '<div class="rider-cod-warning"><strong>💵 CASH ON DELIVERY</strong><span>Collect and confirm the full '+esc(money(job.grand_total_kes))+' before handing the order to the customer.</span></div>'
