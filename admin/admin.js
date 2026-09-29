@@ -5815,6 +5815,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     bindEvents();
+    resetAdvertisementForm();
     initializeAuth();
     // Pickup Station receipt/handover events feed the Admin bell without requiring a manual refresh.
     window.setInterval(()=>refreshPickupActivityForBell().catch(()=>{}),20000);
