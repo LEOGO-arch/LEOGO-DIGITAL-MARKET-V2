@@ -798,3 +798,22 @@
 .advert-row-actions{display:flex;gap:6px;flex-wrap:wrap}.advert-row-actions button{border:1px solid #d8e0ea;border-radius:8px;background:#fff;padding:7px 9px;font-weight:800;cursor:pointer}.advert-row-actions .danger{color:#a72b33;border-color:#f0c9cc}
 @media(max-width:1000px){.advert-admin-layout{grid-template-columns:1fr}}
 @media(max-width:700px){.advert-form-grid{grid-template-columns:1fr}.advert-admin-head-actions,.advert-form-actions{width:100%}.advert-admin-head-actions button,.advert-form-actions button{flex:1}.advert-rich-editor{min-height:150px}}
+
+
+/* Advertisement website pop-up push */
+.advert-popup-push{
+  display:grid!important;
+  grid-template-columns:auto 1fr;
+  gap:10px!important;
+  align-items:flex-start;
+  padding:13px 14px;
+  border:1px solid #ffd8b5;
+  border-radius:12px;
+  background:#fff8f1;
+  cursor:pointer;
+}
+.advert-popup-push input{width:auto!important;margin-top:3px}
+.advert-popup-push span{display:grid;gap:4px}
+.advert-popup-push b{color:#8f4300;font-size:12px}
+.advert-popup-push small{color:#755d48;font-size:10px;line-height:1.45;font-weight:600}
+.advert-popup-badge{display:inline-flex;margin-top:5px;padding:4px 7px;border-radius:999px;background:#fff0e4;color:#b24f00;font-size:9px;font-weight:900}
