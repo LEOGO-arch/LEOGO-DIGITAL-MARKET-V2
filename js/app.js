@@ -809,6 +809,7 @@
       ? '<strong>' + escapePickupText(station.station_name) + '</strong><span>' + escapePickupText(pickupStationAddress(station)) + '</span>' +
         (station.latitude!=null&&station.longitude!=null?'<span>Coordinates: <b>'+escapePickupText(station.latitude)+', '+escapePickupText(station.longitude)+'</b></span>':'') +
         (station.map_link?'<span><a href="'+escapePickupText(station.map_link)+'" target="_blank" rel="noopener noreferrer">📍 Open Pickup Station Location ↗</a></span>':'') +
+        '<span>Shipping fee to this Pickup Station: <b>' + deliveryMoney(station.shipping_fee_kes??0) + '</b></span>' +
         '<span>Pickup service fee: <b>' + Number(station.service_fee_percent || 0).toLocaleString() + '%</b> of the items subtotal</span>'
       : '';
   };
@@ -823,7 +824,7 @@
     pickupStations.forEach((station) => {
       const option = document.createElement('option');
       option.value = station.id;
-      option.textContent = station.station_name + ' — ' + station.town;
+      option.textContent = station.station_name + ' — ' + station.town + ' — Shipping ' + deliveryMoney(station.shipping_fee_kes??0);
       checkoutPickupStation.appendChild(option);
     });
     checkoutPickupStation.disabled = pickupStations.length === 0;
@@ -842,7 +843,7 @@
     if (checkoutPickupStationStatus) checkoutPickupStationStatus.textContent = 'Loading active pickup stations…';
     const { data, error } = await window.leogoAuth.client
       .from('pickup_stations')
-      .select('id,station_name,county,sub_county,town,address_line,landmark,door_number,service_fee_percent,display_order,latitude,longitude,map_link')
+      .select('id,station_name,county,sub_county,town,address_line,landmark,door_number,service_fee_percent,shipping_fee_kes,display_order,latitude,longitude,map_link')
       .eq('is_active', true)
       .order('display_order', { ascending: true })
       .order('station_name', { ascending: true });
@@ -855,7 +856,7 @@
     pickupStations = Array.isArray(data) ? data : [];
     populatePickupStations();
     if (checkoutPickupStationStatus) checkoutPickupStationStatus.textContent = pickupStations.length
-      ? 'Pickup stations and percentage fees are managed by authorized LEOGO Admin/Staff.'
+      ? 'Pickup Station shipping fees and service fees are managed by authorized LEOGO Admin/Staff.'
       : 'No active pickup station is available. Please choose another delivery zone.';
     updateCheckoutFees();
     updateCheckoutReadiness();
@@ -887,7 +888,7 @@
       estate: { amount: Number(deliveryRateSettings.estate_fee_kes??80), label: deliveryMoney(deliveryRateSettings.estate_fee_kes??80) },
       outside: { amount: Number(deliveryRateSettings.outside_town_fee_kes??200), label: 'From ' + deliveryMoney(deliveryRateSettings.outside_town_fee_kes??200) },
       quote: { amount: null, label: 'Admin quote' },
-      pickup: { amount: 0, label: 'Collect at station' }
+      pickup: { amount: Number(selectedPickupStation()?.shipping_fee_kes??0), label: selectedPickupStation() ? deliveryMoney(selectedPickupStation()?.shipping_fee_kes??0) : 'Select pickup station' }
     };
     const delivery = deliveryRules[checkoutDeliveryZone?.value];
     const station = checkoutDeliveryZone?.value === 'pickup' ? selectedPickupStation() : null;
