@@ -308,5 +308,21 @@ client.auth.onAuthStateChange((event,session)=>{
   if(session?.user&&!currentUser){currentUser=session.user;loadAll().catch(()=>{});}
 });
 window.addEventListener('beforeunload',stopScanner);
+
+// Keep the station dashboard fresh so newly booked parcels appear without a manual reload.
+window.setInterval(()=>{
+  if(document.visibilityState!=='visible'||!currentUser||!dashboard?.assigned)return;
+  Promise.all([
+    loadDashboard(),
+    loadParcels(),
+    loadWithdrawals()
+  ]).catch(()=>{});
+},30000);
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&currentUser&&dashboard?.assigned){
+    Promise.all([loadDashboard(),loadParcels(),loadReturns(),loadWithdrawals()]).catch(()=>{});
+  }
+});
+
 boot();
 })();
