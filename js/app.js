@@ -461,13 +461,33 @@
 
   const openAdvertisementLightbox = () => {
     const image = advertisementPoster?.querySelector('img');
-    if (!image?.src) return;
+    if (!image?.src) return false;
     ensureAdvertisementLightbox();
     advertisementLightboxImage.src = image.currentSrc || image.src;
     advertisementLightboxImage.alt = image.alt || 'Full advertisement poster';
     advertisementLightbox.hidden = false;
     document.body.classList.add('advertisement-lightbox-open');
     window.setTimeout(() => advertisementLightboxClose?.focus(), 0);
+    return true;
+  };
+
+  const pushedAdvertisementSeenKey = (advertisement) => {
+    const revision = Number(advertisement?.popup_revision || 0);
+    return 'leogo_advert_popup_seen_' + String(advertisement?.id || '') + '_' + revision;
+  };
+
+  const maybeOpenPushedAdvertisement = (advertisement) => {
+    if (!advertisement?.id || !advertisement.popup_on_entry || !advertisement.poster_path) return;
+    const key = pushedAdvertisementSeenKey(advertisement);
+    try {
+      if (window.localStorage.getItem(key) === '1') return;
+    } catch {}
+
+    window.setTimeout(() => {
+      const opened = openAdvertisementLightbox();
+      if (!opened) return;
+      try { window.localStorage.setItem(key,'1'); } catch {}
+    }, 650);
   };
 
   advertisementPoster?.addEventListener('click', openAdvertisementLightbox);
@@ -572,7 +592,9 @@
       console.warn('Advertisement could not load:', error);
       return;
     }
-    renderActiveAdvertisement(data && Object.keys(data).length ? data : null, client);
+    const activeAdvertisement = data && Object.keys(data).length ? data : null;
+    renderActiveAdvertisement(activeAdvertisement, client);
+    maybeOpenPushedAdvertisement(activeAdvertisement);
   };
 
   window.addEventListener('load', () => {
