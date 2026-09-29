@@ -275,6 +275,11 @@
         setStatus('Add advertisement text or upload a poster.','error');
         return;
       }
+      if ($('#advertisementPopupOnEntry')?.checked && !posterPath) {
+        if (uploadedPath) await db.storage.from('advertisement-media').remove([uploadedPath]).catch(() => {});
+        setStatus('Upload a poster image before turning on the website pop-up push.','error');
+        return;
+      }
 
       const payload = {
         title: $('#advertisementTitle').value.trim(),
