@@ -50,6 +50,10 @@
     paymentAccounts: [],
     paymentAssignments: [],
     pickupStations: [],
+    pickupStationPartners: [],
+    pickupStationEvents: [],
+    pickupStationWithdrawals: [],
+    pickupStationReturns: [],
     walletSettings: null,
     transportFinanceSettings: null,
     deliveryRateSettings: null,
@@ -217,6 +221,21 @@
       });
     });
 
+    (state.pickupStationEvents||[]).slice(0,20).forEach((item)=>{
+      const type=String(item.event_type||'update').replaceAll('_',' ');
+      items.push({
+        key:'pickup-station:'+String(item.event_id||'')+':'+String(item.event_type||''),
+        category:'Pickup Station',
+        title:'Pickup Station '+type,
+        message:String(item.station_name||'Pickup Station')+' · '+String(item.parcel_reference||'Parcel')+(item.notes?' · '+String(item.notes):''),
+        created_at:item.created_at,
+        view:'transport',
+        tab:'pickup',
+        sourceId:item.pickup_station_id,
+        priority:['received','handed_over','return_booked','withdrawal_requested'].includes(item.event_type)
+      });
+    });
+
     (state.dashboard?.alerts||[]).forEach((item)=>{
       items.push({
         key:'system-alert:'+String(item.title||'alert')+':'+String(item.view||'dashboard')+':'+String(item.detail||''),
@@ -288,6 +307,13 @@
       changeView('approvals');
       const approval=state.approvals.find((row)=>String(row.kind)===String(item.kind)&&String(row.record_id)===String(item.recordId));
       if(approval)window.setTimeout(()=>openApproval(item.kind,item.recordId),60);
+      return;
+    }
+    if(item.category==='Pickup Station'){
+      activeTransportSection='pickup';
+      changeView('transport');
+      changeTransportSection('pickup');
+      window.setTimeout(()=>$('#pickupStationEventList')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
       return;
     }
     if(item.category==='Transport'){
@@ -3613,14 +3639,132 @@
   };
 
   const loadPickupStations = async () => {
-    const { data, error } = await db.from('pickup_stations').select('*').order('display_order').order('station_name');
-    if (error) throw error;
-    state.pickupStations = data || [];
+    const [stationsResult,partnersResult,eventsResult,withdrawalsResult,returnsResult]=await Promise.all([
+      db.from('pickup_stations').select('*').order('display_order').order('station_name'),
+      db.rpc('admin_list_pickup_station_partners'),
+      db.rpc('admin_list_pickup_station_events',{p_limit:60}),
+      db.rpc('admin_list_pickup_station_withdrawals'),
+      db.rpc('admin_list_pickup_station_returns')
+    ]);
+    if(stationsResult.error) throw stationsResult.error;
+    state.pickupStationPartners=partnersResult.error?[]:(partnersResult.data||[]);
+    state.pickupStationEvents=eventsResult.error?[]:(eventsResult.data||[]);
+    state.pickupStationWithdrawals=withdrawalsResult.error?[]:(withdrawalsResult.data||[]);
+    state.pickupStationReturns=returnsResult.error?[]:(returnsResult.data||[]);
+    const partnerMap=new Map(state.pickupStationPartners.map(row=>[String(row.pickup_station_id),row]));
+    state.pickupStations=(stationsResult.data||[]).map(station=>({...station,partner:partnerMap.get(String(station.id))||null}));
     renderPickupStations();
+    renderPickupStationWithdrawals();
+    renderPickupStationReturns();
+    renderPickupStationEvents();
   };
+
+  const assignPickupStationPartner=async(stationId)=>{
+    const station=state.pickupStations.find(row=>row.id===stationId);
+    const email=(window.prompt('Enter the LEOGO account email for the Pickup Station Partner:','')||'').trim();
+    if(!email)return;
+    const displayName=(window.prompt('Partner display / contact name (optional):',station?.partner?.partner_name||'')||'').trim();
+    const phone=(window.prompt('Partner phone number (optional):',station?.partner?.partner_phone||station?.contact_phone||'')||'').trim();
+    globalStatus('Assigning Pickup Station Partner…');
+    const {data,error}=await db.rpc('admin_assign_pickup_station_partner',{
+      p_station_id:stationId,p_email:email,p_display_name:displayName||null,p_phone:phone||null
+    });
+    if(error){globalStatus(friendlyError(error),'error');return;}
+    globalStatus((data?.station_name||station?.station_name||'Pickup Station')+' assigned to '+email+'.');
+    await Promise.all([loadPickupStations(),loadAuditLog().catch(()=>{})]);
+  };
+
+  const unassignPickupStationPartner=async(stationId)=>{
+    const station=state.pickupStations.find(row=>row.id===stationId);
+    if(!window.confirm('Remove Pickup Station Partner access from '+(station?.station_name||'this station')+'?'))return;
+    const {error}=await db.rpc('admin_unassign_pickup_station_partner',{p_station_id:stationId});
+    if(error){globalStatus(friendlyError(error),'error');return;}
+    globalStatus('Pickup Station Partner access removed.');
+    await Promise.all([loadPickupStations(),loadAuditLog().catch(()=>{})]);
+  };
+
   const renderPickupStations = () => {
-    $('#pickupStationList').innerHTML = state.pickupStations.length ? state.pickupStations.map((station) => `<article class="station-card"><header><div><h3>${escapeHtml(station.station_name)}</h3><span class="status-chip">${station.is_active ? 'Active' : 'Inactive'}</span></div><strong>${Number(station.service_fee_percent || 0)}%</strong></header><p>${escapeHtml(station.address_line)}${station.door_number ? `, Door ${escapeHtml(station.door_number)}` : ''}<br>${escapeHtml([station.town, station.sub_county, station.county].filter(Boolean).join(' · '))}<br>${escapeHtml(station.landmark || '')}${station.contact_phone ? `<br>☎ ${escapeHtml(station.contact_phone)}` : ''}${station.operating_hours ? `<br>◷ ${escapeHtml(station.operating_hours)}` : ''}${station.latitude!=null&&station.longitude!=null?`<br>📍 ${escapeHtml(station.latitude)}, ${escapeHtml(station.longitude)}`:''}${station.map_link?`<br><a href="${escapeHtml(station.map_link)}" target="_blank" rel="noopener noreferrer">Open location ↗</a>`:''}</p><div class="card-actions"><button data-edit-station="${station.id}">Edit Station</button></div></article>`).join('') : '<div class="loading-card">No pickup stations configured.</div>';
-    $$('[data-edit-station]').forEach((button) => button.addEventListener('click', () => openPickupModal(button.dataset.editStation)));
+    $('#pickupStationList').innerHTML = state.pickupStations.length ? state.pickupStations.map((station) => {
+      const partner=station.partner||null;
+      const partnerInfo=partner?.partner_user_id
+        ? '<div class="station-partner"><b>📦 Pickup Partner</b><br>'+escapeHtml(partner.partner_name||partner.partner_email||'Assigned Partner')+
+          (partner.partner_email?'<br>'+escapeHtml(partner.partner_email):'')+
+          (partner.partner_phone?'<br>☎ '+escapeHtml(partner.partner_phone):'')+
+          '<br><span class="status-chip">'+escapeHtml(partner.partner_status||'active')+'</span></div>'
+        : '<div class="station-partner"><b>📦 Pickup Partner</b><br><span style="color:#7b8798">Not assigned</span></div>';
+      return `<article class="station-card"><header><div><h3>${escapeHtml(station.station_name)}</h3><span class="status-chip">${station.is_active ? 'Active' : 'Inactive'}</span></div><strong>${Number(station.service_fee_percent || 0)}%</strong></header><p>${escapeHtml(station.address_line)}${station.door_number ? `, Door ${escapeHtml(station.door_number)}` : ''}<br>${escapeHtml([station.town, station.sub_county, station.county].filter(Boolean).join(' · '))}<br>${escapeHtml(station.landmark || '')}${station.contact_phone ? `<br>☎ ${escapeHtml(station.contact_phone)}` : ''}${station.operating_hours ? `<br>◷ ${escapeHtml(station.operating_hours)}` : ''}${station.latitude!=null&&station.longitude!=null?`<br>📍 ${escapeHtml(station.latitude)}, ${escapeHtml(station.longitude)}`:''}${station.map_link?`<br><a href="${escapeHtml(station.map_link)}" target="_blank" rel="noopener noreferrer">Open location ↗</a>`:''}</p>${partnerInfo}<div class="card-actions"><button data-edit-station="${station.id}">Edit Station</button>${partner?.partner_user_id?'<button class="secondary-button" data-unassign-pickup-partner="'+station.id+'">Unassign Partner</button>':'<button class="primary-button" data-assign-pickup-partner="'+station.id+'">Assign Partner</button>'}<a class="secondary-button" href="../pickup/" target="_blank" rel="noopener">Open Partner Portal ↗</a></div></article>`;
+    }).join('') : '<div class="loading-card">No pickup stations configured.</div>';
+    $('[data-edit-station]').forEach((button) => button.addEventListener('click', () => openPickupModal(button.dataset.editStation)));
+    $('[data-assign-pickup-partner]').forEach(button=>button.addEventListener('click',()=>assignPickupStationPartner(button.dataset.assignPickupPartner)));
+    $('[data-unassign-pickup-partner]').forEach(button=>button.addEventListener('click',()=>unassignPickupStationPartner(button.dataset.unassignPickupPartner)));
+  };
+
+  const reviewPickupWithdrawal=async(button)=>{
+    const id=button.dataset.pickupWithdrawal;
+    const decision=button.dataset.decision;
+    let notes='';
+    if(decision==='reject'){
+      notes=(window.prompt('Reason for rejecting this withdrawal:','')||'').trim();
+      if(notes.length<3)return;
+    }else if(decision==='paid'){
+      if(!window.confirm('Confirm this Pickup Station withdrawal has been paid?'))return;
+      notes=(window.prompt('Payment note / reference (optional):','')||'').trim();
+    }
+    button.disabled=true;
+    const {error}=await db.rpc('admin_review_pickup_station_withdrawal',{p_withdrawal_id:id,p_decision:decision,p_notes:notes||null});
+    button.disabled=false;
+    if(error){globalStatus(friendlyError(error),'error');return;}
+    globalStatus('Pickup Station withdrawal updated.');
+    await Promise.all([loadPickupStations(),loadAuditLog().catch(()=>{})]);
+  };
+
+  const renderPickupStationWithdrawals=()=>{
+    const body=$('#pickupWithdrawalBody');if(!body)return;
+    body.innerHTML=state.pickupStationWithdrawals.length?state.pickupStationWithdrawals.map(row=>{
+      const actions=row.status==='pending'
+        ? '<button data-pickup-withdrawal="'+row.id+'" data-decision="approve">Approve</button><button class="secondary-button" data-pickup-withdrawal="'+row.id+'" data-decision="reject">Reject</button>'
+        : row.status==='approved'
+          ? '<button data-pickup-withdrawal="'+row.id+'" data-decision="paid">Mark Paid</button>'
+          : '—';
+      return '<tr><td><b>'+escapeHtml(row.station_name)+'</b><br><small>'+escapeHtml(row.partner_name||row.partner_email||'Partner')+'</small></td>'+
+        '<td><b>'+formatMoney(row.requested_amount_kes)+'</b></td>'+
+        '<td>'+escapeHtml(row.payout_method||'')+'<br><small>'+escapeHtml(row.payout_account_name||'')+(row.payout_phone?' · '+escapeHtml(row.payout_phone):'')+(row.payout_account_number?' · '+escapeHtml(row.payout_account_number):'')+'</small></td>'+
+        '<td>'+escapeHtml(formatDate(row.submitted_at,true))+'</td><td><span class="status-chip">'+escapeHtml(row.status)+'</span></td><td>'+actions+'</td></tr>';
+    }).join(''):'<tr><td colspan="6">No Pickup Station withdrawal requests yet.</td></tr>';
+    $('[data-pickup-withdrawal]').forEach(button=>button.addEventListener('click',()=>reviewPickupWithdrawal(button)));
+  };
+
+  const updatePickupReturnStatus=async(button)=>{
+    const id=button.dataset.pickupReturn;
+    const select=$('[data-pickup-return-status="'+id+'"]');
+    if(!select)return;
+    const notes=(window.prompt('Optional Admin note for this return parcel:','')||'').trim();
+    button.disabled=true;
+    const {error}=await db.rpc('admin_update_pickup_return_status',{p_return_id:id,p_status:select.value,p_notes:notes||null});
+    button.disabled=false;
+    if(error){globalStatus(friendlyError(error),'error');return;}
+    globalStatus('Return parcel status updated.');
+    await Promise.all([loadPickupStations(),loadAuditLog().catch(()=>{})]);
+  };
+
+  const renderPickupStationReturns=()=>{
+    const body=$('#pickupReturnBody');if(!body)return;
+    const statuses=['received_at_station','awaiting_dispatch','dispatched','completed','cancelled'];
+    body.innerHTML=state.pickupStationReturns.length?state.pickupStationReturns.map(row=>
+      '<tr><td><b>'+escapeHtml(row.return_reference)+'</b>'+(row.original_order_reference?'<br><small>Original '+escapeHtml(row.original_order_reference)+'</small>':'')+'</td>'+
+      '<td>'+escapeHtml(row.station_name)+'</td><td>'+escapeHtml(row.customer_name)+'<br><small>'+escapeHtml(row.customer_phone)+'</small></td>'+
+      '<td>'+escapeHtml(row.item_description)+'<br><small>'+escapeHtml(row.return_reason)+'</small></td>'+
+      '<td><select data-pickup-return-status="'+row.id+'">'+statuses.map(s=>'<option value="'+s+'" '+(s===row.status?'selected':'')+'>'+escapeHtml(s.replaceAll('_',' '))+'</option>').join('')+'</select></td>'+
+      '<td><button data-pickup-return="'+row.id+'">Save</button></td></tr>'
+    ).join(''):'<tr><td colspan="6">No Pickup Station return parcels yet.</td></tr>';
+    $('[data-pickup-return]').forEach(button=>button.addEventListener('click',()=>updatePickupReturnStatus(button)));
+  };
+
+  const renderPickupStationEvents=()=>{
+    const list=$('#pickupStationEventList');if(!list)return;
+    list.innerHTML=state.pickupStationEvents.length?state.pickupStationEvents.map(row=>
+      '<article class="admin-product-review-card"><div class="admin-product-review-main"><span>'+escapeHtml(String(row.event_type||'update').replaceAll('_',' '))+'</span><h4>'+escapeHtml(row.parcel_reference||'Parcel')+'</h4><p>'+escapeHtml(row.station_name||'Pickup Station')+(row.notes?' · '+escapeHtml(row.notes):'')+'</p><small>'+escapeHtml(formatDate(row.created_at,true))+(row.actor_email?' · '+escapeHtml(row.actor_email):'')+'</small></div></article>'
+    ).join(''):'<div class="loading-card">No Pickup Station activity yet.</div>';
   };
   const pickupStationCoordinatesFromText=(value='')=>{
     const text=String(value||'').trim();
