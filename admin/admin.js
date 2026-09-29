@@ -1825,6 +1825,7 @@
     sorting_received:'Received at LEOGO Sorting Center',
     ready_for_dispatch:'Ready for dispatch',
     on_the_way:'On the way to customer',
+    ready_for_pickup:'Ready for Pickup',
     delivered:'Delivered',
     failed:'Failed',
     cancelled:'Cancelled'
