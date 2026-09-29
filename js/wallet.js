@@ -50,6 +50,10 @@
     savingsTillNumber: document.getElementById('walletSavingsTillNumber'),
     savingsTillName: document.getElementById('walletSavingsTillName'),
     copySavingsTill: document.getElementById('copyWalletSavingsTill'),
+    depositPaymentLabel: document.getElementById('walletDepositPaymentLabel'),
+    depositPaymentNumber: document.getElementById('walletDepositPaymentNumber'),
+    depositPaymentName: document.getElementById('walletDepositPaymentName'),
+    copyDepositPayment: document.getElementById('copyWalletDepositPayment'),
     submitChallengePayment: document.getElementById('submitWalletChallengePayment'),
     loanForm: document.getElementById('walletLoanPreviewForm'),
     loanStatus: document.getElementById('walletLoanStatus')
@@ -61,7 +65,9 @@
   let ledgerEntries = [];
   let loanApplications = [];
   let withdrawalRequests = [];
-  let walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001, statement_fee_per_200_kes: 10, savings_till_number: null, savings_till_name: 'LEOGO Savings Wallet' };
+  let walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001, statement_fee_per_200_kes: 10 };
+  let walletDepositDestination = null;
+  let savingsChallengeDestination = null;
   let walletSecurity = { pin_is_set: false, pin_locked_until: null };
   let walletSummary = { balance: 0, withdrawable: 0, reserved: 0, total_saved: 0, points: 0, statement_transaction_count: 0, statement_download_fee: 0 };
   let loadVersion = 0;
@@ -319,14 +325,35 @@
     });
   };
 
+  const destinationNumber = (destination) => window.leogoPayments?.paymentNumber(destination) || '';
+  const destinationLabel = (destination) => window.leogoPayments?.typeLabel(destination) || 'Payment Account';
+  const destinationName = (destination) => window.leogoPayments?.destinationName(destination) || 'LEOGO DIGITAL MARKET';
+
   const renderSavingsTill = () => {
-    const till = String(walletSettings.savings_till_number || '').trim();
-    if (elements.savingsTillNumber) elements.savingsTillNumber.textContent = till || 'Awaiting Admin setup';
-    if (elements.savingsTillName) elements.savingsTillName.textContent = walletSettings.savings_till_name || 'LEOGO Savings Wallet';
-    if (elements.copySavingsTill) elements.copySavingsTill.disabled = !till;
+    const challengeNumber = destinationNumber(savingsChallengeDestination);
+    const depositNumber = destinationNumber(walletDepositDestination);
+    if (elements.savingsTillNumber) elements.savingsTillNumber.textContent = challengeNumber || 'Payment unavailable';
+    if (elements.savingsTillName) elements.savingsTillName.textContent = savingsChallengeDestination
+      ? `${destinationName(savingsChallengeDestination)} · ${destinationLabel(savingsChallengeDestination)}`
+      : 'Admin has not assigned a Savings Challenge account.';
+    if (elements.copySavingsTill) {
+      elements.copySavingsTill.disabled = !challengeNumber;
+      elements.copySavingsTill.textContent = challengeNumber ? 'Copy' : 'Unavailable';
+    }
+    if (elements.depositPaymentLabel) elements.depositPaymentLabel.textContent = walletDepositDestination
+      ? destinationLabel(walletDepositDestination)
+      : 'Wallet deposit account';
+    if (elements.depositPaymentNumber) elements.depositPaymentNumber.textContent = depositNumber || 'Payment unavailable';
+    if (elements.depositPaymentName) elements.depositPaymentName.textContent = walletDepositDestination
+      ? destinationName(walletDepositDestination)
+      : 'Admin has not assigned a Wallet / SACCO deposit account.';
+    if (elements.copyDepositPayment) {
+      elements.copyDepositPayment.disabled = !depositNumber;
+      elements.copyDepositPayment.textContent = depositNumber ? 'Copy' : 'Unavailable';
+    }
     if (elements.submitChallengePayment) {
-      elements.submitChallengePayment.disabled = !till;
-      elements.submitChallengePayment.title = till ? '' : 'Admin must set the savings Till number first.';
+      elements.submitChallengePayment.disabled = !challengeNumber;
+      elements.submitChallengePayment.title = challengeNumber ? '' : 'Admin must assign an active Savings Challenge payment account first.';
     }
   };
 
@@ -412,7 +439,9 @@
     ledgerEntries = [];
     loanApplications = [];
     withdrawalRequests = [];
-    walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001, statement_fee_per_200_kes: 10, savings_till_number: null, savings_till_name: 'LEOGO Savings Wallet' };
+    walletSettings = { maintenance_fee_kes: 100, reward_minimum_spend_kes: 500, reward_rate: 0.001, statement_fee_per_200_kes: 10 };
+    walletDepositDestination = null;
+    savingsChallengeDestination = null;
     walletSecurity = { pin_is_set: false, pin_locked_until: null };
     walletSummary = { balance: 0, withdrawable: 0, reserved: 0, total_saved: 0, points: 0, statement_transaction_count: 0, statement_download_fee: 0 };
     if (elements.statementConsent) elements.statementConsent.checked = false;
@@ -441,7 +470,7 @@
       client.from('wallet_ledger_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(200),
       client.from('wallet_loan_applications').select('*').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(50),
       client.from('wallet_withdrawal_requests').select('*').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(50),
-      client.from('wallet_settings').select('maintenance_fee_kes,reward_minimum_spend_kes,reward_rate,statement_fee_per_200_kes,savings_till_number,savings_till_name').eq('id', 1).single(),
+      client.from('wallet_settings').select('maintenance_fee_kes,reward_minimum_spend_kes,reward_rate,statement_fee_per_200_kes').eq('id', 1).single(),
       client.rpc('get_wallet_security_status'),
       client.rpc('get_my_wallet_summary')
     ]);
@@ -459,6 +488,15 @@
     loanApplications = loansResult.data || [];
     withdrawalRequests = withdrawalsResult.data || [];
     walletSettings = settingsResult.data || walletSettings;
+    if (window.leogoPayments) {
+      const [depositDestinationResult, challengeDestinationResult] = await Promise.all([
+        window.leogoPayments.getDestination('wallet_sacco_deposits', { force: true }),
+        window.leogoPayments.getDestination('savings_challenge', { force: true })
+      ]);
+      if (version !== loadVersion || currentUser?.id !== user.id) return;
+      walletDepositDestination = depositDestinationResult.error ? null : depositDestinationResult.data;
+      savingsChallengeDestination = challengeDestinationResult.error ? null : challengeDestinationResult.data;
+    }
     walletSecurity = securityResult.data?.success ? securityResult.data : { pin_is_set: false, pin_locked_until: null };
     walletSummary = summaryResult.data?.success ? summaryResult.data : walletSummary;
     setBadge(account?.account_status === 'frozen' ? 'ACCOUNT FROZEN' : 'LIVE & SECURE', account?.account_status === 'frozen' ? '' : 'live');
@@ -474,6 +512,10 @@
     event.preventDefault();
     if (!currentUser || !elements.savingForm.reportValidity()) return;
     runOnce(elements.savingForm, async () => {
+      if (!destinationNumber(walletDepositDestination)) {
+        setMessage(elements.savingStatus, 'Wallet deposits are temporarily unavailable because Admin has not assigned an active payment account.', 'error');
+        return;
+      }
       const amount = Number(document.getElementById('walletSavingAmount')?.value || 0);
       const reference = document.getElementById('walletSavingReference')?.value.trim();
       const paid = document.getElementById('walletSavingPaid')?.checked;
@@ -525,7 +567,7 @@
   });
 
   elements.copySavingsTill?.addEventListener('click', async () => {
-    const till = String(walletSettings.savings_till_number || '').trim();
+    const till = destinationNumber(savingsChallengeDestination);
     if (!till) return;
     try {
       await navigator.clipboard.writeText(till);
@@ -536,12 +578,24 @@
     }
   });
 
+  elements.copyDepositPayment?.addEventListener('click', async () => {
+    const number = destinationNumber(walletDepositDestination);
+    if (!number) return;
+    try {
+      await navigator.clipboard.writeText(number);
+      elements.copyDepositPayment.textContent = 'Copied';
+      window.setTimeout(() => { elements.copyDepositPayment.textContent = 'Copy'; }, 1600);
+    } catch {
+      setMessage(elements.savingStatus, `Payment number: ${number}. Press and hold the number to copy it.`, 'error');
+    }
+  });
+
   elements.challengePaymentForm?.addEventListener('submit', (event) => {
     event.preventDefault();
     if (!currentUser || !currentChallenge || !elements.challengePaymentForm.reportValidity()) return;
     runOnce(elements.challengePaymentForm, async () => {
-      if (!String(walletSettings.savings_till_number || '').trim()) {
-        setMessage(elements.challengePaymentStatus, 'The savings Till number has not been set by Admin yet.', 'error');
+      if (!destinationNumber(savingsChallengeDestination)) {
+        setMessage(elements.challengePaymentStatus, 'Savings Challenge payments are temporarily unavailable because Admin has not assigned an active payment account.', 'error');
         return;
       }
       const challengeDate = document.getElementById('walletSelectedChallengeKey')?.value;

@@ -3381,6 +3381,59 @@
     state.business = data;
     const form = $('#businessSettingsForm');
     Object.entries(data).forEach(([key, value]) => { if (form.elements[key]) form.elements[key].value = value ?? ''; });
+    const themeForm = $('#customerThemeForm');
+    if (themeForm) {
+      themeForm.elements.name.value = data.customer_theme_name || 'LEOGO Default';
+      themeForm.elements.primary.value = data.customer_theme_primary || '#071a3a';
+      themeForm.elements.secondary.value = data.customer_theme_secondary || '#123a76';
+      themeForm.elements.accent.value = data.customer_theme_accent || '#ff7800';
+      themeForm.elements.background.value = data.customer_theme_background || '#f5f7fb';
+      themeForm.elements.active.checked = data.customer_theme_active !== false;
+      renderCustomerThemePreview();
+    }
+  };
+
+  const renderCustomerThemePreview = () => {
+    const form = $('#customerThemeForm');
+    const preview = $('#customerThemePreview');
+    if (!form || !preview) return;
+    preview.style.setProperty('--theme-primary', form.elements.primary.value || '#071a3a');
+    preview.style.setProperty('--theme-secondary', form.elements.secondary.value || '#123a76');
+    preview.style.setProperty('--theme-accent', form.elements.accent.value || '#ff7800');
+    preview.style.setProperty('--theme-background', form.elements.background.value || '#f5f7fb');
+  };
+
+  const saveCustomerTheme = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = event.submitter || $('button[type="submit"]', form);
+    await withButtonLock(button, 'Publishing…', async () => {
+      const payload = {
+        name: form.elements.name.value.trim(),
+        primary: form.elements.primary.value,
+        secondary: form.elements.secondary.value,
+        accent: form.elements.accent.value,
+        background: form.elements.background.value,
+        active: form.elements.active.checked
+      };
+      const { data, error } = await db.rpc('admin_update_customer_theme', { p_theme: payload });
+      if (error) {
+        setFormStatus($('#customerThemeStatus'), friendlyError(error), 'error');
+        return;
+      }
+      state.business = { ...state.business,
+        customer_theme_name: data.name,
+        customer_theme_primary: data.primary,
+        customer_theme_secondary: data.secondary,
+        customer_theme_accent: data.accent,
+        customer_theme_background: data.background,
+        customer_theme_active: data.active
+      };
+      setFormStatus($('#customerThemeStatus'), data.active
+        ? 'Customer Website theme published. Refresh the customer page to see it.'
+        : 'Seasonal theme disabled. The Customer Website will use the original LEOGO colours.', 'success');
+      if (isSuperAdmin()) await loadAuditLog();
+    });
   };
 
   const saveBusinessSettings = async (event) => {
@@ -5525,6 +5578,8 @@
     $('#dashboardExportToggle').addEventListener('click',()=>{$('#dashboardExportMenu').hidden=!$('#dashboardExportMenu').hidden;});
     $$('[data-dashboard-export]').forEach(button=>button.addEventListener('click',async()=>{await exportDashboard(button.dataset.dashboardExport);$('#dashboardExportMenu').hidden=true;}));
     $('#businessSettingsForm').addEventListener('submit', saveBusinessSettings);
+    $('#customerThemeForm')?.addEventListener('submit', saveCustomerTheme);
+    $('#customerThemeForm')?.addEventListener('input', renderCustomerThemePreview);
     $('#walletFeesForm').addEventListener('submit', saveWalletSettings);
     $('#transportFinanceSettingsForm')?.addEventListener('submit', saveTransportFinanceSettings);
     $('#accommodationFinanceSettingsForm')?.addEventListener('submit', saveAccommodationFinanceSettings);

@@ -25,11 +25,14 @@
   const applicationPaymentFields = document.getElementById('premiumApplicationPaymentFields');
   const applicationPaymentReference = document.getElementById('premiumApplicationPaymentReference');
   const applicationPaymentPaid = document.getElementById('premiumApplicationPaymentPaid');
+  const applicationPaymentDestination = document.getElementById('premiumApplicationPaymentDestination');
+  const paymentDestination = document.getElementById('premiumPaymentDestination');
   const profileDirectory = document.getElementById('premiumProfileDirectory');
   const directoryAccessBadge = document.getElementById('premiumDirectoryAccessBadge');
   let plans = [];
   let currentUser = null;
   let currentCustomer = null;
+  let premiumPaymentDestination = null;
   let loadingFor = '';
   let premiumGalleryPhotos = [];
   let premiumGalleryIndex = 0;
@@ -96,6 +99,17 @@
     if (value === 24) return '24 hours';
     if (value % 24 === 0) return `${value / 24} days`;
     return `${value} hours`;
+  };
+
+  const renderPremiumPaymentDestination = () => {
+    const destination = premiumPaymentDestination;
+    const number = window.leogoPayments?.paymentNumber(destination) || '';
+    const message = destination && number
+      ? `${window.leogoPayments.typeLabel(destination)}: ${number} · ${window.leogoPayments.destinationName(destination)}${destination.instructions ? ` · ${destination.instructions}` : ''}`
+      : 'Premium payments are temporarily unavailable because Admin has not assigned an active payment account.';
+    [applicationPaymentDestination, paymentDestination].forEach((element) => {
+      if (element) element.textContent = message;
+    });
   };
 
   const normalizeKenyanPhone = (value) => {
@@ -635,6 +649,8 @@
 
   const resetDashboard = () => {
     currentCustomer = null;
+    premiumPaymentDestination = null;
+    renderPremiumPaymentDestination();
     setApplicationOpen(false);
     setStatusValue(applicationStatus, '', 'Not started');
     setStatusValue(paymentStatus, '', 'No payment');
@@ -652,6 +668,11 @@
     if (!force && loadingFor === user.id) return;
     loadingFor = user.id;
     setMessage(applicationMessage, 'Loading your Premium application…');
+    const destinationResult = window.leogoPayments
+      ? await window.leogoPayments.getDestination('premium_payments', { force })
+      : { data: null, error: new Error('Payment routing unavailable') };
+    premiumPaymentDestination = destinationResult.error ? null : destinationResult.data;
+    renderPremiumPaymentDestination();
     const [customerResult, privateResult, paymentsResult, membershipResult] = await Promise.all([
       client.from('premium_customers').select('*').eq('user_id', user.id).maybeSingle(),
       client.from('premium_customer_private_details').select('*').eq('user_id', user.id).maybeSingle(),
@@ -718,6 +739,10 @@
       }
       const chosenPlanId = applicationPlan?.value || '';
       const chosenPaymentReference = applicationPaymentReference?.value.trim() || '';
+      if (chosenPlanId && !window.leogoPayments?.paymentNumber(premiumPaymentDestination)) {
+        setMessage(applicationMessage, 'Premium payments are temporarily unavailable. Choose “Choose later” or contact LEOGO Customer Care.', 'error');
+        return;
+      }
       if (chosenPlanId && (!chosenPaymentReference || !applicationPaymentPaid?.checked)) {
         setMessage(applicationMessage, 'For a plan submitted with the application, paste the payment reference and confirm that you have paid. Otherwise select “Choose later”.', 'error');
         return;
@@ -777,6 +802,10 @@
       const plan = plans.find((item) => item.id === selectedPlanId.value);
       if (!plan) {
         setMessage(paymentMessage, 'Select an active Premium plan first.', 'error');
+        return;
+      }
+      if (!window.leogoPayments?.paymentNumber(premiumPaymentDestination)) {
+        setMessage(paymentMessage, 'Premium payments are temporarily unavailable because Admin has not assigned an active payment account.', 'error');
         return;
       }
       setMessage(paymentMessage, 'Submitting your payment for Admin confirmation…');

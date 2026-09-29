@@ -805,7 +805,7 @@
 
       <section class="admin-panel" data-admin-panel="settings">
         <div class="section-head"><div><span>ADMINISTRATION</span><h2>System Settings</h2><p>Official business information, payment destinations, fees and reserved system modules.</p></div></div>
-        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="data">Data Management</button><button data-settings-panel="reserved">More Settings</button></div>
+        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="data">Data Management</button><button data-settings-panel="reserved">More Settings</button></div>
 
         <div class="settings-panel active" data-settings-content="business">
           <form class="settings-form" id="businessSettingsForm">
@@ -825,6 +825,23 @@
               <label><span>Currency symbol</span><input name="currency_symbol" value="KSh"></label><label><span>Timezone</span><input name="timezone" value="Africa/Nairobi"></label>
             </div><div class="form-status" id="businessSettingsStatus"></div>
             <div class="locked-front-note">Customer Front is locked. These settings are now the official Admin source and will be connected to customer pages only through an approved integration change.</div>
+          </form>
+        </div>
+
+        <div class="settings-panel" data-settings-content="theme">
+          <form class="settings-form" id="customerThemeForm">
+            <div class="form-section-head"><div><span>🎨</span><div><h3>Customer Website Seasonal Theme</h3><p>Change the Customer Front colour palette for seasons and campaigns without changing its layout or functions.</p></div></div><button type="submit">Publish Theme</button></div>
+            <div class="form-grid customer-theme-grid">
+              <label class="wide"><span>Theme name</span><input name="name" maxlength="80" required placeholder="e.g. Christmas 2026"></label>
+              <label><span>Primary colour</span><input name="primary" type="color" required></label>
+              <label><span>Secondary colour</span><input name="secondary" type="color" required></label>
+              <label><span>Accent / button colour</span><input name="accent" type="color" required></label>
+              <label><span>Page background</span><input name="background" type="color" required></label>
+              <label class="wide customer-theme-active"><input name="active" type="checkbox"><span>Apply this theme on the Customer Website</span></label>
+            </div>
+            <div class="customer-theme-preview" id="customerThemePreview"><div><span>Customer Website preview</span><strong>LEOGO DIGITAL MARKET</strong><button type="button" tabindex="-1">Seasonal Action</button></div></div>
+            <div class="form-status" id="customerThemeStatus"></div>
+            <div class="locked-front-note">This changes only shared theme colours. Customer pages, forms, data and working functions remain unchanged. Turn the theme off to return to the original LEOGO colours.</div>
           </form>
         </div>
 
