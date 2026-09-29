@@ -149,6 +149,7 @@ const renderEarnings=()=>{
     <article><small>Period earnings</small><strong>${esc(money(data.period_earnings_kes))}</strong></article>
     <article><small>Parcels handed over</small><strong>${Number(data.parcels||0)}</strong></article>
     <article><small>Current earning / parcel</small><strong>${esc(money(data.current_handled_parcel_rate_kes??dashboard?.handled_parcel_earning_kes??20))}</strong></article>
+    <article><small>Earning source</small><strong>Delivery fee</strong></article>
     <article><small>Available balance</small><strong>${esc(money(data.available_balance_kes))}</strong></article>`;
   const daily=Array.isArray(data.daily)?data.daily:[];
   $('#earningsDaily').innerHTML=daily.length?daily.map(d=>`
