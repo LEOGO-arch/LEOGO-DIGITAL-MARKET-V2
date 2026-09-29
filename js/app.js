@@ -413,6 +413,103 @@
   const advertRequestModal = document.getElementById('advertRequestModal');
   const advertRequestForm = document.getElementById('advertRequestForm');
   const advertRequestStatus = document.getElementById('advertRequestStatus');
+  const activeAdvertisementCard = document.getElementById('activeAdvertisementCard');
+  const advertisementPoster = document.getElementById('advertisementPoster');
+  const advertisementTitle = document.getElementById('advertisementTitle');
+  const advertisementBody = document.getElementById('advertisementBody');
+  const advertisementPeriod = document.getElementById('advertisementPeriod');
+
+  const advertisementFallback = {
+    poster: advertisementPoster?.innerHTML || '',
+    title: advertisementTitle?.textContent || 'Promote your business to customers across Kenya',
+    body: advertisementBody?.innerHTML || '',
+    period: advertisementPeriod?.textContent || '✓ Poster and written information'
+  };
+
+  const sanitizePublicAdvertisementHtml = (html = '') => {
+    const template = document.createElement('template');
+    template.innerHTML = String(html || '');
+    const allowed = new Set(['B','STRONG','I','EM','U','BR','P','DIV','UL','OL','LI','A']);
+    Array.from(template.content.querySelectorAll('*')).forEach((node) => {
+      if (!allowed.has(node.tagName)) {
+        node.replaceWith(...Array.from(node.childNodes));
+        return;
+      }
+      Array.from(node.attributes).forEach((attr) => {
+        if (node.tagName === 'A' && attr.name.toLowerCase() === 'href') {
+          const href = String(attr.value || '').trim();
+          if (!/^(https?:|mailto:|tel:)/i.test(href)) node.removeAttribute(attr.name);
+        } else {
+          node.removeAttribute(attr.name);
+        }
+      });
+      if (node.tagName === 'A' && node.getAttribute('href')) {
+        node.setAttribute('target', '_blank');
+        node.setAttribute('rel', 'noopener noreferrer');
+      }
+    });
+    return template.innerHTML.trim();
+  };
+
+  const renderAdvertisementFallback = () => {
+    if (advertisementPoster) {
+      advertisementPoster.classList.remove('has-live-poster');
+      advertisementPoster.innerHTML = advertisementFallback.poster;
+    }
+    if (advertisementTitle) advertisementTitle.textContent = advertisementFallback.title;
+    if (advertisementBody) advertisementBody.innerHTML = advertisementFallback.body;
+    if (advertisementPeriod) advertisementPeriod.textContent = advertisementFallback.period;
+    activeAdvertisementCard?.classList.remove('is-live-advertisement');
+  };
+
+  const renderActiveAdvertisement = (advertisement, client) => {
+    if (!advertisement?.id) {
+      renderAdvertisementFallback();
+      return;
+    }
+    if (advertisementTitle) advertisementTitle.textContent = advertisement.title || 'Featured on LEOGO';
+    if (advertisementBody) advertisementBody.innerHTML = sanitizePublicAdvertisementHtml(advertisement.body_html || '');
+
+    if (advertisementPoster) {
+      if (advertisement.poster_path) {
+        const publicUrl = client.storage.from('advertisement-media').getPublicUrl(String(advertisement.poster_path)).data?.publicUrl || '';
+        advertisementPoster.innerHTML = '';
+        const image = document.createElement('img');
+        image.src = publicUrl;
+        image.alt = advertisement.title ? advertisement.title + ' advertisement poster' : 'Advertisement poster';
+        image.loading = 'lazy';
+        advertisementPoster.appendChild(image);
+        advertisementPoster.classList.add('has-live-poster');
+      } else {
+        advertisementPoster.classList.remove('has-live-poster');
+        advertisementPoster.innerHTML = '<span class="advertisement-poster-icon">📣</span><strong>FEATURED ADVERTISEMENT</strong><small>Selected and published by LEOGO Admin</small>';
+      }
+    }
+
+    if (advertisementPeriod) {
+      const end = new Date(advertisement.ends_at || '');
+      advertisementPeriod.textContent = Number.isNaN(end.getTime())
+        ? '✓ Published by LEOGO'
+        : '✓ Live until ' + new Intl.DateTimeFormat('en-KE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Nairobi' }).format(end);
+    }
+    activeAdvertisementCard?.classList.add('is-live-advertisement');
+  };
+
+  const loadActiveAdvertisement = async () => {
+    const client = window.leogoAuth?.client;
+    if (!client) return;
+    const { data, error } = await client.rpc('public_get_active_advertisement');
+    if (error) {
+      console.warn('Advertisement could not load:', error);
+      return;
+    }
+    renderActiveAdvertisement(data && Object.keys(data).length ? data : null, client);
+  };
+
+  window.addEventListener('load', () => {
+    loadActiveAdvertisement().catch((error) => console.warn('Advertisement refresh failed:', error));
+    window.setInterval(() => loadActiveAdvertisement().catch(() => {}), 60000);
+  });
 
   const closeAdvertRequest = () => {
     if (!advertRequestModal) return;
