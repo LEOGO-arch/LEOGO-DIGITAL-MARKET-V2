@@ -32,6 +32,35 @@ const eventLabel=(s)=>({
   return_booked:'Return parcel booked',return_dispatched:'Return dispatched',withdrawal_requested:'Withdrawal requested'
 })[s]||String(s||'').replaceAll('_',' ');
 
+const PICKUP_VERIFICATION_BUCKET='pickup-station-verification';
+const PICKUP_DOCUMENT_MAX_BYTES=8*1024*1024;
+const PICKUP_DOCUMENT_TYPES=new Set(['image/jpeg','image/png','image/webp','application/pdf']);
+
+const validatePickupDocument=(file,label)=>{
+  if(!file)return;
+  if(file.size>PICKUP_DOCUMENT_MAX_BYTES)throw new Error(label+' must be 8 MB or smaller.');
+  if(!PICKUP_DOCUMENT_TYPES.has(file.type))throw new Error(label+' must be JPG, PNG, WEBP or PDF.');
+};
+const pickupDocumentExtension=(file)=>{
+  if(file.type==='image/png')return 'png';
+  if(file.type==='image/webp')return 'webp';
+  if(file.type==='application/pdf')return 'pdf';
+  return 'jpg';
+};
+const uploadPickupDocument=async(file,prefix)=>{
+  if(!file)return null;
+  validatePickupDocument(file,prefix);
+  const path=currentUser.id+'/'+prefix+'-'+Date.now()+'-'+crypto.randomUUID()+'.'+pickupDocumentExtension(file);
+  const {error}=await client.storage.from(PICKUP_VERIFICATION_BUCKET).upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+};
+const removePickupDocuments=async(paths)=>{
+  const clean=(paths||[]).filter(Boolean);
+  if(!clean.length)return;
+  try{await client.storage.from(PICKUP_VERIFICATION_BUCKET).remove(clean);}catch(_error){}
+};
+
 const parseScannedCode=(raw)=>{
   const text=String(raw||'').trim();
   if(!text)return '';
@@ -224,6 +253,18 @@ const fillApplicationForm=(app={})=>{
     countySelect.value='';
     renderPickupSubcounties();
   }
+  const businessId=$('#pickupBusinessIdDocument');
+  const licence=$('#pickupBusinessLicence');
+  if(businessId){
+    businessId.required=!app.business_id_document_path;
+    businessId.dataset.existingPath=app.business_id_document_path||'';
+  }
+  if(licence){
+    licence.required=!app.business_licence_path;
+    licence.dataset.existingPath=app.business_licence_path||'';
+  }
+  if($('#pickupRegistrationCertificate'))$('#pickupRegistrationCertificate').dataset.existingPath=app.registration_certificate_path||'';
+  if($('#pickupOtherPermits'))$('#pickupOtherPermits').dataset.existingPaths=JSON.stringify(Array.isArray(app.other_permit_paths)?app.other_permit_paths:[]);
 };
 
 const renderApplicationGate=()=>{
@@ -418,8 +459,43 @@ $('#pickupApplicationForm')?.addEventListener('submit',async e=>{
   const v=Object.fromEntries(new FormData(e.currentTarget).entries());
   const latitude=String(v.latitude||'').trim();
   const longitude=String(v.longitude||'').trim();
+  const uploaded=[];
   try{
     if((latitude&&!longitude)||(!latitude&&longitude))throw new Error('Latitude and longitude must both be provided, or leave both blank.');
+
+    const currentApp=pickupApplication?.application||{};
+    const businessIdFile=$('#pickupBusinessIdDocument')?.files?.[0]||null;
+    const businessLicenceFile=$('#pickupBusinessLicence')?.files?.[0]||null;
+    const registrationFile=$('#pickupRegistrationCertificate')?.files?.[0]||null;
+    const otherFiles=[...($('#pickupOtherPermits')?.files||[])];
+
+    if(!businessIdFile&&!currentApp.business_id_document_path)throw new Error('Business ID / identification document is required.');
+    if(!businessLicenceFile&&!currentApp.business_licence_path)throw new Error('Business licence is required for Pickup Station registration.');
+    if(otherFiles.length>4)throw new Error('Choose a maximum of 4 other business permit files.');
+
+    [businessIdFile,businessLicenceFile,registrationFile,...otherFiles].forEach((file,index)=>{
+      if(file)validatePickupDocument(file,index===0?'Business ID / identification document':index===1?'Business licence':index===2?'Registration certificate':'Other permit');
+    });
+
+    setStatus($('#pickupApplicationFormStatus'),'Uploading private business documents…');
+    const businessIdPath=businessIdFile?await uploadPickupDocument(businessIdFile,'business-id'):(currentApp.business_id_document_path||null);
+    if(businessIdFile)uploaded.push(businessIdPath);
+    const businessLicencePath=businessLicenceFile?await uploadPickupDocument(businessLicenceFile,'business-licence'):(currentApp.business_licence_path||null);
+    if(businessLicenceFile)uploaded.push(businessLicencePath);
+    const registrationPath=registrationFile?await uploadPickupDocument(registrationFile,'registration-certificate'):(currentApp.registration_certificate_path||null);
+    if(registrationFile)uploaded.push(registrationPath);
+
+    let otherPermitPaths=Array.isArray(currentApp.other_permit_paths)?currentApp.other_permit_paths:[];
+    if(otherFiles.length){
+      otherPermitPaths=[];
+      for(let i=0;i<otherFiles.length;i++){
+        const path=await uploadPickupDocument(otherFiles[i],'permit-'+i);
+        uploaded.push(path);
+        otherPermitPaths.push(path);
+      }
+    }
+
+    setStatus($('#pickupApplicationFormStatus'),'Submitting application for Admin approval…');
     const {data,error}=await client.rpc('pickup_partner_submit_application',{
       p_station_name:String(v.station_name||'').trim(),
       p_applicant_name:String(v.applicant_name||'').trim(),
@@ -434,12 +510,17 @@ $('#pickupApplicationForm')?.addEventListener('submit',async e=>{
       p_operating_hours:String(v.operating_hours||'').trim()||null,
       p_latitude:latitude?Number(latitude):null,
       p_longitude:longitude?Number(longitude):null,
-      p_map_link:String(v.map_link||'').trim()||null
+      p_map_link:String(v.map_link||'').trim()||null,
+      p_business_id_document_path:businessIdPath,
+      p_business_licence_path:businessLicencePath,
+      p_registration_certificate_path:registrationPath,
+      p_other_permit_paths:otherPermitPaths
     });
     if(error)throw error;
     setStatus($('#pickupApplicationFormStatus'),'✓ Application submitted. LEOGO Admin must approve it before parcel functions unlock.','success');
     await loadPickupApplication();
   }catch(err){
+    await removePickupDocuments(uploaded);
     setStatus($('#pickupApplicationFormStatus'),err.message||'Application could not be submitted.','error');
   }finally{
     if(button){button.disabled=false;button.textContent=original;}
