@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Pickup Station Partner</title>
-  <link rel="stylesheet" href="pickup.css?v=pickup-approval-gate-1">
+  <link rel="stylesheet" href="pickup.css?v=pickup-location-dropdowns-1">
 </head>
 <body>
 <header class="topbar">
@@ -35,8 +35,16 @@
         <label>Applicant / owner name<input name="applicant_name" required minlength="2"></label>
         <label>ID / Business identification number<input name="id_number" required minlength="4"></label>
         <label>Phone number<input name="phone" type="tel" required></label>
-        <label>County<input name="county" required placeholder="Siaya"></label>
-        <label>Sub-County<input name="sub_county" required placeholder="Alego Usonga"></label>
+        <label>County
+          <select id="applicationCounty" name="county" required>
+            <option value="">Loading counties…</option>
+          </select>
+        </label>
+        <label>Sub-County
+          <select id="applicationSubCounty" name="sub_county" required disabled>
+            <option value="">Choose a county first</option>
+          </select>
+        </label>
         <label>Town / Trading Centre<input name="town" required placeholder="Siaya Town"></label>
         <label>Physical address<input name="address_line" required placeholder="Building / road / market"></label>
         <label>Nearest landmark<input name="landmark" placeholder="Optional"></label>
