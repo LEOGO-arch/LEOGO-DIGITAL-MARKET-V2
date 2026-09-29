@@ -3658,24 +3658,51 @@
   };
 
   const loadPickupStations = async () => {
-    const [stationsResult,partnersResult,eventsResult,withdrawalsResult,returnsResult]=await Promise.all([
+    const [stationsResult,partnersResult,eventsResult,withdrawalsResult,returnsResult,financeResult]=await Promise.all([
       db.from('pickup_stations').select('*').order('display_order').order('station_name'),
       db.rpc('admin_list_pickup_station_partners'),
       db.rpc('admin_list_pickup_station_events',{p_limit:60}),
       db.rpc('admin_list_pickup_station_withdrawals'),
-      db.rpc('admin_list_pickup_station_returns')
+      db.rpc('admin_list_pickup_station_returns'),
+      db.rpc('admin_get_pickup_station_finance_settings')
     ]);
     if(stationsResult.error) throw stationsResult.error;
+    if(financeResult.error) throw financeResult.error;
     state.pickupStationPartners=partnersResult.error?[]:(partnersResult.data||[]);
     state.pickupStationEvents=eventsResult.error?[]:(eventsResult.data||[]);
     state.pickupStationWithdrawals=withdrawalsResult.error?[]:(withdrawalsResult.data||[]);
     state.pickupStationReturns=returnsResult.error?[]:(returnsResult.data||[]);
+    state.pickupStationFinanceSettings=financeResult.data||{handled_parcel_earning_kes:20};
+    const financeForm=$('#pickupStationFinanceForm');
+    if(financeForm)financeForm.elements.handled_parcel_earning_kes.value=Number(state.pickupStationFinanceSettings.handled_parcel_earning_kes??20);
+    if($('#pickupHandledParcelEarningSummary'))$('#pickupHandledParcelEarningSummary').textContent=formatMoney(state.pickupStationFinanceSettings.handled_parcel_earning_kes??20);
     const partnerMap=new Map(state.pickupStationPartners.map(row=>[String(row.pickup_station_id),row]));
     state.pickupStations=(stationsResult.data||[]).map(station=>({...station,partner:partnerMap.get(String(station.id))||null}));
     renderPickupStations();
     renderPickupStationWithdrawals();
     renderPickupStationReturns();
     renderPickupStationEvents();
+  };
+
+  const savePickupStationFinanceSettings=async(event)=>{
+    event.preventDefault();
+    const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const amount=Number(event.currentTarget.elements.handled_parcel_earning_kes.value);
+      if(!Number.isFinite(amount)||amount<0){
+        setFormStatus($('#pickupStationFinanceStatus'),'Enter a valid earning amount of zero or above.','error');
+        return;
+      }
+      const {data,error}=await db.rpc('admin_update_pickup_station_finance_settings',{p_handled_parcel_earning_kes:amount});
+      if(error){
+        setFormStatus($('#pickupStationFinanceStatus'),friendlyError(error),'error');
+        return;
+      }
+      state.pickupStationFinanceSettings=data||{handled_parcel_earning_kes:amount};
+      setFormStatus($('#pickupStationFinanceStatus'),'Pickup Station earning updated. New successful parcel handovers will use '+formatMoney(amount)+'.','success');
+      if($('#pickupHandledParcelEarningSummary'))$('#pickupHandledParcelEarningSummary').textContent=formatMoney(amount);
+      await loadAuditLog().catch(()=>{});
+    });
   };
 
   const assignPickupStationPartner=async(stationId)=>{
@@ -5398,6 +5425,7 @@
       renderApprovals();
     });
     $('#deliveryRateSettingsForm')?.addEventListener('submit',saveDeliveryRateSettings);
+    $('#pickupStationFinanceForm')?.addEventListener('submit',savePickupStationFinanceSettings);
     $('#adminAddRiderForm').addEventListener('submit', addRider);
     $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
     document.querySelectorAll('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.addEventListener('click', () => {
