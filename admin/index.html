@@ -644,14 +644,14 @@
           <form id="pickupStationFinanceForm" class="form-grid" style="margin-bottom:20px">
             <label><span>Partner earning per handled parcel (KSh)</span><input id="pickupHandledParcelEarning" name="handled_parcel_earning_kes" type="number" min="0" step="1" required></label>
             <div class="wide">
-              <p style="margin:0 0 10px;color:#6b778b">A Pickup Station earns this amount only after the parcel is successfully handed over to the customer. This is separate from the customer Pickup Station service fee.</p>
+              <p style="margin:0 0 10px;color:#6b778b">A Pickup Station earns this amount only after the parcel is successfully handed over to the customer. The earning is funded from LEOGO delivery-fee revenue.</p>
               <button class="primary-button" type="submit">Save Pickup Station Earning</button>
               <div class="form-status" id="pickupStationFinanceStatus"></div>
             </div>
           </form>
 
           <div class="module-summary-grid" style="margin-bottom:20px">
-            <article><span>Handled Parcel Earning</span><strong id="pickupHandledParcelEarningSummary">KSh 20</strong><small>Credited after successful handover</small></article>
+            <article><span>Handled Parcel Earning</span><strong id="pickupHandledParcelEarningSummary">KSh 20</strong><small>Paid from delivery-fee revenue after successful handover</small></article>
           </div>
 
           <div class="station-grid" id="pickupStationList"><div class="loading-card">Loading pickup stations…</div></div>
@@ -992,7 +992,7 @@
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  <script src="admin.js?v=pickup-earning-rate-1" defer></script>
+  <script src="admin.js?v=pickup-docs-delivery-earning-1" defer></script>
   <script src="cyber.js?v=delivery-rates-admin-3" defer></script>
 </body>
 </html>
