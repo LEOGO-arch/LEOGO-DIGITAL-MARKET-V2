@@ -2014,3 +2014,38 @@ body.advertisement-lightbox-open{overflow:hidden}
     gap:24px;
   }
 }
+
+/* Admin-controlled Customer Website seasonal palette.
+   These overrides change colour only; existing layout and workflows remain intact. */
+.announcement,
+.customer-notification-head,
+.customer-care-chat-head{
+  background:var(--navy);
+}
+.hero{
+  background:linear-gradient(120deg,var(--navy) 0%,var(--navy2) 100%);
+}
+.hero .eyebrow,
+.premium-eyebrow,
+.advertisement-label{
+  color:var(--orange);
+}
+.premium-showcase{
+  background:linear-gradient(120deg,var(--navy) 0%,var(--navy2) 100%);
+}
+.premium-entry-button,
+.premium-lock,
+.bar-18-badge,
+.bar-enter-button,
+.advertisement-contact,
+.request-submit-button,
+.selling-submit-button{
+  background:var(--orange);
+}
+.bar-section-head,
+.advertisement-poster{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);
+}
+.site-footer a{
+  color:var(--orange)!important;
+}

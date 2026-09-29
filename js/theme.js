@@ -19,12 +19,27 @@
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.content = values.primary;
   };
+  let retryTimer = 0;
+  let retryCount = 0;
   const loadTheme = async () => {
     const client = window.leogoAuth?.client;
-    if (!client) return applyTheme(defaults);
+    if (!client) {
+      applyTheme(defaults);
+      if (retryCount < 20 && !retryTimer) {
+        retryCount += 1;
+        retryTimer = window.setTimeout(() => {
+          retryTimer = 0;
+          loadTheme();
+        }, 150);
+      }
+      return;
+    }
+    retryCount = 0;
     const { data, error } = await client.rpc('get_public_customer_theme');
     applyTheme(error || !data ? defaults : data);
   };
   loadTheme();
+  document.addEventListener('DOMContentLoaded', loadTheme, { once: true });
   document.addEventListener('leogo:authchange', loadTheme);
+  window.addEventListener('pageshow', loadTheme);
 })();
