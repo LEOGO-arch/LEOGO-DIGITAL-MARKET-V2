@@ -3743,8 +3743,8 @@
         : '<div class="station-partner"><b>📦 Pickup Partner</b><br><span style="color:#7b8798">Not assigned</span></div>';
       return `<article class="station-card"><header><div><h3>${escapeHtml(station.station_name)}</h3><span class="status-chip">${station.is_active ? 'Active' : 'Inactive'}</span></div><strong>${formatMoney(station.shipping_fee_kes??0)} shipping</strong></header><p>${escapeHtml(station.address_line)}${station.door_number ? `, Door ${escapeHtml(station.door_number)}` : ''}<br>${escapeHtml([station.town, station.sub_county, station.county].filter(Boolean).join(' · '))}<br>${escapeHtml(station.landmark || '')}${station.contact_phone ? `<br>☎ ${escapeHtml(station.contact_phone)}` : ''}${station.operating_hours ? `<br>◷ ${escapeHtml(station.operating_hours)}` : ''}${station.latitude!=null&&station.longitude!=null?`<br>📍 ${escapeHtml(station.latitude)}, ${escapeHtml(station.longitude)}`:''}${station.map_link?`<br><a href="${escapeHtml(station.map_link)}" target="_blank" rel="noopener noreferrer">Open location ↗</a>`:''}<br><b>Shipping fee:</b> ${escapeHtml(formatMoney(station.shipping_fee_kes??0))}<br><b>Pickup service fee:</b> ${Number(station.service_fee_percent||0)}%</p>${partnerInfo}<div class="card-actions"><button data-edit-station="${station.id}">Edit Station</button><button class="primary-button" data-set-pickup-shipping="${station.id}">Set Shipping Fee</button>${partner?.partner_user_id?'<button class="secondary-button" data-unassign-pickup-partner="'+station.id+'">Unassign Partner</button>':'<button class="primary-button" data-assign-pickup-partner="'+station.id+'">Create / Assign Partner Account</button>'}<a class="secondary-button" href="../pickup/" target="_blank" rel="noopener">Open Partner Portal ↗</a></div></article>`;
     }).join('') : '<div class="loading-card">No pickup stations configured.</div>';
-    $('[data-edit-station]').forEach((button) => button.addEventListener('click', () => openPickupModal(button.dataset.editStation)));
-    $('[data-set-pickup-shipping]').forEach(button=>button.addEventListener('click',async()=>{
+    $$('[data-edit-station]').forEach((button) => button.addEventListener('click', () => openPickupModal(button.dataset.editStation)));
+    $$('[data-set-pickup-shipping]').forEach(button=>button.addEventListener('click',async()=>{
       const station=state.pickupStations.find(row=>row.id===button.dataset.setPickupShipping);
       if(!station)return;
       const raw=window.prompt('Set shipping fee for '+station.station_name+' (KSh):',String(Number(station.shipping_fee_kes??50)));
@@ -3758,8 +3758,8 @@
       globalStatus(station.station_name+' shipping fee updated to '+formatMoney(amount)+'.');
       await Promise.all([loadPickupStations(),loadAuditLog().catch(()=>{})]);
     }));
-    $('[data-assign-pickup-partner]').forEach(button=>button.addEventListener('click',()=>assignPickupStationPartner(button.dataset.assignPickupPartner)));
-    $('[data-unassign-pickup-partner]').forEach(button=>button.addEventListener('click',()=>unassignPickupStationPartner(button.dataset.unassignPickupPartner)));
+    $$('[data-assign-pickup-partner]').forEach(button=>button.addEventListener('click',()=>assignPickupStationPartner(button.dataset.assignPickupPartner)));
+    $$('[data-unassign-pickup-partner]').forEach(button=>button.addEventListener('click',()=>unassignPickupStationPartner(button.dataset.unassignPickupPartner)));
   };
 
   const reviewPickupWithdrawal=async(button)=>{
@@ -3794,7 +3794,7 @@
         '<td>'+escapeHtml(row.payout_method||'')+'<br><small>'+escapeHtml(row.payout_account_name||'')+(row.payout_phone?' · '+escapeHtml(row.payout_phone):'')+(row.payout_account_number?' · '+escapeHtml(row.payout_account_number):'')+'</small></td>'+
         '<td>'+escapeHtml(formatDate(row.submitted_at,true))+'</td><td><span class="status-chip">'+escapeHtml(row.status)+'</span></td><td>'+actions+'</td></tr>';
     }).join(''):'<tr><td colspan="6">No Pickup Station withdrawal requests yet.</td></tr>';
-    $('[data-pickup-withdrawal]').forEach(button=>button.addEventListener('click',()=>reviewPickupWithdrawal(button)));
+    $$('[data-pickup-withdrawal]').forEach(button=>button.addEventListener('click',()=>reviewPickupWithdrawal(button)));
   };
 
   const updatePickupReturnStatus=async(button)=>{
@@ -3820,7 +3820,7 @@
       '<td><select data-pickup-return-status="'+row.id+'">'+statuses.map(s=>'<option value="'+s+'" '+(s===row.status?'selected':'')+'>'+escapeHtml(s.replaceAll('_',' '))+'</option>').join('')+'</select></td>'+
       '<td><button data-pickup-return="'+row.id+'">Save</button></td></tr>'
     ).join(''):'<tr><td colspan="6">No Pickup Station return parcels yet.</td></tr>';
-    $('[data-pickup-return]').forEach(button=>button.addEventListener('click',()=>updatePickupReturnStatus(button)));
+    $$('[data-pickup-return]').forEach(button=>button.addEventListener('click',()=>updatePickupReturnStatus(button)));
   };
 
   const renderPickupStationEvents=()=>{
