@@ -468,7 +468,7 @@ $('#pickupApplicationForm')?.addEventListener('submit',async e=>{
     const otherFiles=[...($('#pickupOtherPermits')?.files||[])];
 
     if(!businessIdFile&&!currentApp.business_id_document_path)throw new Error('Business ID / identification document is required.');
-    if(!businessLicenceFile&&!currentApp.business_licence_path&&!registrationFile&&!currentApp.registration_certificate_path)throw new Error('Upload a Business licence or Registration Certificate.');
+    if(!businessLicenceFile&&!currentApp.business_licence_path)throw new Error('Business licence is required for Pickup Station verification.');
     if(otherFiles.length>4)throw new Error('Choose a maximum of 4 other business permit files.');
 
     [businessIdFile,businessLicenceFile,registrationFile,...otherFiles].forEach((file,index)=>{
