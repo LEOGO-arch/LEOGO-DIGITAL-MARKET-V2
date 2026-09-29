@@ -3661,6 +3661,13 @@
   };
 
   const loadPickupStations = async () => {
+    const withdrawalBody=$('#pickupWithdrawalBody');
+    const returnBody=$('#pickupReturnBody');
+    const eventList=$('#pickupStationEventList');
+    if(withdrawalBody)withdrawalBody.innerHTML='<tr><td colspan="6">Loading withdrawal requests…</td></tr>';
+    if(returnBody)returnBody.innerHTML='<tr><td colspan="6">Loading return parcels…</td></tr>';
+    if(eventList)eventList.innerHTML='<div class="loading-card">Loading Pickup Station activity…</div>';
+
     const [stationsResult,partnersResult,eventsResult,withdrawalsResult,returnsResult,financeResult]=await Promise.all([
       db.from('pickup_stations').select('*').order('display_order').order('station_name'),
       db.rpc('admin_list_pickup_station_partners'),
@@ -3669,22 +3676,44 @@
       db.rpc('admin_list_pickup_station_returns'),
       db.rpc('admin_get_pickup_station_finance_settings')
     ]);
-    if(stationsResult.error) throw stationsResult.error;
-    if(financeResult.error) throw financeResult.error;
-    state.pickupStationPartners=partnersResult.error?[]:(partnersResult.data||[]);
-    state.pickupStationEvents=eventsResult.error?[]:(eventsResult.data||[]);
-    state.pickupStationWithdrawals=withdrawalsResult.error?[]:(withdrawalsResult.data||[]);
-    state.pickupStationReturns=returnsResult.error?[]:(returnsResult.data||[]);
-    state.pickupStationFinanceSettings=financeResult.data||{handled_parcel_earning_kes:20};
-    const financeForm=$('#pickupStationFinanceForm');
-    if(financeForm)financeForm.elements.handled_parcel_earning_kes.value=Number(state.pickupStationFinanceSettings.handled_parcel_earning_kes??20);
-    if($('#pickupHandledParcelEarningSummary'))$('#pickupHandledParcelEarningSummary').textContent=formatMoney(state.pickupStationFinanceSettings.handled_parcel_earning_kes??20);
+
+    state.pickupStationPartners=!partnersResult.error&&Array.isArray(partnersResult.data)?partnersResult.data:[];
+    state.pickupStationEvents=!eventsResult.error&&Array.isArray(eventsResult.data)?eventsResult.data:[];
+    state.pickupStationWithdrawals=!withdrawalsResult.error&&Array.isArray(withdrawalsResult.data)?withdrawalsResult.data:[];
+    state.pickupStationReturns=!returnsResult.error&&Array.isArray(returnsResult.data)?returnsResult.data:[];
+
+    // Render these independent queues immediately so an unrelated station-card error can
+    // never leave "Loading..." on screen after the RPC has already completed.
+    if(withdrawalsResult.error&&withdrawalBody){
+      withdrawalBody.innerHTML='<tr><td colspan="6">Withdrawal requests could not load. Use Refresh to try again.</td></tr>';
+    }else{
+      renderPickupStationWithdrawals();
+    }
+    if(returnsResult.error&&returnBody){
+      returnBody.innerHTML='<tr><td colspan="6">Return parcels could not load. Use Refresh to try again.</td></tr>';
+    }else{
+      renderPickupStationReturns();
+    }
+    if(eventsResult.error&&eventList){
+      eventList.innerHTML='<div class="loading-card">Pickup Station activity could not load. Use Refresh to try again.</div>';
+    }else{
+      renderPickupStationEvents();
+    }
+
+    if(!financeResult.error){
+      state.pickupStationFinanceSettings=financeResult.data||{handled_parcel_earning_kes:20};
+      const financeForm=$('#pickupStationFinanceForm');
+      const earningInput=financeForm?.elements?.handled_parcel_earning_kes;
+      if(earningInput)earningInput.value=Number(state.pickupStationFinanceSettings.handled_parcel_earning_kes??20);
+      if($('#pickupHandledParcelEarningSummary'))$('#pickupHandledParcelEarningSummary').textContent=formatMoney(state.pickupStationFinanceSettings.handled_parcel_earning_kes??20);
+    }
+
+    if(stationsResult.error)throw stationsResult.error;
     const partnerMap=new Map(state.pickupStationPartners.map(row=>[String(row.pickup_station_id),row]));
-    state.pickupStations=(stationsResult.data||[]).map(station=>({...station,partner:partnerMap.get(String(station.id))||null}));
+    state.pickupStations=(Array.isArray(stationsResult.data)?stationsResult.data:[]).map(station=>({...station,partner:partnerMap.get(String(station.id))||null}));
     renderPickupStations();
-    renderPickupStationWithdrawals();
-    renderPickupStationReturns();
-    renderPickupStationEvents();
+
+    if(financeResult.error)globalStatus('Pickup Station finance settings could not load: '+friendlyError(financeResult.error),'error');
   };
 
   const savePickupStationFinanceSettings=async(event)=>{
