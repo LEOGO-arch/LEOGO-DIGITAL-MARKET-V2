@@ -418,6 +418,65 @@
   const advertisementTitle = document.getElementById('advertisementTitle');
   const advertisementBody = document.getElementById('advertisementBody');
   const advertisementPeriod = document.getElementById('advertisementPeriod');
+  let advertisementLightbox = null;
+  let advertisementLightboxImage = null;
+  let advertisementLightboxClose = null;
+
+  const ensureAdvertisementLightbox = () => {
+    if (advertisementLightbox) return advertisementLightbox;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'advertisementLightbox';
+    overlay.className = 'advertisement-lightbox';
+    overlay.hidden = true;
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Full advertisement poster');
+
+    overlay.innerHTML = '<button type="button" class="advertisement-lightbox-backdrop" data-close-advert-lightbox aria-label="Close full advertisement poster"></button>'+
+      '<div class="advertisement-lightbox-dialog">'+
+        '<button type="button" class="advertisement-lightbox-close" data-close-advert-lightbox aria-label="Close">×</button>'+
+        '<img class="advertisement-lightbox-image" alt="Full advertisement poster">'+
+      '</div>';
+
+    document.body.appendChild(overlay);
+    advertisementLightbox = overlay;
+    advertisementLightboxImage = overlay.querySelector('.advertisement-lightbox-image');
+    advertisementLightboxClose = overlay.querySelector('.advertisement-lightbox-close');
+
+    overlay.querySelectorAll('[data-close-advert-lightbox]').forEach((node) => {
+      node.addEventListener('click', closeAdvertisementLightbox);
+    });
+
+    return overlay;
+  };
+
+  function closeAdvertisementLightbox() {
+    if (!advertisementLightbox) return;
+    advertisementLightbox.hidden = true;
+    document.body.classList.remove('advertisement-lightbox-open');
+    if (advertisementLightboxImage) advertisementLightboxImage.removeAttribute('src');
+    advertisementPoster?.focus({ preventScroll: true });
+  }
+
+  const openAdvertisementLightbox = () => {
+    const image = advertisementPoster?.querySelector('img');
+    if (!image?.src) return;
+    ensureAdvertisementLightbox();
+    advertisementLightboxImage.src = image.currentSrc || image.src;
+    advertisementLightboxImage.alt = image.alt || 'Full advertisement poster';
+    advertisementLightbox.hidden = false;
+    document.body.classList.add('advertisement-lightbox-open');
+    window.setTimeout(() => advertisementLightboxClose?.focus(), 0);
+  };
+
+  advertisementPoster?.addEventListener('click', openAdvertisementLightbox);
+  advertisementPoster?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    if (!advertisementPoster.classList.contains('has-live-poster')) return;
+    event.preventDefault();
+    openAdvertisementLightbox();
+  });
 
   const advertisementFallback = {
     poster: advertisementPoster?.innerHTML || '',
@@ -454,8 +513,12 @@
   const renderAdvertisementFallback = () => {
     if (advertisementPoster) {
       advertisementPoster.classList.remove('has-live-poster');
+      advertisementPoster.removeAttribute('role');
+      advertisementPoster.removeAttribute('tabindex');
+      advertisementPoster.removeAttribute('aria-label');
       advertisementPoster.innerHTML = advertisementFallback.poster;
     }
+    closeAdvertisementLightbox();
     if (advertisementTitle) advertisementTitle.textContent = advertisementFallback.title;
     if (advertisementBody) advertisementBody.innerHTML = advertisementFallback.body;
     if (advertisementPeriod) advertisementPeriod.textContent = advertisementFallback.period;
@@ -480,8 +543,14 @@
         image.loading = 'lazy';
         advertisementPoster.appendChild(image);
         advertisementPoster.classList.add('has-live-poster');
+        advertisementPoster.setAttribute('role','button');
+        advertisementPoster.setAttribute('tabindex','0');
+        advertisementPoster.setAttribute('aria-label','Open full advertisement poster');
       } else {
         advertisementPoster.classList.remove('has-live-poster');
+        advertisementPoster.removeAttribute('role');
+        advertisementPoster.removeAttribute('tabindex');
+        advertisementPoster.removeAttribute('aria-label');
         advertisementPoster.innerHTML = '<span class="advertisement-poster-icon">📣</span><strong>FEATURED ADVERTISEMENT</strong><small>Selected and published by LEOGO Admin</small>';
       }
     }
@@ -538,6 +607,10 @@
     advertRequestStatus.textContent = 'Form design complete. Live submission and Admin review will be connected in the Admin workflow phase.';
   });
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && advertisementLightbox && !advertisementLightbox.hidden) {
+      closeAdvertisementLightbox();
+      return;
+    }
     if (event.key === 'Escape' && advertRequestModal?.classList.contains('is-open')) closeAdvertRequest();
   });
 
