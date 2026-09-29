@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=advert-admin-1">
+  <link rel="stylesheet" href="admin.css?v=advert-popup-1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
 <style>
 .service-operations-card{margin-top:18px}.service-fee-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.service-fee-form label{display:grid;gap:6px;font-weight:800}.service-fee-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px;width:180px}.service-fee-form button,.admin-service-request-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.service-fee-form small{width:100%;font-weight:800}.admin-service-request-list{display:grid;gap:14px}.admin-service-request-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.admin-service-request-card header{display:flex;justify-content:space-between;gap:12px}.admin-service-request-card header strong,.admin-service-request-card header small{display:block}.admin-service-request-card header b{font-size:11px;text-transform:capitalize;background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;height:max-content}.admin-service-request-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.admin-service-request-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.admin-service-request-grid small,.admin-service-request-grid strong{display:block}.admin-service-request-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-service-request-actions .verify{background:#157f3d}.admin-service-request-actions .reject,.admin-service-request-actions .cancel{background:#a42832}.admin-service-request-actions .dispatch{background:#ff7200}.admin-service-request-card p{margin:0;color:#526177}.service-request-summary-grid{margin:14px 0}@media(max-width:720px){.admin-service-request-grid{grid-template-columns:1fr}.admin-service-request-card header{display:grid}}
@@ -774,6 +774,11 @@
               <div class="advert-poster-preview" id="advertisementPosterPreview"><span>📣</span><small>No poster selected</small></div>
               <label class="advert-remove-poster"><input id="advertisementRemovePoster" type="checkbox"> <span>Remove existing poster when saving</span></label>
 
+              <label class="advert-popup-push">
+                <input id="advertisementPopupOnEntry" type="checkbox">
+                <span><b>Push as website pop-up</b><small>When this advert is live, show it automatically the first time a customer opens the LEOGO website. Customers can close it with the × button. Turn this off and on again to push the same advert again.</small></span>
+              </label>
+
               <div class="advert-rich-field">
                 <span>Advertisement text</span>
                 <div class="advert-rich-toolbar" role="toolbar" aria-label="Advertisement text formatting">
@@ -1066,7 +1071,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="admin.js?v=admin-core-restore-1" defer></script>
-  <script src="advertisements.js?v=advert-module-1" defer></script>
+  <script src="advertisements.js?v=advert-popup-1" defer></script>
   <script src="cyber.js?v=delivery-rates-admin-3" defer></script>
 </body>
 </html>
