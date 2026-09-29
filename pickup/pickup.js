@@ -260,10 +260,7 @@ const fillApplicationForm=(app={})=>{
     businessId.required=!app.business_id_document_path;
     businessId.dataset.existingPath=app.business_id_document_path||'';
   }
-  if(licence){
-    licence.required=!app.business_licence_path;
-    licence.dataset.existingPath=app.business_licence_path||'';
-  }
+  if(licence)licence.dataset.existingPath=app.business_licence_path||'';
   if($('#pickupRegistrationCertificate'))$('#pickupRegistrationCertificate').dataset.existingPath=app.registration_certificate_path||'';
   if($('#pickupOtherPermits'))$('#pickupOtherPermits').dataset.existingPaths=JSON.stringify(Array.isArray(app.other_permit_paths)?app.other_permit_paths:[]);
 };
@@ -471,7 +468,7 @@ $('#pickupApplicationForm')?.addEventListener('submit',async e=>{
     const otherFiles=[...($('#pickupOtherPermits')?.files||[])];
 
     if(!businessIdFile&&!currentApp.business_id_document_path)throw new Error('Business ID / identification document is required.');
-    if(!businessLicenceFile&&!currentApp.business_licence_path)throw new Error('Business licence is required for Pickup Station registration.');
+    if(!businessLicenceFile&&!currentApp.business_licence_path&&!registrationFile&&!currentApp.registration_certificate_path)throw new Error('Upload a Business licence or Registration Certificate.');
     if(otherFiles.length>4)throw new Error('Choose a maximum of 4 other business permit files.');
 
     [businessIdFile,businessLicenceFile,registrationFile,...otherFiles].forEach((file,index)=>{
