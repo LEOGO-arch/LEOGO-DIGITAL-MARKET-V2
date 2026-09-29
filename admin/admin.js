@@ -2205,7 +2205,7 @@
     ctx.fillRect(0,footerY,width,height-footerY);
     ctx.fillStyle='#ffffff';
     ctx.font='700 18px Arial, sans-serif';
-    ctx.fillText('Permanent LEOGO order QR — authorized Staff and future Pickup Agents can use it to identify this order.',54,footerY+28);
+    ctx.fillText('Permanent LEOGO order QR — authorized Staff and assigned Pickup Station Partners can use it to identify this order.',54,footerY+28);
     ctx.font='16px Arial, sans-serif';
     ctx.fillStyle='#c9d4e4';
     ctx.fillText('Printed '+formatDate(new Date().toISOString(),true)+'  |  Do not expose this label after delivery.',54,footerY+62);
