@@ -61,6 +61,33 @@ const removePickupDocuments=async(paths)=>{
   try{await client.storage.from(PICKUP_VERIFICATION_BUCKET).remove(clean);}catch(_error){}
 };
 
+const PICKUP_PROOF_BUCKET='pickup-station-proof';
+const PICKUP_PROOF_MAX_BYTES=8*1024*1024;
+const PICKUP_PROOF_TYPES=new Set(['image/jpeg','image/png','image/webp']);
+const validateParcelProof=(file,label)=>{
+  if(!file)throw new Error(label+' is required.');
+  if(file.size>PICKUP_PROOF_MAX_BYTES)throw new Error(label+' must be 8 MB or smaller.');
+  if(!PICKUP_PROOF_TYPES.has(file.type))throw new Error(label+' must be JPG, PNG or WEBP.');
+};
+const parcelProofExtension=(file)=>{
+  if(file.type==='image/png')return 'png';
+  if(file.type==='image/webp')return 'webp';
+  return 'jpg';
+};
+const uploadParcelProof=async(file,mode,parcelId)=>{
+  validateParcelProof(file,mode==='receive'?'Parcel receiving photo':'Handover photo');
+  if(!currentUser?.id)throw new Error('Your Pickup Station session is not ready. Refresh and sign in again.');
+  const safeParcelId=String(parcelId||'parcel').replace(/[^a-zA-Z0-9-]/g,'');
+  const path=currentUser.id+'/'+safeParcelId+'/'+mode+'-'+Date.now()+'-'+crypto.randomUUID()+'.'+parcelProofExtension(file);
+  const {error}=await client.storage.from(PICKUP_PROOF_BUCKET).upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+};
+const removeParcelProof=async(path)=>{
+  if(!path)return;
+  try{await client.storage.from(PICKUP_PROOF_BUCKET).remove([path]);}catch(_error){}
+};
+
 const parseScannedCode=(raw)=>{
   const text=String(raw||'').trim();
   if(!text)return '';
@@ -381,36 +408,85 @@ const lookupParcel=async(code)=>{
 };
 $('#lookupForm').addEventListener('submit',e=>{e.preventDefault();lookupParcel($('#lookupCode').value);});
 
-const runParcelAction=async(mode,code,notes='')=>{
+const runParcelAction=async(mode,code,notes='',photoFile=null,customerIdNumber='')=>{
   const parsed=parseScannedCode(code);
   if(!parsed)throw new Error('Enter or scan the order / waybill number');
   const preview=await client.rpc('pickup_partner_lookup_parcel',{p_code:parsed});
   if(preview.error)throw preview.error;
   const p=preview.data||{};
+
+  if(mode==='receive'&&p.parcel_status!=='booked'){
+    if(p.parcel_status==='received')throw new Error(p.order_reference+' has already been received at this Pickup Station.');
+    if(p.parcel_status==='handed_over')throw new Error(p.order_reference+' has already been handed over.');
+  }
+  if(mode==='handover'&&p.parcel_status!=='received'){
+    if(p.parcel_status==='booked')throw new Error('Receive '+p.order_reference+' at the Pickup Station before handing it over.');
+    if(p.parcel_status==='handed_over')throw new Error(p.order_reference+' has already been handed over.');
+  }
+
+  validateParcelProof(photoFile,mode==='receive'?'Parcel receiving photo':'Handover photo');
+  const cleanId=String(customerIdNumber||'').trim();
+  if(mode==='handover'&&cleanId.length<4)throw new Error('Enter the customer ID number before handing over the parcel.');
+
   const cod=p.payment_status==='cod_due'? '\n\nCOD ORDER: Collect '+money(p.grand_total_kes)+' before handing over.' : '';
   const message=mode==='receive'
-    ? 'Confirm receipt of '+p.order_reference+' for '+p.customer_name+' at this Pickup Station?'
-    : 'Confirm you are handing '+p.order_reference+' to '+p.customer_name+'?'+cod;
+    ? 'Confirm receipt of '+p.order_reference+' for '+p.customer_name+' at this Pickup Station? The parcel photo will be saved as receiving evidence.'
+    : 'Confirm you are handing '+p.order_reference+' to '+p.customer_name+'? The customer ID number and handover photo will be saved as collection evidence.'+cod;
   if(!window.confirm(message))return null;
-  const rpc=mode==='receive'?'pickup_partner_receive_parcel':'pickup_partner_handover_parcel';
-  const {data,error}=await client.rpc(rpc,{p_code:parsed,p_notes:notes.trim()||null});
-  if(error)throw error;
-  await loadAll();
-  $('#lookupCode').value=parsed;lookupParcel(parsed);
-  return data;
+
+  let proofPath='';
+  try{
+    proofPath=await uploadParcelProof(photoFile,mode,p.parcel_id);
+    const rpc=mode==='receive'?'pickup_partner_receive_parcel':'pickup_partner_handover_parcel';
+    const args=mode==='receive'
+      ? {p_code:parsed,p_notes:notes.trim()||null,p_receive_photo_path:proofPath}
+      : {p_code:parsed,p_notes:notes.trim()||null,p_handover_photo_path:proofPath,p_customer_id_number:cleanId};
+    const {data,error}=await client.rpc(rpc,args);
+    if(error)throw error;
+    await loadAll();
+    $('#lookupCode').value=p.order_reference||parsed;
+    lookupParcel(p.order_reference||parsed);
+    return data;
+  }catch(error){
+    if(proofPath)await removeParcelProof(proofPath);
+    throw error;
+  }
 };
 
 $('#receiveForm').addEventListener('submit',async e=>{
-  e.preventDefault();const b=e.submitter;const old=b?.textContent;
-  if(b){b.disabled=true;b.textContent='Receiving…';}setStatus($('#receiveStatus'),'Confirming parcel receipt…');
-  try{const r=await runParcelAction('receive',$('#receiveCode').value,$('#receiveNotes').value);if(r)setStatus($('#receiveStatus'),'✓ '+r.order_reference+' received. Admin, customer and Seller updates were created.','success');}
+  e.preventDefault();
+  if(!e.currentTarget.reportValidity())return;
+  const b=e.submitter;const old=b?.textContent;
+  if(b){b.disabled=true;b.textContent='Receiving…';}setStatus($('#receiveStatus'),'Checking parcel and uploading receiving photo…');
+  try{
+    const r=await runParcelAction('receive',$('#receiveCode').value,$('#receiveNotes').value,$('#receivePhoto').files?.[0]||null);
+    if(r){
+      $('#receivePhoto').value='';
+      setStatus($('#receiveStatus'),'✓ '+r.order_reference+' received with required parcel photo. Admin, customer and Seller updates were created.','success');
+    }
+  }
   catch(err){setStatus($('#receiveStatus'),err.message||'Parcel could not be received.','error');}
   finally{if(b){b.disabled=false;b.textContent=old;}}
 });
 $('#handoverForm').addEventListener('submit',async e=>{
-  e.preventDefault();const b=e.submitter;const old=b?.textContent;
-  if(b){b.disabled=true;b.textContent='Handing over…';}setStatus($('#handoverStatus'),'Confirming customer collection…');
-  try{const r=await runParcelAction('handover',$('#handoverCode').value,$('#handoverNotes').value);if(r)setStatus($('#handoverStatus'),'✓ '+r.order_reference+' handed over. Earnings and notifications were updated.','success');}
+  e.preventDefault();
+  if(!e.currentTarget.reportValidity())return;
+  const b=e.submitter;const old=b?.textContent;
+  if(b){b.disabled=true;b.textContent='Handing over…';}setStatus($('#handoverStatus'),'Checking parcel and uploading handover evidence…');
+  try{
+    const r=await runParcelAction(
+      'handover',
+      $('#handoverCode').value,
+      $('#handoverNotes').value,
+      $('#handoverPhoto').files?.[0]||null,
+      $('#handoverIdNumber').value
+    );
+    if(r){
+      $('#handoverPhoto').value='';
+      $('#handoverIdNumber').value='';
+      setStatus($('#handoverStatus'),'✓ '+r.order_reference+' handed over with customer ID number and photo evidence. Earnings and notifications were updated.','success');
+    }
+  }
   catch(err){setStatus($('#handoverStatus'),err.message||'Parcel could not be handed over.','error');}
   finally{if(b){b.disabled=false;b.textContent=old;}}
 });
