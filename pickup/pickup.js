@@ -14,7 +14,7 @@ const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Nairobi'}).for
 const monthStart=()=>{const parts=today().split('-');return parts[0]+'-'+parts[1]+'-01';};
 const setStatus=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className='status'+(type?' '+type:'');};
 
-let dashboard=null,pickupApplication=null,parcels=[],returns=[],withdrawals=[],history=[],earnings=null,currentUser=null;
+let dashboard=null,pickupApplication=null,pickupCounties=[],pickupSubcounties=[],parcels=[],returns=[],withdrawals=[],history=[],earnings=null,currentUser=null;
 let scannerStream=null,scannerTimer=null,scannerMode='receive';
 
 const showView=(name)=>{
@@ -123,6 +123,51 @@ const renderEarnings=()=>{
     <article class="compact-row"><header><strong>${esc(d.day)}</strong><b>${esc(money(d.earnings_kes))}</b></header><p>${Number(d.parcels||0)} parcel(s) handed over</p></article>`).join(''):'<div class="compact-row"><strong>No earnings in this period.</strong></div>';
 };
 
+const renderPickupSubcounties=(preferredName='')=>{
+  const countySelect=$('#applicationCounty');
+  const subcountySelect=$('#applicationSubCounty');
+  if(!countySelect||!subcountySelect)return;
+  const selectedOption=countySelect.selectedOptions?.[0];
+  const countyCode=selectedOption?.dataset?.code||'';
+  if(!countyCode){
+    subcountySelect.innerHTML='<option value="">Choose a county first</option>';
+    subcountySelect.disabled=true;
+    return;
+  }
+  const options=pickupSubcounties.filter(item=>item.county_code===countyCode);
+  subcountySelect.innerHTML=options.length
+    ? '<option value="">Select sub-county</option>'+options.map(item=>'<option value="'+esc(item.name)+'">'+esc(item.name)+'</option>').join('')
+    : '<option value="">No active sub-counties configured</option>';
+  subcountySelect.disabled=!options.length;
+  if(preferredName&&options.some(item=>item.name===preferredName))subcountySelect.value=preferredName;
+};
+
+const loadPickupLocations=async()=>{
+  const countySelect=$('#applicationCounty');
+  const subcountySelect=$('#applicationSubCounty');
+  if(!countySelect||!subcountySelect)return;
+  countySelect.disabled=true;
+  countySelect.innerHTML='<option value="">Loading counties…</option>';
+  subcountySelect.disabled=true;
+  subcountySelect.innerHTML='<option value="">Choose a county first</option>';
+
+  const [countyResult,subcountyResult]=await Promise.all([
+    client.from('kenya_counties').select('code,name').eq('is_active',true).order('name'),
+    client.from('kenya_subcounties').select('code,county_code,name').eq('is_active',true).order('name')
+  ]);
+  if(countyResult.error)throw countyResult.error;
+  if(subcountyResult.error)throw subcountyResult.error;
+
+  pickupCounties=countyResult.data||[];
+  pickupSubcounties=subcountyResult.data||[];
+  countySelect.innerHTML='<option value="">Select county</option>'+pickupCounties.map(item=>
+    '<option value="'+esc(item.name)+'" data-code="'+esc(item.code)+'">'+esc(item.name)+'</option>'
+  ).join('');
+  countySelect.disabled=!pickupCounties.length;
+};
+
+$('#applicationCounty')?.addEventListener('change',()=>renderPickupSubcounties());
+
 const fillApplicationForm=(app={})=>{
   const form=$('#pickupApplicationForm');if(!form)return;
   const values={
@@ -141,7 +186,18 @@ const fillApplicationForm=(app={})=>{
     latitude:app.latitude??'',
     longitude:app.longitude??''
   };
-  Object.entries(values).forEach(([key,value])=>{if(form.elements[key])form.elements[key].value=value;});
+  Object.entries(values).forEach(([key,value])=>{
+    if(['county','sub_county'].includes(key))return;
+    if(form.elements[key])form.elements[key].value=value;
+  });
+  const countySelect=$('#applicationCounty');
+  if(countySelect&&app.county&&pickupCounties.some(item=>item.name===app.county)){
+    countySelect.value=app.county;
+    renderPickupSubcounties(app.sub_county||'');
+  }else if(countySelect){
+    countySelect.value='';
+    renderPickupSubcounties();
+  }
 };
 
 const renderApplicationGate=()=>{
@@ -440,6 +496,7 @@ const boot=async()=>{
   if(error||!session){stopScanner();$('#authGate').hidden=false;$('#assignmentGate').hidden=true;$('#portal').hidden=true;return;}
   currentUser=session.user;$('#authGate').hidden=true;
   try{
+    await loadPickupLocations();
     await loadAll();
     const params=new URLSearchParams(location.search);
     const incoming=(params.get('ref')||params.get('order')||'').trim();
