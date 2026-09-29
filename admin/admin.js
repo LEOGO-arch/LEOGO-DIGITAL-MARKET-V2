@@ -91,6 +91,7 @@
     serviceSubcounties: [],
     accommodationProviders: [],
     accommodationBookings: [],
+    advertisements: [],
     adminNotifications: [],
     audit: [],
     dashboard: null,
@@ -106,7 +107,7 @@
     dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', aftersales: 'Aftersales', customers: 'Customers',
     chat: 'Customer Care Chats', products: 'Products & Categories', sellers: 'Sellers', settlements: 'Partner Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
-    accommodation: 'Accommodation', loyalty: 'Loyalty & Rewards', reports: 'Reports',
+    accommodation: 'Accommodation', advertisements: 'Advertisements', loyalty: 'Loyalty & Rewards', reports: 'Reports',
     staff: 'Staff Management', settings: 'System Settings', audit: 'Audit Log'
   };
   const kindLabels = {
@@ -434,6 +435,7 @@
       wallet: () => adminHas('approvals.read'),
       premium: () => adminHas('premium.read'),
       accommodation: () => adminHas('approvals.read'),
+      advertisements: () => adminHas('settings.manage'),
       loyalty: () => adminHas('settings.manage'),
       reports: () => adminHas('reports.export'),
       staff: () => false,
@@ -539,6 +541,7 @@
       [loadPremiumProfiles, () => adminHas('premium.read')],
       [loadPremiumPlans, () => adminHas('premium.read')],
       [loadAccommodationSummary, () => adminHas('approvals.read')],
+      [loadAdvertisements, () => adminHas('settings.manage')],
       [loadAuditLog, () => isSuperAdmin()],
       [loadStaffManagement, () => isSuperAdmin()]
     ];
@@ -5217,6 +5220,232 @@
   const exportCustomers = async (scope,format='xlsx') => { const source=scope==='selected'?state.customers.filter(r=>state.selectedCustomers.has(r.user_id)):filteredCustomers(); const rows=[['Name','Email','Phone','County','Sub-County','Estate','Registered'],...source.map(r=>[r.full_name,r.email,r.phone,r.county,r.sub_county,r.estate,formatDate(r.created_at)])]; if(!source.length){globalStatus('Select at least one customer to export.','error');return;} await exportRows('customers',scope,format,rows,{search:$('#customerSearch').value}); globalStatus(`${source.length} customer record(s) exported and audited.`); };
   const exportData = async (scope,format='xlsx') => { const type=$('#dataTypeFilter').value, source=scope==='selected'?dataRows().filter(r=>state.selectedData.has(dataRecordId(r))):dataRows(); if(!source.length){globalStatus('Select at least one record to export.','error');return;} const rows=[['Record ID','Record Data'],...source.map(r=>[dataRecordId(r),JSON.stringify(r)])]; await exportRows(type,scope,format,rows,{status:$('#dataStatusFilter').value,from:$('#dataFromFilter').value,to:$('#dataToFilter').value}); globalStatus(`${source.length} ${type.replaceAll('_',' ')} record(s) exported and audited.`); };
 
+  let advertPosterObjectUrl='';
+
+  const advertPublicUrl=(path)=>{
+    if(!path)return '';
+    return db.storage.from('advertisement-media').getPublicUrl(String(path)).data?.publicUrl||'';
+  };
+
+  const advertLocalDateTime=(value)=>{
+    const date=value?new Date(value):new Date();
+    if(Number.isNaN(date.getTime()))return '';
+    const pad=(number)=>String(number).padStart(2,'0');
+    return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
+  };
+
+  const sanitizeAdvertisementHtml=(html='')=>{
+    const template=document.createElement('template');
+    template.innerHTML=String(html||'');
+    const allowed=new Set(['B','STRONG','I','EM','U','BR','P','DIV','UL','OL','LI','A']);
+    Array.from(template.content.querySelectorAll('*')).forEach((node)=>{
+      if(!allowed.has(node.tagName)){
+        node.replaceWith(...Array.from(node.childNodes));
+        return;
+      }
+      Array.from(node.attributes).forEach((attr)=>{
+        if(node.tagName==='A'&&attr.name.toLowerCase()==='href'){
+          const href=String(attr.value||'').trim();
+          const allowedHref=/^(https?:|mailto:|tel:)/i.test(href);
+          if(!allowedHref)node.removeAttribute(attr.name);
+        }else{
+          node.removeAttribute(attr.name);
+        }
+      });
+      if(node.tagName==='A'&&node.getAttribute('href')){
+        node.setAttribute('target','_blank');
+        node.setAttribute('rel','noopener noreferrer');
+      }
+    });
+    return template.innerHTML.trim();
+  };
+
+  const advertRuntimeState=(item)=>{
+    const now=Date.now();
+    const start=new Date(item.starts_at||0).getTime();
+    const end=new Date(item.ends_at||0).getTime();
+    if(item.status==='archived')return 'archived';
+    if(item.status==='paused')return 'paused';
+    if(item.status==='draft')return 'draft';
+    if(Number.isFinite(end)&&end<=now)return 'expired';
+    if(Number.isFinite(start)&&start>now)return 'scheduled';
+    return 'live';
+  };
+
+  const renderAdvertisementPosterPreview=(path='',file=null)=>{
+    const box=$('#advertisementPosterPreview');
+    if(!box)return;
+    if(advertPosterObjectUrl){
+      URL.revokeObjectURL(advertPosterObjectUrl);
+      advertPosterObjectUrl='';
+    }
+    let url=path?advertPublicUrl(path):'';
+    if(file){
+      advertPosterObjectUrl=URL.createObjectURL(file);
+      url=advertPosterObjectUrl;
+    }
+    box.innerHTML=url
+      ? '<img src="'+escapeHtml(url)+'" alt="Advertisement poster preview">'
+      : '<span>📣</span><small>No poster selected</small>';
+  };
+
+  const resetAdvertisementForm=()=>{
+    const form=$('#advertisementForm');
+    if(!form)return;
+    form.reset();
+    $('#advertisementId').value='';
+    $('#advertisementExistingPoster').value='';
+    $('#advertisementStatus').value='draft';
+    const start=new Date();
+    start.setSeconds(0,0);
+    const end=new Date(start.getTime()+7*24*60*60*1000);
+    $('#advertisementStart').value=advertLocalDateTime(start);
+    $('#advertisementEnd').value=advertLocalDateTime(end);
+    $('#advertisementBodyEditor').innerHTML='';
+    $('#advertisementRemovePoster').checked=false;
+    $('#advertisementEditorTitle').textContent='Create Advertisement';
+    renderAdvertisementPosterPreview();
+    setFormStatus($('#advertisementFormStatus'));
+  };
+
+  const renderAdvertisements=()=>{
+    const rows=Array.isArray(state.advertisements)?state.advertisements:[];
+    const counts={live:0,scheduled:0,draft:0,paused:0,expired:0};
+    rows.forEach((item)=>{
+      const runtime=advertRuntimeState(item);
+      if(counts[runtime]!=null)counts[runtime]+=1;
+    });
+    if($('#advertLiveCount'))$('#advertLiveCount').textContent=counts.live;
+    if($('#advertScheduledCount'))$('#advertScheduledCount').textContent=counts.scheduled;
+    if($('#advertDraftCount'))$('#advertDraftCount').textContent=counts.draft+counts.paused;
+    if($('#advertExpiredCount'))$('#advertExpiredCount').textContent=counts.expired;
+
+    const body=$('#advertisementTableBody');
+    if(!body)return;
+    body.innerHTML=rows.length?rows.map((item)=>{
+      const runtime=advertRuntimeState(item);
+      const poster=item.poster_path?'<img class="advert-admin-thumb" src="'+escapeHtml(advertPublicUrl(item.poster_path))+'" alt="">':'—';
+      const statusAction=item.status==='published'
+        ? '<button type="button" data-advert-status="paused" data-advert-id="'+escapeHtml(item.id)+'">Pause</button>'
+        : item.status==='archived'
+          ? ''
+          : '<button type="button" data-advert-status="published" data-advert-id="'+escapeHtml(item.id)+'">Publish</button>';
+      return '<tr>'+
+        '<td><strong>'+escapeHtml(item.title)+'</strong><small>'+escapeHtml((item.body_html||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,100)||'Poster-only advertisement')+'</small></td>'+
+        '<td>'+escapeHtml(formatDate(item.starts_at,true))+'<small>to '+escapeHtml(formatDate(item.ends_at,true))+'</small></td>'+
+        '<td><span class="advert-state '+escapeHtml(runtime)+'">'+escapeHtml(runtime.replace('_',' '))+'</span><small>Saved as '+escapeHtml(item.status)+'</small></td>'+
+        '<td>'+poster+'</td>'+
+        '<td><div class="advert-row-actions"><button type="button" data-advert-edit="'+escapeHtml(item.id)+'">Edit</button>'+statusAction+(item.status!=='archived'?'<button class="danger" type="button" data-advert-status="archived" data-advert-id="'+escapeHtml(item.id)+'">Archive</button>':'')+'</div></td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="5">No advertisements created yet.</td></tr>';
+  };
+
+  const loadAdvertisements=async()=>{
+    const {data,error}=await db.rpc('admin_list_advertisements');
+    if(error)throw error;
+    state.advertisements=Array.isArray(data)?data:[];
+    renderAdvertisements();
+  };
+
+  const editAdvertisement=(id)=>{
+    const item=state.advertisements.find((row)=>row.id===id);
+    if(!item)return;
+    $('#advertisementId').value=item.id;
+    $('#advertisementTitle').value=item.title||'';
+    $('#advertisementStart').value=advertLocalDateTime(item.starts_at);
+    $('#advertisementEnd').value=advertLocalDateTime(item.ends_at);
+    $('#advertisementStatus').value=item.status==='archived'?'draft':(item.status||'draft');
+    $('#advertisementExistingPoster').value=item.poster_path||'';
+    $('#advertisementRemovePoster').checked=false;
+    $('#advertisementBodyEditor').innerHTML=sanitizeAdvertisementHtml(item.body_html||'');
+    $('#advertisementEditorTitle').textContent='Edit Advertisement';
+    renderAdvertisementPosterPreview(item.poster_path||'');
+    setFormStatus($('#advertisementFormStatus'));
+    $('#advertisementForm')?.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  const saveAdvertisement=async(event)=>{
+    event.preventDefault();
+    const form=event.currentTarget;
+    if(!form.reportValidity())return;
+    const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const id=$('#advertisementId').value||null;
+      const oldPoster=$('#advertisementExistingPoster').value||'';
+      const removePoster=$('#advertisementRemovePoster').checked;
+      const file=$('#advertisementPosterFile').files?.[0]||null;
+      const startValue=$('#advertisementStart').value;
+      const endValue=$('#advertisementEnd').value;
+      const startDate=new Date(startValue);
+      const endDate=new Date(endValue);
+      if(!startValue||!endValue||Number.isNaN(startDate.getTime())||Number.isNaN(endDate.getTime())||endDate<=startDate){
+        setFormStatus($('#advertisementFormStatus'),'Advertisement end time must be after the start time.','error');
+        return;
+      }
+
+      let posterPath=removePoster?'':oldPoster;
+      let uploadedPath='';
+      if(file){
+        if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+          setFormStatus($('#advertisementFormStatus'),'Poster must be JPG, PNG or WebP.','error');
+          return;
+        }
+        if(file.size>8*1024*1024){
+          setFormStatus($('#advertisementFormStatus'),'Poster must be 8 MB or smaller.','error');
+          return;
+        }
+        const ext=(String(file.name||'poster.jpg').split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+        const random=(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2));
+        uploadedPath=String(state.user?.id||'admin')+'/'+Date.now()+'-'+random+'.'+ext;
+        const upload=await db.storage.from('advertisement-media').upload(uploadedPath,file,{cacheControl:'3600',upsert:false,contentType:file.type});
+        if(upload.error){
+          setFormStatus($('#advertisementFormStatus'),friendlyError(upload.error),'error');
+          return;
+        }
+        posterPath=uploadedPath;
+      }
+
+      const bodyHtml=sanitizeAdvertisementHtml($('#advertisementBodyEditor').innerHTML);
+      if(!bodyHtml&&!posterPath){
+        if(uploadedPath)await db.storage.from('advertisement-media').remove([uploadedPath]).catch(()=>{});
+        setFormStatus($('#advertisementFormStatus'),'Add advertisement text or upload a poster.','error');
+        return;
+      }
+
+      const payload={
+        title:$('#advertisementTitle').value.trim(),
+        body_html:bodyHtml,
+        poster_path:posterPath||null,
+        starts_at:startDate.toISOString(),
+        ends_at:endDate.toISOString(),
+        status:$('#advertisementStatus').value
+      };
+      const {error}=await db.rpc('admin_save_advertisement',{p_advertisement_id:id,p_advertisement:payload});
+      if(error){
+        if(uploadedPath)await db.storage.from('advertisement-media').remove([uploadedPath]).catch(()=>{});
+        setFormStatus($('#advertisementFormStatus'),friendlyError(error),'error');
+        return;
+      }
+
+      if(oldPoster&&oldPoster!==posterPath){
+        await db.storage.from('advertisement-media').remove([oldPoster]).catch(()=>{});
+      }
+      resetAdvertisementForm();
+      await Promise.all([loadAdvertisements(),loadAuditLog().catch(()=>{})]);
+      globalStatus('Advertisement saved. The Customer Front will follow the publishing period automatically.');
+    });
+  };
+
+  const setAdvertisementStatus=async(id,status,button)=>{
+    if(status==='archived'&&!window.confirm('Archive this advertisement? It will stop appearing on the Customer Front.'))return;
+    await withButtonLock(button,'Saving…',async()=>{
+      const {error}=await db.rpc('admin_set_advertisement_status',{p_advertisement_id:id,p_status:status});
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadAdvertisements(),loadAuditLog().catch(()=>{})]);
+      globalStatus(status==='published'?'Advertisement published/scheduled.':status==='paused'?'Advertisement paused.':'Advertisement archived.');
+    });
+  };
+
   let activeTransportSection='providers';
   const transportSectionMeta={
     providers:{eyebrow:'TRANSPORT / PARCEL PARTNERS',title:'Transport / Parcel Providers',description:'Manage provider registrations, approved accounts, vehicles and Transport approvals.'},
@@ -5275,6 +5504,9 @@
     }
     if (view === 'providers') {
       Promise.all([loadServiceProviders(),loadServiceListings(),loadServiceOperations()]).catch((error) => globalStatus('Service operations could not load: '+friendlyError(error), 'error'));
+    }
+    if(view==='advertisements'){
+      loadAdvertisements().catch((error)=>globalStatus('Advertisements could not load: '+friendlyError(error),'error'));
     }
     if(view==='transport'){
       changeTransportSection(activeTransportSection);
@@ -5388,6 +5620,34 @@
     $('#refreshServiceProviders')?.addEventListener('click', () => withButtonLock($('#refreshServiceProviders'), 'Refreshing…', async () => { await Promise.all([loadServiceProviders(),loadServiceListings(),loadServiceOperations(),loadServiceReviews(),loadApprovals()]); }));
     $('#refreshAccommodationProviders')?.addEventListener('click',()=>withButtonLock($('#refreshAccommodationProviders'),'Refreshing…',async()=>{await Promise.all([loadAccommodationSummary(),loadApprovals()]);}));
     $('#refreshAccommodationBookingsAdmin')?.addEventListener('click',()=>withButtonLock($('#refreshAccommodationBookingsAdmin'),'Refreshing…',loadAccommodationSummary));
+    $('#refreshAdvertisements')?.addEventListener('click',()=>withButtonLock($('#refreshAdvertisements'),'Refreshing…',loadAdvertisements));
+    $('#newAdvertisement')?.addEventListener('click',resetAdvertisementForm);
+    $('#cancelAdvertisementEdit')?.addEventListener('click',resetAdvertisementForm);
+    $('#advertisementForm')?.addEventListener('submit',saveAdvertisement);
+    $('#advertisementPosterFile')?.addEventListener('change',(event)=>renderAdvertisementPosterPreview($('#advertisementExistingPoster').value||'',event.currentTarget.files?.[0]||null));
+    $('#advertisementRemovePoster')?.addEventListener('change',(event)=>{
+      renderAdvertisementPosterPreview(event.currentTarget.checked?'':($('#advertisementExistingPoster').value||''),$('#advertisementPosterFile').files?.[0]||null);
+    });
+    $('.advert-rich-toolbar [data-advert-format]').forEach((button)=>{
+      button.addEventListener('mousedown',(event)=>event.preventDefault());
+      button.addEventListener('click',()=>{
+        const command=button.dataset.advertFormat;
+        $('#advertisementBodyEditor')?.focus();
+        if(command==='createLink'){
+          const href=(window.prompt('Enter a full link, for example https://example.com','https://')||'').trim();
+          if(href&&/^(https?:|mailto:|tel:)/i.test(href))document.execCommand('createLink',false,href);
+          else if(href)globalStatus('Use a valid http, https, mailto or tel link.','error');
+          return;
+        }
+        document.execCommand(command,false,null);
+      });
+    });
+    $('#advertisementTableBody')?.addEventListener('click',(event)=>{
+      const edit=event.target.closest?.('[data-advert-edit]');
+      if(edit){editAdvertisement(edit.dataset.advertEdit);return;}
+      const status=event.target.closest?.('[data-advert-status]');
+      if(status)setAdvertisementStatus(status.dataset.advertId,status.dataset.advertStatus,status);
+    });
     $('#adminServiceListingFilter')?.addEventListener('change',renderServiceListings);
     $('#serviceQuotationFeeForm')?.addEventListener('submit',saveServiceQuotationFee);
     $('#adminServiceRequestFilter')?.addEventListener('change',renderServiceRequests);
