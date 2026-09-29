@@ -756,7 +756,38 @@
   const checkoutPinStatus = document.getElementById('checkoutPinStatus');
   const checkoutCoordinates = document.getElementById('checkoutCoordinates');
   let pickupStations = [];
+  let deliveryRateSettings = { cbd_fee_kes:50, estate_fee_kes:80, outside_town_fee_kes:200, standard_max_weight_kg:50, standard_max_area_sqm:1, rate_note:'' };
   let updateCheckoutReadiness = () => {};
+  const deliveryMoney=(value)=>'KSh '+Number(value||0).toLocaleString('en-KE',{maximumFractionDigits:2});
+
+  const applyDeliveryRateLabels = () => {
+    const cbd=Number(deliveryRateSettings.cbd_fee_kes??50);
+    const estate=Number(deliveryRateSettings.estate_fee_kes??80);
+    const outside=Number(deliveryRateSettings.outside_town_fee_kes??200);
+    const weight=Number(deliveryRateSettings.standard_max_weight_kg??50);
+    const area=Number(deliveryRateSettings.standard_max_area_sqm??1);
+    const cbdOption=checkoutDeliveryZone?.querySelector('option[value="cbd"]');
+    const estateOption=checkoutDeliveryZone?.querySelector('option[value="estate"]');
+    const outsideOption=checkoutDeliveryZone?.querySelector('option[value="outside"]');
+    if(cbdOption)cbdOption.textContent='Same local town — CBD ('+deliveryMoney(cbd)+')';
+    if(estateOption)estateOption.textContent='Local estate ('+deliveryMoney(estate)+')';
+    if(outsideOption)outsideOption.textContent='Outside town (from '+deliveryMoney(outside)+')';
+    const note=document.querySelector('.checkout-zone-wrap[data-admin-managed="delivery-fee-rules"] p');
+    if(note)note.textContent=deliveryRateSettings.rate_note||
+      ('Standard '+deliveryMoney(cbd)+'/'+deliveryMoney(estate)+' rates apply to parcels below '+
+       weight.toLocaleString('en-KE')+' kg and up to '+area.toLocaleString('en-KE')+
+       ' m². Far locations, heavier or oversized parcels are sent to LEOGO Admin/Staff for delivery-price negotiation.');
+  };
+
+  const loadDeliveryRateSettings = async () => {
+    const client=window.leogoAuth?.client;
+    if(!client)return;
+    const {data,error}=await client.rpc('public_get_delivery_rate_settings');
+    if(error||!data)return;
+    deliveryRateSettings={...deliveryRateSettings,...data};
+    applyDeliveryRateLabels();
+    updateCheckoutFees();
+  };
   const escapePickupText = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
   })[character]);
@@ -852,9 +883,9 @@
     const serviceRate = subtotal >= 3000 ? 0.015 : 0.02;
     const serviceFee = subtotal * serviceRate;
     const deliveryRules = {
-      cbd: { amount: 50, label: 'KSh 50' },
-      estate: { amount: 80, label: 'KSh 80' },
-      outside: { amount: 200, label: 'From KSh 200' },
+      cbd: { amount: Number(deliveryRateSettings.cbd_fee_kes??50), label: deliveryMoney(deliveryRateSettings.cbd_fee_kes??50) },
+      estate: { amount: Number(deliveryRateSettings.estate_fee_kes??80), label: deliveryMoney(deliveryRateSettings.estate_fee_kes??80) },
+      outside: { amount: Number(deliveryRateSettings.outside_town_fee_kes??200), label: 'From ' + deliveryMoney(deliveryRateSettings.outside_town_fee_kes??200) },
       quote: { amount: null, label: 'Admin quote' },
       pickup: { amount: 0, label: 'Collect at station' }
     };
@@ -886,7 +917,12 @@
     updateCheckoutFees();
     updateCheckoutReadiness();
   });
-  document.addEventListener('leogo:authchange', (event) => loadPickupStations(event.detail?.user || null));
+  document.addEventListener('leogo:authchange', (event) => {
+    loadPickupStations(event.detail?.user || null);
+    loadDeliveryRateSettings();
+  });
+  window.setTimeout(loadDeliveryRateSettings,700);
+  applyDeliveryRateLabels();
   updateCheckoutFees();
 
   checkoutPinLocation?.addEventListener('click', () => {
