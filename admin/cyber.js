@@ -46,11 +46,11 @@ const ensureUI=()=>{
       <section class="cyber-admin-card">
         <div class="cyber-admin-card-head"><div><span>STANDARD DELIVERY RULE</span><h3>Cyber Uses the Same Delivery Charges as Orders</h3><p>Cyber orders no longer keep a separate delivery-rate setting. The supported standard order rule is used on both the customer screen and server calculation.</p></div></div>
         <div class="cyber-admin-delivery-rules">
-          <article><small>Same local town — CBD</small><strong>KSh 50</strong></article>
-          <article><small>Local estate / nearby area</small><strong>KSh 80</strong></article>
-          <article><small>Outside town</small><strong>From KSh 200</strong></article>
+          <article><small>Same local town — CBD</small><strong id="cyberAdminDeliveryCbd">KSh 50</strong></article>
+          <article><small>Local estate / nearby area</small><strong id="cyberAdminDeliveryEstate">KSh 80</strong></article>
+          <article><small>Outside town</small><strong id="cyberAdminDeliveryOutside">From KSh 200</strong></article>
         </div>
-        <div class="cyber-admin-delivery-note">Standard KSh 50/80 rates are intended for parcels below 50 kg and up to 1 m². Cyber pickup remains free of delivery charge.</div>
+        <div class="cyber-admin-delivery-note" id="cyberAdminDeliveryNote">Delivery rates are controlled from Transport & Delivery → Delivery Zones. Cyber pickup remains free of delivery charge.</div>
       </section>
 
       <section class="cyber-admin-card">
@@ -222,12 +222,19 @@ const loadAll=async()=>{
     client.rpc('admin_list_cyber_products'),
     client.rpc('admin_list_cyber_orders'),
     client.rpc('admin_list_cyber_profile_changes'),
-    client.rpc('admin_list_cyber_flash_sale_requests')
+    client.rpc('admin_list_cyber_flash_sale_requests'),
+    client.rpc('admin_get_delivery_rate_settings')
   ]);
   const firstError=results.find(r=>r.error)?.error;
   if(firstError)throw firstError;
   providers=results[0].data||[];services=results[1].data||[];products=results[2].data||[];orders=results[3].data||[];
   profileChanges=results[4].data||[];flashSales=results[5].data||[];
+  const rates=results[6].data||{};
+  if($('#cyberAdminDeliveryCbd'))$('#cyberAdminDeliveryCbd').textContent=money(rates.cbd_fee_kes??50);
+  if($('#cyberAdminDeliveryEstate'))$('#cyberAdminDeliveryEstate').textContent=money(rates.estate_fee_kes??80);
+  if($('#cyberAdminDeliveryOutside'))$('#cyberAdminDeliveryOutside').textContent='From '+money(rates.outside_town_fee_kes??200);
+  if($('#cyberAdminDeliveryNote'))$('#cyberAdminDeliveryNote').textContent=rates.rate_note||
+    ('Standard rates apply below '+Number(rates.standard_max_weight_kg??50).toLocaleString('en-KE')+' kg and up to '+Number(rates.standard_max_area_sqm??1).toLocaleString('en-KE')+' m². Cyber pickup remains free of delivery charge.');
   render();
 };
 
