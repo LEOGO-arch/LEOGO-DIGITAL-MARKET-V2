@@ -14,7 +14,7 @@ const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Nairobi'}).for
 const monthStart=()=>{const parts=today().split('-');return parts[0]+'-'+parts[1]+'-01';};
 const setStatus=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className='status'+(type?' '+type:'');};
 
-let dashboard=null,parcels=[],returns=[],withdrawals=[],history=[],earnings=null,currentUser=null;
+let dashboard=null,pickupApplication=null,parcels=[],returns=[],withdrawals=[],history=[],earnings=null,currentUser=null;
 let scannerStream=null,scannerTimer=null,scannerMode='receive';
 
 const showView=(name)=>{
@@ -123,17 +123,108 @@ const renderEarnings=()=>{
     <article class="compact-row"><header><strong>${esc(d.day)}</strong><b>${esc(money(d.earnings_kes))}</b></header><p>${Number(d.parcels||0)} parcel(s) handed over</p></article>`).join(''):'<div class="compact-row"><strong>No earnings in this period.</strong></div>';
 };
 
+const fillApplicationForm=(app={})=>{
+  const form=$('#pickupApplicationForm');if(!form)return;
+  const values={
+    station_name:app.station_name||'',
+    applicant_name:app.applicant_name||currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||'',
+    id_number:app.id_number||'',
+    phone:app.phone||'',
+    county:app.county||'',
+    sub_county:app.sub_county||'',
+    town:app.town||'',
+    address_line:app.address_line||'',
+    landmark:app.landmark||'',
+    door_number:app.door_number||'',
+    operating_hours:app.operating_hours||'',
+    map_link:app.map_link||'',
+    latitude:app.latitude??'',
+    longitude:app.longitude??''
+  };
+  Object.entries(values).forEach(([key,value])=>{if(form.elements[key])form.elements[key].value=value;});
+};
+
+const renderApplicationGate=()=>{
+  const app=pickupApplication?.application||null;
+  const status=app?.application_status||'not_submitted';
+  const form=$('#pickupApplicationForm');
+  const eyebrow=$('#pickupApplicationEyebrow');
+  const title=$('#pickupApplicationTitle');
+  const message=$('#pickupApplicationMessage');
+  const notice=$('#pickupApplicationNotice');
+  if(!form||!eyebrow||!title||!message||!notice)return;
+
+  notice.className='application-notice'+(status!=='not_submitted'?' '+status:'');
+  form.hidden=false;
+
+  if(status==='pending'){
+    eyebrow.textContent='APPLICATION SUBMITTED';
+    title.textContent='Waiting for LEOGO Admin approval';
+    message.textContent='Your Pickup Station application has been received. Parcel functions remain locked until Admin approves it.';
+    notice.textContent='Status: PENDING APPROVAL. You cannot scan, receive, hand over parcels, book returns or request earnings yet.';
+    form.hidden=true;
+  }else if(status==='under_review'){
+    eyebrow.textContent='ADMIN REVIEW';
+    title.textContent='Your Pickup Station application is under review';
+    message.textContent='LEOGO Admin is reviewing your station details. The operational dashboard stays locked until approval.';
+    notice.textContent='Status: UNDER REVIEW. You will receive an update after Admin makes a decision.';
+    form.hidden=true;
+  }else if(status==='changes_requested'){
+    eyebrow.textContent='CORRECTION REQUIRED';
+    title.textContent='Admin requested changes to your application';
+    message.textContent='Correct the station details below and resubmit for approval.';
+    notice.textContent='Admin note: '+(app.admin_notes||'Please correct the requested details and resubmit.');
+    fillApplicationForm(app);
+  }else if(status==='rejected'){
+    eyebrow.textContent='APPLICATION NOT APPROVED';
+    title.textContent='Review the Admin note before resubmitting';
+    message.textContent='The operational dashboard remains locked. You may correct the application and submit it again.';
+    notice.textContent='Admin note: '+(app.admin_notes||'Application was not approved.');
+    fillApplicationForm(app);
+  }else if(status==='approved'){
+    eyebrow.textContent='APPROVED';
+    title.textContent='Pickup Station approved — finishing account access';
+    message.textContent='Your application is approved. Refresh the portal; if access still does not open, contact LEOGO Admin.';
+    notice.textContent='Status: APPROVED.';
+    form.hidden=true;
+  }else{
+    eyebrow.textContent='PICKUP STATION PARTNER';
+    title.textContent='Apply to operate a LEOGO Pickup Station';
+    message.textContent='Parcel operations stay locked until LEOGO Admin approves this application or manually assigns your account to an existing approved station.';
+    notice.textContent='No parcel scanning, receiving, handover, returns or earnings functions are available before approval.';
+    fillApplicationForm({});
+  }
+};
+
+const loadPickupApplication=async()=>{
+  const {data,error}=await client.rpc('pickup_partner_get_application');
+  if(error)throw error;
+  pickupApplication=data||{exists:false};
+  renderApplicationGate();
+  return pickupApplication;
+};
+
 const loadDashboard=async()=>{
   const {data,error}=await client.rpc('pickup_partner_get_dashboard');
   if(error)throw error;
   dashboard=data||{assigned:false};
   if(!dashboard.assigned){
-    $('#portal').hidden=true;$('#assignmentGate').hidden=false;return false;
+    stopScanner();
+    $('#portal').hidden=true;
+    $('#assignmentGate').hidden=false;
+    await loadPickupApplication();
+    return false;
   }
   if(dashboard.account?.status!=='active'){
+    stopScanner();
     $('#portal').hidden=true;$('#assignmentGate').hidden=false;
-    $('#assignmentGate h1').textContent='Your Pickup Station access is not active';
-    $('#assignmentGate p').textContent='Contact LEOGO Admin to reactivate your Pickup Station Partner access.';
+    pickupApplication={exists:true,application:{application_status:'under_review'}};
+    $('#pickupApplicationEyebrow').textContent='ACCESS SUSPENDED';
+    $('#pickupApplicationTitle').textContent='Your Pickup Station access is not active';
+    $('#pickupApplicationMessage').textContent='Contact LEOGO Admin to reactivate your Pickup Station Partner account.';
+    $('#pickupApplicationNotice').textContent='Parcel operations are locked while this station access is inactive.';
+    $('#pickupApplicationNotice').className='application-notice rejected';
+    $('#pickupApplicationForm').hidden=true;
     return false;
   }
   $('#assignmentGate').hidden=true;$('#portal').hidden=false;renderDashboard();return true;
@@ -236,6 +327,61 @@ $('#refreshParcels').addEventListener('click',()=>loadParcels().catch(()=>{}));
 $('#refreshReturns').addEventListener('click',()=>loadReturns().catch(()=>{}));
 $('#refreshPortal').addEventListener('click',()=>loadAll().catch(err=>alert(err.message)));
 
+$('#pickupApplicationForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const button=e.submitter;
+  const original=button?.textContent||'Submit for Admin Approval';
+  if(button){button.disabled=true;button.textContent='Submitting…';}
+  setStatus($('#pickupApplicationFormStatus'),'Submitting application for Admin approval…');
+  const v=Object.fromEntries(new FormData(e.currentTarget).entries());
+  const latitude=String(v.latitude||'').trim();
+  const longitude=String(v.longitude||'').trim();
+  try{
+    if((latitude&&!longitude)||(!latitude&&longitude))throw new Error('Latitude and longitude must both be provided, or leave both blank.');
+    const {data,error}=await client.rpc('pickup_partner_submit_application',{
+      p_station_name:String(v.station_name||'').trim(),
+      p_applicant_name:String(v.applicant_name||'').trim(),
+      p_id_number:String(v.id_number||'').trim(),
+      p_phone:String(v.phone||'').trim(),
+      p_county:String(v.county||'').trim(),
+      p_sub_county:String(v.sub_county||'').trim(),
+      p_town:String(v.town||'').trim(),
+      p_address_line:String(v.address_line||'').trim(),
+      p_landmark:String(v.landmark||'').trim()||null,
+      p_door_number:String(v.door_number||'').trim()||null,
+      p_operating_hours:String(v.operating_hours||'').trim()||null,
+      p_latitude:latitude?Number(latitude):null,
+      p_longitude:longitude?Number(longitude):null,
+      p_map_link:String(v.map_link||'').trim()||null
+    });
+    if(error)throw error;
+    setStatus($('#pickupApplicationFormStatus'),'✓ Application submitted. LEOGO Admin must approve it before parcel functions unlock.','success');
+    await loadPickupApplication();
+  }catch(err){
+    setStatus($('#pickupApplicationFormStatus'),err.message||'Application could not be submitted.','error');
+  }finally{
+    if(button){button.disabled=false;button.textContent=original;}
+  }
+});
+
+$('#pinApplicationLocation')?.addEventListener('click',()=>{
+  const statusEl=$('#pickupApplicationFormStatus');
+  if(!navigator.geolocation){
+    setStatus(statusEl,'This browser cannot access location. Paste a Maps link or enter coordinates manually.','error');
+    return;
+  }
+  setStatus(statusEl,'Getting station location…');
+  navigator.geolocation.getCurrentPosition(position=>{
+    const lat=Number(position.coords.latitude),lng=Number(position.coords.longitude);
+    $('#applicationLatitude').value=lat.toFixed(7);
+    $('#applicationLongitude').value=lng.toFixed(7);
+    if(!$('#applicationMapLink').value.trim())$('#applicationMapLink').value='https://www.google.com/maps?q='+lat.toFixed(7)+','+lng.toFixed(7);
+    setStatus(statusEl,'✓ Station location pinned.','success');
+  },error=>{
+    setStatus(statusEl,error.code===1?'Location permission was not granted. Paste a Maps link or coordinates manually.':'Station location could not be detected.','error');
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:15000});
+});
+
 const stopScanner=()=>{
   if(scannerTimer){clearTimeout(scannerTimer);scannerTimer=null;}
   if(scannerStream){scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null;}
@@ -262,6 +408,11 @@ const scanLoop=async(detector)=>{
   scannerTimer=setTimeout(()=>scanLoop(detector),300);
 };
 const startScanner=async(mode)=>{
+  if(!dashboard?.assigned||dashboard?.account?.status!=='active'){
+    stopScanner();
+    alert('Pickup Station parcel functions are locked until LEOGO Admin approves or assigns this account.');
+    return;
+  }
   scannerMode=mode;$('#scannerTitle').textContent=mode==='receive'?'Scan to Receive Parcel':'Scan to Hand Over Parcel';$('#scannerModal').hidden=false;
   $('#scannerStatus').textContent='Starting camera…';
   if(!('BarcodeDetector' in window)){
@@ -286,7 +437,7 @@ $('#pickupLogout').addEventListener('click',async()=>{await client.auth.signOut(
 const boot=async()=>{
   $('#historyFrom').value=monthStart();$('#historyTo').value=today();$('#earningsFrom').value=monthStart();$('#earningsTo').value=today();
   const {data:{session},error}=await client.auth.getSession();
-  if(error||!session){$('#authGate').hidden=false;$('#assignmentGate').hidden=true;$('#portal').hidden=true;return;}
+  if(error||!session){stopScanner();$('#authGate').hidden=false;$('#assignmentGate').hidden=true;$('#portal').hidden=true;return;}
   currentUser=session.user;$('#authGate').hidden=true;
   try{
     await loadAll();
@@ -297,9 +448,14 @@ const boot=async()=>{
       showView('operations');lookupParcel(incoming);
     }
   }catch(err){
+    stopScanner();
     $('#portal').hidden=true;$('#assignmentGate').hidden=false;
-    $('#assignmentGate h1').textContent='Pickup Station portal could not load';
-    $('#assignmentGate p').textContent=err.message||'Refresh and try again.';
+    $('#pickupApplicationEyebrow').textContent='PORTAL ERROR';
+    $('#pickupApplicationTitle').textContent='Pickup Station portal could not load';
+    $('#pickupApplicationMessage').textContent=err.message||'Refresh and try again.';
+    $('#pickupApplicationNotice').textContent='Parcel functions remain locked until the portal loads and confirms an approved station account.';
+    $('#pickupApplicationNotice').className='application-notice rejected';
+    $('#pickupApplicationForm').hidden=true;
   }
 };
 
