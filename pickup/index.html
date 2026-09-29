@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Pickup Station Partner</title>
-  <link rel="stylesheet" href="pickup.css?v=pickup-business-docs-3">
+  <link rel="stylesheet" href="pickup.css?v=pickup-proof-1">
 </head>
 <body>
 <header class="topbar">
@@ -96,9 +96,10 @@
     <section class="portal-view active" data-panel="operations">
       <div class="two-col">
         <article class="card action-card">
-          <div class="card-head"><div><span>INBOUND</span><h2>Receive Parcel</h2><p>Scan the LEOGO order QR or enter the order / waybill number manually.</p></div><b>📥</b></div>
+          <div class="card-head"><div><span>INBOUND</span><h2>Receive Parcel</h2><p>Scan the LEOGO order QR, enter the full order / waybill number, or use its last 4+ characters.</p></div><b>📥</b></div>
           <form id="receiveForm">
-            <label>Order / waybill number<input id="receiveCode" name="code" autocomplete="off" placeholder="LEOGO-… or scan QR" required></label>
+            <label>Order / waybill number<input id="receiveCode" name="code" autocomplete="off" placeholder="Full number or last 4+ characters, e.g. BO1A" required></label>
+            <label class="proof-field">Parcel photo <small>Required. Take a clear photo of the parcel as it is received at the station.</small><input id="receivePhoto" name="receive_photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required></label>
             <label>Receiving note <textarea id="receiveNotes" name="notes" rows="2" placeholder="Optional condition / storage note"></textarea></label>
             <div class="action-row"><button class="scan-button" type="button" data-scan-mode="receive">▣ Scan to Receive</button><button class="primary" type="submit">Receive Parcel</button></div>
           </form>
@@ -106,9 +107,11 @@
         </article>
 
         <article class="card action-card">
-          <div class="card-head"><div><span>COLLECTION</span><h2>Hand Over Parcel</h2><p>Scan the same permanent LEOGO order QR or enter the order / waybill number.</p></div><b>📤</b></div>
+          <div class="card-head"><div><span>COLLECTION</span><h2>Hand Over Parcel</h2><p>Scan the LEOGO order QR, enter the full order / waybill number, or use its last 4+ characters.</p></div><b>📤</b></div>
           <form id="handoverForm">
-            <label>Order / waybill number<input id="handoverCode" name="code" autocomplete="off" placeholder="LEOGO-… or scan QR" required></label>
+            <label>Order / waybill number<input id="handoverCode" name="code" autocomplete="off" placeholder="Full number or last 4+ characters, e.g. BO1A" required></label>
+            <label>Customer ID Number <small>Required before releasing the parcel.</small><input id="handoverIdNumber" name="customer_id_number" autocomplete="off" maxlength="40" placeholder="Enter customer ID number" required></label>
+            <label class="proof-field">Handover photo <small>Required. Take a clear photo as proof of parcel collection.</small><input id="handoverPhoto" name="handover_photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required></label>
             <label>Handover note <textarea id="handoverNotes" name="notes" rows="2" placeholder="Optional customer / collection note"></textarea></label>
             <div class="action-row"><button class="scan-button" type="button" data-scan-mode="handover">▣ Scan to Hand Over</button><button class="primary" type="submit">Hand Over</button></div>
           </form>
@@ -117,8 +120,8 @@
       </div>
 
       <article class="card lookup-card">
-        <div class="card-head"><div><span>TRACK PARCEL</span><h2>Check Parcel Status</h2><p>Search any order booked for your station.</p></div></div>
-        <form id="lookupForm" class="inline-form"><input id="lookupCode" placeholder="Order / waybill number" required><button type="submit">Track</button></form>
+        <div class="card-head"><div><span>TRACK PARCEL</span><h2>Check Parcel Status</h2><p>Search using the full order / waybill number or only the last 4+ characters, for example BO1A.</p></div></div>
+        <form id="lookupForm" class="inline-form"><input id="lookupCode" autocomplete="off" placeholder="Full number or last 4+ characters" required><button type="submit">Track</button></form>
         <div id="lookupResult" class="lookup-result"></div>
       </article>
     </section>
@@ -207,6 +210,6 @@
 </div>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="pickup.js?v=pickup-business-docs-3" defer></script>
+<script src="pickup.js?v=pickup-proof-1" defer></script>
 </body>
 </html>
