@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Pickup Station Partner</title>
-  <link rel="stylesheet" href="pickup.css?v=pickup-proof-1">
+  <link rel="stylesheet" href="pickup.css?v=pickup-track-any-1">
 </head>
 <body>
 <header class="topbar">
@@ -120,8 +120,8 @@
       </div>
 
       <article class="card lookup-card">
-        <div class="card-head"><div><span>TRACK PARCEL</span><h2>Check Parcel Status</h2><p>Search using the full order / waybill number or only the last 4+ characters, for example BO1A.</p></div></div>
-        <form id="lookupForm" class="inline-form"><input id="lookupCode" autocomplete="off" placeholder="Full number or last 4+ characters" required><button type="submit">Track</button></form>
+        <div class="card-head"><div><span>TRACK ANY LEOGO ORDER</span><h2>Check Order Delivery</h2><p>Track any LEOGO order using the full order number or the last 4+ characters. The result shows the delivery method and, for Pickup Station orders, the assigned station details.</p></div></div>
+        <form id="lookupForm" class="inline-form"><input id="lookupCode" autocomplete="off" placeholder="Full order number or last 4+ characters" required><button type="submit">Track</button></form>
         <div id="lookupResult" class="lookup-result"></div>
       </article>
     </section>
@@ -210,6 +210,6 @@
 </div>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="pickup.js?v=pickup-proof-1" defer></script>
+<script src="pickup.js?v=pickup-track-any-1" defer></script>
 </body>
 </html>
