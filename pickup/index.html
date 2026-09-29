@@ -53,7 +53,13 @@
         <label class="wide">Google Maps / location link<input id="applicationMapLink" name="map_link" placeholder="Paste location link or pin your current station location"></label>
         <label>Latitude<input id="applicationLatitude" name="latitude" inputmode="decimal" placeholder="-0.061..."></label>
         <label>Longitude<input id="applicationLongitude" name="longitude" inputmode="decimal" placeholder="34.288..."></label>
+
+        <label class="wide">Business ID / Identification document <small>Required. Upload JPG, PNG, WEBP or PDF, maximum 8 MB.</small><input id="pickupBusinessIdDocument" name="business_id_document" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+        <label>Business licence <small>Required for Pickup Station approval.</small><input id="pickupBusinessLicence" name="business_licence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+        <label>CR12 / Registration Certificate <small>Optional</small><input id="pickupRegistrationCertificate" name="registration_certificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label class="wide">Other business permits <small>Optional, maximum 4 files.</small><input id="pickupOtherPermits" name="other_permits" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple></label>
       </div>
+      <div class="application-notice pending" style="margin-top:14px">🔒 Business documents are private and available only to the Pickup Station applicant and authorized LEOGO Admin reviewers.</div>
       <div class="application-actions">
         <button id="pinApplicationLocation" type="button">📍 Pin Station Location</button>
         <button class="primary" type="submit">Submit for Admin Approval</button>
@@ -201,6 +207,6 @@
 </div>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="pickup.js?v=pickup-earning-rate-1" defer></script>
+<script src="pickup.js?v=pickup-business-docs-1" defer></script>
 </body>
 </html>
