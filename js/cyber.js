@@ -10,8 +10,36 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=(v)=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const money=(v)=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const status=(msg='',type='')=>{const el=$('#cyberMarketStatus');if(!el)return;el.textContent=msg;el.style.color=type==='error'?'#b42318':'';};
-const ORDER_DELIVERY_FEES=Object.freeze({cbd:50,estate:80,outside_town:200});
+let ORDER_DELIVERY_FEES={cbd:50,estate:80,outside_town:200};
+let deliveryRateSettings={cbd_fee_kes:50,estate_fee_kes:80,outside_town_fee_kes:200,standard_max_weight_kg:50,standard_max_area_sqm:1,rate_note:''};
 let shops=[],services=[],products=[],activeFlashSales=new Map(),selectedShop=null,activeTab='services',selectedItem=null,paymentDestination=null,activeCustomerChatOrderId=null;
+
+const applyCyberDeliveryRates=()=>{
+  const cbd=Number(deliveryRateSettings.cbd_fee_kes??50);
+  const estate=Number(deliveryRateSettings.estate_fee_kes??80);
+  const outside=Number(deliveryRateSettings.outside_town_fee_kes??200);
+  ORDER_DELIVERY_FEES={cbd,estate,outside_town:outside};
+  const select=$('#cyberDeliveryZone');
+  if(select){
+    const a=select.querySelector('option[value="cbd"]'); if(a)a.textContent='Same local town — CBD ('+money(cbd)+')';
+    const b=select.querySelector('option[value="estate"]'); if(b)b.textContent='Local estate ('+money(estate)+')';
+    const d=select.querySelector('option[value="outside_town"]'); if(d)d.textContent='Outside town (from '+money(outside)+')';
+  }
+  const note=$('.cyber-delivery-rule-note');
+  if(note)note.textContent=deliveryRateSettings.rate_note||
+    ('Same LEOGO order delivery rule: '+money(cbd)+' in the local CBD, '+money(estate)+
+     ' for local estates, and from '+money(outside)+' outside town. Standard rates are for parcels below '+
+     Number(deliveryRateSettings.standard_max_weight_kg??50).toLocaleString('en-KE')+' kg and up to '+
+     Number(deliveryRateSettings.standard_max_area_sqm??1).toLocaleString('en-KE')+' m².');
+};
+
+const loadCyberDeliveryRates=async()=>{
+  const {data,error}=await client.rpc('public_get_delivery_rate_settings');
+  if(error||!data)return;
+  deliveryRateSettings={...deliveryRateSettings,...data};
+  applyCyberDeliveryRates();
+  if(selectedItem)updateOrderPreview();
+};
 
 const ensureUI=()=>{
   if($('#cyberMarketplace'))return;
@@ -80,6 +108,7 @@ const ensureUI=()=>{
       </form>
     </section>`;
   document.body.appendChild(modal);
+  applyCyberDeliveryRates();
 
   const chatModal=document.createElement('div');
   chatModal.className='cyber-order-modal cyber-customer-chat-modal';
@@ -424,7 +453,9 @@ $('#cyberOrderForm')?.addEventListener('submit',async(e)=>{
   finally{button.disabled=false;button.textContent=old;}
 });
 
-client.auth.onAuthStateChange(()=>{loadPayment().catch(()=>{});});
+client.auth.onAuthStateChange(()=>{loadPayment().catch(()=>{});loadCyberDeliveryRates().catch(()=>{});});
+loadCyberDeliveryRates().catch(()=>{});
+window.addEventListener('focus',()=>loadCyberDeliveryRates().catch(()=>{}));
 loadPayment().catch(()=>{});
 loadPublic().catch(e=>status(e.message||'Cyber marketplace could not load.','error'));
 })();
