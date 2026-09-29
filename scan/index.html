@@ -39,9 +39,10 @@
     <div class="body">
       <div class="ref"><small>ORDER REFERENCE</small><strong id="orderRef">LEOGO ORDER</strong></div>
       <p>This QR identifies a LEOGO marketplace order. It does not expose customer, payment, or delivery details publicly.</p>
-      <div class="notice">Authorized LEOGO staff can continue through their secure portal. Pickup Agent access can use this same QR when that portal is added later.</div>
+      <div class="notice">This permanent LEOGO QR can be used by authorized Staff and the assigned Pickup Station Partner to identify the order securely.</div>
       <div class="actions">
-        <a class="primary" id="staffLink" href="../staff/">Open Staff Portal</a>
+        <a class="primary" id="pickupLink" href="../pickup/">Open Pickup Station Portal</a>
+        <a class="secondary" id="staffLink" href="../staff/">Open Staff Portal</a>
         <a class="secondary" href="../admin/">Open Admin Center</a>
       </div>
     </div>
@@ -55,9 +56,11 @@
   const ref=(params.get('ref')||'').trim();
   document.getElementById('orderRef').textContent=ref||'LEOGO ORDER';
   const staff=new URL('../staff/',location.href);
-  if(order) staff.searchParams.set('order',order);
-  if(ref) staff.searchParams.set('ref',ref);
+  const pickup=new URL('../pickup/',location.href);
+  if(order){staff.searchParams.set('order',order);pickup.searchParams.set('order',order);}
+  if(ref){staff.searchParams.set('ref',ref);pickup.searchParams.set('ref',ref);}
   document.getElementById('staffLink').href=staff.href;
+  document.getElementById('pickupLink').href=pickup.href;
 })();
 </script>
 </body>
