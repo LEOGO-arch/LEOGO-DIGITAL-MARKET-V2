@@ -52,6 +52,7 @@
     pickupStations: [],
     walletSettings: null,
     transportFinanceSettings: null,
+    deliveryRateSettings: null,
     accommodationFinanceSettings: null,
     premiumPlans: [],
     premiumCustomers: [],
@@ -505,6 +506,7 @@
       [loadPickupStations, () => adminHas('orders.read') || adminHas('delivery.manage')],
       [loadWalletSettings, () => adminHas('approvals.read') || adminHas('fees.manage')],
       [loadTransportFinanceSettings, () => adminHas('settings.manage') || adminHas('fees.manage') || adminHas('delivery.manage')],
+      [loadDeliveryRateSettings, () => adminHas('settings.manage') || adminHas('fees.manage') || adminHas('delivery.manage') || adminHas('approvals.read')],
       [loadAccommodationFinanceSettings, () => adminHas('settings.manage') || adminHas('fees.manage') || adminHas('approvals.read')],
       [loadPremiumCustomers, () => adminHas('premium.read')],
       [loadPremiumProfiles, () => adminHas('premium.read')],
@@ -3691,6 +3693,44 @@
     });
   };
 
+  const loadDeliveryRateSettings = async () => {
+    const {data,error}=await db.rpc('admin_get_delivery_rate_settings');
+    if(error)throw error;
+    state.deliveryRateSettings=data||{};
+    const form=$('#deliveryRateSettingsForm');
+    if(form){
+      form.elements.cbd_fee_kes.value=Number(data?.cbd_fee_kes??50);
+      form.elements.estate_fee_kes.value=Number(data?.estate_fee_kes??80);
+      form.elements.outside_town_fee_kes.value=Number(data?.outside_town_fee_kes??200);
+      form.elements.standard_max_weight_kg.value=Number(data?.standard_max_weight_kg??50);
+      form.elements.standard_max_area_sqm.value=Number(data?.standard_max_area_sqm??1);
+      form.elements.rate_note.value=data?.rate_note||'';
+    }
+    if($('#deliveryRateCbdSummary'))$('#deliveryRateCbdSummary').textContent=formatMoney(data?.cbd_fee_kes??50);
+    if($('#deliveryRateEstateSummary'))$('#deliveryRateEstateSummary').textContent=formatMoney(data?.estate_fee_kes??80);
+    if($('#deliveryRateOutsideSummary'))$('#deliveryRateOutsideSummary').textContent='From '+formatMoney(data?.outside_town_fee_kes??200);
+  };
+  const saveDeliveryRateSettings = async (event) => {
+    event.preventDefault();
+    const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const values=Object.fromEntries(new FormData(event.currentTarget).entries());
+      const {data,error}=await db.rpc('admin_update_delivery_rate_settings',{
+        p_cbd_fee_kes:Number(values.cbd_fee_kes),
+        p_estate_fee_kes:Number(values.estate_fee_kes),
+        p_outside_town_fee_kes:Number(values.outside_town_fee_kes),
+        p_standard_max_weight_kg:Number(values.standard_max_weight_kg),
+        p_standard_max_area_sqm:Number(values.standard_max_area_sqm),
+        p_rate_note:String(values.rate_note||'').trim()||null
+      });
+      if(error){setFormStatus($('#deliveryRateSettingsStatus'),friendlyError(error),'error');return;}
+      state.deliveryRateSettings=data||state.deliveryRateSettings;
+      setFormStatus($('#deliveryRateSettingsStatus'),'Delivery rates updated. New Marketplace and Cyber orders will use these charges immediately.','success');
+      await Promise.all([loadDeliveryRateSettings(),loadAuditLog().catch(()=>{})]);
+      document.dispatchEvent(new CustomEvent('leogo:delivery-rates-updated',{detail:data||{}}));
+    });
+  };
+
   const loadTransportFinanceSettings = async () => {
     const {data,error}=await db.rpc('admin_get_transport_finance_settings');
     if(error)throw error;
@@ -5004,6 +5044,7 @@
       changeTransportSection(activeTransportSection);
       if(activeTransportSection==='providers') loadTransportNetwork().catch((error)=>globalStatus('Transport Provider data could not load: '+friendlyError(error),'error'));
       if(activeTransportSection==='jobs') Promise.all([loadTransportNetwork(),loadDeliveryOps()]).catch((error)=>globalStatus('Delivery jobs could not load: '+friendlyError(error),'error'));
+      if(activeTransportSection==='zones') loadDeliveryRateSettings().catch((error)=>globalStatus('Delivery rates could not load: '+friendlyError(error),'error'));
       if(activeTransportSection==='pickup') loadPickupStations().catch((error)=>globalStatus('Pickup Stations could not load: '+friendlyError(error),'error'));
     }
     if (view === 'staff' && isSuperAdmin()) {
@@ -5183,6 +5224,7 @@
     $('#refreshDeliveryOps').addEventListener('click', () => withButtonLock($('#refreshDeliveryOps'), 'Refreshing…', async()=>{
       if(activeTransportSection==='providers')await loadTransportNetwork();
       else if(activeTransportSection==='jobs')await Promise.all([loadTransportNetwork(),loadDeliveryOps()]);
+      else if(activeTransportSection==='zones')await loadDeliveryRateSettings();
       else if(activeTransportSection==='pickup')await loadPickupStations();
       else await Promise.resolve();
     }));
@@ -5192,6 +5234,7 @@
       $$('#approvalFilters [data-approval-filter]').forEach(button=>button.classList.toggle('active',button.dataset.approvalFilter==='transport'));
       renderApprovals();
     });
+    $('#deliveryRateSettingsForm')?.addEventListener('submit',saveDeliveryRateSettings);
     $('#adminAddRiderForm').addEventListener('submit', addRider);
     $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
     document.querySelectorAll('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.addEventListener('click', () => {
