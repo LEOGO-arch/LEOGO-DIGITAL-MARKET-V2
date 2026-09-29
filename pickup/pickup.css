@@ -31,3 +31,37 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
 .application-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:4px}
 .back-link{display:inline-block;margin-top:8px;color:#4f627c;font-size:12px;font-weight:800;text-decoration:none}
 @media(max-width:720px){.application-shell{margin:12px auto}.application-status-card,.application-card{padding:17px}.application-grid{grid-template-columns:1fr}.application-grid .wide{grid-column:auto}.application-actions{display:grid;grid-template-columns:1fr}.application-status-card h1{font-size:24px}}
+
+
+/* Required parcel receiving / handover evidence */
+.proof-field{
+  border:1px solid #d9e2ed;
+  border-radius:14px;
+  background:#f8fafc;
+  padding:12px;
+}
+.proof-field>small,
+.action-card label>small{
+  display:block;
+  margin-top:4px;
+  color:#6b778c;
+  font-size:11px;
+  line-height:1.4;
+  font-weight:600;
+}
+.proof-field input[type="file"]{
+  margin-top:8px;
+  padding:9px;
+  background:#fff;
+  border:1px dashed #bdc9d8;
+  border-radius:10px;
+}
+.proof-field input[type="file"]::file-selector-button{
+  border:0;
+  border-radius:8px;
+  background:#07152f;
+  color:#fff;
+  padding:8px 10px;
+  margin-right:8px;
+  font-weight:800;
+}
