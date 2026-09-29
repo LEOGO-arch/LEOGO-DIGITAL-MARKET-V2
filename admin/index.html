@@ -617,8 +617,25 @@
         </section>
 
         <section class="content-card" data-transport-section="zones">
-          <div class="card-head"><div><span>DELIVERY ZONES</span><h3>Delivery Areas & Coverage</h3><p>Keep delivery-zone management separate from Transport Providers, delivery jobs and Pickup Stations.</p></div></div>
-          <div class="reserved-module slim"><span>📍</span><h3>Delivery Zone Configuration</h3><p>Zone-based delivery pricing and coverage controls will live on this page. Existing live delivery jobs and provider workflows remain unchanged.</p></div>
+          <div class="card-head"><div><span>DELIVERY ZONES & RATES</span><h3>System-wide Delivery Charges</h3><p>These are the shared LEOGO delivery charges used by Marketplace Orders and Cyber Orders. Changing a rate here changes the customer-facing rate and the server-side amount used for new orders.</p></div></div>
+          <form id="deliveryRateSettingsForm" class="form-grid">
+            <label><span>Same local town — CBD (KSh)</span><input name="cbd_fee_kes" id="deliveryRateCbd" type="number" min="0" step="1" required></label>
+            <label><span>Local estate / nearby area (KSh)</span><input name="estate_fee_kes" id="deliveryRateEstate" type="number" min="0" step="1" required></label>
+            <label><span>Outside town — minimum (KSh)</span><input name="outside_town_fee_kes" id="deliveryRateOutside" type="number" min="0" step="1" required></label>
+            <label><span>Standard parcel max weight (kg)</span><input name="standard_max_weight_kg" id="deliveryRateMaxWeight" type="number" min="0.01" step="0.01" required></label>
+            <label><span>Standard parcel max area (m²)</span><input name="standard_max_area_sqm" id="deliveryRateMaxArea" type="number" min="0.001" step="0.001" required></label>
+            <label class="wide"><span>Customer delivery note</span><textarea name="rate_note" id="deliveryRateNote" rows="3" maxlength="1000" placeholder="Explain the standard delivery rule and when a special quote is required."></textarea></label>
+            <div class="wide">
+              <button class="primary-button" type="submit">Save Delivery Rates</button>
+              <div class="form-status" id="deliveryRateSettingsStatus"></div>
+            </div>
+          </form>
+          <div class="module-summary-grid" style="margin-top:18px">
+            <article><span>CBD</span><strong id="deliveryRateCbdSummary">KSh 0</strong><small>Marketplace + Cyber</small></article>
+            <article><span>Estate / Nearby</span><strong id="deliveryRateEstateSummary">KSh 0</strong><small>Marketplace + Cyber</small></article>
+            <article><span>Outside Town</span><strong id="deliveryRateOutsideSummary">KSh 0</strong><small>Minimum charge</small></article>
+            <article><span>Pickup Stations</span><strong>Per station</strong><small>Edit each pickup-station service fee under Pickup Stations</small></article>
+          </div>
         </section>
 
         <section class="content-card" data-transport-section="pickup">
@@ -952,7 +969,7 @@
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  <script src="admin.js?v=admin-auth-isolation-1" defer></script>
-  <script src="cyber.js?v=admin-auth-isolation-1" defer></script>
+  <script src="admin.js?v=delivery-rates-admin-1" defer></script>
+  <script src="cyber.js?v=delivery-rates-admin-1" defer></script>
 </body>
 </html>
