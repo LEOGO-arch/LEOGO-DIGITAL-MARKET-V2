@@ -26,6 +26,20 @@ const showView=(name)=>{
 $$('#pickupNav [data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 
 const parcelStatusLabel=(s)=>({booked:'Booked for station',received:'At station / ready for collection',handed_over:'Handed over',cancelled:'Cancelled'})[s]||String(s||'Unknown').replaceAll('_',' ');
+const deliveryStatusLabel=(s)=>({
+  assigned:'Assigned to rider',
+  picked_up:'Picked up from seller',
+  arrived_sorting_center:'Arrived at LEOGO Sorting Center',
+  sorting_received:'Received at LEOGO Sorting Center',
+  ready_for_dispatch:'Ready for dispatch',
+  on_the_way:'On the way',
+  ready_for_pickup:'Ready for pickup',
+  delivered:'Delivered',
+  placed:'Order placed',
+  processing:'Processing',
+  cancelled:'Cancelled',
+  failed:'Delivery problem'
+})[s]||String(s||'Unknown').replaceAll('_',' ');
 const paymentLabel=(s)=>String(s||'').replaceAll('_',' ');
 const eventLabel=(s)=>({
   booked:'Parcel booked',received:'Parcel received',handed_over:'Parcel handed over',
