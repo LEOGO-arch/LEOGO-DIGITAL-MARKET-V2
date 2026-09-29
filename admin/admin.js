@@ -867,6 +867,7 @@
     const providerVerificationFields = new Set(['passport_photo_path','business_id_document_path','business_licence_path','registration_certificate_path','professional_licence_path','other_permit_paths']);
     const transportVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','transport_operator_permit_path','other_permit_paths']);
     const cyberVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','other_permit_paths']);
+    const pickupStationVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','other_permit_paths']);
     Object.entries(approvalMediaFields).forEach(([key, config]) => {
       let resolvedConfig = config;
       if (['cyber_application','cyber_profile_change'].includes(kind) && key === 'profile_picture_path') {
@@ -875,6 +876,8 @@
         resolvedConfig = { ...config, bucket:'cyber-verification', publicBucket:false };
       } else if (kind === 'cyber_product' && key === 'cyber_product_image_path') {
         resolvedConfig = { ...config, bucket:'cyber-public-media', publicBucket:true, label:'Cyber Product Picture' };
+      } else if (kind === 'pickup_station_application' && pickupStationVerificationFields.has(key)) {
+        resolvedConfig = { ...config, bucket:'pickup-station-verification', publicBucket:false };
       } else if (['service_provider_application','service_provider_profile_change'].includes(kind) && key === 'profile_picture_path') {
         resolvedConfig = { ...config, bucket: 'service-provider-public-media', publicBucket: true, label: 'Customer Profile Picture' };
       } else if (['service_provider_application','service_provider_profile_change'].includes(kind) && key === 'passport_photo_path') {
