@@ -639,8 +639,17 @@
         </section>
 
         <section class="content-card" data-transport-section="pickup">
-          <div class="card-head"><div><span>PICKUP STATIONS</span><h3>Customer Pickup Locations</h3></div><button class="primary-button" id="addPickupStation" type="button">＋ Add Pickup Station</button></div>
+          <div class="card-head"><div><span>PICKUP STATIONS</span><h3>Customer Pickup Locations & Partner Access</h3><p>Assign one LEOGO Partner account to each station. The partner can scan parcels, receive and hand them over, book returns, and request earnings withdrawals.</p></div><button class="primary-button" id="addPickupStation" type="button">＋ Add Pickup Station</button></div>
           <div class="station-grid" id="pickupStationList"><div class="loading-card">Loading pickup stations…</div></div>
+
+          <div class="section-title compact" style="margin-top:24px"><span>STATION WITHDRAWALS</span><h4>Pickup Station Partner Withdrawal Requests</h4><p>Review station earnings withdrawals and mark them paid after settlement.</p></div>
+          <div class="responsive-table"><table><thead><tr><th>Station / Partner</th><th>Amount</th><th>Payout</th><th>Submitted</th><th>Status</th><th>Action</th></tr></thead><tbody id="pickupWithdrawalBody"><tr><td colspan="6">Loading withdrawal requests…</td></tr></tbody></table></div>
+
+          <div class="section-title compact" style="margin-top:24px"><span>RETURN PARCELS</span><h4>Pickup Station Return Register</h4><p>Returns booked by Pickup Station Partners are visible here for dispatch and completion.</p></div>
+          <div class="responsive-table"><table><thead><tr><th>Return</th><th>Station</th><th>Customer</th><th>Parcel / Reason</th><th>Status</th><th>Action</th></tr></thead><tbody id="pickupReturnBody"><tr><td colspan="6">Loading return parcels…</td></tr></tbody></table></div>
+
+          <div class="section-title compact" style="margin-top:24px"><span>LIVE STATION ACTIVITY</span><h4>Recent Parcel Events</h4><p>Receiving, handover, return and withdrawal events from Pickup Station Partners.</p></div>
+          <div id="pickupStationEventList" class="admin-product-review-list"><div class="loading-card">Loading Pickup Station activity…</div></div>
         </section>
       </section>
 
@@ -969,7 +978,7 @@
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  <script src="admin.js?v=delivery-rates-admin-1" defer></script>
+  <script src="admin.js?v=pickup-station-partner-1" defer></script>
   <script src="cyber.js?v=delivery-rates-admin-3" defer></script>
 </body>
 </html>
