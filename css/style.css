@@ -1629,3 +1629,18 @@ body.premium-peer-chat-open{overflow:hidden}
     font-size:7.5px;
   }
 }
+
+
+/* Live Admin advertisement content */
+.advertisement-poster.has-live-poster{padding:0;background:#07152f}
+.advertisement-poster.has-live-poster img{display:block;width:100%;height:100%;min-height:310px;object-fit:cover}
+.advertisement-body{max-width:650px;color:#5f6c80;font-size:12px;line-height:1.65}
+.advertisement-body:empty{display:none}
+.advertisement-body p{margin:0 0 9px}
+.advertisement-body p:last-child{margin-bottom:0}
+.advertisement-body ul,.advertisement-body ol{margin:7px 0;padding-left:22px}
+.advertisement-body li{margin:3px 0}
+.advertisement-body a{color:#d95d00;font-weight:800;text-decoration:underline;overflow-wrap:anywhere}
+.advertisement-body strong,.advertisement-body b{color:#263650}
+.advertisement-card.is-live-advertisement .advertisement-label:after{content:' • LIVE';color:#16823b}
+@media(max-width:700px){.advertisement-poster.has-live-poster img{min-height:230px;max-height:420px;object-fit:cover}.advertisement-body{font-size:12px}}
