@@ -355,6 +355,7 @@ $$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   if(target==='seller')openSellerRole();
   if(target==='service_provider')openProviderRole();
   if(target==='transport')openTransportRole();
+  if(target==='pickup_station'){window.location.href='../pickup/';return;}
   if(target==='cyber'){
     activeRole='cyber';
     document.body.classList.add('cyber-role-open');
