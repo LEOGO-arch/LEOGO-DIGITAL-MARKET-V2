@@ -143,6 +143,7 @@
     $('#advertisementEnd').value = localDateTime(end);
     $('#advertisementBodyEditor').innerHTML = '';
     $('#advertisementRemovePoster').checked = false;
+    $('#advertisementPopupOnEntry').checked = false;
     $('#advertisementEditorTitle').textContent = 'Create Advertisement';
     renderPosterPreview();
     setStatus();
@@ -183,7 +184,7 @@
       return '<tr>'+
         '<td><strong>'+escapeHtml(item.title)+'</strong><small>'+escapeHtml(text)+'</small></td>'+
         '<td>'+escapeHtml(formatDate(item.starts_at))+'<small>to '+escapeHtml(formatDate(item.ends_at))+'</small></td>'+
-        '<td><span class="advert-state '+escapeHtml(runtime)+'">'+escapeHtml(runtime.replace('_',' '))+'</span><small>Saved as '+escapeHtml(item.status)+'</small></td>'+
+        '<td><span class="advert-state '+escapeHtml(runtime)+'">'+escapeHtml(runtime.replace('_',' '))+'</span><small>Saved as '+escapeHtml(item.status)+'</small>'+(item.popup_on_entry?'<span class="advert-popup-badge">📣 Website pop-up ON</span>':'')+'</td>'+
         '<td>'+poster+'</td>'+
         '<td><div class="advert-row-actions"><button type="button" data-advert-edit="'+escapeHtml(item.id)+'">Edit</button>'+statusAction+
           (item.status !== 'archived' ? '<button class="danger" type="button" data-advert-status="archived" data-advert-id="'+escapeHtml(item.id)+'">Archive</button>' : '')+
@@ -214,6 +215,7 @@
     $('#advertisementStatus').value = item.status === 'archived' ? 'draft' : (item.status || 'draft');
     $('#advertisementExistingPoster').value = item.poster_path || '';
     $('#advertisementRemovePoster').checked = false;
+    $('#advertisementPopupOnEntry').checked = Boolean(item.popup_on_entry);
     $('#advertisementBodyEditor').innerHTML = sanitizeHtml(item.body_html || '');
     $('#advertisementEditorTitle').textContent = 'Edit Advertisement';
     renderPosterPreview(item.poster_path || '');
@@ -280,7 +282,8 @@
         poster_path: posterPath || null,
         starts_at: startDate.toISOString(),
         ends_at: endDate.toISOString(),
-        status: $('#advertisementStatus').value
+        status: $('#advertisementStatus').value,
+        popup_on_entry: Boolean($('#advertisementPopupOnEntry')?.checked)
       };
 
       const { error } = await db.rpc('admin_save_advertisement',{
@@ -300,7 +303,9 @@
 
       resetForm();
       await load();
-      globalStatus('Advertisement saved. The Customer Front will follow the publishing period automatically.');
+      globalStatus(payload.popup_on_entry
+        ? 'Advertisement saved. Website pop-up push is ON for the live advertising period.'
+        : 'Advertisement saved. The Customer Front will follow the publishing period automatically.');
     });
   };
 
