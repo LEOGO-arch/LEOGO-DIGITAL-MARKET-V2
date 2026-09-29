@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Pickup Station Partner</title>
-  <link rel="stylesheet" href="pickup.css?v=pickup-partner-1">
+  <link rel="stylesheet" href="pickup.css?v=pickup-approval-gate-1">
 </head>
 <body>
 <header class="topbar">
@@ -20,10 +20,39 @@
     <a class="primary-link" href="../partner/">Open Partner Portal</a>
   </section>
 
-  <section id="assignmentGate" class="gate" hidden>
-    <span>WAITING FOR ASSIGNMENT</span><h1>Your account is not assigned to a Pickup Station yet</h1>
-    <p>Ask LEOGO Admin to assign your LEOGO email to an active Pickup Station. Once assigned, this dashboard opens automatically.</p>
-    <a class="primary-link" href="../partner/">Back to Partner Portal</a>
+  <section id="assignmentGate" class="application-shell" hidden>
+    <article class="application-status-card">
+      <span id="pickupApplicationEyebrow">PICKUP STATION PARTNER</span>
+      <h1 id="pickupApplicationTitle">Apply to operate a LEOGO Pickup Station</h1>
+      <p id="pickupApplicationMessage">Parcel operations stay locked until LEOGO Admin approves this Pickup Station application or manually assigns your account to an existing approved station.</p>
+      <div id="pickupApplicationNotice" class="application-notice">No parcel scanning, receiving, handover, returns or earnings functions are available before approval.</div>
+    </article>
+
+    <form id="pickupApplicationForm" class="application-card">
+      <div class="card-head"><div><span>PARTNER APPLICATION</span><h2>Pickup Station details</h2><p>Submit the physical location that you want LEOGO Admin to verify and approve.</p></div></div>
+      <div class="application-grid">
+        <label>Pickup Station / business name<input name="station_name" required minlength="2" placeholder="e.g. ABC Shop — Ugunja Pickup Station"></label>
+        <label>Applicant / owner name<input name="applicant_name" required minlength="2"></label>
+        <label>ID / Business identification number<input name="id_number" required minlength="4"></label>
+        <label>Phone number<input name="phone" type="tel" required></label>
+        <label>County<input name="county" required placeholder="Siaya"></label>
+        <label>Sub-County<input name="sub_county" required placeholder="Alego Usonga"></label>
+        <label>Town / Trading Centre<input name="town" required placeholder="Siaya Town"></label>
+        <label>Physical address<input name="address_line" required placeholder="Building / road / market"></label>
+        <label>Nearest landmark<input name="landmark" placeholder="Optional"></label>
+        <label>Door / Shop number<input name="door_number" placeholder="Optional"></label>
+        <label class="wide">Operating hours<input name="operating_hours" placeholder="e.g. Mon-Sat 8:00am-7:00pm"></label>
+        <label class="wide">Google Maps / location link<input id="applicationMapLink" name="map_link" placeholder="Paste location link or pin your current station location"></label>
+        <label>Latitude<input id="applicationLatitude" name="latitude" inputmode="decimal" placeholder="-0.061..."></label>
+        <label>Longitude<input id="applicationLongitude" name="longitude" inputmode="decimal" placeholder="34.288..."></label>
+      </div>
+      <div class="application-actions">
+        <button id="pinApplicationLocation" type="button">📍 Pin Station Location</button>
+        <button class="primary" type="submit">Submit for Admin Approval</button>
+      </div>
+      <p class="status" id="pickupApplicationFormStatus"></p>
+      <a class="back-link" href="../partner/">← Back to Partner Portal</a>
+    </form>
   </section>
 
   <section id="portal" hidden>
