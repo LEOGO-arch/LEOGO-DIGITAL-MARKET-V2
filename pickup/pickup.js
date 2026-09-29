@@ -53,6 +53,7 @@ const renderDashboard=()=>{
   $('#handedToday').textContent=Number(dashboard?.handed_over_today||0);
   $('#monthEarnings').textContent=money(dashboard?.month_earnings_kes);
   $('#availableBalance').textContent=money(dashboard?.available_balance_kes);
+  if($('#handledParcelRate'))$('#handledParcelRate').textContent=money(dashboard?.handled_parcel_earning_kes??20);
 
   const form=$('#payoutForm');
   if(form&&account){
@@ -118,6 +119,7 @@ const renderEarnings=()=>{
   $('#earningsSummary').innerHTML=`
     <article><small>Period earnings</small><strong>${esc(money(data.period_earnings_kes))}</strong></article>
     <article><small>Parcels handed over</small><strong>${Number(data.parcels||0)}</strong></article>
+    <article><small>Current earning / parcel</small><strong>${esc(money(data.current_handled_parcel_rate_kes??dashboard?.handled_parcel_earning_kes??20))}</strong></article>
     <article><small>Available balance</small><strong>${esc(money(data.available_balance_kes))}</strong></article>`;
   const daily=Array.isArray(data.daily)?data.daily:[];
   $('#earningsDaily').innerHTML=daily.length?daily.map(d=>`
