@@ -5449,8 +5449,22 @@
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closeModals(); closeSidebar(); } });
   };
 
+  const refreshPickupActivityForBell = async () => {
+    if(!state.admin || state.admin.status!=='active' || document.visibilityState!=='visible')return;
+    const {data,error}=await db.rpc('admin_list_pickup_station_events',{p_limit:30});
+    if(error)return;
+    state.pickupStationEvents=Array.isArray(data)?data:[];
+    renderAdminNotifications();
+    if(activeTransportSection==='pickup' && document.querySelector('[data-admin-panel="transport"]')?.classList.contains('active')){
+      renderPickupStationEvents();
+    }
+  };
+
   document.addEventListener('DOMContentLoaded', () => {
     bindEvents();
     initializeAuth();
+    // Pickup Station receipt/handover events feed the Admin bell without requiring a manual refresh.
+    window.setInterval(()=>refreshPickupActivityForBell().catch(()=>{}),20000);
+    document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible')refreshPickupActivityForBell().catch(()=>{}); });
   });
 })();
