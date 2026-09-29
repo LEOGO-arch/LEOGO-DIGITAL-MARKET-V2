@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07152f">
+  <title>LEOGO Pickup Station Partner</title>
+  <link rel="stylesheet" href="pickup.css?v=pickup-partner-1">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../partner/"><img src="../assets/images/leogo-official-logo.jpg" alt="LEOGO"><span><b>LEOGO DIGITAL MARKET</b><small>Pickup Station Partner</small></span></a>
+  <div class="top-actions"><button id="refreshPortal" type="button">↻ Refresh</button><button id="pickupLogout" type="button">Sign Out</button></div>
+</header>
+
+<main class="page">
+  <section id="authGate" class="gate" hidden>
+    <span>PICKUP STATION PARTNER</span><h1>Sign in through the LEOGO Partner Portal</h1>
+    <p>Use the same LEOGO account assigned to your Pickup Station.</p>
+    <a class="primary-link" href="../partner/">Open Partner Portal</a>
+  </section>
+
+  <section id="assignmentGate" class="gate" hidden>
+    <span>WAITING FOR ASSIGNMENT</span><h1>Your account is not assigned to a Pickup Station yet</h1>
+    <p>Ask LEOGO Admin to assign your LEOGO email to an active Pickup Station. Once assigned, this dashboard opens automatically.</p>
+    <a class="primary-link" href="../partner/">Back to Partner Portal</a>
+  </section>
+
+  <section id="portal" hidden>
+    <section class="hero">
+      <div><span>PICKUP STATION OPERATIONS</span><h1 id="stationName">Pickup Station</h1><p id="stationAddress">Loading station details…</p></div>
+      <div class="station-chip" id="stationStatus">Active</div>
+    </section>
+
+    <div class="metrics">
+      <article><small>Booked for Station</small><strong id="bookedCount">0</strong><span>Not yet received</span></article>
+      <article><small>At Station</small><strong id="atStationCount">0</strong><span>Ready for collection</span></article>
+      <article><small>Received Today</small><strong id="receivedToday">0</strong><span>Parcel receipts</span></article>
+      <article><small>Handed Over Today</small><strong id="handedToday">0</strong><span>Customer collections</span></article>
+      <article><small>This Month</small><strong id="monthEarnings">KSh 0</strong><span>Station earnings</span></article>
+      <article><small>Available Balance</small><strong id="availableBalance">KSh 0</strong><span>Available to withdraw</span></article>
+    </div>
+
+    <nav class="portal-nav" id="pickupNav">
+      <button class="active" data-view="operations">Scan / Receive</button>
+      <button data-view="parcels">Parcels</button>
+      <button data-view="returns">Return Parcel</button>
+      <button data-view="history">History</button>
+      <button data-view="earnings">Earnings</button>
+    </nav>
+
+    <section class="portal-view active" data-panel="operations">
+      <div class="two-col">
+        <article class="card action-card">
+          <div class="card-head"><div><span>INBOUND</span><h2>Receive Parcel</h2><p>Scan the LEOGO order QR or enter the order / waybill number manually.</p></div><b>📥</b></div>
+          <form id="receiveForm">
+            <label>Order / waybill number<input id="receiveCode" name="code" autocomplete="off" placeholder="LEOGO-… or scan QR" required></label>
+            <label>Receiving note <textarea id="receiveNotes" name="notes" rows="2" placeholder="Optional condition / storage note"></textarea></label>
+            <div class="action-row"><button class="scan-button" type="button" data-scan-mode="receive">▣ Scan to Receive</button><button class="primary" type="submit">Receive Parcel</button></div>
+          </form>
+          <p class="status" id="receiveStatus"></p>
+        </article>
+
+        <article class="card action-card">
+          <div class="card-head"><div><span>COLLECTION</span><h2>Hand Over Parcel</h2><p>Scan the same permanent LEOGO order QR or enter the order / waybill number.</p></div><b>📤</b></div>
+          <form id="handoverForm">
+            <label>Order / waybill number<input id="handoverCode" name="code" autocomplete="off" placeholder="LEOGO-… or scan QR" required></label>
+            <label>Handover note <textarea id="handoverNotes" name="notes" rows="2" placeholder="Optional customer / collection note"></textarea></label>
+            <div class="action-row"><button class="scan-button" type="button" data-scan-mode="handover">▣ Scan to Hand Over</button><button class="primary" type="submit">Hand Over</button></div>
+          </form>
+          <p class="status" id="handoverStatus"></p>
+        </article>
+      </div>
+
+      <article class="card lookup-card">
+        <div class="card-head"><div><span>TRACK PARCEL</span><h2>Check Parcel Status</h2><p>Search any order booked for your station.</p></div></div>
+        <form id="lookupForm" class="inline-form"><input id="lookupCode" placeholder="Order / waybill number" required><button type="submit">Track</button></form>
+        <div id="lookupResult" class="lookup-result"></div>
+      </article>
+    </section>
+
+    <section class="portal-view" data-panel="parcels">
+      <article class="card">
+        <div class="card-head"><div><span>STATION PARCELS</span><h2>Parcels Booked for This Pickup Station</h2><p>Booked, received, and collected parcels are kept in one live register.</p></div><button id="refreshParcels" type="button">↻ Refresh</button></div>
+        <div class="filters"><input id="parcelSearch" type="search" placeholder="Search order, customer, seller or item"><select id="parcelStatusFilter"><option value="active">Booked + At station</option><option value="all">All parcels</option><option value="booked">Booked</option><option value="received">At station</option><option value="handed_over">Handed over</option></select></div>
+        <div id="parcelList" class="parcel-list"></div>
+      </article>
+    </section>
+
+    <section class="portal-view" data-panel="returns">
+      <div class="two-col">
+        <article class="card">
+          <div class="card-head"><div><span>RETURN PARCEL</span><h2>Book Return Parcel</h2><p>Record a parcel returned through this station. Link the original LEOGO order when available.</p></div></div>
+          <form id="returnForm">
+            <label>Original LEOGO order <small>(optional)</small><input name="original_order_reference" placeholder="LEOGO-…"></label>
+            <label>Customer name<input name="customer_name" required></label>
+            <label>Customer phone<input name="customer_phone" type="tel" required></label>
+            <label>Item / parcel description<textarea name="item_description" rows="2" required></textarea></label>
+            <label>Reason for return<textarea name="return_reason" rows="2" required></textarea></label>
+            <button class="primary" type="submit">Book Return Parcel</button>
+          </form>
+          <p class="status" id="returnStatus"></p>
+        </article>
+        <article class="card">
+          <div class="card-head"><div><span>RETURN REGISTER</span><h2>Recent Returns</h2></div><button id="refreshReturns" type="button">↻ Refresh</button></div>
+          <div id="returnList" class="compact-list"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="portal-view" data-panel="history">
+      <article class="card">
+        <div class="card-head"><div><span>PARCEL HISTORY</span><h2>Daily Receiving & Handover History</h2><p>Choose a period to review station activity.</p></div></div>
+        <form id="historyFilter" class="date-filter"><label>From<input id="historyFrom" type="date"></label><label>To<input id="historyTo" type="date"></label><button type="submit">Load History</button></form>
+        <div id="historyList" class="compact-list"></div>
+      </article>
+    </section>
+
+    <section class="portal-view" data-panel="earnings">
+      <div class="two-col">
+        <article class="card">
+          <div class="card-head"><div><span>EARNINGS</span><h2>Monthly Earnings Statement</h2><p>Earnings are recognized when a parcel is handed over to the customer.</p></div></div>
+          <form id="earningsFilter" class="date-filter"><label>From<input id="earningsFrom" type="date"></label><label>To<input id="earningsTo" type="date"></label><button type="submit">Generate</button></form>
+          <div id="earningsSummary" class="earnings-summary"></div>
+          <div id="earningsDaily" class="compact-list"></div>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><div><span>PAYOUT</span><h2>Withdrawal & Payout Account</h2><p>Save where LEOGO should send approved Pickup Station withdrawals.</p></div></div>
+          <form id="payoutForm">
+            <label>Payout method<select name="method"><option value="mpesa">M-Pesa</option><option value="bank">Bank</option><option value="till">Till</option><option value="paybill">Paybill</option></select></label>
+            <label>Account name<input name="account_name" required></label>
+            <label>Phone / M-Pesa number<input name="phone" type="tel"></label>
+            <label>Account / Till / Paybill number<input name="account_number"></label>
+            <button type="submit">Save Payout Account</button>
+          </form>
+          <p class="status" id="payoutStatus"></p>
+          <hr>
+          <form id="withdrawalForm">
+            <label>Withdrawal amount (KSh)<input name="amount" type="number" min="1" step="1" required></label>
+            <label>Note <small>(optional)</small><textarea name="note" rows="2"></textarea></label>
+            <button class="primary" type="submit">Request Withdrawal</button>
+          </form>
+          <p class="status" id="withdrawalStatus"></p>
+        </article>
+      </div>
+      <article class="card">
+        <div class="card-head"><div><span>WITHDRAWALS</span><h2>Withdrawal History</h2></div></div>
+        <div id="withdrawalList" class="compact-list"></div>
+      </article>
+    </section>
+  </section>
+</main>
+
+<div id="scannerModal" class="scanner-modal" hidden>
+  <div class="scanner-card">
+    <header><div><span>LEOGO QR SCANNER</span><h2 id="scannerTitle">Scan Parcel</h2></div><button id="closeScanner" type="button">×</button></header>
+    <video id="scannerVideo" playsinline muted></video>
+    <div class="scanner-frame"></div>
+    <p id="scannerStatus">Point the camera at the LEOGO order QR.</p>
+    <button id="stopScanner" type="button">Cancel Scan</button>
+  </div>
+</div>
+
+<script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
+<script src="pickup.js?v=pickup-partner-1" defer></script>
+</body>
+</html>
