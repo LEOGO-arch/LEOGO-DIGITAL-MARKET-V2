@@ -261,6 +261,7 @@ const openCyberAdmin=async()=>{
 ensureUI();
 $('#openCyberAdmin')?.addEventListener('click',openCyberAdmin);
 $('#refreshCyberAdmin')?.addEventListener('click',()=>loadAll().catch(e=>alert(e.message)));
+document.addEventListener('leogo:delivery-rates-updated',()=>loadAll().catch(()=>{}));
 $$('.admin-nav [data-admin-view]').forEach(b=>b.addEventListener('click',()=>$('#openCyberAdmin')?.classList.remove('active')));
 
 client.auth.getSession().then(async({data})=>{
