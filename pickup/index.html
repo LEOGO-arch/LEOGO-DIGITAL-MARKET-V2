@@ -82,7 +82,7 @@
       <article><small>Handed Over Today</small><strong id="handedToday">0</strong><span>Customer collections</span></article>
       <article><small>This Month</small><strong id="monthEarnings">KSh 0</strong><span>Station earnings</span></article>
       <article><small>Available Balance</small><strong id="availableBalance">KSh 0</strong><span>Available to withdraw</span></article>
-      <article><small>Earning / Handled Parcel</small><strong id="handledParcelRate">KSh 20</strong><span>Admin managed</span></article>
+      <article><small>Earning / Handled Parcel</small><strong id="handledParcelRate">KSh 20</strong><span>From LEOGO delivery fee</span></article>
     </div>
 
     <nav class="portal-nav" id="pickupNav">
@@ -163,7 +163,7 @@
     <section class="portal-view" data-panel="earnings">
       <div class="two-col">
         <article class="card">
-          <div class="card-head"><div><span>EARNINGS</span><h2>Monthly Earnings Statement</h2><p>Earnings are recognized when a parcel is handed over to the customer.</p></div></div>
+          <div class="card-head"><div><span>EARNINGS</span><h2>Monthly Earnings Statement</h2><p>Earnings are recognized when a parcel is handed over to the customer and are paid from LEOGO delivery-fee revenue.</p></div></div>
           <form id="earningsFilter" class="date-filter"><label>From<input id="earningsFrom" type="date"></label><label>To<input id="earningsTo" type="date"></label><button type="submit">Generate</button></form>
           <div id="earningsSummary" class="earnings-summary"></div>
           <div id="earningsDaily" class="compact-list"></div>
@@ -207,6 +207,6 @@
 </div>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="pickup.js?v=pickup-business-docs-1" defer></script>
+<script src="pickup.js?v=pickup-docs-delivery-earning-1" defer></script>
 </body>
 </html>
