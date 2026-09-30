@@ -817,3 +817,26 @@
 .advert-popup-push b{color:#8f4300;font-size:12px}
 .advert-popup-push small{color:#755d48;font-size:10px;line-height:1.45;font-weight:600}
 .advert-popup-badge{display:inline-flex;margin-top:5px;padding:4px 7px;border-radius:999px;background:#fff0e4;color:#b24f00;font-size:9px;font-weight:900}
+
+
+/* Customer order email notification settings */
+.email-notification-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 18px}
+.email-notification-summary article{display:grid;gap:4px;padding:14px;border:1px solid #dce4ee;border-radius:13px;background:#fff}
+.email-notification-summary small{font-size:9px;color:#718096;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.email-notification-summary strong{font-size:20px;color:#0f1f3a}
+.email-notification-summary span{font-size:9.5px;color:#6a778b;line-height:1.4}
+.email-notification-toggle{display:grid!important;grid-template-columns:auto 1fr;align-items:flex-start;gap:10px!important;padding:13px 14px;border:1px solid #dce4ee;border-radius:12px;background:#f8fafc}
+.email-notification-toggle input{width:auto!important;margin-top:3px}
+.email-notification-toggle span{display:grid;gap:4px}
+.email-notification-toggle b{font-size:12px;color:#0f1f3a}
+.email-notification-toggle small{font-size:9.5px;line-height:1.45;color:#6a778b}
+.email-notification-flow{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin:16px 0}
+.email-notification-flow>div{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:flex-start;padding:13px;border:1px solid #e0e6ee;border-radius:12px;background:#fff}
+.email-notification-flow>div>b{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#ff7800;color:#fff;font-size:12px}
+.email-notification-flow>div>span{display:grid;gap:4px}
+.email-notification-flow strong{font-size:11px;color:#0f1f3a}
+.email-notification-flow small{font-size:9.5px;line-height:1.45;color:#6a778b}
+.email-notification-flow>i{font-style:normal;font-size:22px;color:#ff7800;font-weight:900}
+.email-test-form{margin-top:18px}
+@media(max-width:900px){.email-notification-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.email-notification-flow{grid-template-columns:1fr}.email-notification-flow>i{transform:rotate(90deg);justify-self:center}}
+@media(max-width:560px){.email-notification-summary{grid-template-columns:1fr}}
