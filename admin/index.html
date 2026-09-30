@@ -837,7 +837,7 @@
 
       <section class="admin-panel" data-admin-panel="settings">
         <div class="section-head"><div><span>ADMINISTRATION</span><h2>System Settings</h2><p>Official business information, payment destinations, fees and reserved system modules.</p></div></div>
-        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button data-settings-panel="email">Email Notifications</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="data">Data Management</button><button data-settings-panel="reserved">More Settings</button></div>
+        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button data-settings-panel="email">Email Notifications</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="orders">Order Rules</button><button data-settings-panel="lipa">Lipa Pole Pole</button><button data-settings-panel="data">Data Management</button><button data-settings-panel="reserved">More Settings</button></div>
 
         <div class="settings-panel active" data-settings-content="business">
           <form class="settings-form" id="businessSettingsForm">
@@ -976,8 +976,50 @@
           <div class="settings-link-grid"><button data-open-view="transport"><span>⌖</span><strong>Pickup Station Fees</strong><small>Edit the percentage on each station.</small></button><button data-open-view="premium"><span>18+</span><strong>Premium Rates</strong><small>Edit each active Premium plan.</small></button><button disabled><span>▤</span><strong>Order Service Fees</strong><small>Customer Front remains locked pending approved integration.</small></button></div>
         </div>
 
+        <div class="settings-panel" data-settings-content="orders">
+          <form class="settings-form" id="orderSettingsForm">
+            <div class="form-section-head"><div><span>▤</span><div><h3>Order Settings</h3><p>Control Cash on Delivery eligibility and the customer marketplace service-fee bands. Existing defaults are preserved until you save changes.</p></div></div><button type="submit">Save Order Settings</button></div>
+            <div class="form-grid">
+              <label><span>COD maximum order total (KSh)</span><input name="cod_limit_kes" type="number" min="0" step="1" required><small>Orders at or above this total cannot use Cash on Delivery.</small></label>
+              <label><span>Service fee threshold (KSh)</span><input name="service_fee_threshold_kes" type="number" min="0" step="1" required><small>Separates the lower-value and higher-value service-fee bands.</small></label>
+              <label><span>Service fee below threshold (%)</span><input name="service_fee_below_percent" type="number" min="0" max="100" step="0.01" required></label>
+              <label><span>Service fee at / above threshold (%)</span><input name="service_fee_at_or_above_percent" type="number" min="0" max="100" step="0.01" required></label>
+            </div>
+            <div class="system-setting-preview" id="orderSettingsPreview">Loading current order rules…</div>
+            <div class="form-status" id="orderSettingsStatus"></div>
+            <div class="locked-front-note">These values are read by the existing checkout without changing its layout or order workflow.</div>
+          </form>
+        </div>
+
+        <div class="settings-panel" data-settings-content="lipa">
+          <form class="settings-form" id="lipaPolePoleSettingsForm">
+            <div class="form-section-head"><div><span>🪙</span><div><h3>Lipa Pole Pole Settings</h3><p>Control platform-wide cancellation and overdue rules. Seller-set deposits and seller-set payment periods remain unchanged.</p></div></div><button type="submit">Save Lipa Pole Pole Settings</button></div>
+            <div class="form-grid">
+              <label><span>Cancellation deduction (%)</span><input name="cancellation_deduction_percent" type="number" min="0" max="100" step="0.01" required><small>Deducted from eligible verified/submitted payments when a customer cancels.</small></label>
+              <label><span>Overdue refund deduction (%)</span><input name="overdue_refund_deduction_percent" type="number" min="0" max="100" step="0.01" required><small>Applied when an overdue plan is resolved by refund.</small></label>
+              <label><span>Overdue extension interest (%)</span><input name="overdue_interest_percent" type="number" min="0" max="100" step="0.01" required><small>Displayed as the extension/late-charge option after the seller-set deadline.</small></label>
+              <label><span>Reminder days before deadline</span><input name="reminder_days_before_due" type="number" min="0" max="60" step="1" required><small>Used for upcoming-payment reminders as the Lipa Pole Pole workflow is expanded.</small></label>
+            </div>
+            <div class="system-setting-preview" id="lipaPolePoleSettingsPreview">Loading current Lipa Pole Pole rules…</div>
+            <div class="form-status" id="lipaPolePoleSettingsStatus"></div>
+            <div class="locked-front-note">This keeps each Seller's own deposit amount and maximum payment period intact. Only the LEOGO-wide policy percentages are controlled here.</div>
+          </form>
+        </div>
+
         <div class="settings-panel" data-settings-content="data"><div class="data-management"><div class="form-section-head"><div><span>D</span><div><h3>Data Management</h3><p>Filter, select and safely export or archive supported records.</p></div></div></div><div class="data-filter-grid"><label><span>Data type</span><select id="dataTypeFilter"><option value="customers">Customers</option><option value="pickup_stations">Pickup Stations</option><option value="payment_accounts">Payment Accounts</option><option value="audit_log">Audit Log</option></select></label><label><span>Status</span><select id="dataStatusFilter"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></label><label><span>From</span><input id="dataFromFilter" type="date"></label><label><span>To</span><input id="dataToFilter" type="date"></label></div><div class="protection-note" id="dataProtectionNote"></div><div class="selection-toolbar"><label><input id="selectAllData" type="checkbox"> Select all on page</label><button id="selectFilteredData" type="button">Select all matching filter</button><span id="dataSelectedCount">0 selected</span><button data-data-export="selected" type="button">Export Selected</button><button data-data-export="filtered" type="button">Export All Filtered</button><button id="archiveSelectedData" type="button">Archive Selected</button><button id="clearDataSelection" type="button">Clear</button></div><div class="table-card"><div class="responsive-table"><table><thead id="dataTableHead"></thead><tbody id="dataTableBody"></tbody></table></div></div></div></div>
-        <div class="settings-panel" data-settings-content="reserved"><div class="reserved-settings-grid"><article><span>▤</span><strong>Order Settings</strong><small>Reserved</small></article><article><span>🚚</span><strong>Delivery Settings</strong><small>Pickup Stations connected</small></article><article><span>💰</span><strong>Wallet/SACCO Settings</strong><small>Core fees connected</small></article><article><span>🪙</span><strong>Lipa Pole Pole Settings</strong><small>Reserved</small></article><article><span>18+</span><strong>Premium Settings</strong><small>Plans connected</small></article><article><span>⌂</span><strong>Accommodation Settings</strong><small>Approvals connected</small></article><article><span>🔔</span><strong>Notifications</strong><small>Reserved</small></article><article><span>🔒</span><strong>Security &amp; Access</strong><small>Admin roles active</small></article><article><span>⚙</span><strong>System Preferences</strong><small>KSh · Africa/Nairobi</small></article></div></div>
+        <div class="settings-panel" data-settings-content="reserved">
+          <div class="reserved-settings-grid active-settings-grid">
+            <button type="button" data-settings-card="orders"><span>▤</span><strong>Order Settings</strong><small>COD limit · Service fee bands</small><b>Open →</b></button>
+            <button type="button" data-settings-card="delivery"><span>🚚</span><strong>Delivery Settings</strong><small>Delivery zones · Pickup Stations</small><b>Open →</b></button>
+            <button type="button" data-settings-card="wallet"><span>💰</span><strong>Wallet/SACCO Settings</strong><small>Maintenance · Statements · Rewards</small><b>Open →</b></button>
+            <button type="button" data-settings-card="lipa"><span>🪙</span><strong>Lipa Pole Pole Settings</strong><small>Cancellation · Overdue policy</small><b>Open →</b></button>
+            <button type="button" data-settings-card="premium"><span>18+</span><strong>Premium Settings</strong><small>Plans · Partner/customer meetup fees</small><b>Open →</b></button>
+            <button type="button" data-settings-card="accommodation"><span>⌂</span><strong>Accommodation Settings</strong><small>Commission · Customer service fee</small><b>Open →</b></button>
+            <button type="button" data-settings-card="notifications"><span>🔔</span><strong>Notifications</strong><small>Email sender · Test · Delivery status</small><b>Open →</b></button>
+            <button type="button" data-settings-card="security"><span>🔒</span><strong>Security &amp; Access</strong><small>Staff roles · Permissions · Access status</small><b>Open →</b></button>
+            <button type="button" data-settings-card="preferences"><span>⚙</span><strong>System Preferences</strong><small>Currency · Timezone · Business identity</small><b>Open →</b></button>
+          </div>
+        </div>
       </section>
 
       <section class="admin-panel" data-admin-panel="staff">
@@ -1146,7 +1188,7 @@
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  <script src="admin.js?v=customer-meetup-limit-1" defer></script>
+  <script src="admin.js?v=settings-cards-1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>
   <script src="cyber.js?v=delivery-rates-admin-3" defer></script>
