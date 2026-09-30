@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=advert-popup-1">
+  <link rel="stylesheet" href="admin.css?v=email-notifications-1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
 <style>
 .service-operations-card{margin-top:18px}.service-fee-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.service-fee-form label{display:grid;gap:6px;font-weight:800}.service-fee-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px;width:180px}.service-fee-form button,.admin-service-request-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.service-fee-form small{width:100%;font-weight:800}.admin-service-request-list{display:grid;gap:14px}.admin-service-request-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.admin-service-request-card header{display:flex;justify-content:space-between;gap:12px}.admin-service-request-card header strong,.admin-service-request-card header small{display:block}.admin-service-request-card header b{font-size:11px;text-transform:capitalize;background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;height:max-content}.admin-service-request-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.admin-service-request-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.admin-service-request-grid small,.admin-service-request-grid strong{display:block}.admin-service-request-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-service-request-actions .verify{background:#157f3d}.admin-service-request-actions .reject,.admin-service-request-actions .cancel{background:#a42832}.admin-service-request-actions .dispatch{background:#ff7200}.admin-service-request-card p{margin:0;color:#526177}.service-request-summary-grid{margin:14px 0}@media(max-width:720px){.admin-service-request-grid{grid-template-columns:1fr}.admin-service-request-card header{display:grid}}
@@ -810,7 +810,7 @@
 
       <section class="admin-panel" data-admin-panel="settings">
         <div class="section-head"><div><span>ADMINISTRATION</span><h2>System Settings</h2><p>Official business information, payment destinations, fees and reserved system modules.</p></div></div>
-        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="data">Data Management</button><button data-settings-panel="reserved">More Settings</button></div>
+        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button data-settings-panel="email">Email Notifications</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="data">Data Management</button><button data-settings-panel="reserved">More Settings</button></div>
 
         <div class="settings-panel active" data-settings-content="business">
           <form class="settings-form" id="businessSettingsForm">
@@ -830,6 +830,49 @@
               <label><span>Currency symbol</span><input name="currency_symbol" value="KSh"></label><label><span>Timezone</span><input name="timezone" value="Africa/Nairobi"></label>
             </div><div class="form-status" id="businessSettingsStatus"></div>
             <div class="locked-front-note">Customer Front is locked. These settings are now the official Admin source and will be connected to customer pages only through an approved integration change.</div>
+          </form>
+        </div>
+
+        <div class="settings-panel" data-settings-content="email">
+          <form class="settings-form email-notification-settings" id="emailNotificationSettingsForm">
+            <div class="form-section-head">
+              <div><span>✉</span><div><h3>Customer Order Email Notifications</h3><p>Send transactional emails when a Pickup Station order arrives and when the station confirms it is ready for collection.</p></div></div>
+              <button type="submit">Save Email Settings</button>
+            </div>
+
+            <div class="email-notification-summary">
+              <article><small>Configuration</small><strong id="emailConfigState">Loading…</strong><span id="emailConfigNote">Checking secure sender setup</span></article>
+              <article><small>Waiting / Processing</small><strong id="emailPendingCount">0</strong><span>Email jobs not yet completed</span></article>
+              <article><small>Sent</small><strong id="emailSentCount">0</strong><span>Successfully handed to Gmail</span></article>
+              <article><small>Failed</small><strong id="emailFailedCount">0</strong><span>Automatic retries are limited</span></article>
+            </div>
+
+            <div class="form-grid">
+              <label><span>Sender name</span><input name="sender_name" maxlength="120" required value="LEOGO DIGITAL MARKET"></label>
+              <label><span>Sender Gmail / Google Workspace email</span><input name="sender_email" type="email" autocomplete="username" required placeholder="leogodigitalmarket@gmail.com"></label>
+              <label class="wide"><span>Gmail App Password</span><input name="app_password" type="password" autocomplete="new-password" placeholder="Leave blank to keep the existing secure App Password"><small>Use a Gmail App Password, not the normal Gmail account password. It is encrypted in Supabase Vault and is never returned to this page.</small></label>
+              <label class="wide email-notification-toggle"><input name="enabled" type="checkbox"><span><b>Enable customer order emails</b><small>Only Pickup Station arrival and ready-for-pickup emails are enabled in this first integration.</small></span></label>
+            </div>
+
+            <div class="email-notification-flow">
+              <div><b>1</b><span><strong>Rider delivers to Pickup Station</strong><small>Customer email: parcel has arrived and is awaiting station receipt confirmation.</small></span></div>
+              <i>→</i>
+              <div><b>2</b><span><strong>Pickup Station confirms receipt</strong><small>Customer email: parcel is ready for collection, with station details.</small></span></div>
+            </div>
+
+            <div class="form-status" id="emailNotificationSettingsStatus"></div>
+            <div class="locked-front-note">Email delivery runs separately from order processing. If Gmail is unavailable, Rider, Admin and Pickup Station status updates continue normally and the email job is retried safely.</div>
+          </form>
+
+          <form class="settings-form email-test-form" id="emailNotificationTestForm">
+            <div class="form-section-head">
+              <div><span>✓</span><div><h3>Send Test Email</h3><p>Verify the sender before relying on automatic customer notifications.</p></div></div>
+              <button type="submit">Send Test</button>
+            </div>
+            <div class="form-grid">
+              <label class="wide"><span>Test recipient email</span><input name="recipient_email" type="email" required placeholder="Enter an email address to receive the test"></label>
+            </div>
+            <div class="form-status" id="emailNotificationTestStatus"></div>
           </form>
         </div>
 
@@ -1071,6 +1114,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="admin.js?v=pickup-station-arrival-1" defer></script>
+  <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>
   <script src="cyber.js?v=delivery-rates-admin-3" defer></script>
 </body>
