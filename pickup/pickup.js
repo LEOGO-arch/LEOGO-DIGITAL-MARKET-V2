@@ -25,7 +25,7 @@ const showView=(name)=>{
 };
 $$('#pickupNav [data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 
-const parcelStatusLabel=(s)=>({booked:'Booked for station',received:'At station / ready for collection',handed_over:'Handed over',cancelled:'Cancelled'})[s]||String(s||'Unknown').replaceAll('_',' ');
+const parcelStatusLabel=(s)=>({booked:'Booked for station / en route',arrived_pending_receipt:'Rider delivered — pending station receipt',received:'At station / ready for collection',handed_over:'Handed over',cancelled:'Cancelled'})[s]||String(s||'Unknown').replaceAll('_',' ');
 const deliveryStatusLabel=(s)=>({
   assigned:'Assigned to rider',
   picked_up:'Picked up from seller',
@@ -33,7 +33,8 @@ const deliveryStatusLabel=(s)=>({
   sorting_received:'Received at LEOGO Sorting Center',
   ready_for_dispatch:'Ready for dispatch',
   on_the_way:'On the way',
-  ready_for_pickup:'Ready for pickup',
+  delivered_to_pickup_station:'Delivered to Pickup Station — awaiting receipt',
+  ready_for_pickup:'Pickup Station received — ready for pickup',
   delivered:'Delivered',
   placed:'Order placed',
   processing:'Processing',
@@ -118,6 +119,7 @@ const renderDashboard=()=>{
   $('#stationAddress').textContent=[station.address_line,station.town,station.sub_county,station.county].filter(Boolean).join(' · ')||'LEOGO Pickup Station';
   $('#stationStatus').textContent=account.status==='active'&&station.is_active?'Active':'Inactive';
   $('#bookedCount').textContent=Number(dashboard?.booked_parcels||0);
+  if($('#pendingArrivalCount'))$('#pendingArrivalCount').textContent=Number(dashboard?.pending_arrivals||0);
   $('#atStationCount').textContent=Number(dashboard?.parcels_at_station||0);
   $('#receivedToday').textContent=Number(dashboard?.received_today||0);
   $('#handedToday').textContent=Number(dashboard?.handed_over_today||0);
@@ -138,7 +140,7 @@ const filteredParcels=()=>{
   const term=($('#parcelSearch').value||'').trim().toLowerCase();
   const filter=$('#parcelStatusFilter').value||'active';
   return parcels.filter(p=>{
-    const matchesFilter=filter==='all'?true:filter==='active'?['booked','received'].includes(p.parcel_status):p.parcel_status===filter;
+    const matchesFilter=filter==='all'?true:filter==='active'?['booked','arrived_pending_receipt','received'].includes(p.parcel_status):p.parcel_status===filter;
     const hay=[p.order_reference,p.customer_name,p.customer_phone,p.seller_names,p.item_summary].join(' ').toLowerCase();
     return matchesFilter&&(!term||hay.includes(term));
   });
@@ -434,8 +436,9 @@ const runParcelAction=async(mode,code,notes='',photoFile=null,customerIdNumber='
     if(p.parcel_status==='handed_over')throw new Error(p.order_reference+' has already been handed over.');
   }
   if(mode==='handover'&&p.parcel_status!=='received'){
-    if(p.parcel_status==='booked')throw new Error('Receive '+p.order_reference+' at the Pickup Station before handing it over.');
     if(p.parcel_status==='handed_over')throw new Error(p.order_reference+' has already been handed over.');
+    if(p.parcel_status==='arrived_pending_receipt')throw new Error('Confirm station receipt of '+p.order_reference+' with the parcel photo before handing it over to the customer.');
+    throw new Error('Receive '+p.order_reference+' at the Pickup Station before handing it over.');
   }
 
   validateParcelProof(photoFile,mode==='receive'?'Parcel receiving photo':'Handover photo');
