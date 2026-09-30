@@ -43,7 +43,7 @@ const deliveryStatusLabel=(s)=>({
 })[s]||String(s||'Unknown').replaceAll('_',' ');
 const paymentLabel=(s)=>String(s||'').replaceAll('_',' ');
 const eventLabel=(s)=>({
-  booked:'Parcel booked',received:'Parcel received',handed_over:'Parcel handed over',
+  booked:'Parcel booked',rider_delivered_to_station:'Rider delivered parcel to station',received:'Parcel received',handed_over:'Parcel handed over',
   return_booked:'Return parcel booked',return_dispatched:'Return dispatched',withdrawal_requested:'Withdrawal requested'
 })[s]||String(s||'').replaceAll('_',' ');
 
@@ -151,10 +151,11 @@ const renderParcels=()=>{
     <article class="parcel-row">
       <header><div><strong>${esc(p.order_reference)}</strong><p>${esc(p.customer_name)} · ${esc(p.customer_phone)}</p></div><span class="pill ${esc(p.parcel_status)}">${esc(parcelStatusLabel(p.parcel_status))}</span></header>
       <p><b>Items:</b> ${esc(p.item_summary)}<br><b>Seller:</b> ${esc(p.seller_names)}<br><b>Payment:</b> ${esc(paymentLabel(p.payment_status))} · <b>Total:</b> ${esc(money(p.grand_total_kes))}</p>
-      <small>Booked ${esc(fmt(p.booked_at))}${p.received_at?' · Received '+esc(fmt(p.received_at)):''}${p.handed_over_at?' · Collected '+esc(fmt(p.handed_over_at)):''}</small>
+      <small>Booked ${esc(fmt(p.booked_at))}${p.arrived_at?' · Rider delivered '+esc(fmt(p.arrived_at)):''}${p.received_at?' · Station received '+esc(fmt(p.received_at)):''}${p.handed_over_at?' · Collected '+esc(fmt(p.handed_over_at)):''}</small>
+      ${p.parcel_status==='arrived_pending_receipt'?'<div class="arrival-pending-note"><strong>⚠ Pending Arrival Receipt</strong><span>The Rider has delivered this parcel. Confirm physical receipt with a parcel photo before it becomes Ready for Collection.</span></div>':''}
       <div class="parcel-actions">
         <button data-track="${esc(p.order_reference)}">Track</button>
-        ${p.parcel_status==='booked'?'<button class="primary" data-receive="'+esc(p.order_reference)+'">Receive</button>':''}
+        ${['booked','arrived_pending_receipt'].includes(p.parcel_status)?'<button class="primary" data-receive="'+esc(p.order_reference)+'">Confirm Receipt</button>':''}
         ${p.parcel_status==='received'?'<button class="primary" data-handover="'+esc(p.order_reference)+'">Hand Over</button>':''}
       </div>
     </article>`).join(''):'<div class="compact-row"><strong>No parcels match this view.</strong><p>Refresh or change the filter.</p></div>';
@@ -419,7 +420,7 @@ const lookupParcel=async(code)=>{
     <p><b>Status:</b> ${esc(parcelStatusLabel(data.parcel_status))}<br><b>Customer:</b> ${esc(data.customer_name)} · ${esc(data.customer_phone)}<br>
     <b>Payment:</b> ${esc(paymentLabel(data.payment_status))} · <b>Total:</b> ${esc(money(data.grand_total_kes))}</p>
     <p><b>Items:</b> ${items.map(i=>esc(i.name)+(i.variant?' — '+esc(i.variant):'')+' ×'+Number(i.quantity||1)).join(', ')||'—'}</p>
-    <small>Booked ${esc(fmt(data.booked_at))}${data.received_at?' · Received '+esc(fmt(data.received_at)):''}${data.handed_over_at?' · Handed over '+esc(fmt(data.handed_over_at)):''}</small>`;
+    <small>Booked ${esc(fmt(data.booked_at))}${data.arrived_at?' · Rider delivered '+esc(fmt(data.arrived_at)):''}${data.received_at?' · Station received '+esc(fmt(data.received_at)):''}${data.handed_over_at?' · Handed over '+esc(fmt(data.handed_over_at)):''}</small>`;
   return data;
 };
 $('#lookupForm').addEventListener('submit',e=>{e.preventDefault();lookupParcel($('#lookupCode').value);});
