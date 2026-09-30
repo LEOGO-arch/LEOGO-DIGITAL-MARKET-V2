@@ -63,6 +63,44 @@ const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partner
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
 const sellerProfilePanel=$('#sellerProfilePanel'),sellerNotificationPanel=$('#sellerNotificationPanel'),sellerSettlementPanel=$('#sellerSettlementPanel'),sellerPendingArea=$('#sellerPendingArea'),sellerSidebar=$('#sellerSidebar'),sellerBootStatus=$('#sellerBootStatus');
 let activeRole='';
+
+const partnerTypeLabel=(value)=>({premium:'Premium Partner',seller:'Seller',service_provider:'Service Provider',cyber:'Cyber',accommodation:'Accommodation',transport:'Transporter'}[value]||value);
+const partnerPaymentDestination=(account)=>{
+  if(!account)return 'Ask LEOGO Admin for the current payment destination.';
+  const number=account.till_number||account.paybill_number||account.account_number||'';
+  return [account.display_name,number,account.account_name||account.business_name,account.instructions].filter(Boolean).join(' · ');
+};
+async function mountPartnerSubscription(partnerType,shell){
+  if(!currentUser||!shell)return;
+  const {data,error}=await client.rpc('partner_get_billing_status',{p_partner_type:partnerType});
+  if(error){console.warn('Partner subscription status unavailable:',error);return;}
+  shell.querySelector('.partner-subscription-panel')?.remove();
+  const panel=document.createElement('section');
+  panel.className='partner-subscription-panel';
+  const latest=data.latest_payment||{},active=Boolean(data.active);
+  const endCopy=active&&data.ends_at?'Active until '+new Date(data.ends_at).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short'}):latest.payment_status==='pending'?'Payment awaiting Admin verification':'Subscription required';
+  panel.innerHTML='<header><div><span>PARTNER SUBSCRIPTION</span><h3>'+escapeHtml(partnerTypeLabel(partnerType))+' access</h3><p>'+escapeHtml(endCopy)+'</p></div><b class="'+(active?'active':'')+'">'+(active?'ACTIVE':latest.payment_status==='pending'?'PENDING':'INACTIVE')+'</b></header><div class="partner-subscription-grid"><form data-partner-subscription-form><label>Plan<select name="period"><option value="monthly">Monthly — KSh '+Number(data.monthly_amount_kes||0).toLocaleString('en-KE')+'</option><option value="yearly">Yearly — KSh '+Number(data.yearly_amount_kes||0).toLocaleString('en-KE')+'</option></select></label><label>Payment reference<input name="reference" minlength="4" maxlength="80" required placeholder="M-Pesa / payment code"></label><small>Pay to '+escapeHtml(partnerPaymentDestination(data.payment_destination))+'. Admin must confirm the payment before activation.</small><button type="submit">Submit subscription payment</button><p class="status" data-partner-subscription-status></p></form>'+(partnerType==='premium'?'<form data-premium-credit-form><strong>Need another acceptance now?</strong><small>One acceptance is free per rolling 24 hours. Extra acceptances cost KSh '+Number(data.extra_acceptance_amount_kes||0).toLocaleString('en-KE')+' each. Approved credits available: '+Number(data.acceptance_credits||0)+'.</small><label>Extra acceptances<input name="quantity" type="number" min="1" max="100" value="1" required></label><label>Payment reference<input name="reference" minlength="4" maxlength="80" required></label><button type="submit">Submit extra acceptance payment</button><p class="status" data-premium-credit-status></p></form>':'')+'</div>';
+  const workspace=shell.querySelector('.seller-workspace,.cyber-main,.cyber-workspace')||shell;
+  const head=workspace.querySelector(':scope > header');
+  if(head)head.insertAdjacentElement('afterend',panel);else workspace.prepend(panel);
+  panel.querySelector('[data-partner-subscription-form]')?.addEventListener('submit',async(event)=>{
+    event.preventDefault();const button=event.submitter;button.disabled=true;const original=button.textContent;button.textContent='Submitting…';const output=panel.querySelector('[data-partner-subscription-status]');
+    try{const form=new FormData(event.currentTarget),result=await client.rpc('partner_submit_subscription_payment',{p_partner_type:partnerType,p_billing_period:form.get('period'),p_payment_reference:String(form.get('reference')||'').trim()});if(result.error)throw result.error;status(output,'Payment submitted. Admin verification is required before activation.','success');event.currentTarget.reset();}
+    catch(err){status(output,err?.message||'Payment could not be submitted.','error');}finally{button.disabled=false;button.textContent=original;}
+  });
+  panel.querySelector('[data-premium-credit-form]')?.addEventListener('submit',async(event)=>{
+    event.preventDefault();const button=event.submitter;button.disabled=true;const original=button.textContent;button.textContent='Submitting…';const output=panel.querySelector('[data-premium-credit-status]');
+    try{const form=new FormData(event.currentTarget),result=await client.rpc('premium_submit_extra_acceptance_payment',{p_quantity:Number(form.get('quantity')),p_payment_reference:String(form.get('reference')||'').trim()});if(result.error)throw result.error;status(output,'Extra acceptance payment submitted for Admin verification.','success');event.currentTarget.reset();}
+    catch(err){status(output,err?.message||'Payment could not be submitted.','error');}finally{button.disabled=false;button.textContent=original;}
+  });
+}
+window.leogoMountPartnerSubscription=mountPartnerSubscription;
+async function hydratePremiumApplicationBilling(){
+  const {data,error}=await client.rpc('partner_get_billing_status',{p_partner_type:'premium'});if(error||!data)return;
+  const select=$('#premiumPartnerSubscriptionPeriod');
+  if(select)select.innerHTML='<option value="monthly">Monthly — KSh '+Number(data.monthly_amount_kes||0).toLocaleString('en-KE')+'</option><option value="yearly">Yearly — KSh '+Number(data.yearly_amount_kes||0).toLocaleString('en-KE')+'</option>';
+  if($('#premiumApplicationPaymentDestination'))$('#premiumApplicationPaymentDestination').textContent='Pay to '+partnerPaymentDestination(data.payment_destination)+'. Admin will verify the reference before activation.';
+}
 window.leogoSetPartnerActiveRole=(role='')=>{activeRole=String(role||'');};
 
 const waitTimeout=(ms,message='Request timed out')=>new Promise((_,reject)=>window.setTimeout(()=>reject(new Error(message)),ms));
@@ -364,6 +402,7 @@ $$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
     hero.hidden=true;
     if(typeof window.leogoOpenCyberPartner==='function'){
       window.leogoOpenCyberPartner();
+      window.setTimeout(()=>mountPartnerSubscription('cyber',cyberShell).catch(()=>{}),300);
     }else{
       // Fail-safe: never leave the Cyber card looking dead if its module is still loading.
       window.setTimeout(()=>{
@@ -635,6 +674,7 @@ async function openSellerRole(){
   primeSellerLocationOptions();
 
   await loadSeller();
+  await mountPartnerSubscription('seller',sellerDashboard).catch(()=>{});
 }
 function sellerStatusCopy(state){
   if(state==='submitted')return 'Submitted to LEOGO Admin. Your application is waiting for review.';
@@ -2209,6 +2249,7 @@ async function openProviderRole(){
   if(hero)hero.hidden=true;
   showProviderBoot();
   await loadProvider();
+  await mountPartnerSubscription('service_provider',providerDashboard).catch(()=>{});
 }
 function openProviderRegistration(editExisting=false){
   providerOnboarding.hidden=true;
@@ -3207,6 +3248,7 @@ async function openPremiumRole(){
   if(accommodationShell)accommodationShell.hidden=true;
   premiumShell.hidden=false;authShell.hidden=true;if(hero)hero.hidden=true;
   await loadPremiumProfile();
+  await mountPartnerSubscription('premium',premiumDashboard).catch(()=>{});
 }
 function openPremiumRegistration(editExisting=false){
   premiumOnboarding.hidden=true;premiumPendingArea.hidden=true;premiumDashboard.hidden=true;premiumReg.hidden=false;
@@ -3217,6 +3259,9 @@ function openPremiumRegistration(editExisting=false){
     $('#premiumPartnerRealName').value=currentUser?.user_metadata?.full_name||'';
     $('#premiumPartnerProfilePhoto').required=true;$('#premiumPartnerIdDocument').required=true;
   }
+  const paymentBox=$('#premiumApplicationPayment');
+  if(paymentBox){paymentBox.hidden=false;$('#premiumPartnerSubscriptionPeriod').required=!editExisting;$('#premiumPartnerSubscriptionReference').required=!editExisting;if(editExisting)$('#premiumPartnerSubscriptionReference').placeholder='Leave blank if payment was already submitted';}
+  hydratePremiumApplicationBilling().catch(()=>{});
   premiumReg.scrollIntoView({behavior:'smooth',block:'start'});
 }
 premiumReg?.addEventListener('submit',async(event)=>{
@@ -3253,6 +3298,10 @@ premiumReg?.addEventListener('submit',async(event)=>{
     });
     if(error)throw error;
     premiumProfile=data;
+    if($('#premiumPartnerSubscriptionReference').value.trim()){
+      const payment=await client.rpc('partner_submit_subscription_payment',{p_partner_type:'premium',p_billing_period:$('#premiumPartnerSubscriptionPeriod').value,p_payment_reference:$('#premiumPartnerSubscriptionReference').value.trim()});
+      if(payment.error)throw payment.error;
+    }
     status($('#premiumRegistrationStatus'),'Premium Profile submitted to LEOGO Admin for approval.','success');
     await renderPremiumProfile();await loadPremiumNotifications().catch(()=>{});
   }catch(error){status($('#premiumRegistrationStatus'),error?.message||'Premium Profile application could not be submitted.','error');}
@@ -4327,6 +4376,7 @@ async function openAccommodationRole(){
   const preserveDraft=accommodationDraftWasOpen();
   showAccommodationBoot();
   await loadAccommodationProvider();
+  await mountPartnerSubscription('accommodation',accommodationDashboard).catch(()=>{});
   if(preserveDraft && accommodationProvider?.verification_status!=='approved' && accommodationProvider?.verification_status!=='suspended'){
     openAccommodationRegistration(Boolean(accommodationProvider),{preserveDraft:true});
     await restoreAccommodationDraft();
@@ -4856,6 +4906,7 @@ async function openTransportRole(){
   if(hero)hero.hidden=true;
   showTransportBoot();
   await loadTransportProvider();
+  await mountPartnerSubscription('transport',transportDashboard).catch(()=>{});
 }
 function openTransportRegistration(editExisting=false){
   setTransportBasePinOnlyMode(false);

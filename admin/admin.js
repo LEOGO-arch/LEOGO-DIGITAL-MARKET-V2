@@ -129,7 +129,7 @@
     accommodation_provider_profile_change: 'Accommodation Provider Profile Update',
     premium_partner_profile_change: 'Premium Profile Update',
     premium_customer: 'Premium Customer', premium_profile: 'Verified Premium Profile',
-    premium_payment: 'Premium Payment', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
+    premium_payment: 'Premium Payment', partner_subscription_payment: 'Partner Subscription Payment', premium_extra_acceptance_payment: 'Premium Extra Acceptance', wallet_deposit: 'Wallet Deposit', wallet_loan: 'Wallet Loan',
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
     accommodation_property: 'Accommodation Property',
     accommodation_unit: 'Accommodation Room / Unit',
@@ -539,6 +539,7 @@
       [loadServiceLocations, () => adminHas('settings.manage')],
       [loadBusinessSettings, () => adminHas('settings.manage')],
       [loadPaymentSettings, () => adminHas('payments.manage')],
+      [loadPartnerSubscriptionSettings, () => adminHas('settings.manage') || adminHas('fees.manage')],
       [loadPickupStations, () => adminHas('orders.read') || adminHas('delivery.manage')],
       [loadWalletSettings, () => adminHas('approvals.read') || adminHas('fees.manage')],
       [loadTransportFinanceSettings, () => adminHas('settings.manage') || adminHas('fees.manage') || adminHas('delivery.manage')],
@@ -650,7 +651,7 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,partnerBillingResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
       db.rpc('admin_list_service_provider_approvals'),
@@ -661,6 +662,7 @@
       db.rpc('admin_list_accommodation_corrections'),
       db.rpc('admin_list_accommodation_unit_approvals'),
       db.rpc('admin_list_cyber_approvals'),
+      db.rpc('admin_list_partner_billing_approvals'),
       db.rpc('admin_list_pending_payment_actions'),
       db.rpc('admin_list_transport_requests')
     ]);
@@ -674,6 +676,7 @@
     if (accommodationCorrectionsResult.error) throw accommodationCorrectionsResult.error;
     if (accommodationUnitsResult.error) throw accommodationUnitsResult.error;
     if (cyberResult.error) throw cyberResult.error;
+    if (partnerBillingResult.error) throw partnerBillingResult.error;
     if (paymentActionsResult.error) throw paymentActionsResult.error;
     if (transportRequestsResult.error) throw transportRequestsResult.error;
 
@@ -687,7 +690,8 @@
       ...(Array.isArray(partnerSettlementResult.data) ? partnerSettlementResult.data : []),
       ...(Array.isArray(accommodationCorrectionsResult.data) ? accommodationCorrectionsResult.data : []),
       ...(Array.isArray(accommodationUnitsResult.data) ? accommodationUnitsResult.data : []),
-      ...(Array.isArray(cyberResult.data) ? cyberResult.data : [])
+      ...(Array.isArray(cyberResult.data) ? cyberResult.data : []),
+      ...(Array.isArray(partnerBillingResult.data) ? partnerBillingResult.data : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     state.paymentActions=Array.isArray(paymentActionsResult.data)?paymentActionsResult.data:[];
     state.transportRequests=Array.isArray(transportRequestsResult.data)?transportRequestsResult.data:state.transportRequests;
@@ -741,7 +745,7 @@
   };
 
   const approvalGroup = (kind) => ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle','transport_provider_settlement_account','pickup_station_application'].includes(kind) ? 'transport' : kind.startsWith('cyber_') ? 'cyber' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
-  const approvalIsFinancial = (item) => item.kind === 'premium_payment' || item.kind.startsWith('wallet') || item.kind.endsWith('_settlement_account');
+  const approvalIsFinancial = (item) => ['premium_payment','partner_subscription_payment','premium_extra_acceptance_payment'].includes(item.kind) || item.kind.startsWith('wallet') || item.kind.endsWith('_settlement_account');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
     if (state.approvalFilter === 'all') return true;
@@ -1029,7 +1033,7 @@
     const approve = $('[data-review-action="approve"]');
     const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change'].includes(kind) && item.status === 'changes_requested';
     const settlementAccountApproval = ['seller_settlement_account','service_provider_settlement_account','transport_provider_settlement_account'].includes(kind);
-    underReview.hidden = ['premium_payment', 'wallet_deposit', 'wallet_withdrawal'].includes(kind) || awaitingCorrection || settlementAccountApproval;
+    underReview.hidden = ['premium_payment','partner_subscription_payment','premium_extra_acceptance_payment','wallet_deposit','wallet_withdrawal'].includes(kind) || awaitingCorrection || settlementAccountApproval;
     requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
@@ -1052,7 +1056,9 @@
       setFormStatus($('#reviewStatus'), decision === 'changes_requested' ? 'Explain what the applicant needs to correct before resubmitting.' : 'Add a clear rejection reason before rejecting.', 'error'); return;
     }
     await withButtonLock(button, 'Saving…', async () => {
-      const rpcName = item.kind === 'cyber_application'
+      const rpcName = ['partner_subscription_payment','premium_extra_acceptance_payment'].includes(item.kind)
+        ? 'admin_review_partner_billing_payment'
+        : item.kind === 'cyber_application'
         ? 'admin_review_cyber_provider'
         : item.kind === 'cyber_service'
           ? 'admin_review_cyber_service'
@@ -1091,7 +1097,9 @@
                                         : item.kind === 'transport_provider_settlement_account'
                                           ? 'admin_review_transport_provider_settlement_account'
                                           : 'admin_review_approval';
-      const rpcArgs = item.kind === 'cyber_application'
+      const rpcArgs = ['partner_subscription_payment','premium_extra_acceptance_payment'].includes(item.kind)
+        ? { p_payment_id: item.record_id, p_decision: decision, p_notes: notes || null }
+        : item.kind === 'cyber_application'
         ? { p_user_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : item.kind === 'cyber_service'
           ? { p_service_id: item.record_id, p_decision: decision, p_notes: notes || null }
@@ -3468,6 +3476,25 @@
     });
   };
 
+  const partnerSubscriptionLabel=(value)=>({premium:'Premium Partner',seller:'Seller',service_provider:'Service Provider',cyber:'Cyber',accommodation:'Accommodation',transport:'Transporter'}[value]||value);
+  const loadPartnerSubscriptionSettings=async()=>{
+    const {data,error}=await db.rpc('admin_list_partner_subscription_settings');
+    if(error)throw error;
+    const target=$('#partnerSubscriptionSettingsList');
+    if(!target)return;
+    target.innerHTML=(data||[]).map(item=>`<fieldset data-partner-fee="${escapeHtml(item.partner_type)}"><legend>${escapeHtml(partnerSubscriptionLabel(item.partner_type))}</legend><label><span>Monthly (KSh)</span><input name="monthly" type="number" min="0" step="1" required value="${Number(item.monthly_amount_kes||0)}"></label><label><span>Yearly (KSh)</span><input name="yearly" type="number" min="0" step="1" required value="${Number(item.yearly_amount_kes||0)}"></label>${item.partner_type==='premium'?`<label><span>Extra acceptance (KSh)</span><input name="extra" type="number" min="0" step="1" required value="${Number(item.extra_acceptance_amount_kes||0)}"></label>`:''}</fieldset>`).join('');
+  };
+  const savePartnerSubscriptionSettings=async(event)=>{
+    event.preventDefault();const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const rows=$$('[data-partner-fee]',event.currentTarget);
+      const results=await Promise.all(rows.map(row=>db.rpc('admin_save_partner_subscription_setting',{p_partner_type:row.dataset.partnerFee,p_monthly_amount_kes:Number($('[name="monthly"]',row).value),p_yearly_amount_kes:Number($('[name="yearly"]',row).value),p_extra_acceptance_amount_kes:row.dataset.partnerFee==='premium'?Number($('[name="extra"]',row).value):null})));
+      const failed=results.find(result=>result.error);if(failed){setFormStatus($('#partnerSubscriptionSettingsStatus'),friendlyError(failed.error),'error');return;}
+      setFormStatus($('#partnerSubscriptionSettingsStatus'),'Partner subscription fees saved. New payments will use these prices.','success');
+      await Promise.all([loadPartnerSubscriptionSettings(),loadAuditLog()]);
+    });
+  };
+
   const loadPaymentSettings = async () => {
     const [accountsResult, assignmentsResult] = await Promise.all([
       db.from('payment_accounts').select('*').order('created_at', { ascending: false }),
@@ -5593,6 +5620,7 @@
     $('#refreshAccommodationBookingsAdmin')?.addEventListener('click',()=>withButtonLock($('#refreshAccommodationBookingsAdmin'),'Refreshing…',loadAccommodationSummary));
     $('#adminServiceListingFilter')?.addEventListener('change',renderServiceListings);
     $('#serviceQuotationFeeForm')?.addEventListener('submit',saveServiceQuotationFee);
+    $('#partnerSubscriptionSettingsForm')?.addEventListener('submit',savePartnerSubscriptionSettings);
     $('#adminServiceRequestFilter')?.addEventListener('change',renderServiceRequests);
     $('#adminServiceRequestList')?.addEventListener('click',(event)=>{const button=event.target.closest?.('[data-service-payment],[data-dispatch-service-request],[data-cancel-service-request]');if(button)handleServiceRequestAction(button);});
     $('#refreshAftersalesCases')?.addEventListener('click', () => withButtonLock($('#refreshAftersalesCases'), 'Refreshing…', loadAftersalesCases));

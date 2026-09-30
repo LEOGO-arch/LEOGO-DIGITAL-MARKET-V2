@@ -949,6 +949,12 @@
         </div>
 
         <div class="settings-panel" data-settings-content="fees">
+          <form class="settings-form" id="partnerSubscriptionSettingsForm">
+            <div class="form-section-head"><div><span>🤝</span><div><h3>Partner Subscription Fees</h3><p>Control monthly and yearly access fees. New payment submissions snapshot the saved price.</p></div></div><button type="submit">Save Partner Fees</button></div>
+            <div id="partnerSubscriptionSettingsList" class="form-grid"><div class="loading-card wide">Loading partner subscription fees…</div></div>
+            <div class="locked-front-note">Premium Partners receive one free meetup acceptance per rolling 24 hours. The extra-acceptance price is also controlled here.</div>
+            <div class="form-status" id="partnerSubscriptionSettingsStatus"></div>
+          </form>
           <form class="settings-form" id="transportFinanceSettingsForm">
             <div class="form-section-head"><div><span>🚚</span><div><h3>Transport Pricing Rules</h3><p>Applied when a Transport Provider submits a transport cost. Rates are snapshotted on each quote.</p></div></div><button type="submit">Save Transport Rates</button></div>
             <div class="form-grid">
@@ -1140,7 +1146,7 @@
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  <script src="admin.js?v=admin-reports-1" defer></script>
+  <script src="admin.js?v=partner-subscriptions-1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>
   <script src="cyber.js?v=delivery-rates-admin-3" defer></script>
