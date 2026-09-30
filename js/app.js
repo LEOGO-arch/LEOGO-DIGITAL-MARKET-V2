@@ -2646,8 +2646,9 @@
     arrived_sorting_center:'Arrived at LEOGO Sorting Center',
     sorting_received:'Order Received at LEOGO Sorting Center',
     ready_for_dispatch:'Ready for Dispatch',
-    on_the_way:'On the way to you',
-    ready_for_pickup:'Ready for Pickup',
+    on_the_way:'On the way',
+    delivered_to_pickup_station:'Delivered to Pickup Station — awaiting station receipt',
+    ready_for_pickup:'Pickup Station received — Ready for Pickup',
     delivered:'Delivered',
     failed:'Delivery issue',
     cancelled:'Cancelled'
