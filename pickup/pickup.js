@@ -639,51 +639,160 @@ $('#pinApplicationLocation')?.addEventListener('click',()=>{
   },{enableHighAccuracy:true,timeout:15000,maximumAge:15000});
 });
 
+const scannerCanvas=document.createElement('canvas');
+const scannerContext=scannerCanvas.getContext('2d',{willReadFrequently:true});
+let scannerStartedAt=0;
+
 const stopScanner=()=>{
   if(scannerTimer){clearTimeout(scannerTimer);scannerTimer=null;}
   if(scannerStream){scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null;}
   const video=$('#scannerVideo');if(video)video.srcObject=null;
   $('#scannerModal').hidden=true;
 };
+
+const decodeQrWithJsQr=(video)=>{
+  if(typeof window.jsQR!=='function'||!scannerContext||!video||video.readyState<2)return '';
+  const sourceWidth=Number(video.videoWidth||0);
+  const sourceHeight=Number(video.videoHeight||0);
+  if(!sourceWidth||!sourceHeight)return '';
+
+  // Keep enough detail for the dense LEOGO order QR while avoiding an
+  // unnecessarily huge frame on lower-powered Android devices.
+  const maxWidth=1280;
+  const scale=Math.min(1,maxWidth/sourceWidth);
+  const width=Math.max(1,Math.round(sourceWidth*scale));
+  const height=Math.max(1,Math.round(sourceHeight*scale));
+  if(scannerCanvas.width!==width)scannerCanvas.width=width;
+  if(scannerCanvas.height!==height)scannerCanvas.height=height;
+
+  scannerContext.drawImage(video,0,0,width,height);
+  const frame=scannerContext.getImageData(0,0,width,height);
+  const result=window.jsQR(frame.data,width,height,{inversionAttempts:'attemptBoth'});
+  return result?.data||'';
+};
+
+const finishQrScan=async(rawValue)=>{
+  const code=parseScannedCode(rawValue);
+  if(!code)return false;
+
+  $('#scannerStatus').textContent='QR detected. Checking LEOGO order…';
+  const {data,error}=await client.rpc('pickup_partner_lookup_parcel',{p_code:code});
+  if(error||!data?.order_reference){
+    $('#scannerStatus').textContent=error?.message||'QR was read but no matching parcel was found for this Pickup Station.';
+    return false;
+  }
+
+  const input=scannerMode==='receive'?$('#receiveCode'):$('#handoverCode');
+  const statusEl=scannerMode==='receive'?$('#receiveStatus'):$('#handoverStatus');
+  input.value=data.order_reference;
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+  $('#lookupCode').value=data.order_reference;
+
+  stopScanner();
+
+  if(scannerMode==='receive'){
+    setStatus(statusEl,'✓ QR scanned: '+data.order_reference+'. Add the required parcel photo, then tap Receive Parcel.','success');
+  }else{
+    setStatus(statusEl,'✓ QR scanned: '+data.order_reference+'. Enter the customer ID, add the handover photo, then tap Hand Over.','success');
+  }
+
+  window.setTimeout(()=>{
+    input.scrollIntoView({behavior:'smooth',block:'center'});
+    input.focus({preventScroll:true});
+  },120);
+  return true;
+};
+
 const scanLoop=async(detector)=>{
   if(!scannerStream)return;
+  const video=$('#scannerVideo');
+
   try{
-    const codes=await detector.detect($('#scannerVideo'));
-    if(codes?.length){
-      const code=parseScannedCode(codes[0].rawValue);
-      stopScanner();
-      const input=scannerMode==='receive'?$('#receiveCode'):$('#handoverCode');
-      input.value=code;
-      const preview=await lookupParcel(code);
-      if(preview){
-        const form=scannerMode==='receive'?$('#receiveForm'):$('#handoverForm');
-        window.setTimeout(()=>form.requestSubmit(),80);
+    if(video?.readyState>=2){
+      let raw='';
+
+      // Try the browser's native detector first.
+      if(detector){
+        try{
+          const codes=await detector.detect(video);
+          raw=codes?.[0]?.rawValue||'';
+        }catch(_error){}
       }
-      return;
+
+      // Samsung/Android Chrome can open the camera successfully while native
+      // BarcodeDetector still misses a QR. jsQR is the fallback for those frames.
+      if(!raw){
+        try{raw=decodeQrWithJsQr(video);}catch(_error){}
+      }
+
+      if(raw){
+        const complete=await finishQrScan(raw);
+        if(complete)return;
+      }
+
+      if(Date.now()-scannerStartedAt>3500){
+        $('#scannerStatus').textContent='Scanning… hold the QR steady inside the orange box and move it slightly closer if needed.';
+      }
     }
-  }catch(_){}
-  scannerTimer=setTimeout(()=>scanLoop(detector),300);
+  }catch(_error){}
+
+  scannerTimer=setTimeout(()=>scanLoop(detector),180);
 };
+
 const startScanner=async(mode)=>{
   if(!dashboard?.assigned||dashboard?.account?.status!=='active'){
     stopScanner();
     alert('Pickup Station parcel functions are locked until LEOGO Admin approves or assigns this account.');
     return;
   }
-  scannerMode=mode;$('#scannerTitle').textContent=mode==='receive'?'Scan to Receive Parcel':'Scan to Hand Over Parcel';$('#scannerModal').hidden=false;
+
+  scannerMode=mode;
+  scannerStartedAt=Date.now();
+  $('#scannerTitle').textContent=mode==='receive'?'Scan to Receive Parcel':'Scan to Hand Over Parcel';
+  $('#scannerModal').hidden=false;
   $('#scannerStatus').textContent='Starting camera…';
-  if(!('BarcodeDetector' in window)){
-    $('#scannerStatus').textContent='QR camera scanning is not supported by this browser. Use the manual order / waybill field instead.';
-    return;
-  }
+
   try{
-    const formats=await BarcodeDetector.getSupportedFormats();
-    if(!formats.includes('qr_code'))throw new Error('QR scanning is not supported by this browser.');
-    scannerStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
-    const video=$('#scannerVideo');video.srcObject=scannerStream;await video.play();
+    scannerStream=await navigator.mediaDevices.getUserMedia({
+      video:{
+        facingMode:{ideal:'environment'},
+        width:{ideal:1920},
+        height:{ideal:1080}
+      },
+      audio:false
+    });
+
+    const video=$('#scannerVideo');
+    video.srcObject=scannerStream;
+    video.setAttribute('playsinline','');
+    await video.play();
+
+    const track=scannerStream.getVideoTracks()[0];
+    try{
+      const caps=track.getCapabilities?.()||{};
+      const advanced={};
+      if(Array.isArray(caps.focusMode)&&caps.focusMode.includes('continuous'))advanced.focusMode='continuous';
+      if(Object.keys(advanced).length)await track.applyConstraints({advanced:[advanced]});
+    }catch(_error){}
+
+    let detector=null;
+    if('BarcodeDetector' in window){
+      try{
+        const formats=await BarcodeDetector.getSupportedFormats();
+        if(formats.includes('qr_code'))detector=new BarcodeDetector({formats:['qr_code']});
+      }catch(_error){}
+    }
+
+    if(!detector&&typeof window.jsQR!=='function'){
+      throw new Error('QR scanner could not start in this browser. Refresh the page and try again.');
+    }
+
     $('#scannerStatus').textContent='Point the camera at the LEOGO order QR.';
-    scanLoop(new BarcodeDetector({formats:['qr_code']}));
-  }catch(err){$('#scannerStatus').textContent=err.message||'Camera could not start. Enter the order / waybill manually.';}
+    scanLoop(detector);
+  }catch(err){
+    if(scannerStream){scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null;}
+    $('#scannerStatus').textContent=err.message||'Camera could not start. Enter the order / waybill manually.';
+  }
 };
 $$('[data-scan-mode]').forEach(b=>b.addEventListener('click',()=>startScanner(b.dataset.scanMode)));
 $('#closeScanner').addEventListener('click',stopScanner);$('#stopScanner').addEventListener('click',stopScanner);
