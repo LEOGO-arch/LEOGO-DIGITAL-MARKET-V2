@@ -1013,8 +1013,8 @@
               </div>
               <div class="checkout-fee-rules" data-admin-managed="checkout-fee-settings">
                 <strong>Service fee rules</strong>
-                <span>Orders up to KSh 2,999: <b>2%</b></span>
-                <span>Orders from KSh 3,000: <b>1.5%</b></span>
+                <span id="checkoutServiceRuleLow">Orders up to KSh 2,999: <b>2%</b></span>
+                <span id="checkoutServiceRuleHigh">Orders from KSh 3,000: <b>1.5%</b></span>
               </div>
               <div class="checkout-total-row"><span>Items subtotal</span><strong id="checkoutSubtotalValue">KSh 0</strong></div>
               <div class="checkout-total-row"><span>Service fee <small id="checkoutServiceRate">(2%)</small></span><strong id="checkoutServiceFeeValue">KSh 0</strong></div>
@@ -1031,7 +1031,7 @@
                 <div class="payment-method-grid" role="group" aria-label="Select payment method" data-admin-managed="payment-methods">
                   <button type="button" data-payment-method="till"><span>📱</span><strong>M-Pesa Till</strong><small>Till number: <b data-admin-managed="mpesa-till-number">Set by Admin</b></small></button>
                   <button type="button" data-payment-method="paybill"><span>🏦</span><strong>M-Pesa Paybill</strong><small>Paybill: <b data-admin-managed="mpesa-paybill-number">Set by Admin</b></small><small>Account: phone/order reference</small></button>
-                  <button type="button" data-payment-method="cod"><span>💵</span><strong>Cash on Delivery</strong><small>Available below KSh 10,000</small><small>Transport &amp; Parcel Delivery fee must be paid first</small></button>
+                  <button type="button" data-payment-method="cod"><span>💵</span><strong>Cash on Delivery</strong><small id="checkoutCodLimitLabel">Available below KSh 10,000</small><small>Transport &amp; Parcel Delivery fee must be paid first</small></button>
                   <button type="button" data-payment-method="lipapolepole"><span>🪙</span><strong>Lipa Pole Pole</strong><small>Pay the seller-set deposit first</small><small>Balance paid in approved instalments</small></button>
                   <button type="button" data-payment-method="wallet"><span>💰</span><strong>LEOGO Savings Wallet</strong><small>Available verified balance: <b id="checkoutWalletBalance">KSh 0</b></small><small>Checkout activation pending SACCO/payment settlement connection</small></button>
                 </div>
@@ -1052,9 +1052,9 @@
                     <strong>Lipa Pole Pole Rules</strong>
                     <ol>
                       <li>The item is collected only after the full payable amount has been completed and confirmed.</li>
-                      <li>If the customer cancels, LEOGO refunds the amount paid less a 25% cancellation deduction.</li>
+                      <li id="lppCancellationRuleText">If the customer cancels, LEOGO refunds the amount paid less a 25% cancellation deduction.</li>
                       <li>Payment must be completed within the seller-set maximum period.</li>
-                      <li>If the deadline is missed, the account may be refunded less 25% or receive an additional charge equal to 5% of the total payable amount.</li>
+                      <li id="lppOverdueRuleText">If the deadline is missed, the account may be refunded less 25% or receive an additional charge equal to 5% of the total payable amount.</li>
                     </ol>
                   </div>
                   <label class="payment-paid-check"><input id="lppDepositPaidCheck" type="checkbox"><span>I have paid the required first deposit and request Admin/Staff confirmation.</span></label>
@@ -1064,7 +1064,7 @@
                 </form>
                 <div class="payment-rule-notice" data-admin-managed="cod-payment-rules">
                   <strong>Cash on Delivery rule</strong>
-                  <p>Cash on Delivery is only available for orders below KSh 10,000. The customer must pay the Transport &amp; Parcel Delivery fee first before the order is dispatched.</p>
+                  <p id="checkoutCodRuleText">Cash on Delivery is only available for orders below KSh 10,000. The customer must pay the Transport &amp; Parcel Delivery fee first before the order is dispatched.</p>
                 </div>
                 <div class="payment-proof-panel" id="standardPaymentProof">
                   <label><span id="paymentProofLabel">Paste M-Pesa payment message</span><textarea id="mpesaPaymentMessage" rows="4" placeholder="Paste the complete M-Pesa confirmation message here"></textarea></label>
@@ -1369,4 +1369,4 @@
     </div>
   </div>
 </section>
-<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=pickup-station-arrival-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=stay-card-v3" defer></script><script src="js/cyber.js?v=delivery-rates-1" defer></script><script src="js/wallet.js?v=payment-routing-2" defer></script><script src="js/premium.js?v=customer-meetup-limit-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
+<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=system-settings-live-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=stay-card-v3" defer></script><script src="js/cyber.js?v=delivery-rates-1" defer></script><script src="js/wallet.js?v=payment-routing-2" defer></script><script src="js/premium.js?v=customer-meetup-limit-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
