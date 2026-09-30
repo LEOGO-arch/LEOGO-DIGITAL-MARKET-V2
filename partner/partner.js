@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 87608)
-Total output lines: 5653
-
 (() => {
 'use strict';
 const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
@@ -1644,7 +1641,2478 @@ function renderProducts(){
           (p.has_variants?'<span class="badge">'+variants.length+' variant'+(variants.length===1?'':'s')+'</span>':'')+
           (p.flash_sale_requested?'<span class="badge flash">Flash Sale '+escapeHtml(p.flash_sale_status||'requested')+'</span>':'')+
         '</div>'+
-        '<small>'+escapeHtml(String(p.prod…37608 tokens truncated…(item.read_at?'':'<button class="secondary" type="button" data-mark-accommodation-notification="'+escapeHtml(item.id)+'">Mark read</button>')+
+        '<small>'+escapeHtml(String(p.product_details||'').slice(0,140))+'</small>'+
+        (p.product_review_notes?'<div class="variant-warning">Admin note: '+escapeHtml(p.product_review_notes)+'</div>':'')+
+        variantMarkup+
+      '</div>'+
+      '<button data-edit-product="'+escapeHtml(p.id)+'" type="button">Edit</button>'+
+    '</article>';
+  }).join('');
+
+  installSellerMediaFallback(box);
+  Array.from(box.querySelectorAll('[data-edit-product]')).forEach(button=>{
+    button.addEventListener('click',async event=>{
+      event.preventDefault();
+      event.stopPropagation();
+      const original=button.textContent;
+      button.disabled=true;
+      button.textContent='Opening…';
+      try{
+        await editProduct(button.dataset.editProduct);
+      }finally{
+        if(button.isConnected){
+          button.disabled=false;
+          button.textContent=original;
+        }
+      }
+    });
+  });
+  renderFlashSaleProducts();
+  renderSellerDataSelection();
+}
+$('#flashSaleProduct').addEventListener('change',()=>{
+  const p=products.find(item=>item.id===$('#flashSaleProduct').value);
+  $('#flashSaleNormalPrice').value=p?money(p.price_kes):'';
+  if(p){
+    $('#flashSalePrice').value=p.flash_sale_price_kes||'';
+    $('#flashSaleQuantity').value=p.flash_sale_quantity||'';
+    $('#flashSaleStart').value=localInput(p.flash_sale_starts_at);
+    $('#flashSaleEnd').value=localInput(p.flash_sale_ends_at);
+  }
+});
+$('#sellerFlashSaleForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const product=products.find(item=>item.id===$('#flashSaleProduct').value);
+  if(!product){status($('#flashSaleStatus'),'Choose one of your existing products.','error');return;}
+  const flashPrice=Number($('#flashSalePrice').value);
+  const quantity=Number($('#flashSaleQuantity').value);
+  const startValue=$('#flashSaleStart').value;
+  const endValue=$('#flashSaleEnd').value;
+  if(!flashPrice||flashPrice<=0){status($('#flashSaleStatus'),'Enter a valid Flash Sale price.','error');return;}
+  if(flashPrice>=Number(product.price_kes)){status($('#flashSaleStatus'),'Flash Sale price should be lower than the normal selling price.','error');return;}
+  if(!quantity||quantity<=0||quantity>Number(product.quantity_available)){status($('#flashSaleStatus'),'Flash quantity must be greater than zero and cannot exceed available stock.','error');return;}
+  if(!startValue||!endValue||new Date(endValue)<=new Date(startValue)){status($('#flashSaleStatus'),'Choose a valid Flash Sale start and end time.','error');return;}
+  const button=e.submitter||$('#sellerFlashSaleForm button[type="submit"]');
+  const original=button.textContent;button.disabled=true;button.textContent='Sending…';
+  status($('#flashSaleStatus'),'Sending Flash Sale request…');
+  try{
+    const {error}=await client.from('seller_products').update({
+      flash_sale_requested:true,
+      flash_sale_price_kes:flashPrice,
+      flash_sale_quantity:quantity,
+      flash_sale_starts_at:new Date(startValue).toISOString(),
+      flash_sale_ends_at:new Date(endValue).toISOString(),
+      flash_sale_status:'requested',
+      updated_at:new Date().toISOString()
+    }).eq('id',product.id).eq('seller_id',currentUser.id);
+    if(error)throw error;
+    status($('#flashSaleStatus'),'Flash Sale request sent successfully.','success');
+    e.target.reset();$('#flashSaleNormalPrice').value='';
+    await loadProducts();
+  }catch(error){status($('#flashSaleStatus'),error.message||'Flash Sale request could not be sent.','error');}
+  finally{button.disabled=false;button.textContent=original;}
+});
+
+function resetProductForm(hide=true){
+  editingProduct=null;$('#sellerProductForm').reset();$('#sellerProductId').value='';$('#productFormTitle').textContent='Add Product / Item';$('#cancelProductEdit').hidden=true;$('#variantRows').innerHTML='';$('#variantSection').hidden=true;$('#lppFields').hidden=true;$('#productOtherUnitWrap').hidden=true;$('#productCustomCategoryWrap').hidden=true;$('#productCustomSubcategoryWrap').hidden=true;$('#productCustomCategory').required=false;$('#productCustomSubcategory').required=false;renderSubcategories();status($('#productFormStatus'));
+  if(hide)$('#sellerProductForm').hidden=true;
+}
+$('#cancelProductEdit').addEventListener('click',()=>resetProductForm(true));
+$('#showSellerProductForm').addEventListener('click',()=>{resetProductForm(false);$('#sellerProductForm').hidden=false;$('#sellerProductForm').scrollIntoView({behavior:'smooth',block:'start'});});
+$('#sellerProductList').addEventListener('click',async event=>{
+  const button=event.target.closest('[data-edit-product]');
+  if(!button)return;
+  event.preventDefault();
+  const original=button.textContent;
+  button.disabled=true;
+  button.textContent='Opening…';
+  try{
+    await editProduct(button.dataset.editProduct);
+  }finally{
+    // The button may have been replaced by a re-render; only restore if still connected.
+    if(button.isConnected){
+      button.disabled=false;
+      button.textContent=original;
+    }
+  }
+});
+
+$('#refreshSellerProducts').addEventListener('click',async()=>{
+  const button=$('#refreshSellerProducts');
+  const original=button.textContent;
+  button.disabled=true;button.textContent='Refreshing…';
+  try{
+    await loadProducts();
+  }finally{
+    button.disabled=false;button.textContent=original;
+  }
+});
+
+function localInput(iso){if(!iso)return'';const d=new Date(iso);const off=d.getTimezoneOffset();return new Date(d.getTime()-off*60000).toISOString().slice(0,16);}
+async function editProduct(id){
+  try{
+    let p=products.find(x=>x.id===id);
+
+    // If the card was rendered from stale memory, refresh once before failing.
+    if(!p){
+      await loadProducts();
+      p=products.find(x=>x.id===id);
+    }
+    if(!p)throw new Error('This product could not be found. Refresh Products and try again.');
+
+    // Ensure category/subcategory data exists before filling the edit form.
+    if(!categories.length){
+      await loadTaxonomy();
+    }
+
+    editingProduct=p;
+    status($('#productFormStatus'),'Editing '+p.product_name+'…','success');
+
+    $('#sellerProductId').value=p.id;
+    $('#productFormTitle').textContent='Edit Product / Item';
+    $('#productName').value=p.product_name||'';
+    $('#productPrice').value=p.price_kes??'';
+    $('#productAvailability').value=p.availability_status||'available';
+    $('#productQuantity').value=p.quantity_available??0;
+    $('#productUnit').value=p.measurement_unit||'piece';
+    $('#productOtherUnit').value=p.measurement_unit_other||'';
+    $('#productOtherUnitWrap').hidden=p.measurement_unit!=='other';
+
+    $('#productCategory').value=p.category_id||'';
+    renderSubcategories();
+    $('#productSubcategory').value=p.subcategory_id||'';
+    updateOtherSpecifyFields();
+    $('#productCustomCategory').value=p.custom_category_name||'';
+    $('#productCustomSubcategory').value=p.custom_subcategory_name||'';
+
+    $('#productGroup').value=p.group_name||'';
+    $('#productListingStatus').value=p.listing_status||'active';
+    $('#productDetails').value=p.product_details||'';
+
+    $('#productHasVariants').checked=Boolean(p.has_variants);
+    $('#variantSection').hidden=!p.has_variants;
+    $('#variantRows').innerHTML='';
+    (Array.isArray(p.seller_product_variants)?p.seller_product_variants:[]).forEach(addVariantRow);
+
+    $('#productLpp').checked=Boolean(p.accepts_lipa_pole_pole);
+    $('#lppFields').hidden=!p.accepts_lipa_pole_pole;
+    $('#productLppDeposit').value=p.lipa_pole_pole_first_deposit_kes??'';
+    $('#productLppDays').value=p.lipa_pole_pole_max_days??'';
+
+    $('#cancelProductEdit').hidden=false;
+    $('#sellerProductForm').hidden=false;
+    openSellerView('products');
+
+    requestAnimationFrame(()=>{
+      $('#sellerProductForm').scrollIntoView({behavior:'smooth',block:'start'});
+      try{$('#productName').focus();}catch(_focusError){}
+    });
+  }catch(error){
+    console.error('Edit product failed:',error);
+    status($('#productFormStatus'),error?.message||'Product could not be opened for editing.','error');
+    const form=$('#sellerProductForm');
+    if(form)form.hidden=false;
+  }
+}
+
+$('#sellerProductForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!seller||seller.application_status!=='approved'){
+    status($('#productFormStatus'),'Seller approval is required before adding products.','error');
+    return;
+  }
+
+  const submitButton=e.submitter||$('#sellerProductForm button[type="submit"]');
+  const originalText=submitButton?.textContent||'Save Product';
+  const uploadedThisAttempt=[];
+  let saveCommitted=false;
+
+  try{
+    if(submitButton){submitButton.disabled=true;submitButton.textContent='Checking Product…';}
+    status($('#productFormStatus'),'Checking product and variants…');
+
+    const selectedCategory=categories.find(x=>x.id===$('#productCategory').value);
+    const selectedSubcategory=subcategories.find(x=>x.id===$('#productSubcategory').value);
+
+    if(selectedCategory?.code==='other'&&$('#productCustomCategory').value.trim().length<2){
+      throw new Error('Specify the category name.');
+    }
+    if(selectedSubcategory?.code==='others'&&$('#productCustomSubcategory').value.trim().length<2){
+      throw new Error('Specify the sub-category name.');
+    }
+
+    const hasVariants=$('#productHasVariants').checked;
+    const lpp=$('#productLpp').checked;
+    const variantContainer=document.getElementById('variantRows');
+    const variantRows=hasVariants&&variantContainer
+      ? Array.from(variantContainer.querySelectorAll('.variant-row'))
+      : [];
+
+    if(hasVariants&&variantRows.length===0){
+      throw new Error('Add at least one variant or switch off variants.');
+    }
+
+    for(let i=0;i<variantRows.length;i++){
+      const row=variantRows[i];
+      const name=row.querySelector('[data-variant-name]')?.value.trim()||'';
+      const price=Number(row.querySelector('[data-variant-price]')?.value);
+      const qty=Number(row.querySelector('[data-variant-qty]')?.value);
+      const file=row.querySelector('[data-variant-image]')?.files?.[0]||null;
+      const existingImage=row.dataset.existingImage||'';
+
+      if(!name)throw new Error('Enter a name for variant '+(i+1)+'.');
+      if(!Number.isFinite(price)||price<0)throw new Error('Enter a valid Amount (KSh) for variant "'+name+'".');
+      if(!Number.isFinite(qty)||qty<0)throw new Error('Enter a valid quantity for variant "'+name+'".');
+      if(!file&&!existingImage)throw new Error('Add a profile picture for variant "'+name+'".');
+    }
+
+    const galleryFiles=[...$('#productGallery').files];
+    if(galleryFiles.length>3)throw new Error('Choose a maximum of 3 gallery pictures.');
+
+    if(submitButton)submitButton.textContent='Uploading Pictures…';
+    status($('#productFormStatus'),'Uploading product and variant pictures…');
+
+    const uploadTracked=async(file,prefix)=>{
+      const path=await uploadImage(file,prefix);
+      if(path)uploadedThisAttempt.push(path);
+      return path;
+    };
+
+    let mainPath=editingProduct?.main_image_path||null;
+    if($('#productMainImage').files[0]){
+      mainPath=await uploadTracked($('#productMainImage').files[0],'main');
+    }
+    if(!mainPath)throw new Error('Add a main product picture.');
+
+    let galleryPaths=editingProduct?.gallery_image_paths||[];
+    if(galleryFiles.length){
+      galleryPaths=[];
+      for(let i=0;i<galleryFiles.length;i++){
+        galleryPaths.push(await uploadTracked(galleryFiles[i],'gallery-'+i));
+      }
+    }
+
+    const variants=[];
+    for(let i=0;i<variantRows.length;i++){
+      const row=variantRows[i];
+      const name=row.querySelector('[data-variant-name]').value.trim();
+      const price=Number(row.querySelector('[data-variant-price]').value);
+      const qty=Number(row.querySelector('[data-variant-qty]').value);
+      const file=row.querySelector('[data-variant-image]').files[0]||null;
+      let imagePath=row.dataset.existingImage||null;
+      if(file)imagePath=await uploadTracked(file,'variant-'+i);
+      variants.push({
+        variant_name:name,
+        price_kes:price,
+        quantity_available:qty,
+        image_path:imagePath,
+        display_order:i,
+        is_active:true
+      });
+    }
+
+    const productPayload={
+      product_name:$('#productName').value.trim(),
+      price_kes:Number($('#productPrice').value),
+      availability_status:$('#productAvailability').value,
+      quantity_available:Number($('#productQuantity').value),
+      measurement_unit:$('#productUnit').value,
+      measurement_unit_other:$('#productUnit').value==='other'?$('#productOtherUnit').value.trim()||null:null,
+      accepts_lipa_pole_pole:lpp,
+      lipa_pole_pole_first_deposit_kes:lpp?Number($('#productLppDeposit').value):null,
+      lipa_pole_pole_max_days:lpp?Number($('#productLppDays').value):null,
+      has_variants:hasVariants,
+      product_details:$('#productDetails').value.trim(),
+      main_image_path:mainPath,
+      gallery_image_paths:galleryPaths,
+      category_id:$('#productCategory').value,
+      subcategory_id:$('#productSubcategory').value||null,
+      custom_category_name:$('#productCustomCategoryWrap').hidden?null:$('#productCustomCategory').value.trim()||null,
+      custom_subcategory_name:$('#productCustomSubcategoryWrap').hidden?null:$('#productCustomSubcategory').value.trim()||null,
+      group_name:$('#productGroup').value.trim()||null,
+      listing_status:$('#productListingStatus').value
+    };
+
+    if(submitButton)submitButton.textContent='Saving Product…';
+    status($('#productFormStatus'),'Saving product with '+variants.length+' variant'+(variants.length===1?'':'s')+'…');
+
+    const {data,error}=await client.rpc('seller_save_product_with_variants',{
+      p_product_id:editingProduct?.id||null,
+      p_product:productPayload,
+      p_variants:variants
+    });
+    if(error)throw error;
+    saveCommitted=true;
+
+    const savedProductId=data?.product_id||editingProduct?.id||null;
+    const savedCount=Number(data?.variant_count??variants.length);
+
+    status(
+      $('#productFormStatus'),
+      'Product saved successfully'+(hasVariants?' with '+savedCount+' variant'+(savedCount===1?'':'s'):'')+'. Submitted to Admin for approval before customer publication.',
+      'success'
+    );
+
+    const refreshed=await loadProducts({focusProductId:savedProductId});
+    const visible=Boolean(savedProductId&&refreshed.some(product=>product.id===savedProductId));
+
+    if(visible){
+      $('#sellerProductForm').hidden=true;
+      openSellerView('products');
+      const list=$('#sellerProductList');
+      if(list)list.scrollIntoView({behavior:'smooth',block:'start'});
+      window.setTimeout(()=>resetProductForm(true),500);
+    }else{
+      status(
+        $('#productFormStatus'),
+        'Product was saved, but the product list did not refresh. Use Refresh Products; your saved data is safe.',
+        'error'
+      );
+    }
+  }catch(err){
+    if(!saveCommitted&&uploadedThisAttempt.length){
+      try{await client.storage.from('seller-product-media').remove(uploadedThisAttempt);}catch(cleanupError){console.warn('Media cleanup failed',cleanupError);}
+    }
+    console.error('Seller product save failed:',err);
+    status($('#productFormStatus'),err?.message||'Product could not be saved.','error');
+  }finally{
+    if(submitButton){submitButton.disabled=false;submitButton.textContent=originalText;}
+  }
+});
+
+
+/* SERVICE PROVIDER MODULE — additive and isolated from Seller / marketplace orders */
+const providerBootStatus=$('#providerBootStatus');
+const providerOnboarding=$('#providerOnboarding');
+const providerReg=$('#providerRegistrationForm');
+const providerPendingArea=$('#providerPendingArea');
+const providerDashboard=$('#providerDashboard');
+const providerPhotoManager=$('#providerPhotoManager');
+const providerSidebar=$('#providerSidebar');
+
+
+function updateSharedPartnerNotificationBadge(count=0){
+  if(!partnerNotificationBell||!partnerNotificationBadge)return;
+  const unread=Number(count||0);
+  partnerNotificationBadge.hidden=!unread;
+  partnerNotificationBadge.textContent=unread>99?'99+':String(unread);
+  partnerNotificationBell.classList.toggle('has-unread',unread>0);
+}
+function providerViewDescription(view){
+  return {
+    overview:'Overview of your Service Provider account.',
+    jobs:'Received customer jobs and quotation requests.',
+    services:'Manage your service listings and approval status.',
+    earnings:'View completed-job earnings, LEOGO commission, cumulative earnings and your available balance.',
+    settlements:'Add and manage your Admin-approved Service Provider payout account.',
+    notifications:'New jobs, quotation decisions and LEOGO Admin updates.',
+    profile:'Your approved profile and profile photos.'
+  }[view]||'Service Provider Portal';
+}
+function closeProviderSidebar(){
+  providerSidebar?.classList.remove('open');
+  $('#providerSidebarScrim')?.classList.remove('open');
+}
+function openProviderView(view='overview'){
+  const allowed=['overview','jobs','services','earnings','settlements','notifications','profile'];
+  const resolved=allowed.includes(view)?view:'overview';
+  $$('[data-provider-content]').forEach((panel)=>panel.classList.toggle('active',panel.dataset.providerContent===resolved));
+  $$('[data-provider-view]').forEach((button)=>button.classList.toggle('active',button.dataset.providerView===resolved));
+  const description=$('#providerViewDescription');
+  if(description)description.textContent=providerViewDescription(resolved);
+  if(providerPhotoManager){
+    if(resolved==='profile'){
+      const slot=$('#providerProfilePhotoSlot');
+      if(slot&&providerPhotoManager.parentElement!==slot)slot.appendChild(providerPhotoManager);
+      providerPhotoManager.hidden=false;
+      renderProviderPhotoManager();
+    }else providerPhotoManager.hidden=true;
+  }
+  if(resolved==='jobs')loadProviderJobs().catch((error)=>console.warn('Provider jobs refresh failed:',error));
+  if(resolved==='earnings')loadProviderEarnings().catch((error)=>console.warn('Provider earnings refresh failed:',error));
+  if(resolved==='settlements')loadProviderSettlementAccounts().catch((error)=>console.warn('Provider settlement accounts refresh failed:',error));
+  if(resolved==='notifications')loadProviderNotifications().catch((error)=>console.warn('Provider notifications refresh failed:',error));
+  closeProviderSidebar();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+$$('[data-provider-view]').forEach((button)=>button.addEventListener('click',()=>openProviderView(button.dataset.providerView)));
+$$('[data-open-provider-view]').forEach((button)=>button.addEventListener('click',()=>openProviderView(button.dataset.openProviderView)));
+$('#providerSidebarToggle')?.addEventListener('click',()=>{providerSidebar?.classList.add('open');$('#providerSidebarScrim')?.classList.add('open');});
+$('#providerSidebarScrim')?.addEventListener('click',closeProviderSidebar);
+$('#providerNotificationsButton')?.addEventListener('click',()=>openProviderView('notifications'));
+$('#providerProfileButton')?.addEventListener('click',()=>openProviderView('profile'));
+$('#refreshProviderJobs')?.addEventListener('click',()=>loadProviderJobs());
+$('#showProviderServiceForm')?.addEventListener('click',()=>{
+  openProviderView('services');
+  const form=$('#providerServiceForm');
+  if(form){form.hidden=false;form.scrollIntoView({behavior:'smooth',block:'start'});}
+});
+partnerNotificationBell?.addEventListener('click',()=>{
+  if(activeRole==='seller')openSellerView('notifications');
+  else if(activeRole==='service_provider')openProviderView('notifications');
+  else if(activeRole==='transport')openTransportView('notifications');
+  else if(activeRole==='premium')openPremiumView('notifications');
+  else if(activeRole==='accommodation')openAccommodationView('notifications');
+});
+
+function showProviderBoot(message='Loading your Service Provider account…',isError=false){
+  if(!providerBootStatus)return;
+  providerBootStatus.hidden=false;
+  $('#providerBootTitle').textContent=isError?'Service Provider Portal needs attention':'Opening your Service Provider dashboard…';
+  $('#providerBootMessage').textContent=message;
+  const spinner=$('.seller-boot-spinner',providerBootStatus);
+  if(spinner)spinner.hidden=isError;
+  $('#retryProviderBoot').hidden=!isError;
+}
+function hideProviderBoot(){if(providerBootStatus)providerBootStatus.hidden=true;}
+function providerStatusCopy(value){
+  if(value==='submitted')return 'Submitted to LEOGO Admin. Your Service Provider application is waiting for review.';
+  if(value==='under_review')return 'LEOGO Admin is reviewing your Service Provider registration.';
+  if(value==='changes_requested')return 'LEOGO Admin requested corrections. Update the application and resubmit it.';
+  if(value==='approved')return 'Approved. You can now create and manage your service listings.';
+  if(value==='rejected')return 'The application was not approved. Review the Admin note and correct it before resubmitting if appropriate.';
+  if(value==='suspended')return 'This Service Provider account is currently suspended. Contact LEOGO Admin.';
+  return 'Complete Service Provider registration to start offering services through LEOGO.';
+}
+async function ensureProviderLocations(preferredCounty='',preferredSubcounty=''){
+  await loadKenyaLocations();
+  const county=$('#providerCounty'),sub=$('#providerSubCounty');
+  if(!county||!sub)return;
+  county.innerHTML='<option value="">Select county</option>'+kenyaCounties.map((item)=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.display_name||item.name)+'</option>').join('');
+  if(preferredCounty&&kenyaCounties.some((item)=>item.code===preferredCounty))county.value=preferredCounty;
+  await renderProviderSubcounties(preferredSubcounty);
+}
+async function renderProviderSubcounties(preferredCode=''){
+  const countyCode=$('#providerCounty')?.value||'';
+  const target=$('#providerSubCounty');
+  if(!target)return;
+  target.disabled=!countyCode;
+  if(!countyCode){target.innerHTML='<option value="">Choose a county first</option>';return;}
+  let options=kenyaSubcounties.filter((item)=>item.county_code===countyCode);
+  if(!options.length){
+    target.innerHTML='<option value="">Loading sub-counties…</option>';
+    const {data,error}=await client.from('kenya_subcounties').select('code,county_code,name').eq('is_active',true).eq('county_code',countyCode).order('name');
+    if(!error&&data?.length){
+      kenyaSubcounties=[...kenyaSubcounties.filter((item)=>item.county_code!==countyCode),...data];
+      options=data;
+    }
+  }
+  target.innerHTML=options.length?'<option value="">Select sub-county</option>'+options.map((item)=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.name)+'</option>').join(''):'<option value="">No active sub-counties configured</option>';
+  target.disabled=!options.length;
+  if(preferredCode&&options.some((item)=>item.code===preferredCode))target.value=preferredCode;
+}
+$('#providerCounty')?.addEventListener('change',()=>renderProviderSubcounties());
+
+async function uploadProviderVerification(file,prefix){
+  if(!file)return null;
+  if(file.size>8388608)throw new Error('Each verification document must be 8 MB or smaller.');
+  const ext=(file.name.split('.').pop()||'pdf').toLowerCase();
+  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('service-provider-verification').upload(path,file,{upsert:false});
+  if(error)throw error;
+  return path;
+}
+async function uploadProviderPublicPhoto(file){
+  if(!file)return null;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Profile picture must be JPG, PNG or WEBP.');
+  if(file.size>5242880)throw new Error('Profile picture must be 5 MB or smaller.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/profile-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('service-provider-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+}
+async function uploadProviderPassportPhoto(file){
+  if(!file)return null;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Passport photo must be JPG, PNG or WEBP.');
+  if(file.size>5242880)throw new Error('Passport photo must be 5 MB or smaller.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/passport-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('service-provider-passport-photo').upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+}
+function providerPublicPhotoUrl(path){
+  return path?client.storage.from('service-provider-public-media').getPublicUrl(path).data.publicUrl:'';
+}
+function renderProviderPhotoManager(){
+  if(!providerPhotoManager)return;
+  if(!provider){providerPhotoManager.hidden=true;return;}
+  const preview=$('#providerPublicPhotoPreview');
+  const url=providerPublicPhotoUrl(provider.profile_picture_path);
+  if(preview){
+    preview.innerHTML=url?'<img src="'+escapeHtml(url)+'" alt="Service Provider profile picture">':'<span>👤</span>';
+  }
+  $('#providerPublicPhotoState').textContent=provider.profile_picture_path?'Profile picture added — visible to customers after approval':'No profile picture added';
+  $('#providerPassportPhotoState').textContent=provider.passport_photo_path?'Passport photo: uploaded privately':'Passport photo: not added';
+}
+
+function providerSummaryRows(){
+  if(!provider)return [];
+  return [
+    ['Business / Professional Name',provider.business_name],
+    ['Owner / Professional',provider.owner_name],
+    ['Primary Service',provider.primary_service],
+    ['Category',provider.service_category||'—'],
+    ['Experience',provider.experience_years==null?'—':provider.experience_years+' year(s)'],
+    ['Phone',provider.phone],
+    ['Location',[provider.town,provider.sub_county,provider.county].filter(Boolean).join(', ')],
+    ['Service Area',provider.service_area_notes||'—'],
+    ['Application Status',String(provider.application_status||'').replaceAll('_',' ')],
+    ['Admin Note',provider.admin_notes||'—']
+  ];
+}
+function renderProviderApplicationSummary(){
+  const target=$('#providerApplicationSummary');
+  if(!target)return;
+  target.innerHTML=providerSummaryRows().map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
+  const note=$('#providerAdminNote');
+  if(note){
+    note.hidden=!provider?.admin_notes;
+    note.textContent=provider?.admin_notes?'Admin note: '+provider.admin_notes:'';
+  }
+}
+function populateProviderApplication(){
+  if(!provider)return;
+  $('#providerBusinessName').value=provider.business_name||'';
+  $('#providerOwnerName').value=provider.owner_name||'';
+  $('#providerIdNumber').value=provider.id_number||'';
+  $('#providerPhone').value=provider.phone||'';
+  $('#providerPrimaryService').value=provider.primary_service||'';
+  $('#providerServiceCategory').value=provider.service_category||'';
+  $('#providerExperienceYears').value=provider.experience_years??'';
+  $('#providerTown').value=provider.town||'';
+  $('#providerLocation').value=provider.location_details||'';
+  $('#providerDescription').value=provider.business_description||'';
+  $('#providerServiceAreaNotes').value=provider.service_area_notes||'';
+  $('#providerBusinessIdDocument').required=!provider.business_id_document_path;
+  ensureProviderLocations(provider.county_code||'',provider.sub_county_code||'').catch(console.warn);
+}
+function renderProvider(){
+  hideProviderBoot();
+  providerOnboarding.hidden=true;
+  providerReg.hidden=true;
+  providerPendingArea.hidden=true;
+  providerDashboard.hidden=true;
+  if(providerPhotoManager)providerPhotoManager.hidden=true;
+  if(!provider){providerOnboarding.hidden=false;return;}
+  renderProviderPhotoManager();
+  if(provider.application_status!=='approved'){
+    providerPendingArea.hidden=false;
+    $('#providerPendingTitle').textContent=provider.application_status==='changes_requested'?'Correction requested':provider.application_status==='rejected'?'Application not approved':'Application '+String(provider.application_status||'submitted').replaceAll('_',' ');
+    $('#providerPendingMessage').textContent=providerStatusCopy(provider.application_status);
+    $('#editProviderApplication').hidden=!['changes_requested','rejected'].includes(provider.application_status);
+    renderProviderApplicationSummary();
+    return;
+  }
+  providerDashboard.hidden=false;
+  $('#providerDashboardName').textContent=provider.business_name||'My Service Business';
+  $('#providerSidebarBusiness').textContent=provider.business_name||'Service Provider';
+  $('#providerSidebarStatus').textContent=String(provider.application_status||'approved').replaceAll('_',' ').toUpperCase();
+  $('#providerAvailability').textContent=(provider.availability_status||'available').replaceAll('_',' ');
+  $('#providerProfileSummary').innerHTML=providerSummaryRows().filter(([label])=>label!=='Admin Note').map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value||'—')+'</strong></div>').join('');
+  renderProviderServices();
+  renderProviderJobs();
+  renderProviderNotifications();
+  openProviderView('overview');
+}
+async function loadProvider(){
+  if(!currentUser)return;
+  showProviderBoot();
+  try{
+    const result=await Promise.race([
+      client.rpc('service_provider_get_own_account'),
+      waitTimeout(8000,'Service Provider account is taking too long to load. Check your connection and tap Retry.')
+    ]);
+    if(result?.error)throw result.error;
+    provider=result?.data||null;
+    renderProvider();
+    await ensureProviderLocations(provider?.county_code||'',provider?.sub_county_code||'');
+    if(provider?.application_status==='approved')await Promise.allSettled([loadProviderServices(),loadProviderJobs(),loadProviderNotifications(),loadProviderSettlementAccounts(),loadProviderEarnings()]);
+  }catch(error){
+    console.error('Service Provider portal boot failed:',error);
+    showProviderBoot(error?.message||'The Service Provider dashboard could not finish loading.',true);
+    providerOnboarding.hidden=true;providerReg.hidden=true;providerPendingArea.hidden=true;providerDashboard.hidden=true;
+  }
+}
+async function openProviderRole(){
+  activeRole='service_provider';
+  if(cyberShell)cyberShell.hidden=true;
+  if(partnerNotificationBell)partnerNotificationBell.hidden=false;
+  rolePicker.hidden=true;
+  sellerShell.hidden=true;
+  if(transportShell)transportShell.hidden=true;
+  if(premiumShell)premiumShell.hidden=true;
+  if(accommodationShell)accommodationShell.hidden=true;
+  providerShell.hidden=false;
+  authShell.hidden=true;
+  if(hero)hero.hidden=true;
+  showProviderBoot();
+  await loadProvider();
+  await mountPartnerSubscription('service_provider',providerDashboard).catch(()=>{});
+}
+function openProviderRegistration(editExisting=false){
+  providerOnboarding.hidden=true;
+  providerPendingArea.hidden=true;
+  providerDashboard.hidden=true;
+  if(providerPhotoManager)providerPhotoManager.hidden=true;
+  providerReg.hidden=false;
+  status($('#providerRegistrationStatus'),'');
+  if(editExisting&&provider)populateProviderApplication();
+  else{
+    providerReg.reset();
+    $('#providerBusinessIdDocument').required=true;
+    ensureProviderLocations().catch(console.warn);
+  }
+  providerReg.scrollIntoView({behavior:'smooth'});
+}
+$('#retryProviderBoot')?.addEventListener('click',()=>openProviderRole());
+$('#showProviderRegistration')?.addEventListener('click',()=>openProviderRegistration(false));
+$('#editProviderApplication')?.addEventListener('click',()=>openProviderRegistration(true));
+$('#editApprovedProviderProfile')?.addEventListener('click',()=>{
+  if(!provider||provider.application_status!=='approved')return;
+  status($('#providerProfileEditStatus'),'Edit your profile and submit it. Your current approved profile stays active while Admin reviews the changes.');
+  openProviderRegistration(true);
+});
+$('#cancelProviderRegistration')?.addEventListener('click',()=>provider?renderProvider():openProviderRole());
+$('#providerPendingBack')?.addEventListener('click',showRolePicker);
+$('#providerBackToPartnerships')?.addEventListener('click',showRolePicker);
+$('#refreshProviderDashboard')?.addEventListener('click',()=>loadProvider());
+
+providerReg?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  if(!providerReg.reportValidity())return;
+  const phone=normalisePhone($('#providerPhone').value);
+  if(!/^\+254[17]\d{8}$/.test(phone)){status($('#providerRegistrationStatus'),'Enter a valid Kenyan phone number.','error');return;}
+  const otherFiles=[...$('#providerOtherPermits').files];
+  if(otherFiles.length>4){status($('#providerRegistrationStatus'),'Choose a maximum of 4 other permit files.','error');return;}
+  const submitButton=providerReg.querySelector('button[type="submit"]');
+  const original=submitButton.textContent;submitButton.disabled=true;submitButton.textContent='Submitting…';
+  try{
+    status($('#providerRegistrationStatus'),'Uploading private verification documents…');
+    const businessIdFile=$('#providerBusinessIdDocument').files[0];
+    const businessIdPath=businessIdFile?await uploadProviderVerification(businessIdFile,'business-id'):(provider?.business_id_document_path||null);
+    if(!businessIdPath)throw new Error('Business ID / identification document is required.');
+    const [businessLicencePath,registrationCertificatePath,professionalLicencePath,otherPermitPaths,profilePicturePath,passportPhotoPath]=await Promise.all([
+      $('#providerBusinessLicence').files[0]?uploadProviderVerification($('#providerBusinessLicence').files[0],'business-licence'):Promise.resolve(provider?.business_licence_path||null),
+      $('#providerRegistrationCertificate').files[0]?uploadProviderVerification($('#providerRegistrationCertificate').files[0],'registration-certificate'):Promise.resolve(provider?.registration_certificate_path||null),
+      $('#providerProfessionalLicence').files[0]?uploadProviderVerification($('#providerProfessionalLicence').files[0],'professional-licence'):Promise.resolve(provider?.professional_licence_path||null),
+      otherFiles.length?Promise.all(otherFiles.map((file,index)=>uploadProviderVerification(file,'permit-'+index))):Promise.resolve(provider?.other_permit_paths||[]),
+      $('#providerProfilePictureInitial').files[0]?uploadProviderPublicPhoto($('#providerProfilePictureInitial').files[0]):Promise.resolve(provider?.profile_picture_path||null),
+      $('#providerPassportPhotoInitial').files[0]?uploadProviderPassportPhoto($('#providerPassportPhotoInitial').files[0]):Promise.resolve(provider?.passport_photo_path||null)
+    ]);
+    const providerProfilePayload={
+      business_name:$('#providerBusinessName').value.trim(),owner_name:$('#providerOwnerName').value.trim(),
+      id_number:$('#providerIdNumber').value.trim(),phone,primary_service:$('#providerPrimaryService').value.trim(),
+      service_category:$('#providerServiceCategory').value.trim()||null,
+      experience_years:$('#providerExperienceYears').value===''?null:Number($('#providerExperienceYears').value),
+      county_code:$('#providerCounty').value,sub_county_code:$('#providerSubCounty').value,town:$('#providerTown').value.trim(),
+      location_details:$('#providerLocation').value.trim(),business_description:$('#providerDescription').value.trim()||null,
+      service_area_notes:$('#providerServiceAreaNotes').value.trim()||null,business_id_document_path:businessIdPath,
+      business_licence_path:businessLicencePath,registration_certificate_path:registrationCertificatePath,
+      professional_licence_path:professionalLicencePath,other_permit_paths:otherPermitPaths,
+      profile_picture_path:profilePicturePath,passport_photo_path:passportPhotoPath
+    };
+    status($('#providerRegistrationStatus'),provider?.application_status==='approved'?'Sending profile changes to LEOGO Admin…':'Sending application to LEOGO Admin…');
+    const {error}=provider?.application_status==='approved'
+      ? await client.rpc('partner_submit_profile_change',{p_partner_type:'service_provider',p_payload:providerProfilePayload})
+      : await client.rpc('submit_service_provider_application',{
+          p_business_name:providerProfilePayload.business_name,p_owner_name:providerProfilePayload.owner_name,
+          p_id_number:providerProfilePayload.id_number,p_phone:phone,p_primary_service:providerProfilePayload.primary_service,
+          p_service_category:providerProfilePayload.service_category,p_experience_years:providerProfilePayload.experience_years,
+          p_county_code:providerProfilePayload.county_code,p_sub_county_code:providerProfilePayload.sub_county_code,p_town:providerProfilePayload.town,
+          p_location_details:providerProfilePayload.location_details,p_business_description:providerProfilePayload.business_description,
+          p_service_area_notes:providerProfilePayload.service_area_notes,p_business_id_document_path:businessIdPath,
+          p_business_licence_path:businessLicencePath,p_registration_certificate_path:registrationCertificatePath,
+          p_professional_licence_path:professionalLicencePath,p_other_permit_paths:otherPermitPaths
+        });
+    if(error)throw error;
+    if(provider?.application_status!=='approved'&&(profilePicturePath||passportPhotoPath)){
+      const photoUpdate=await client.rpc('service_provider_update_profile_photos',{
+        p_profile_picture_path:profilePicturePath,p_passport_photo_path:passportPhotoPath
+      });
+      if(photoUpdate.error)throw photoUpdate.error;
+    }
+    if(provider?.application_status==='approved'){
+      status($('#providerRegistrationStatus'),'Profile changes sent to LEOGO Admin. Your current approved Service Provider profile remains active.','success');
+      status($('#providerProfileEditStatus'),'Profile changes are awaiting Admin approval.','success');
+      providerReg.hidden=true;providerDashboard.hidden=false;openProviderView('profile');
+      await loadProviderNotifications().catch(()=>{});
+    }else{
+      status($('#providerRegistrationStatus'),'Service Provider application submitted successfully.','success');
+      await loadProvider();
+    }
+  }catch(error){status($('#providerRegistrationStatus'),error?.message||'Service Provider application could not be submitted.','error');}
+  finally{submitButton.disabled=false;submitButton.textContent=original;}
+});
+
+const providerJobStatusText=(value)=>({
+  dispatched:'New request',accepted:'Accepted',declined:'Declined',quoted:'Quotation sent',
+  quote_accepted:'Quotation accepted',quote_rejected:'Quotation rejected',
+  in_progress:'In progress',completed:'Completed',cancelled:'Cancelled'
+}[value]||String(value||'').replaceAll('_',' '));
+async function loadProviderJobs(){
+  const {data,error}=await client.rpc('service_provider_list_jobs');
+  if(error)throw error;
+  providerJobs=Array.isArray(data)?data:[];
+  renderProviderJobs();
+}
+function renderProviderJobs(){
+  const list=$('#providerJobList');if(!list)return;
+  const open=providerJobs.filter(item=>!['completed','declined','quote_rejected','cancelled'].includes(item.request_status));
+  const newJobs=providerJobs.filter(item=>item.request_status==='dispatched');
+  $('#providerOpenJobs').textContent=open.length;
+  const jobBadge=$('#providerJobBadge');
+  if(jobBadge){jobBadge.hidden=!newJobs.length;jobBadge.textContent=newJobs.length>99?'99+':String(newJobs.length);}
+  const priorityCount=$('#providerPriorityCount');
+  if(priorityCount)priorityCount.textContent=String(newJobs.length);
+  const priorityCard=$('#providerJobPriorityCard');
+  if(priorityCard)priorityCard.classList.toggle('has-new-jobs',newJobs.length>0);
+  const priorityList=$('#providerPriorityJobList');
+  if(priorityList){
+    priorityList.innerHTML=newJobs.length?newJobs.slice(0,3).map((item)=>
+      '<button type="button" data-priority-provider-job="'+escapeHtml(item.id)+'"><span><strong>'+escapeHtml(item.service_name||'Service Request')+'</strong><small>'+escapeHtml(item.request_reference)+' · '+escapeHtml(formatDate(item.created_at))+'</small></span><b>'+escapeHtml(item.request_type==='quotation'?'Quotation':'Direct Job')+' →</b></button>'
+    ).join(''):'<div class="empty-card">No new customer jobs waiting for your response.</div>';
+    $$('[data-priority-provider-job]').forEach((button)=>button.addEventListener('click',()=>{
+      openProviderView('jobs');
+      $('#providerJobFilter').value='open';
+      renderProviderJobs();
+      window.setTimeout(()=>document.querySelector('[data-job-id="'+button.dataset.priorityProviderJob+'"]')?.scrollIntoView({behavior:'smooth',block:'center'}),100);
+    }));
+  }
+  const filter=$('#providerJobFilter')?.value||'open';
+  let rows=providerJobs;
+  if(filter==='open')rows=open;
+  if(filter==='completed')rows=rows.filter(item=>item.request_status==='completed');
+  if(filter==='closed')rows=rows.filter(item=>['declined','quote_rejected','cancelled'].includes(item.request_status));
+  list.innerHTML=rows.length?rows.map(item=>{
+    let actions='';
+    if(item.request_status==='dispatched'&&item.request_type==='direct'){
+      actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="accept" data-job-id="'+escapeHtml(item.id)+'">Accept Job</button><button class="danger" type="button" data-provider-job-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline</button></div>';
+    }else if(item.request_status==='dispatched'&&item.request_type==='quotation'){
+      actions='<form class="provider-quote-form" data-provider-quote-form="'+escapeHtml(item.id)+'"><input name="amount" type="number" min="1" max="100000000" step="0.01" placeholder="Quote amount (KSh)" required><input name="valid_until" type="date" min="'+new Date().toISOString().slice(0,10)+'" aria-label="Quotation valid until"><textarea name="notes" maxlength="1000" rows="3" placeholder="Quotation scope, work included, materials, conditions or notes"></textarea><button type="submit">Send Quotation</button></form><div class="provider-job-actions"><button class="danger" type="button" data-provider-job-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline Request</button></div>';
+    }else if(['accepted','quote_accepted'].includes(item.request_status)){
+      actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="start" data-job-id="'+escapeHtml(item.id)+'">Start Service</button></div>';
+    }else if(item.request_status==='in_progress'){
+      actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="complete" data-job-id="'+escapeHtml(item.id)+'">Mark Completed</button></div>';
+    }
+    return '<article class="provider-job-card"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at))+' · '+escapeHtml(item.service_name||'Service')+'</small></div><b>'+escapeHtml(providerJobStatusText(item.request_status))+'</b></header>'+
+      '<div class="provider-job-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>LOCATION</small><strong>'+escapeHtml(item.service_location||'—')+'</strong><span>'+escapeHtml([item.service_town_estate,item.service_sub_county,item.service_county].filter(Boolean).join(', ')||item.nearest_landmark||'No detailed location supplied')+'</span></div><div><small>REQUEST TYPE</small><strong>'+(item.request_type==='quotation'?'Quotation':'Direct service')+'</strong><span>'+escapeHtml((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+'</span></div></div>'+
+      (item.location_description?'<p><strong>Location description:</strong> '+escapeHtml(item.location_description)+'</p>':'')+
+      (item.nearest_landmark?'<p><strong>Nearest landmark:</strong> '+escapeHtml(item.nearest_landmark)+'</p>':'')+
+      ((item.latitude!=null&&item.longitude!=null)?'<p><strong>Pinned coordinates:</strong> '+escapeHtml(String(item.latitude))+', '+escapeHtml(String(item.longitude))+' · <a href="https://www.google.com/maps?q='+encodeURIComponent(String(item.latitude)+','+String(item.longitude))+'" target="_blank" rel="noopener">Open in Google Maps ↗</a></p>':(item.map_link?'<p><a href="'+escapeHtml(item.map_link)+'" target="_blank" rel="noopener">Open customer location ↗</a></p>':''))+
+      '<p><strong>Customer details:</strong> '+escapeHtml(item.request_details||'—')+'</p>'+
+      (item.provider_quote_kes?'<p><strong>Your quotation:</strong> '+escapeHtml(money(item.provider_quote_kes))+(item.provider_quote_notes?' · '+escapeHtml(item.provider_quote_notes):'')+'</p>':'')+
+      actions+'</article>';
+  }).join(''):'<div class="empty-card">No service jobs match this filter.</div>';
+}
+async function updateProviderJob(id,action,quote=null,notes=null,button=null,quoteValidUntil=null,finalAmount=null){
+  const original=button?.textContent;if(button){button.disabled=true;button.textContent='Saving…';}
+  status($('#providerJobStatus'),'');
+  try{
+    if(action==='decline'&&!notes)notes=window.prompt('Why are you declining this service request?','')||'';
+    if(action==='decline'&&notes.trim().length<3)return;
+    const {error}=await client.rpc('service_provider_update_job',{p_request_id:id,p_action:action,p_quote_kes:quote,p_notes:notes||null,p_quote_valid_until:quoteValidUntil||null,p_final_amount_kes:finalAmount});
+    if(error)throw error;
+    status($('#providerJobStatus'),'Service job updated successfully.','success');
+    await Promise.all([loadProviderJobs(),loadProviderNotifications(),loadProviderEarnings()]);
+  }catch(error){status($('#providerJobStatus'),error?.message||'Service job could not be updated.','error');}
+  finally{if(button){button.disabled=false;button.textContent=original;}}
+}
+$('#providerJobFilter')?.addEventListener('change',renderProviderJobs);
+$('#providerJobList')?.addEventListener('click',(event)=>{
+  const button=event.target.closest?.('[data-provider-job-action]');if(!button)return;
+  const action=button.dataset.providerJobAction;
+  const item=providerJobs.find((row)=>row.id===button.dataset.jobId);
+  let finalAmount=null;
+  if(action==='complete'&&item?.request_type==='direct'){
+    const answer=window.prompt('Enter the final agreed labour amount for this completed direct service (KSh):','');
+    if(answer===null)return;
+    finalAmount=Number(answer);
+    if(!Number.isFinite(finalAmount)||finalAmount<=0){status($('#providerJobStatus'),'Enter a valid final labour amount before completing the service.','error');return;}
+  }
+  updateProviderJob(button.dataset.jobId,action,null,null,button,null,finalAmount);
+});
+$('#providerJobList')?.addEventListener('submit',(event)=>{
+  const form=event.target.closest?.('[data-provider-quote-form]');if(!form)return;
+  event.preventDefault();if(!form.reportValidity())return;
+  const button=form.querySelector('button[type="submit"]');
+  updateProviderJob(form.dataset.providerQuoteForm,'quote',Number(form.elements.amount.value),form.elements.notes.value.trim()||null,button,form.elements.valid_until.value||null);
+});
+
+async function loadProviderServices(){
+  const {data,error}=await client.rpc('service_provider_list_own_services');
+  if(error)throw error;
+  providerServices=Array.isArray(data)?data:[];
+  renderProviderServices();
+}
+function providerPriceText(item){
+  if(item.pricing_model==='quote')return 'Quote after request';
+  const from=Number(item.price_from_kes||0);
+  if(item.pricing_model==='fixed')return money(from)+(item.unit_label?' · '+item.unit_label:'');
+  if(item.pricing_model==='hourly')return money(from)+' / hour';
+  if(item.pricing_model==='from')return 'From '+money(from)+(item.unit_label?' · '+item.unit_label:'');
+  return money(from);
+}
+function renderProviderServices(){
+  const list=$('#providerServiceList');
+  if(!list)return;
+  $('#providerServiceTotal').textContent=providerServices.length;
+  $('#providerServiceApproved').textContent=providerServices.filter((item)=>item.approval_status==='approved').length;
+  $('#providerServicePending').textContent=providerServices.filter((item)=>['pending','under_review','changes_requested'].includes(item.approval_status)).length;
+  list.innerHTML=providerServices.length?providerServices.map((item)=>
+    '<article class="provider-service-card">'+
+      '<div class="provider-service-card-main"><div><span class="status-chip">'+escapeHtml(String(item.approval_status||'pending').replaceAll('_',' '))+'</span><h4>'+escapeHtml(item.service_name)+'</h4><p>'+escapeHtml(item.description||'No description added.')+'</p></div><strong>'+escapeHtml(providerPriceText(item))+'</strong></div>'+
+      '<div class="provider-service-meta"><span>'+escapeHtml(item.category_name||provider?.primary_service||'Service')+'</span><span>'+(item.is_available?'Available':'Unavailable')+'</span><span>'+escapeHtml(item.service_area||provider?.town||'')+'</span></div>'+
+      (item.admin_notes?'<div class="restricted-notice">Admin note: '+escapeHtml(item.admin_notes)+'</div>':'')+
+      '<div class="product-actions"><button class="secondary" type="button" data-provider-edit-service="'+escapeHtml(item.id)+'">Edit</button><button class="danger-data-button" type="button" data-provider-delete-service="'+escapeHtml(item.id)+'">Delete</button></div>'+
+    '</article>'
+  ).join(''):'<div class="empty-card">No services added yet. Use the form above to create your first service.</div>';
+  $$('[data-provider-edit-service]').forEach((button)=>button.addEventListener('click',()=>editProviderService(button.dataset.providerEditService)));
+  $$('[data-provider-delete-service]').forEach((button)=>button.addEventListener('click',()=>deleteProviderService(button.dataset.providerDeleteService,button)));
+}
+function resetProviderServiceForm(){
+  editingProviderService=null;
+  $('#providerServiceForm').reset();
+  $('#providerServiceId').value='';
+  $('#providerIsAvailable').checked=true;
+  $('#providerServiceFormTitle').textContent='Add a Service';
+  $('#providerServiceReset').hidden=true;
+  $('#providerServiceForm').hidden=true;
+}
+function editProviderService(id){
+  const item=providerServices.find((row)=>row.id===id);
+  if(!item)return;
+  editingProviderService=item;
+  $('#providerServiceId').value=item.id;$('#providerServiceName').value=item.service_name||'';
+  $('#providerServiceCategoryName').value=item.category_name||'';$('#providerServiceDescription').value=item.description||'';
+  $('#providerPricingModel').value=item.pricing_model||'quote';$('#providerPriceFrom').value=item.price_from_kes??'';
+  $('#providerPriceTo').value=item.price_to_kes??'';$('#providerUnitLabel').value=item.unit_label||'';
+  $('#providerServiceArea').value=item.service_area||'';$('#providerAvailabilityNotes').value=item.availability_notes||'';
+  $('#providerIsAvailable').checked=item.is_available!==false;$('#providerServiceFormTitle').textContent='Edit Service';
+  $('#providerServiceReset').hidden=false;openProviderView('services');$('#providerServiceForm').hidden=false;$('#providerServiceForm').scrollIntoView({behavior:'smooth'});
+}
+$('#providerServiceReset')?.addEventListener('click',resetProviderServiceForm);
+$('#providerServiceForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();const form=event.currentTarget;if(!form.reportValidity())return;
+  const button=form.querySelector('button[type="submit"]');const original=button.textContent;button.disabled=true;button.textContent='Saving…';
+  try{
+    const {error}=await client.rpc('service_provider_save_service',{
+      p_service_id:$('#providerServiceId').value||null,p_service_name:$('#providerServiceName').value.trim(),
+      p_category_name:$('#providerServiceCategoryName').value.trim()||null,p_description:$('#providerServiceDescription').value.trim()||null,
+      p_pricing_model:$('#providerPricingModel').value,p_price_from_kes:$('#providerPriceFrom').value===''?null:Number($('#providerPriceFrom').value),
+      p_price_to_kes:$('#providerPriceTo').value===''?null:Number($('#providerPriceTo').value),
+      p_unit_label:$('#providerUnitLabel').value.trim()||null,p_service_area:$('#providerServiceArea').value.trim()||null,
+      p_availability_notes:$('#providerAvailabilityNotes').value.trim()||null,p_is_available:$('#providerIsAvailable').checked
+    });
+    if(error)throw error;
+    resetProviderServiceForm();await loadProviderServices();
+    status($('#providerServiceFormStatus'),'Service saved and sent to LEOGO Admin for approval.','success');
+  }catch(error){status($('#providerServiceFormStatus'),error?.message||'Service could not be saved.','error');}
+  finally{button.disabled=false;button.textContent=original;}
+});
+async function deleteProviderService(id,button){
+  const item=providerServices.find((row)=>row.id===id);
+  if(!item||!window.confirm('Delete "'+item.service_name+'"?'))return;
+  const original=button.textContent;button.disabled=true;button.textContent='Deleting…';
+  try{const {data,error}=await client.rpc('service_provider_delete_service',{p_service_id:id});if(error)throw error;if(!data)throw new Error('Service could not be deleted.');await loadProviderServices();}
+  catch(error){status($('#providerServiceFormStatus'),error?.message||'Service could not be deleted.','error');}
+  finally{button.disabled=false;button.textContent=original;}
+}
+function providerSettlementDestination(account){
+  if(account.account_type==='mpesa_mobile')return account.phone_number||'—';
+  if(account.account_type==='mpesa_till')return 'Till '+(account.till_number||'—');
+  if(account.account_type==='mpesa_paybill')return 'Paybill '+(account.paybill_number||'—')+' · A/C '+(account.account_number||'—');
+  return (account.bank_name||'Bank')+' · '+(account.account_number||'—')+(account.bank_branch?' · '+account.bank_branch:'');
+}
+function toggleProviderSettlementFields(){
+  const type=$('#providerSettlementType')?.value||'mpesa_mobile';
+  $$('[data-provider-settlement-field]').forEach((label)=>{
+    label.hidden=!String(label.dataset.providerSettlementField||'').split(' ').includes(type);
+  });
+}
+function resetProviderSettlementForm(){
+  const form=$('#providerSettlementAccountForm');
+  if(!form)return;
+  form.reset();
+  $('#providerSettlementAccountId').value='';
+  $('#providerSettlementPrimary').checked=true;
+  $('#cancelProviderSettlementEdit').hidden=true;
+  toggleProviderSettlementFields();
+  status($('#providerSettlementStatus'),'');
+}
+function editProviderSettlementAccount(id){
+  const account=providerSettlementAccounts.find((item)=>item.id===id);
+  if(!account)return;
+  $('#providerSettlementAccountId').value=account.id;
+  $('#providerSettlementType').value=account.account_type;
+  $('#providerSettlementName').value=account.account_name||'';
+  $('#providerSettlementPhone').value=account.phone_number||'';
+  $('#providerSettlementTill').value=account.till_number||'';
+  $('#providerSettlementPaybill').value=account.paybill_number||'';
+  $('#providerSettlementAccountNumber').value=account.account_number||'';
+  $('#providerSettlementBank').value=account.bank_name||'';
+  $('#providerSettlementBranch').value=account.bank_branch||'';
+  $('#providerSettlementPrimary').checked=Boolean(account.is_primary);
+  $('#cancelProviderSettlementEdit').hidden=false;
+  toggleProviderSettlementFields();
+  openProviderView('settlements');
+  $('#providerSettlementAccountForm')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function renderProviderSettlementAccounts(){
+  const target=$('#providerSettlementAccountList');
+  if(!target)return;
+  const pending=providerSettlementAccounts.filter((account)=>account.status==='pending_review').length;
+  const badge=$('#providerSettlementBadge');
+  if(badge){badge.hidden=!pending;badge.textContent=pending>99?'99+':String(pending);}
+  target.innerHTML=providerSettlementAccounts.length?providerSettlementAccounts.map((account)=>
+    '<article class="settlement-account-card">'+
+      '<div><strong>'+escapeHtml(account.account_name)+'</strong><small>'+escapeHtml(account.account_type.replaceAll('_',' '))+' · '+escapeHtml(providerSettlementDestination(account))+'</small></div>'+
+      '<div><span class="settlement-status '+escapeHtml(account.status)+'">'+escapeHtml(account.status.replaceAll('_',' ').toUpperCase())+'</span>'+(account.is_primary?'<b>PRIMARY</b>':'')+'</div>'+
+      '<p>'+(account.admin_notes?'Admin note: '+escapeHtml(account.admin_notes):(account.status==='pending_review'?'Waiting for LEOGO Admin verification.':'Every change requires Admin verification.'))+'</p>'+
+      (['approved','pending_review','rejected'].includes(account.status)?'<button class="secondary" type="button" data-edit-provider-settlement="'+escapeHtml(account.id)+'">Edit</button>':'')+
+    '</article>'
+  ).join(''):'<div class="empty-card">No settlement account added yet.</div>';
+  $$('[data-edit-provider-settlement]').forEach((button)=>button.addEventListener('click',()=>editProviderSettlementAccount(button.dataset.editProviderSettlement)));
+  const approved=providerSettlementAccounts.filter((account)=>account.status==='approved');
+  if($('#providerSettlementRequestAccount')){
+    $('#providerSettlementRequestAccount').innerHTML=approved.length
+      ? '<option value="">Choose approved settlement account…</option>'+approved.map((account)=>'<option value="'+escapeHtml(account.id)+'">'+escapeHtml(account.account_name)+' — '+escapeHtml(providerSettlementDestination(account))+(account.is_primary?' (Primary)':'')+'</option>').join('')
+      : '<option value="">No approved settlement account yet</option>';
+  }
+  if($('#providerSettlementRequestButton'))$('#providerSettlementRequestButton').disabled=!approved.length;
+  if($('#providerSettlementRequestList'))$('#providerSettlementRequestList').innerHTML=providerSettlementRequests.length?providerSettlementRequests.map((request)=>
+    '<article class="settlement-history-row"><div><strong>'+money(request.requested_amount_kes)+'</strong><small>'+formatDate(request.submitted_at)+' · '+escapeHtml(request.status.replaceAll('_',' ').toUpperCase())+(request.admin_notes?' · Admin: '+escapeHtml(request.admin_notes):'')+'</small></div><span>'+escapeHtml(request.status.toUpperCase())+'</span></article>'
+  ).join(''):'<div class="empty-card">No settlement requests yet.</div>';
+  if($('#providerSettlementHistory'))$('#providerSettlementHistory').innerHTML=providerSettlements.length?providerSettlements.map((entry)=>
+    '<article class="settlement-history-row"><div><strong>'+money(entry.amount_kes)+'</strong><small>'+escapeHtml(entry.settlement_reference)+' · '+formatDate(entry.paid_at)+'</small></div><span>'+escapeHtml(entry.status.toUpperCase())+'</span></article>'
+  ).join(''):'<div class="empty-card">No Service Provider settlement has been recorded yet.</div>';
+}
+async function loadProviderSettlementAccounts(){
+  const [accountsResult,requestsResult,settlementsResult]=await Promise.all([
+    client.from('service_provider_settlement_accounts').select('*').order('created_at',{ascending:false}),
+    client.from('service_provider_settlement_requests').select('*').order('submitted_at',{ascending:false}),
+    client.from('service_provider_settlements').select('*').order('paid_at',{ascending:false})
+  ]);
+  if(accountsResult.error)throw accountsResult.error;
+  if(requestsResult.error)throw requestsResult.error;
+  if(settlementsResult.error)throw settlementsResult.error;
+  providerSettlementAccounts=accountsResult.data||[];
+  providerSettlementRequests=requestsResult.data||[];
+  providerSettlements=settlementsResult.data||[];
+  renderProviderSettlementAccounts();
+  loadProviderEarnings().catch(error=>console.warn('Provider balance refresh failed:',error));
+}
+$('#providerSettlementType')?.addEventListener('change',toggleProviderSettlementFields);
+$('#cancelProviderSettlementEdit')?.addEventListener('click',resetProviderSettlementForm);
+$('#providerSettlementAccountForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const form=event.currentTarget;
+  if(!form.reportValidity())return;
+  const type=$('#providerSettlementType').value;
+  const phone=normalisePhone($('#providerSettlementPhone').value);
+  if(type==='mpesa_mobile'&&!/^\+254[17]\d{8}$/.test(phone)){
+    status($('#providerSettlementStatus'),'Enter a valid Kenyan M-Pesa phone number.','error');return;
+  }
+  const button=form.querySelector('button[type="submit"]');
+  const original=button.textContent;button.disabled=true;button.textContent='Sending…';
+  try{
+    status($('#providerSettlementStatus'),'Sending settlement account to LEOGO Admin for verification…');
+    const {error}=await client.rpc('service_provider_submit_settlement_account',{
+      p_account_id:$('#providerSettlementAccountId').value||null,
+      p_account_type:type,
+      p_account_name:$('#providerSettlementName').value.trim(),
+      p_phone_number:type==='mpesa_mobile'?phone:null,
+      p_till_number:type==='mpesa_till'?$('#providerSettlementTill').value.trim():null,
+      p_paybill_number:type==='mpesa_paybill'?$('#providerSettlementPaybill').value.trim():null,
+      p_account_number:['mpesa_paybill','bank'].includes(type)?$('#providerSettlementAccountNumber').value.trim():null,
+      p_bank_name:type==='bank'?$('#providerSettlementBank').value.trim():null,
+      p_bank_branch:type==='bank'?$('#providerSettlementBranch').value.trim():null,
+      p_make_primary:$('#providerSettlementPrimary').checked
+    });
+    if(error)throw error;
+    resetProviderSettlementForm();
+    status($('#providerSettlementStatus'),'Settlement account submitted. LEOGO Admin must approve it before use.','success');
+    await Promise.all([loadProviderSettlementAccounts(),loadProviderNotifications()]);
+  }catch(error){
+    status($('#providerSettlementStatus'),error?.message||'Settlement account could not be submitted.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+});
+toggleProviderSettlementFields();
+
+$('#providerSettlementRequestForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const accountId=$('#providerSettlementRequestAccount').value;
+  const amount=Number($('#providerSettlementRequestAmount').value);
+  const note=$('#providerSettlementRequestNote').value.trim();
+  const available=Number(providerEarningsReport?.available_balance_kes||0);
+  if(!accountId){status($('#providerSettlementRequestStatus'),'Choose an approved settlement account.','error');return;}
+  if(!amount||amount<=0){status($('#providerSettlementRequestStatus'),'Enter the amount you want to request.','error');return;}
+  if(amount>available){status($('#providerSettlementRequestStatus'),'Requested amount exceeds your available balance of '+money(available)+'.','error');return;}
+  const button=$('#providerSettlementRequestButton');
+  const original=button.textContent;button.disabled=true;button.textContent='Submitting…';
+  try{
+    status($('#providerSettlementRequestStatus'),'Sending settlement request to LEOGO Admin…');
+    const {error}=await client.rpc('service_provider_request_settlement',{p_account_id:accountId,p_amount_kes:amount,p_note:note||null});
+    if(error)throw error;
+    event.target.reset();
+    status($('#providerSettlementRequestStatus'),'Settlement request submitted to Admin for review.','success');
+    await Promise.all([loadProviderSettlementAccounts(),loadProviderNotifications(),loadProviderEarnings()]);
+  }catch(error){
+    status($('#providerSettlementRequestStatus'),error?.message||'Settlement request could not be submitted.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+});
+
+async function loadProviderNotifications(){
+  const {data,error}=await client.from('partner_notifications').select('*').eq('partner_type','service_provider').order('created_at',{ascending:false}).limit(50);
+  if(error)throw error;providerNotifications=data||[];renderProviderNotifications();
+}
+function renderProviderNotifications(){
+  const target=$('#providerNotificationList');if(!target)return;
+  const unread=providerNotifications.filter((item)=>!item.read_at).length;
+  const sideBadge=$('#providerNotificationBadge');
+  const headBadge=$('#providerHeadNotificationBadge');
+  if(sideBadge){sideBadge.hidden=!unread;sideBadge.textContent=unread>99?'99+':String(unread);}
+  if(headBadge){headBadge.hidden=!unread;headBadge.textContent=unread>99?'99+':String(unread);}
+  updateSharedPartnerNotificationBadge(unread);
+  target.innerHTML=providerNotifications.length?providerNotifications.map((item)=>
+    '<article class="seller-notification-item '+(item.read_at?'':'unread')+'" data-provider-notification-id="'+escapeHtml(item.id)+'"><div><strong>'+escapeHtml(item.title)+'</strong><p>'+escapeHtml(item.message)+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div><div class="seller-notification-actions">'+
+      (item.action_view?'<button type="button" data-open-provider-notification="'+escapeHtml(item.id)+'" data-provider-notification-view="'+escapeHtml(item.action_view)+'">Open</button>':'')+
+      (item.read_at?'':'<button class="secondary" type="button" data-mark-provider-notification="'+escapeHtml(item.id)+'">Mark read</button>')+
+    '</div></article>'
+  ).join(''):'<div class="empty-card">No Service Provider notifications yet.</div>';
+  $$('[data-mark-provider-notification]').forEach((button)=>button.addEventListener('click',async()=>{
+    const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markProviderNotification});
+    if(!error)await loadProviderNotifications();
+  }));
+  $$('[data-open-provider-notification]').forEach((button)=>button.addEventListener('click',async()=>{
+    await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.openProviderNotification}).catch?.(()=>{});
+    const view=button.dataset.providerNotificationView;
+    if(view==='provider-jobs')openProviderView('jobs');
+    else if(view==='provider-services')openProviderView('services');
+    else if(view==='provider-earnings')openProviderView('earnings');
+    else if(view==='provider-settlements')openProviderView('settlements');
+    else if(view==='provider-profile')openProviderView('profile');
+    else openProviderView('notifications');
+    await loadProviderNotifications();
+  }));
+}
+
+$('#providerPhotoForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const form=event.currentTarget;
+  const profileFile=$('#providerProfilePictureUpdate')?.files?.[0]||null;
+  const passportFile=$('#providerPassportPhotoUpdate')?.files?.[0]||null;
+  if(!profileFile&&!passportFile){
+    status($('#providerPhotoStatus'),'Choose a profile picture or passport photo to save.','error');
+    return;
+  }
+  const button=form.querySelector('button[type="submit"]');
+  const original=button.textContent;
+  button.disabled=true;
+  button.textContent='Saving…';
+  try{
+    status($('#providerPhotoStatus'),'Uploading profile photos…');
+    const [profilePath,passportPath]=await Promise.all([
+      profileFile?uploadProviderPublicPhoto(profileFile):Promise.resolve(null),
+      passportFile?uploadProviderPassportPhoto(passportFile):Promise.resolve(null)
+    ]);
+    const {data,error}=await client.rpc('service_provider_update_profile_photos',{
+      p_profile_picture_path:profilePath,
+      p_passport_photo_path:passportPath
+    });
+    if(error)throw error;
+    provider=data||provider;
+    form.reset();
+    renderProviderPhotoManager();
+    status($('#providerPhotoStatus'),'Profile photos saved successfully.','success');
+    window.setTimeout(()=>openProviderView('overview'),700);
+  }catch(error){
+    status($('#providerPhotoStatus'),error?.message||'Profile photos could not be saved.','error');
+  }finally{
+    button.disabled=false;
+    button.textContent=original;
+  }
+});
+
+$('#markAllProviderNotificationsRead')?.addEventListener('click',async()=>{
+  const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'service_provider'});
+  if(error){status($('#providerServiceFormStatus'),error.message,'error');return;}
+  await loadProviderNotifications();
+});
+
+
+
+
+/* PREMIUM PARTNER MODULE — reuses the existing Premium Profile approval records */
+const premiumBootStatus=$('#premiumBootStatus');
+const premiumOnboarding=$('#premiumOnboarding');
+const premiumReg=$('#premiumRegistrationForm');
+const premiumPendingArea=$('#premiumPendingArea');
+const premiumDashboard=$('#premiumDashboard');
+const premiumSidebar=$('#premiumSidebar');
+
+function showPremiumBoot(message='Loading your Premium Profile…',isError=false){
+  if(!premiumBootStatus)return;
+  premiumBootStatus.hidden=false;
+  $('#premiumBootTitle').textContent=isError?'Premium Profile needs attention':'Opening your Premium Profile…';
+  $('#premiumBootMessage').textContent=message;
+  const spinner=$('.seller-boot-spinner',premiumBootStatus);if(spinner)spinner.hidden=isError;
+  $('#retryPremiumBoot').hidden=!isError;
+}
+function hidePremiumBoot(){if(premiumBootStatus)premiumBootStatus.hidden=true;}
+function closePremiumSidebar(){premiumSidebar?.classList.remove('open');$('#premiumSidebarScrim')?.classList.remove('open');}
+function premiumStatusCopy(value){
+  if(value==='submitted')return 'Submitted to LEOGO Admin and waiting for review.';
+  if(value==='under_review')return 'LEOGO Admin is reviewing your Premium Profile application.';
+  if(value==='changes_requested')return 'LEOGO Admin requested corrections. Update and resubmit your Premium Profile.';
+  if(value==='approved')return 'Approved. You can manage your public profile and availability.';
+  if(value==='rejected')return 'This application was not approved. You may correct it and resubmit.';
+  if(value==='suspended')return 'This Premium Profile is currently suspended. Contact LEOGO Admin.';
+  return 'Create your Premium Profile application.';
+}
+function premiumViewDescription(view){
+  return {overview:'Manage Premium Profile status and availability.',requests:'Incoming Premium Customer meetup requests.',profile:'Your approved public Premium Profile.',notifications:'Admin decisions and Premium activity.'}[view]||'Premium Partner Portal';
+}
+function openPremiumView(view='overview'){
+  const allowed=['overview','requests','profile','notifications'];
+  const resolved=allowed.includes(view)?view:'overview';
+  [...document.querySelectorAll('[data-premium-content]')].forEach(panel=>panel.classList.toggle('active',panel.dataset.premiumContent===resolved));
+  [...document.querySelectorAll('[data-premium-view]')].forEach(button=>button.classList.toggle('active',button.dataset.premiumView===resolved));
+  if($('#premiumViewDescription'))$('#premiumViewDescription').textContent=premiumViewDescription(resolved);
+  if(resolved==='requests')loadPremiumMeetupRequests().catch(error=>status($('#premiumRequestStatus'),error?.message||'Premium requests could not load.','error'));
+  if(resolved==='notifications')loadPremiumNotifications().catch(console.warn);
+  closePremiumSidebar();
+}
+async function uploadPremiumPartnerFile(bucket,file,maxBytes){
+  if(!file)return null;
+  if(file.size>maxBytes)throw new Error('Selected file is too large.');
+  const allowed=['image/jpeg','image/png','image/webp','application/pdf'];
+  if(!allowed.includes(file.type))throw new Error('Choose JPG, PNG, WEBP or PDF as allowed.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':file.type==='application/pdf'?'pdf':'jpg';
+  const path=currentUser.id+'/'+Date.now()+'-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from(bucket).upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+}
+function populatePremiumApplication(){
+  if(!premiumProfile?.profile)return;
+  const p=premiumProfile.profile,d=premiumProfile.details||{},i=premiumProfile.identity||{};
+  $('#premiumPartnerDisplayName').value=p.display_name||'';
+  $('#premiumPartnerGender').value=p.gender||'';
+  $('#premiumPartnerAge').value=d.age||'';
+  $('#premiumPartnerOrientation').value=d.orientation||'';
+  $('#premiumPartnerLocation').value=p.general_location||'';
+  $('#premiumPartnerAbout').value=p.about||'';
+  $('#premiumPartnerRealName').value=i.real_name||'';
+  $('#premiumPartnerIdNumber').value=i.id_number||'';
+  $('#premiumPartnerPhone').value=i.phone||'';
+  $('#premiumPartnerAgeConsent').checked=Boolean(i.age_consent);
+  $('#premiumPartnerResponsibilityConsent').checked=Boolean(i.responsibility_consent);
+  $('#premiumPartnerPrivacyConsent').checked=Boolean(i.privacy_consent);
+  $('#premiumPartnerProfilePhoto').dataset.existingPath=p.profile_picture_path||'';
+  $('#premiumPartnerIdDocument').dataset.existingPath=i.id_document_path||'';
+  $('#premiumPartnerProfilePhoto').required=!p.profile_picture_path;
+  $('#premiumPartnerIdDocument').required=!i.id_document_path;
+}
+async function premiumSignedUrl(path){
+  if(!path)return '';
+  const {data}=await client.storage.from('premium-profile-media').createSignedUrl(path,900);
+  return data?.signedUrl||'';
+}
+async function cleanupPremiumPartnerMedia(paths=null){
+  try{
+    let targets=Array.isArray(paths)?paths.filter(Boolean):null;
+    if(!targets){
+      const {data,error}=await client.rpc('premium_partner_list_media_cleanup');
+      if(error)throw error;
+      targets=Array.isArray(data)?data.filter(Boolean):[];
+    }
+    if(!targets.length)return true;
+    let removal=await client.storage.from('premium-profile-media').remove(targets);
+    if(removal.error){
+      await new Promise(resolve=>setTimeout(resolve,250));
+      removal=await client.storage.from('premium-profile-media').remove(targets);
+    }
+    if(removal.error)throw removal.error;
+    await client.rpc('premium_partner_ack_media_cleanup',{p_paths:targets});
+    return true;
+  }catch(error){
+    console.warn('Premium media cleanup pending:',error);
+    return false;
+  }
+}
+function premiumGalleryItemForSlot(slot){
+  const sort=Number(String(slot||'').replace('gallery_',''));
+  return (premiumProfile?.gallery||[]).find(item=>Number(item.sort_order)===sort)||null;
+}
+function premiumMediaPathForSlot(slot){
+  if(slot==='profile')return premiumProfile?.profile?.profile_picture_path||'';
+  return premiumGalleryItemForSlot(slot)?.media_path||'';
+}
+function premiumMediaLabel(slot){
+  if(slot==='profile')return 'Profile Picture';
+  return 'Gallery Photo '+String(slot||'').replace('gallery_','');
+}
+async function replacePremiumMediaSlot(slot,file,button=null){
+  if(!file||!premiumProfile?.profile)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+    status($('#premiumPublicProfileNotice'),'Choose a JPG, PNG or WEBP image.','error');
+    return;
+  }
+  if(file.size>5*1024*1024){
+    status($('#premiumPublicProfileNotice'),'Photo must be 5 MB or smaller.','error');
+    return;
+  }
+
+  const original=button?.textContent||'Update Photo';
+  if(button){button.disabled=true;button.textContent='Uploading…';}
+  status($('#premiumPublicProfileNotice'),'Uploading '+premiumMediaLabel(slot)+' for Admin approval…');
+
+  let newPath='';
+  try{
+    newPath=await uploadPremiumPartnerFile('premium-profile-media',file,5*1024*1024);
+    const payload={};
+    if(slot==='profile'){
+      payload.profile_picture_path=newPath;
+    }else{
+      const targetSlot=Number(String(slot||'').replace('gallery_',''));
+      const gallery=[1,2,3].map((index)=>{
+        if(index===targetSlot)return newPath;
+        return premiumGalleryItemForSlot('gallery_'+index)?.media_path||'';
+      }).filter(Boolean);
+      payload.gallery_paths=gallery;
+    }
+
+    const {data,error}=await client.rpc('premium_partner_submit_profile_change',{p_payload:payload});
+    if(error)throw error;
+    if(data?.error)throw new Error(data.error);
+
+    openPremiumView('profile');
+    status($('#premiumPublicProfileNotice'),premiumMediaLabel(slot)+' sent to LEOGO Admin for approval. Your current approved photo remains visible until approval.','success');
+    await loadPremiumNotifications().catch(()=>{});
+  }catch(error){
+    if(newPath){
+      try{await client.storage.from('premium-profile-media').remove([newPath]);}catch(_error){}
+    }
+    status($('#premiumPublicProfileNotice'),error?.message||'Photo change could not be submitted.','error');
+  }finally{
+    if(button){button.disabled=false;button.textContent=original;}
+  }
+}
+function populatePremiumPublicProfileEditForm(){
+  const p=premiumProfile?.profile||{};
+  const d=premiumProfile?.details||{};
+  if($('#premiumEditDisplayName'))$('#premiumEditDisplayName').value=p.display_name||'';
+  if($('#premiumEditGender'))$('#premiumEditGender').value=p.gender||'';
+  if($('#premiumEditAge'))$('#premiumEditAge').value=d.age||'';
+  if($('#premiumEditOrientation'))$('#premiumEditOrientation').value=d.orientation||'';
+  if($('#premiumEditLocation'))$('#premiumEditLocation').value=p.general_location||'';
+  if($('#premiumEditAbout'))$('#premiumEditAbout').value=p.about||'';
+  if($('#premiumEditAboutCount'))$('#premiumEditAboutCount').textContent=String((p.about||'').length);
+}
+function setPremiumPublicProfileEditOpen(open){
+  const form=$('#premiumPublicProfileEditForm');
+  const summary=$('#premiumPublicProfileSummary');
+  const button=$('#editPremiumPublicProfile');
+  if(form)form.hidden=!open;
+  if(summary)summary.hidden=Boolean(open);
+  if(button){
+    button.disabled=Boolean(open);
+    button.textContent=open?'Editing Profile':'✎ Edit Profile';
+  }
+  if(open){
+    populatePremiumPublicProfileEditForm();
+    status($('#premiumProfileEditStatus'),'');
+    window.setTimeout(()=>$('#premiumEditDisplayName')?.focus(),40);
+  }
+}
+
+async function renderPremiumProfile(){
+  hidePremiumBoot();
+  premiumOnboarding.hidden=true;premiumReg.hidden=true;premiumPendingArea.hidden=true;premiumDashboard.hidden=true;
+  const p=premiumProfile?.profile;
+  if(!p){premiumOnboarding.hidden=false;return;}
+  const state=String(p.application_status||'draft'),d=premiumProfile.details||{},i=premiumProfile.identity||{};
+  const rows=[['Display name',p.display_name],['Gender',p.gender],['Age',d.age],['Orientation',d.orientation],['General location',p.general_location],['Application status',state.replaceAll('_',' ')],['Real name (private)',i.real_name],['Phone (private)',i.phone]];
+  if(state==='approved'){
+    premiumDashboard.hidden=false;
+    $('#premiumSidebarName').textContent=p.display_name||'Premium Profile';
+    $('#premiumDashboardName').textContent=p.display_name||'Premium Profile';
+    $('#premiumSidebarStatus').textContent='APPROVED';
+    $('#premiumApprovalMetric').textContent='Approved';
+    $('#premiumAvailabilityMetric').textContent=p.is_available?'Available':'Unavailable';
+    $('#premiumAvailabilityToggle').checked=Boolean(p.is_available);
+
+    const photo=await premiumSignedUrl(p.profile_picture_path);
+    const galleryBySlot={};
+    for(const item of (premiumProfile.gallery||[])){
+      const slot=Number(item.sort_order);
+      if(slot>=1&&slot<=3){
+        galleryBySlot[slot]={...item,url:await premiumSignedUrl(item.media_path)};
+      }
+    }
+
+    const infoHtml=
+      '<div class="premium-profile-info-grid">'+
+        '<div><small>Display name / username</small><strong>'+escapeHtml(p.display_name||'—')+'</strong></div>'+
+        '<div><small>Gender</small><strong>'+escapeHtml(p.gender||'—')+'</strong></div>'+
+        '<div><small>Age</small><strong>'+escapeHtml(String(d.age||'—'))+'</strong></div>'+
+        '<div><small>Orientation</small><strong>'+escapeHtml(d.orientation||'—')+'</strong></div>'+
+        '<div><small>General location</small><strong>'+escapeHtml(p.general_location||'—')+'</strong></div>'+
+        '<div class="wide"><small>About</small><strong>'+escapeHtml(p.about||'—')+'</strong></div>'+
+      '</div>';
+
+    const profileMedia=
+      '<article class="premium-media-slot premium-media-slot-main">'+
+        '<span>Profile Picture</span>'+
+        '<div class="premium-media-photo">'+(photo?'<img src="'+escapeHtml(photo)+'" alt="Profile picture">':'<div class="premium-media-empty">No photo</div>')+'</div>'+
+        '<button type="button" data-premium-media-trigger="profile">'+(photo?'Change Profile Picture':'Upload Profile Picture')+'</button>'+
+        '<input type="file" accept="image/jpeg,image/png,image/webp" data-premium-media-input="profile" hidden>'+
+      '</article>';
+
+    const galleryHtml=[1,2,3].map(slot=>{
+      const item=galleryBySlot[slot]||null;
+      return '<article class="premium-media-slot">'+
+        '<span>Gallery Photo '+slot+'</span>'+
+        '<div class="premium-media-photo">'+(item?.url?'<img src="'+escapeHtml(item.url)+'" alt="Gallery photo '+slot+'">':'<div class="premium-media-empty">No photo</div>')+'</div>'+
+        '<button type="button" data-premium-media-trigger="gallery_'+slot+'">'+(item?'Change Photo':'Upload Photo')+'</button>'+
+        '<input type="file" accept="image/jpeg,image/png,image/webp" data-premium-media-input="gallery_'+slot+'" hidden>'+
+      '</article>';
+    }).join('');
+
+    $('#premiumPublicProfileSummary').innerHTML=
+      infoHtml+
+      '<div class="premium-profile-media-section">'+
+        '<h4>Profile Picture</h4>'+
+        profileMedia+
+        '<h4>Gallery Photos</h4>'+
+        '<div class="premium-gallery-slots">'+galleryHtml+'</div>'+
+      '</div>';
+    setPremiumPublicProfileEditOpen(false);
+  }else{
+    premiumPendingArea.hidden=false;
+    $('#premiumPendingTitle').textContent=state==='changes_requested'?'Premium Profile corrections required':state==='rejected'?'Premium Profile not approved':state==='under_review'?'Premium Profile under review':'Premium Profile application submitted';
+    $('#premiumPendingMessage').textContent=premiumStatusCopy(state);
+    $('#premiumApplicationSummary').innerHTML=rows.map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(value??'—')+'</strong></div>').join('');
+    $('#editPremiumApplication').hidden=!['changes_requested','rejected','draft'].includes(state);
+  }
+}
+
+async function loadPremiumNotifications(){
+  if(!currentUser)return;
+  const {data,error}=await client.from('partner_notifications').select('*').eq('user_id',currentUser.id).eq('partner_type','premium').order('created_at',{ascending:false}).limit(100);
+  if(error)throw error;
+  premiumNotifications=data||[];
+  const unread=premiumNotifications.filter(item=>!item.read_at).length;
+  for(const badge of [$('#premiumNotificationBadge'),$('#premiumHeadNotificationBadge')]){
+    if(badge){badge.hidden=!unread;badge.textContent=unread>99?'99+':String(unread);}
+  }
+  updateSharedPartnerNotificationBadge(unread);
+  const target=$('#premiumNotificationList');if(!target)return;
+  target.innerHTML=premiumNotifications.length?premiumNotifications.map(item=>
+    '<article class="seller-notification-item '+(item.read_at?'':'unread')+'"><div><strong>'+escapeHtml(item.title||'Premium update')+'</strong><p>'+escapeHtml(item.message||'')+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div><div class="seller-notification-actions">'+
+    (item.action_view?'<button type="button" data-open-premium-notification="'+escapeHtml(item.id)+'">Open</button>':'')+
+    (item.read_at?'':'<button class="secondary" type="button" data-mark-premium-notification="'+escapeHtml(item.id)+'">Mark read</button>')+
+    '</div></article>'
+  ).join(''):'<div class="empty-card">No Premium notifications yet.</div>';
+  [...document.querySelectorAll('[data-mark-premium-notification]')].forEach(button=>button.addEventListener('click',async()=>{const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markPremiumNotification});if(!error)await loadPremiumNotifications();}));
+  [...document.querySelectorAll('[data-open-premium-notification]')].forEach(button=>button.addEventListener('click',async()=>{
+    const item=premiumNotifications.find(row=>String(row.id)===String(button.dataset.openPremiumNotification));
+    await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.openPremiumNotification});
+    openPremiumView(String(item?.action_view||'').includes('request')?'requests':'overview');
+    await loadPremiumNotifications();
+  }));
+}
+const premiumPartnerChatModal=$('#premiumPartnerChatModal');
+const premiumPartnerMessageList=$('#premiumPartnerMessageList');
+const premiumPartnerChatForm=$('#premiumPartnerChatForm');
+const premiumPartnerChatMessage=$('#premiumPartnerChatMessage');
+const premiumPartnerChatStatus=$('#premiumPartnerChatStatus');
+
+function premiumPartnerChatTime(value){
+  if(!value)return '';
+  try{return new Intl.DateTimeFormat('en-KE',{timeZone:'Africa/Nairobi',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}).format(new Date(value));}
+  catch(_error){return '';}
+}
+function renderPremiumPartnerChatMessages(messages=[]){
+  if(!premiumPartnerMessageList)return;
+  if(!messages.length){
+    premiumPartnerMessageList.innerHTML='<div class="premium-partner-chat-empty"><span>💬</span><strong>Private conversation</strong><small>You can chat before accepting this meetup request.</small></div>';
+    return;
+  }
+  premiumPartnerMessageList.innerHTML=messages.map(message=>{
+    const mine=message.sender_role==='profile';
+    return '<article class="premium-partner-message '+(mine?'mine':'theirs')+'">'+
+      '<div><strong>'+(mine?'You':'Premium Customer')+'</strong><span>'+escapeHtml(premiumPartnerChatTime(message.created_at))+'</span></div>'+
+      '<p>'+escapeHtml(message.body||'').replace(/\n/g,'<br>')+'</p>'+
+    '</article>';
+  }).join('');
+}
+async function loadPremiumPartnerChat({scroll=false,silent=false}={}){
+  if(!premiumPartnerChatRequestId||premiumPartnerChatLoading)return;
+  premiumPartnerChatLoading=true;
+  if(!silent&&premiumPartnerChatStatus)premiumPartnerChatStatus.textContent='Loading chat…';
+  try{
+    const [openResult,messageResult]=await Promise.all([
+      client.rpc('premium_open_chat',{p_request_id:premiumPartnerChatRequestId}),
+      client.rpc('premium_list_chat_messages',{p_request_id:premiumPartnerChatRequestId})
+    ]);
+    if(openResult.error)throw openResult.error;
+    if(messageResult.error)throw messageResult.error;
+    const info=openResult.data||{};
+    $('#premiumPartnerChatTitle').textContent=info.other_name||'Premium Customer';
+    $('#premiumPartnerChatState').textContent=info.contact_released
+      ? 'Meetup accepted · Contact details are released according to Premium rules.'
+      : 'Awaiting your decision · Contact details remain hidden.';
+    renderPremiumPartnerChatMessages(Array.isArray(messageResult.data)?messageResult.data:[]);
+    await client.rpc('premium_mark_chat_read',{p_request_id:premiumPartnerChatRequestId});
+    if(premiumPartnerChatStatus)premiumPartnerChatStatus.textContent='';
+    if(scroll&&premiumPartnerMessageList)window.setTimeout(()=>{premiumPartnerMessageList.scrollTop=premiumPartnerMessageList.scrollHeight;},20);
+  }catch(error){
+    if(premiumPartnerChatStatus)premiumPartnerChatStatus.textContent=error?.message||'Premium chat could not load.';
+  }finally{premiumPartnerChatLoading=false;}
+}
+function closePremiumPartnerChat(){
+  if(premiumPartnerChatTimer){clearInterval(premiumPartnerChatTimer);premiumPartnerChatTimer=null;}
+  premiumPartnerChatRequestId=null;
+  if(premiumPartnerChatModal){premiumPartnerChatModal.hidden=true;premiumPartnerChatModal.setAttribute('aria-hidden','true');}
+  document.body.classList.remove('premium-partner-chat-open');
+}
+async function openPremiumPartnerChat(requestId){
+  if(!requestId)return;
+  premiumPartnerChatRequestId=requestId;
+  if(premiumPartnerChatModal){premiumPartnerChatModal.hidden=false;premiumPartnerChatModal.setAttribute('aria-hidden','false');}
+  document.body.classList.add('premium-partner-chat-open');
+  await loadPremiumPartnerChat({scroll:true});
+  if(premiumPartnerChatTimer)clearInterval(premiumPartnerChatTimer);
+  premiumPartnerChatTimer=window.setInterval(()=>{
+    if(!premiumPartnerChatModal?.hidden&&document.visibilityState==='visible')loadPremiumPartnerChat({scroll:false,silent:true});
+  },4000);
+}
+$('#editPremiumPublicProfile')?.addEventListener('click',()=>setPremiumPublicProfileEditOpen(true));
+$('#cancelPremiumProfileEdit')?.addEventListener('click',()=>setPremiumPublicProfileEditOpen(false));
+$('#premiumEditAbout')?.addEventListener('input',(event)=>{
+  if($('#premiumEditAboutCount'))$('#premiumEditAboutCount').textContent=String(event.currentTarget.value.length);
+});
+$('#premiumPublicProfileEditForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const form=event.currentTarget;
+  if(!form.reportValidity())return;
+  const p=premiumProfile?.profile||{};
+  if(!p.profile_picture_path){
+    status($('#premiumProfileEditStatus'),'Profile picture is required before saving profile changes.','error');
+    return;
+  }
+
+  const button=$('#savePremiumProfileEdit');
+  const original=button?.textContent||'Save Changes';
+  if(button){button.disabled=true;button.textContent='Sending…';}
+  status($('#premiumProfileEditStatus'),'Sending profile changes to LEOGO Admin…');
+
+  try{
+    const {data,error}=await client.rpc('premium_partner_submit_profile_change',{
+      p_payload:{
+        display_name:$('#premiumEditDisplayName').value.trim(),
+        gender:$('#premiumEditGender').value.trim(),
+        age:Number($('#premiumEditAge').value),
+        orientation:$('#premiumEditOrientation').value.trim(),
+        general_location:$('#premiumEditLocation').value.trim(),
+        about:$('#premiumEditAbout').value.trim()
+      }
+    });
+    if(error)throw error;
+    if(data?.error)throw new Error(data.error);
+
+    setPremiumPublicProfileEditOpen(false);
+    openPremiumView('profile');
+    status($('#premiumPublicProfileNotice'),'Profile changes sent to LEOGO Admin for approval. Your current approved Premium Profile remains active until approval.','success');
+    await loadPremiumNotifications().catch(()=>{});
+  }catch(error){
+    status($('#premiumProfileEditStatus'),error?.message||'Profile changes could not be saved.','error');
+  }finally{
+    if(button){button.disabled=false;button.textContent=original;}
+  }
+});
+
+$('#closePremiumPartnerChat')?.addEventListener('click',closePremiumPartnerChat);
+premiumPartnerChatModal?.querySelectorAll('[data-close-premium-partner-chat]').forEach(node=>node.addEventListener('click',closePremiumPartnerChat));
+premiumPartnerChatForm?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const text=premiumPartnerChatMessage?.value.trim()||'';
+  if(!text||!premiumPartnerChatRequestId)return;
+  const button=$('#sendPremiumPartnerMessage'),original=button?.textContent||'Send';
+  if(button){button.disabled=true;button.textContent='Sending…';}
+  try{
+    const {error}=await client.rpc('premium_send_chat_message',{p_request_id:premiumPartnerChatRequestId,p_body:text});
+    if(error)throw error;
+    if(premiumPartnerChatMessage)premiumPartnerChatMessage.value='';
+    await loadPremiumPartnerChat({scroll:true,silent:true});
+  }catch(error){
+    if(premiumPartnerChatStatus)premiumPartnerChatStatus.textContent=error?.message||'Message could not be sent.';
+  }finally{
+    if(button){button.disabled=false;button.textContent=original;}
+    premiumPartnerChatMessage?.focus();
+  }
+});
+
+async function premiumCustomerSignedPhoto(path){
+  if(!path)return '';
+  const {data}=await client.storage.from('premium-profile-media').createSignedUrl(path,900);
+  return data?.signedUrl||'';
+}
+function premiumRequestStatusLabel(value){
+  return {submitted:'Awaiting your response',accepted:'Accepted',rejected:'Rejected',cancelled:'Cancelled'}[value]||String(value||'').replaceAll('_',' ');
+}
+async function renderPremiumMeetupRequests(){
+  const target=$('#premiumRequestList');if(!target)return;
+  const pending=premiumMeetupRequests.filter(item=>item.request_status==='submitted').length;
+  $('#premiumRequestsMetric').textContent=String(premiumMeetupRequests.length);
+  const badge=$('#premiumRequestBadge');
+  if(badge){badge.hidden=!pending;badge.textContent=pending>99?'99+':String(pending);}
+  if(!premiumMeetupRequests.length){
+    target.className='empty-card';
+    target.innerHTML='No Premium meetup requests yet.';
+    return;
+  }
+  target.className='premium-request-list';
+  const enriched=await Promise.all(premiumMeetupRequests.map(async item=>({...item,image_url:await premiumCustomerSignedPhoto(item.customer_profile_picture_path)})));
+  target.innerHTML=enriched.map(item=>
+    '<article class="premium-request-card '+(item.request_status==='submitted'?'needs-action':'')+'">'+
+      '<div class="premium-request-photo">'+(item.image_url?'<img src="'+escapeHtml(item.image_url)+'" alt="">':'<span>👤</span>')+'</div>'+
+      '<div class="premium-request-copy">'+
+        '<div class="premium-request-head"><div><span>PREMIUM CUSTOMER</span><h4>'+escapeHtml(item.customer_sex||'Customer')+' · '+Number(item.customer_age||0)+' years</h4><small>📍 '+escapeHtml(item.customer_location||'—')+'</small></div><b>'+escapeHtml(premiumRequestStatusLabel(item.request_status))+'</b></div>'+
+        (item.customer_message?'<p><strong>Message:</strong> '+escapeHtml(item.customer_message)+'</p>':'')+
+        (item.profile_response?'<p><strong>Your response:</strong> '+escapeHtml(item.profile_response)+'</p>':'')+
+        (item.request_status==='accepted'&&item.customer_phone?'<div class="premium-request-contact"><small>CONTACT RELEASED AFTER ACCEPTANCE</small><a href="tel:'+escapeHtml(item.customer_phone)+'">'+escapeHtml(item.customer_phone)+'</a></div>':'')+
+        (['submitted','accepted'].includes(item.request_status)?'<div class="premium-request-actions '+(item.request_status==='accepted'?'chat-only':'')+'"><button type="button" class="premium-request-chat-button" data-premium-request-chat="'+escapeHtml(item.request_id)+'">💬 Chat</button>'+(item.request_status==='submitted'?'<button type="button" data-premium-request-action="accept" data-premium-request-id="'+escapeHtml(item.request_id)+'">Accept Request</button><button type="button" class="danger" data-premium-request-action="reject" data-premium-request-id="'+escapeHtml(item.request_id)+'">Reject</button>':'')+'</div>':'')+
+      '</div>'+
+    '</article>'
+  ).join('');
+}
+async function loadPremiumMeetupRequests(){
+  if(!currentUser||premiumProfile?.profile?.application_status!=='approved')return;
+  const {data,error}=await client.rpc('premium_partner_list_meetup_requests');
+  if(error)throw error;
+  premiumMeetupRequests=Array.isArray(data)?data:[];
+  await renderPremiumMeetupRequests();
+}
+async function respondPremiumMeetupRequest(button){
+  const requestId=button.dataset.premiumRequestId;
+  const action=button.dataset.premiumRequestAction;
+  let response='';
+  if(action==='reject'){
+    response=window.prompt('Optional message to the Premium Customer:','')||'';
+    if(!window.confirm('Reject this Premium meetup request?'))return;
+  }else{
+    response=window.prompt('Optional message to the Premium Customer:','')||'';
+    if(!window.confirm('Accept this Premium meetup request? Contact details will be released to both sides.'))return;
+  }
+  const original=button.textContent;button.disabled=true;button.textContent=action==='accept'?'Accepting…':'Rejecting…';
+  try{
+    const {error}=await client.rpc('premium_partner_respond_meetup_request',{
+      p_request_id:requestId,p_action:action,p_response:response||null
+    });
+    if(error)throw error;
+    status($('#premiumRequestStatus'),action==='accept'?'Request accepted. Contact details are now released according to Premium access rules.':'Request rejected. The customer has been notified.','success');
+    await Promise.all([loadPremiumMeetupRequests(),loadPremiumNotifications()]);
+  }catch(error){
+    status($('#premiumRequestStatus'),error?.message||'Premium request response could not be saved.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+}
+
+async function loadPremiumProfile(){
+  if(!currentUser)return;
+  showPremiumBoot();
+  try{
+    const {data,error}=await client.rpc('premium_partner_get_own_profile');
+    if(error)throw error;
+    premiumProfile=data||null;
+    await cleanupPremiumPartnerMedia().catch(()=>{});
+    await renderPremiumProfile();
+    if(premiumProfile){
+      await Promise.all([
+        loadPremiumNotifications().catch(()=>{}),
+        premiumProfile?.profile?.application_status==='approved'?loadPremiumMeetupRequests().catch(()=>{}):Promise.resolve()
+      ]);
+    }
+  }catch(error){showPremiumBoot(error?.message||'Premium Profile could not load.',true);}
+}
+async function openPremiumRole(){
+  activeRole='premium';
+  if(cyberShell)cyberShell.hidden=true;
+  if(partnerNotificationBell)partnerNotificationBell.hidden=false;
+  rolePicker.hidden=true;sellerShell.hidden=true;
+  if(providerShell)providerShell.hidden=true;
+  if(transportShell)transportShell.hidden=true;
+  if(accommodationShell)accommodationShell.hidden=true;
+  premiumShell.hidden=false;authShell.hidden=true;if(hero)hero.hidden=true;
+  await loadPremiumProfile();
+  await mountPartnerSubscription('premium',premiumDashboard).catch(()=>{});
+}
+function openPremiumRegistration(editExisting=false){
+  premiumOnboarding.hidden=true;premiumPendingArea.hidden=true;premiumDashboard.hidden=true;premiumReg.hidden=false;
+  status($('#premiumRegistrationStatus'),'');
+  if(editExisting&&premiumProfile)populatePremiumApplication();
+  else{
+    premiumReg.reset();
+    $('#premiumPartnerRealName').value=currentUser?.user_metadata?.full_name||'';
+    $('#premiumPartnerProfilePhoto').required=true;$('#premiumPartnerIdDocument').required=true;
+  }
+  const paymentBox=$('#premiumApplicationPayment');
+  if(paymentBox){paymentBox.hidden=false;$('#premiumPartnerSubscriptionPeriod').required=!editExisting;$('#premiumPartnerSubscriptionReference').required=!editExisting;if(editExisting)$('#premiumPartnerSubscriptionReference').placeholder='Leave blank if payment was already submitted';}
+  hydratePremiumApplicationBilling().catch(()=>{});
+  premiumReg.scrollIntoView({behavior:'smooth',block:'start'});
+}
+premiumReg?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const button=event.submitter,original=button?.textContent||'Submit';
+  if(button){button.disabled=true;button.textContent='Submitting…';}
+  try{
+    const profileFile=$('#premiumPartnerProfilePhoto').files?.[0];
+    const idFile=$('#premiumPartnerIdDocument').files?.[0];
+    const galleryFiles=[...($('#premiumPartnerGallery').files||[])];
+    if(galleryFiles.length>3)throw new Error('Choose a maximum of 3 gallery photos.');
+    let profilePath=$('#premiumPartnerProfilePhoto').dataset.existingPath||'';
+    let idPath=$('#premiumPartnerIdDocument').dataset.existingPath||'';
+    if(profileFile)profilePath=await uploadPremiumPartnerFile('premium-profile-media',profileFile,5*1024*1024);
+    if(idFile)idPath=await uploadPremiumPartnerFile('premium-verification',idFile,8*1024*1024);
+    const existingGallery=(premiumProfile?.gallery||[]).map(item=>item.media_path);
+    const galleryPaths=galleryFiles.length?await Promise.all(galleryFiles.map(file=>uploadPremiumPartnerFile('premium-profile-media',file,5*1024*1024))):existingGallery;
+    const {data,error}=await client.rpc('submit_premium_partner_profile',{
+      p_display_name:$('#premiumPartnerDisplayName').value.trim(),
+      p_profile_picture_path:profilePath,
+      p_gender:$('#premiumPartnerGender').value.trim(),
+      p_general_location:$('#premiumPartnerLocation').value.trim(),
+      p_about:$('#premiumPartnerAbout').value.trim(),
+      p_orientation:$('#premiumPartnerOrientation').value.trim(),
+      p_age:Number($('#premiumPartnerAge').value),
+      p_real_name:$('#premiumPartnerRealName').value.trim(),
+      p_id_number:$('#premiumPartnerIdNumber').value.trim(),
+      p_phone:normalisePhone($('#premiumPartnerPhone').value),
+      p_id_document_path:idPath,
+      p_gallery_paths:galleryPaths,
+      p_age_consent:$('#premiumPartnerAgeConsent').checked,
+      p_responsibility_consent:$('#premiumPartnerResponsibilityConsent').checked,
+      p_privacy_consent:$('#premiumPartnerPrivacyConsent').checked
+    });
+    if(error)throw error;
+    premiumProfile=data;
+    if($('#premiumPartnerSubscriptionReference').value.trim()){
+      const payment=await client.rpc('partner_submit_subscription_payment',{p_partner_type:'premium',p_billing_period:$('#premiumPartnerSubscriptionPeriod').value,p_payment_reference:$('#premiumPartnerSubscriptionReference').value.trim()});
+      if(payment.error)throw payment.error;
+    }
+    status($('#premiumRegistrationStatus'),'Premium Profile submitted to LEOGO Admin for approval.','success');
+    await renderPremiumProfile();await loadPremiumNotifications().catch(()=>{});
+  }catch(error){status($('#premiumRegistrationStatus'),error?.message||'Premium Profile application could not be submitted.','error');}
+  finally{if(button){button.disabled=false;button.textContent=original;}}
+});
+$('#showPremiumRegistration')?.addEventListener('click',()=>openPremiumRegistration(false));
+$('#editPremiumApplication')?.addEventListener('click',()=>openPremiumRegistration(true));
+$('#cancelPremiumRegistration')?.addEventListener('click',()=>premiumProfile?renderPremiumProfile():openPremiumRole());
+$('#premiumPendingBack')?.addEventListener('click',showRolePicker);
+$('#premiumBackToPartnerships')?.addEventListener('click',showRolePicker);
+$('#retryPremiumBoot')?.addEventListener('click',openPremiumRole);
+$('#refreshPremiumDashboard')?.addEventListener('click',loadPremiumProfile);
+$('#premiumSidebarToggle')?.addEventListener('click',()=>{premiumSidebar?.classList.add('open');$('#premiumSidebarScrim')?.classList.add('open');});
+$('#premiumSidebarScrim')?.addEventListener('click',closePremiumSidebar);
+[...document.querySelectorAll('[data-premium-view]')].forEach(button=>button.addEventListener('click',()=>openPremiumView(button.dataset.premiumView)));
+$('#premiumNotificationsButton')?.addEventListener('click',()=>openPremiumView('notifications'));
+$('#refreshPremiumNotifications')?.addEventListener('click',()=>loadPremiumNotifications().catch(console.warn));
+$('#markAllPremiumNotificationsRead')?.addEventListener('click',async()=>{const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'premium'});if(!error)await loadPremiumNotifications();});
+$('#premiumRequestList')?.addEventListener('click',(event)=>{
+  const chatButton=event.target.closest?.('[data-premium-request-chat]');
+  if(chatButton){openPremiumPartnerChat(chatButton.dataset.premiumRequestChat);return;}
+  const button=event.target.closest?.('[data-premium-request-action]');
+  if(button)respondPremiumMeetupRequest(button);
+});
+$('#premiumPublicProfileSummary')?.addEventListener('click',(event)=>{
+  const button=event.target.closest?.('[data-premium-media-trigger]');
+  if(!button)return;
+  const slot=button.dataset.premiumMediaTrigger;
+  const input=document.querySelector('[data-premium-media-input="'+CSS.escape(slot)+'"]');
+  input?.click();
+});
+$('#premiumPublicProfileSummary')?.addEventListener('change',(event)=>{
+  const input=event.target.closest?.('[data-premium-media-input]');
+  if(!input)return;
+  const file=input.files?.[0]||null;
+  if(!file)return;
+  const slot=input.dataset.premiumMediaInput;
+  const button=document.querySelector('[data-premium-media-trigger="'+CSS.escape(slot)+'"]');
+  replacePremiumMediaSlot(slot,file,button);
+});
+
+$('#premiumAvailabilityToggle')?.addEventListener('change',async(event)=>{
+  const desired=event.target.checked;event.target.disabled=true;
+  try{
+    const {error}=await client.rpc('premium_partner_set_availability',{p_available:desired});
+    if(error)throw error;
+    if(premiumProfile?.profile)premiumProfile.profile.is_available=desired;
+    $('#premiumAvailabilityMetric').textContent=desired?'Available':'Unavailable';
+    status($('#premiumAvailabilityStatus'),desired?'Your approved profile is now available to Premium Customers.':'Your profile is now hidden from new Premium requests.','success');
+  }catch(error){event.target.checked=!desired;status($('#premiumAvailabilityStatus'),error?.message||'Availability could not be updated.','error');}
+  finally{event.target.disabled=false;}
+});
+
+/* ACCOMMODATION PROVIDER MODULE — Phase A: registration, Admin approval and approved dashboard shell */
+const accommodationBootStatus=$('#accommodationBootStatus');
+const accommodationOnboarding=$('#accommodationOnboarding');
+const accommodationReg=$('#accommodationRegistrationForm');
+const accommodationPendingArea=$('#accommodationPendingArea');
+const accommodationDashboard=$('#accommodationDashboard');
+const accommodationSidebar=$('#accommodationSidebar');
+
+function accommodationStatusCopy(value){
+  if(value==='pending')return 'Submitted to LEOGO Admin. Your Accommodation Provider application is waiting for review.';
+  if(value==='under_review')return 'LEOGO Admin is reviewing your Accommodation Provider application.';
+  if(value==='changes_requested')return 'LEOGO Admin requested corrections. Update the application and resubmit it.';
+  if(value==='approved')return 'Approved. You can now use the Accommodation Provider dashboard.';
+  if(value==='rejected')return 'The application was not approved. Review the Admin note and correct it before resubmitting if appropriate.';
+  if(value==='suspended')return 'This Accommodation Provider account is suspended. Your accommodation listings are hidden from customers.';
+  return 'Register as an Accommodation Provider to continue.';
+}
+function showAccommodationBoot(message='Loading your Accommodation Provider account…',isError=false){
+  if(!accommodationBootStatus)return;
+  accommodationBootStatus.hidden=false;
+  $('#accommodationBootTitle').textContent=isError?'Accommodation Provider Portal needs attention':'Opening your Accommodation dashboard…';
+  $('#accommodationBootMessage').textContent=message;
+  const spinner=$('.seller-boot-spinner',accommodationBootStatus);
+  if(spinner)spinner.hidden=isError;
+  $('#retryAccommodationBoot').hidden=!isError;
+}
+function hideAccommodationBoot(){if(accommodationBootStatus)accommodationBootStatus.hidden=true;}
+function closeAccommodationSidebar(){
+  accommodationSidebar?.classList.remove('open');
+  $('#accommodationSidebarScrim')?.classList.remove('open');
+}
+function accommodationViewDescription(view){
+  return {
+    overview:'Overview of your Accommodation Provider account.',
+    properties:'Manage approved properties, rooms and units.',
+    bookings:'Customer accommodation booking requests.',
+    availability:'Manage room and unit availability dates.',
+    earnings:'View Accommodation earnings after completed stays.',
+    settlements:'Manage Accommodation payout accounts and settlements.',
+    notifications:'Application, listing and booking notifications.',
+    profile:'Your approved Accommodation Provider information.'
+  }[view]||'Accommodation Provider Portal';
+}
+function openAccommodationView(view='overview'){
+  const approved=accommodationProvider?.verification_status==='approved';
+  const allowed=approved?['overview','properties','bookings','availability','earnings','settlements','notifications','profile']:['overview','notifications','profile'];
+  const resolved=allowed.includes(view)?view:'overview';
+  $$('[data-accommodation-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.accommodationContent===resolved));
+  $$('[data-accommodation-view]').forEach(button=>button.classList.toggle('active',button.dataset.accommodationView===resolved));
+  if($('#accommodationViewDescription'))$('#accommodationViewDescription').textContent=accommodationViewDescription(resolved);
+  closeAccommodationSidebar();
+  if(resolved==='properties')loadAccommodationCatalogue().catch(error=>status($('#accommodationCatalogueStatus'),error?.message||'Accommodation listings could not load.','error'));
+  if(resolved==='bookings')loadAccommodationBookings().catch(error=>status($('#accommodationBookingStatus'),error?.message||'Accommodation bookings could not load.','error'));
+  if(resolved==='notifications')loadAccommodationNotifications().catch(error=>console.warn('Accommodation notifications refresh failed:',error));
+}
+function accommodationCoordinatesFromText(value=''){
+  const text=String(value||'').trim();
+  const direct=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+  if(direct)return {lat:Number(direct[1]),lng:Number(direct[2])};
+  const maps=text.match(/(?:@|q=|query=)(-?\d{1,2}(?:\.\d+)?)[,%2C\s]+(-?\d{1,3}(?:\.\d+)?)/i);
+  return maps?{lat:Number(maps[1]),lng:Number(maps[2])}:null;
+}
+function setAccommodationCoordinates(lat,lng,label='Location pinned'){
+  const latitude=Number(lat),longitude=Number(lng),target=$('#accommodationPinStatus');
+  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+    if(target){target.textContent='Invalid accommodation coordinates.';target.className='status error';}
+    return false;
+  }
+  $('#accommodationLatitude').value=latitude.toFixed(7);
+  $('#accommodationLongitude').value=longitude.toFixed(7);
+  if(!$('#accommodationMapLink').value.trim())$('#accommodationMapLink').value='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
+  if(target){target.textContent='✓ '+label+': '+latitude.toFixed(7)+', '+longitude.toFixed(7);target.className='status success';}
+  return true;
+}
+async function ensureAccommodationLocations(countyCode='',subCountyCode=''){
+  await loadKenyaLocations();
+  const county=$('#accommodationCounty'),sub=$('#accommodationSubCounty');
+  if(!county||!sub)return;
+  county.innerHTML='<option value="">Select county</option>'+kenyaCounties.map(item=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.display_name||item.name)+'</option>').join('');
+  if(countyCode&&kenyaCounties.some(item=>item.code===countyCode))county.value=countyCode;
+  const renderSubs=()=>{
+    const selected=county.value;
+    const rows=kenyaSubcounties.filter(item=>item.county_code===selected);
+    sub.innerHTML=selected
+      ? '<option value="">Select sub-county</option>'+rows.map(item=>'<option value="'+escapeHtml(item.code)+'">'+escapeHtml(item.name)+'</option>').join('')
+      : '<option value="">Choose a county first</option>';
+    sub.disabled=!selected||!rows.length;
+    if(subCountyCode&&rows.some(item=>item.code===subCountyCode))sub.value=subCountyCode;
+  };
+  renderSubs();
+  county.onchange=()=>{subCountyCode='';renderSubs();};
+}
+async function uploadAccommodationPrivate(file,prefix){
+  if(!file)return null;
+  if(file.size>8*1024*1024)throw new Error('Each Accommodation verification file must be 8 MB or smaller.');
+  const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('accommodation-verification').upload(path,file,{upsert:false,contentType:file.type||undefined});
+  if(error)throw error;
+  return path;
+}
+async function uploadAccommodationPublicPhoto(file){
+  if(!file)return null;
+  if(file.size>8*1024*1024)throw new Error('Accommodation profile picture must be 8 MB or smaller.');
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Accommodation profile picture must be JPG, PNG or WEBP.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/provider-profile-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('accommodation-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+}
+async function uploadAccommodationListingPhoto(file,prefix='property'){
+  if(!file)return null;
+  if(file.size>8*1024*1024)throw new Error('Each Accommodation photo must be 8 MB or smaller.');
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Accommodation photos must be JPG, PNG or WEBP.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('accommodation-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  const {data}=client.storage.from('accommodation-public-media').getPublicUrl(path);
+  return data?.publicUrl||null;
+}
+function accommodationArrayValue(value=''){
+  return String(value||'').split(',').map(item=>item.trim()).filter(Boolean).slice(0,30);
+}
+function accommodationStatusLabel(value){
+  return String(value||'draft').replaceAll('_',' ');
+}
+function renderAccommodationCatalogue(){
+  const target=$('#accommodationPropertyList');if(!target)return;
+  const properties=Array.isArray(accommodationCatalogue)?accommodationCatalogue:[];
+  if($('#accommodationPropertyMetric'))$('#accommodationPropertyMetric').textContent=properties.length;
+  target.innerHTML=properties.length?properties.map(property=>{
+    const units=Array.isArray(property.units)?property.units:[];
+    const cover=property.cover_image_url?'<img src="'+escapeHtml(property.cover_image_url)+'" alt="'+escapeHtml(property.property_name||'Property')+'">':'<span>🏨</span>';
+    const canEdit=property.approval_status!=='suspended';
+    return '<article class="accommodation-property-card">'+
+      '<div class="accommodation-property-cover">'+cover+'</div>'+
+      '<div class="accommodation-property-main"><header><div><span>'+escapeHtml(String(property.property_type||'').replaceAll('_',' ').toUpperCase())+'</span><strong>'+escapeHtml(property.property_name||'Property')+'</strong><small>'+escapeHtml([property.public_location,property.town,property.county].filter(Boolean).join(' · '))+'</small></div><b class="status-chip">'+escapeHtml(accommodationStatusLabel(property.approval_status))+'</b></header>'+
+      '<p>'+escapeHtml(property.description||'')+'</p>'+
+      (property.admin_notes?'<div class="restricted-notice"><strong>Admin note:</strong> '+escapeHtml(property.admin_notes)+'</div>':'')+
+      '<div class="accommodation-property-actions">'+
+        (canEdit?'<button type="button" data-edit-accommodation-property="'+escapeHtml(property.id)+'">Edit Property</button>':'')+
+        '<button type="button" data-add-accommodation-unit="'+escapeHtml(property.id)+'">+ Add Room / Unit</button>'+
+      '</div>'+
+      '<div class="accommodation-unit-list">'+(units.length?units.map(unit=>
+        '<article class="accommodation-unit-card">'+
+          '<div><strong>'+escapeHtml(unit.unit_name||'Room / Unit')+'</strong><small>'+escapeHtml(unit.room_category||'Room')+' · '+money(unit.nightly_price_kes||0)+'/night · Up to '+Number(unit.max_guests||1)+' guest(s) · '+Number(unit.inventory_count||1)+' available unit(s)</small>'+
+          (unit.admin_notes?'<small>Admin: '+escapeHtml(unit.admin_notes)+'</small>':'')+'</div>'+
+          '<span class="status-chip">'+escapeHtml(accommodationStatusLabel(unit.approval_status))+'</span>'+
+          (unit.approval_status!=='suspended'?'<button type="button" class="secondary" data-edit-accommodation-unit="'+escapeHtml(unit.id)+'" data-property-id="'+escapeHtml(property.id)+'">Edit</button>':'')+
+        '</article>'
+      ).join(''):'<div class="empty-card">No rooms / units added yet.</div>')+'</div>'+
+      '</div></article>';
+  }).join(''):'<div class="empty-card">No properties created yet. Tap “Add Property” to create your first accommodation listing.</div>';
+
+  $$('[data-edit-accommodation-property]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationPropertyForm(button.dataset.editAccommodationProperty)));
+  $$('[data-add-accommodation-unit]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationUnitForm(button.dataset.addAccommodationUnit)));
+  $$('[data-edit-accommodation-unit]',target).forEach(button=>button.addEventListener('click',()=>openAccommodationUnitForm(button.dataset.propertyId,button.dataset.editAccommodationUnit)));
+}
+async function loadAccommodationCatalogue(){
+  if(!currentUser||accommodationProvider?.verification_status!=='approved')return;
+  status($('#accommodationCatalogueStatus'),'Loading properties and rooms…');
+  const {data,error}=await client.rpc('accommodation_provider_list_catalogue');
+  if(error)throw error;
+  accommodationCatalogue=Array.isArray(data?.properties)?data.properties:[];
+  renderAccommodationCatalogue();
+  status($('#accommodationCatalogueStatus'),'');
+}
+function resetAccommodationPropertyForm(){
+  const form=$('#accommodationPropertyForm');if(!form)return;
+  form.reset();$('#accommodationPropertyId').value='';
+  $('#accommodationPropertyCheckIn').value='14:00';$('#accommodationPropertyCheckOut').value='10:00';
+  $('#accommodationChildrenAllowed').checked=true;
+  status($('#accommodationPropertyStatus'),'');
+}
+function openAccommodationPropertyForm(propertyId=''){
+  resetAccommodationPropertyForm();
+  const form=$('#accommodationPropertyForm');form.hidden=false;
+  $('#accommodationUnitForm').hidden=true;
+  const property=accommodationCatalogue.find(item=>String(item.id)===String(propertyId));
+  $('#accommodationPropertyFormTitle').textContent=property?'Edit Property':'Add Property';
+  if(property){
+    $('#accommodationPropertyId').value=property.id;
+    $('#accommodationPropertyName').value=property.property_name||'';
+    $('#accommodationPropertyType').value=property.property_type||'';
+    $('#accommodationPropertyCounty').value=property.county||'';
+    $('#accommodationPropertySubCounty').value=property.sub_county||'';
+    $('#accommodationPropertyTown').value=property.town||'';
+    $('#accommodationPropertyPublicLocation').value=property.public_location||'';
+    $('#accommodationPropertyDescription').value=property.description||'';
+    $('#accommodationPropertyAmenities').value=(property.amenities||[]).join(', ');
+    $('#accommodationPropertyRules').value=property.house_rules||'';
+    $('#accommodationPropertyCancellation').value=property.cancellation_policy||'';
+    $('#accommodationPropertyAccessibility').value=property.accessibility_notes||'';
+    $('#accommodationPropertyCheckIn').value=String(property.check_in_time||'14:00').slice(0,5);
+    $('#accommodationPropertyCheckOut').value=String(property.check_out_time||'10:00').slice(0,5);
+    $('#accommodationChildrenAllowed').checked=property.children_allowed!==false;
+    $('#accommodationPetsAllowed').checked=Boolean(property.pets_allowed);
+    $('#accommodationParkingAvailable').checked=Boolean(property.parking_available);
+    $('#accommodationWifiAvailable').checked=Boolean(property.wifi_available);
+    $('#accommodationBreakfastAvailable').checked=Boolean(property.breakfast_available);
+    $('#accommodationSmokingZoneAllowed').checked=Boolean(property.smoking_zone_allowed);
+  }else{
+    $('#accommodationPropertyCounty').value=accommodationProvider?.county||'';
+    $('#accommodationPropertySubCounty').value=accommodationProvider?.sub_county||'';
+    $('#accommodationPropertyTown').value=accommodationProvider?.town||'';
+  }
+  form.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function accommodationMealPlanLabel(value){
+  return {bed_only:'Bed Only',bed_breakfast:'Bed & Breakfast',half_board:'Half Board',full_board:'Full Board',self_catering:'Self Catering',other:'Other'}[value]||'Other';
+}
+function accommodationOccupancyLabel(value){
+  return {single:'Single Occupancy',double:'Double Occupancy',triple:'Triple Occupancy',family:'Family',custom:'Custom'}[value]||'Custom';
+}
+function accommodationIsMainRate(rate,kind){
+  const name=String(rate?.rate_name||'').toLowerCase();
+  const meal=String(rate?.meal_plan||'');
+  const pax=Number(rate?.occupancy_pax||0);
+  if(kind==='bed_only')return name==='bed only'||meal==='bed_only';
+  if(kind==='bb1')return name==='bed & breakfast for 1 pax'||name==='bed & breakfast - single'||(meal==='bed_breakfast'&&pax===1);
+  if(kind==='bb2')return name==='bed & breakfast for 2 pax'||name==='bed & breakfast - double'||(meal==='bed_breakfast'&&pax===2);
+  return false;
+}
+function renderAccommodationRateRows(rates=[]){
+  const rows=Array.isArray(rates)?rates:[];
+  const bedOnly=rows.find(rate=>accommodationIsMainRate(rate,'bed_only'));
+  const breakfast1=rows.find(rate=>accommodationIsMainRate(rate,'bb1'));
+  const breakfast2=rows.find(rate=>accommodationIsMainRate(rate,'bb2'));
+  $('#accommodationBedOnlyPrice').value=bedOnly?.nightly_price_kes||'';
+  $('#accommodationBreakfast1Price').value=breakfast1?.nightly_price_kes||'';
+  $('#accommodationBreakfast2Price').value=breakfast2?.nightly_price_kes||'';
+
+  const target=$('#accommodationRateRows');if(!target)return;
+  const extras=rows.filter(rate=>
+    !accommodationIsMainRate(rate,'bed_only') &&
+    !accommodationIsMainRate(rate,'bb1') &&
+    !accommodationIsMainRate(rate,'bb2')
+  );
+  target.innerHTML=extras.map((rate)=>{
+    return '<div class="accommodation-rate-row" data-rate-row>'+
+      '<label>Rate name<input data-rate-name type="text" maxlength="120" required value="'+escapeHtml(rate.rate_name||'')+'"></label>'+
+      '<label>Meal plan<select data-rate-meal required>'+
+        '<option value="bed_only" '+(rate.meal_plan==='bed_only'?'selected':'')+'>Bed Only</option>'+
+        '<option value="bed_breakfast" '+(rate.meal_plan==='bed_breakfast'?'selected':'')+'>Bed & Breakfast</option>'+
+        '<option value="half_board" '+(rate.meal_plan==='half_board'?'selected':'')+'>Half Board</option>'+
+        '<option value="full_board" '+(rate.meal_plan==='full_board'?'selected':'')+'>Full Board</option>'+
+        '<option value="self_catering" '+(rate.meal_plan==='self_catering'?'selected':'')+'>Self Catering</option>'+
+        '<option value="other" '+(rate.meal_plan==='other'?'selected':'')+'>Other</option>'+
+      '</select></label>'+
+      '<label>Occupancy<select data-rate-occupancy required>'+
+        '<option value="single" '+(rate.occupancy_type==='single'?'selected':'')+'>Single Occupancy</option>'+
+        '<option value="double" '+(rate.occupancy_type==='double'?'selected':'')+'>Double Occupancy</option>'+
+        '<option value="triple" '+(rate.occupancy_type==='triple'?'selected':'')+'>Triple Occupancy</option>'+
+        '<option value="family" '+(rate.occupancy_type==='family'?'selected':'')+'>Family</option>'+
+        '<option value="custom" '+(rate.occupancy_type==='custom'?'selected':'')+'>Custom</option>'+
+      '</select></label>'+
+      '<label>Guests / Pax<input data-rate-pax type="number" inputmode="numeric" min="1" max="30" required value="'+Number(rate.occupancy_pax||1)+'"></label>'+
+      '<label>Price / night (KSh)<input data-rate-price type="number" inputmode="numeric" min="1" step="1" required value="'+(rate.nightly_price_kes?Number(rate.nightly_price_kes):'')+'"></label>'+
+      '<button type="button" class="secondary" data-remove-rate>Remove</button>'+
+    '</div>';
+  }).join('');
+  [...target.querySelectorAll('[data-remove-rate]')].forEach((button)=>button.addEventListener('click',()=>{
+    button.closest('[data-rate-row]')?.remove();
+    syncAccommodationBasePrice();
+  }));
+  $$('[data-rate-price]',target).forEach((input)=>input.addEventListener('input',syncAccommodationBasePrice));
+  syncAccommodationRateRequirements();
+  syncAccommodationBasePrice();
+}
+function collectAccommodationExtraRates(){
+  const root=$('#accommodationRateRows');
+  return root?[...root.querySelectorAll('[data-rate-row]')].map((row)=>({
+    rate_name:$('[data-rate-name]',row)?.value.trim()||'',
+    meal_plan:$('[data-rate-meal]',row)?.value||'other',
+    occupancy_type:$('[data-rate-occupancy]',row)?.value||'custom',
+    occupancy_pax:Number($('[data-rate-pax]',row)?.value||0),
+    nightly_price_kes:Number($('[data-rate-price]',row)?.value||0),
+    is_active:true
+  })):[];
+}
+function collectAccommodationRates(){
+  const maxGuests=Math.max(1,Number($('#accommodationUnitGuests').value||1));
+  const bedOnlyPrice=Number($('#accommodationBedOnlyPrice').value||0);
+  const breakfast1Price=Number($('#accommodationBreakfast1Price').value||0);
+  const breakfast2Price=Number($('#accommodationBreakfast2Price').value||0);
+  const bedOnlyOccupancy=maxGuests===1?'single':maxGuests===2?'double':maxGuests===3?'triple':maxGuests>=4?'family':'custom';
+  const main=[
+    {rate_name:'Bed Only',meal_plan:'bed_only',occupancy_type:bedOnlyOccupancy,occupancy_pax:maxGuests,nightly_price_kes:bedOnlyPrice,is_active:true},
+    {rate_name:'Bed & Breakfast for 1 pax',meal_plan:'bed_breakfast',occupancy_type:'single',occupancy_pax:1,nightly_price_kes:breakfast1Price,is_active:true}
+  ];
+  if(maxGuests>=2){
+    main.push({rate_name:'Bed & Breakfast for 2 pax',meal_plan:'bed_breakfast',occupancy_type:'double',occupancy_pax:2,nightly_price_kes:breakfast2Price,is_active:true});
+  }
+  return [...main,...collectAccommodationExtraRates()];
+}
+function syncAccommodationRateRequirements(){
+  const maxGuests=Math.max(1,Number($('#accommodationUnitGuests').value||1));
+  const input=$('#accommodationBreakfast2Price');
+  if(!input)return;
+  input.disabled=maxGuests<2;
+  input.required=maxGuests>=2;
+  if(maxGuests<2)input.value='';
+}
+function syncAccommodationBasePrice(){
+  const root=$('#accommodationRateRows');
+  const prices=[
+    Number($('#accommodationBedOnlyPrice')?.value||0),
+    Number($('#accommodationBreakfast1Price')?.value||0),
+    Number($('#accommodationBreakfast2Price')?.value||0),
+    ...(root?[...root.querySelectorAll('[data-rate-price]')].map((input)=>Number(input.value)):[])
+  ].filter((value)=>Number.isFinite(value)&&value>0);
+  const base=prices.length?Math.min(...prices):0;
+  $('#accommodationUnitPrice').value=base||'';
+  const display=$('#accommodationUnitPriceDisplay');
+  if(display)display.textContent=base?money(base)+'/night':'Enter room prices below';
+}
+function openAccommodationUnitForm(propertyId,unitId=''){
+  const property=accommodationCatalogue.find(item=>String(item.id)===String(propertyId));if(!property)return;
+  const form=$('#accommodationUnitForm');form.reset();form.hidden=false;
+  $('#accommodationPropertyForm').hidden=true;
+  $('#accommodationUnitPropertyId').value=property.id;
+  $('#accommodationUnitId').value='';
+  $('#accommodationUnitGuests').value='2';$('#accommodationUnitInventory').value='1';
+  $('#accommodationUnitCategory').value='Standard Room';
+  renderAccommodationRateRows();
+  syncAccommodationRateRequirements();
+  $('#accommodationUnitPropertyLabel').innerHTML='<strong>Property:</strong> '+escapeHtml(property.property_name||'Property')+' · <span class="status-chip">'+escapeHtml(accommodationStatusLabel(property.approval_status))+'</span>';
+  const unit=(property.units||[]).find(item=>String(item.id)===String(unitId));
+  $('#accommodationUnitFormTitle').textContent=unit?'Edit Room / Unit Type':'Add Room / Unit Type';
+  if(unit){
+    $('#accommodationUnitId').value=unit.id;
+    $('#accommodationUnitCategory').value=unit.room_category||'Standard Room';
+    $('#accommodationUnitName').value=unit.unit_name||'';
+    $('#accommodationUnitPrice').value=unit.nightly_price_kes||'';
+    $('#accommodationUnitGuests').value=unit.max_guests||1;
+    $('#accommodationUnitInventory').value=unit.inventory_count||1;
+    $('#accommodationUnitBeds').value=unit.beds_description||'';
+    $('#accommodationUnitDescription').value=unit.description||'';
+    $('#accommodationUnitAmenities').value=(unit.amenities||[]).join(', ');
+    renderAccommodationRateRows(unit.rates||[]);
+  }
+  status($('#accommodationUnitStatus'),'');
+  form.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function accommodationPdfEngine(){
+  return window.jspdf?.jsPDF||null;
+}
+function accommodationPdfSafe(value=''){
+  return String(value??'')
+    .replace(/[–—]/g,'-')
+    .replace(/[‘’]/g,"'")
+    .replace(/[“”]/g,'"')
+    .replace(/[^\x20-\x7E\n]/g,' ');
+}
+function accommodationPdfFilenamePart(value=''){
+  return String(value||'accommodation')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'')
+    .slice(0,70)||'accommodation';
+}
+function accommodationPdfDate(value,withTime=false){
+  if(!value)return '—';
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime()))return String(value);
+  return new Intl.DateTimeFormat('en-KE',{
+    timeZone:'Africa/Nairobi',
+    year:'numeric',month:'short',day:'2-digit',
+    ...(withTime?{hour:'2-digit',minute:'2-digit'}:{})
+  }).format(date);
+}
+function accommodationDateKeyInNairobi(value){
+  if(!value)return '';
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime()))return String(value).slice(0,10);
+  const parts=new Intl.DateTimeFormat('en-CA',{
+    timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'
+  }).formatToParts(date);
+  const map=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+  return [map.year,map.month,map.day].join('-');
+}
+function accommodationPdfFooter(doc){
+  const pages=doc.getNumberOfPages();
+  for(let page=1;page<=pages;page++){
+    doc.setPage(page);
+    doc.setFontSize(7);
+    doc.setTextColor(120);
+    doc.text('LEOGO DIGITAL MARKET - Accommodation',12,202);
+    doc.text('Page '+page+' of '+pages,285,202,{align:'right'});
+  }
+}
+function accommodationPdfLabelValue(doc,label,value,y,options={}){
+  const x=options.x||14;
+  const labelWidth=options.labelWidth||42;
+  const maxWidth=options.maxWidth||142;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9);
+  doc.setTextColor(65);
+  doc.text(accommodationPdfSafe(label),x,y);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(25);
+  const lines=doc.splitTextToSize(accommodationPdfSafe(value||'—'),maxWidth);
+  doc.text(lines,x+labelWidth,y);
+  return y+Math.max(6,lines.length*5);
+}
+function downloadAccommodationGuestPdf(item){
+  if(!['accepted','completed'].includes(item?.booking_status)){
+    status($('#accommodationBookingStatus'),'Guest details PDF becomes available after the booking is accepted.','error');
+    return;
+  }
+  const Pdf=accommodationPdfEngine();
+  if(!Pdf){
+    status($('#accommodationBookingStatus'),'PDF generator could not load. Refresh the page and try again.','error');
+    return;
+  }
+  const doc=new Pdf({orientation:'portrait',unit:'mm',format:'a4'});
+  doc.setProperties({
+    title:'Guest Details - '+(item.booking_reference||'Accommodation Booking'),
+    subject:'LEOGO accommodation guest booking details',
+    author:'LEOGO DIGITAL MARKET'
+  });
+  doc.setFillColor(7,27,61);
+  doc.rect(0,0,210,32,'F');
+  doc.setTextColor(255);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(17);
+  doc.text('LEOGO DIGITAL MARKET',14,13);
+  doc.setFontSize(12);
+  doc.text('Accommodation Guest Details',14,22);
+  doc.setFontSize(9);
+  doc.text(accommodationPdfSafe(item.booking_reference||''),196,22,{align:'right'});
+
+  let y=43;
+  doc.setTextColor(7,27,61);
+  doc.setFontSize(13);
+  doc.text(accommodationPdfSafe(accommodationProvider?.business_name||item.property_name||'Accommodation Provider'),14,y);
+  y+=8;
+  doc.setDrawColor(220);
+  doc.line(14,y,196,y);
+  y+=9;
+
+  const fields=[
+    ['Booking reference',item.booking_reference],
+    ['Booking status',accommodationBookingStatusLabel(item.booking_status)],
+    ['Guest name',item.guest_name],
+    ['Guest phone',item.guest_phone],
+    ['Property',item.property_name],
+    ['Room',String(item.room_category||'Room')+' - '+String(item.room_name||'')],
+    ['Rate plan',item.rate_name],
+    ['Check-in',accommodationPdfDate(item.check_in)],
+    ['Check-out',accommodationPdfDate(item.check_out)],
+    ['Stay',Number(item.nights||0)+' night(s) - '+Number(item.guests||0)+' guest(s)'],
+    ['Nightly rate',money(item.nightly_price_kes)],
+    ['Hotel booking amount',money(item.hotel_booking_amount_kes ?? item.total_amount_kes)],
+    ['LEOGO hotel commission ('+Number(item.hotel_commission_percent||0)+'%)',money(item.hotel_commission_kes||0)],
+    ['Hotel net amount',money(item.hotel_net_amount_kes ?? item.hotel_booking_amount_kes ?? item.total_amount_kes)],
+    ['Customer service fee ('+Number(item.customer_service_fee_percent||0)+'%)',money(item.customer_service_fee_kes||0)],
+    ['Customer total',money(item.customer_total_kes ?? item.total_amount_kes)],
+    ['Booking received',accommodationPdfDate(item.created_at,true)]
+  ];
+  fields.forEach(([label,value])=>{y=accommodationPdfLabelValue(doc,label,value,y);});
+
+  y+=4;
+  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(7,27,61);
+  doc.text('Special request',14,y);y+=6;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(40);
+  let lines=doc.splitTextToSize(accommodationPdfSafe(item.special_requests||'No special request provided.'),180);
+  doc.text(lines,14,y);y+=Math.max(8,lines.length*5)+5;
+
+  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(7,27,61);
+  doc.text('Property response',14,y);y+=6;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(40);
+  lines=doc.splitTextToSize(accommodationPdfSafe(item.host_response||'Booking accepted.'),180);
+  doc.text(lines,14,y);y+=Math.max(8,lines.length*5)+8;
+
+  doc.setFillColor(245,248,252);
+  doc.roundedRect(14,y,182,24,3,3,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(7,27,61);
+  doc.text('Important',18,y+7);
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(65);
+  doc.text(doc.splitTextToSize('This document contains private guest information for this accommodation booking. Handle it only for legitimate booking and stay operations.',170),18,y+13);
+
+  doc.setFontSize(7);doc.setTextColor(120);
+  doc.text('Generated '+accommodationPdfDate(new Date().toISOString(),true),14,194);
+  doc.text('LEOGO DIGITAL MARKET',196,194,{align:'right'});
+  doc.save('leogo-guest-'+accommodationPdfFilenamePart(item.booking_reference)+'.pdf');
+  status($('#accommodationBookingStatus'),'Guest details PDF downloaded.','success');
+}
+function initializeAccommodationReportDates(){
+  const from=$('#accommodationReportFrom'),to=$('#accommodationReportTo');
+  if(!from||!to||from.value||to.value)return;
+  const now=new Date();
+  const local=new Date(now.toLocaleString('en-US',{timeZone:'Africa/Nairobi'}));
+  const yyyy=local.getFullYear();
+  const mm=String(local.getMonth()+1).padStart(2,'0');
+  const last=new Date(yyyy,local.getMonth()+1,0).getDate();
+  from.value=yyyy+'-'+mm+'-01';
+  to.value=yyyy+'-'+mm+'-'+String(last).padStart(2,'0');
+}
+function accommodationFilteredReportRows(){
+  initializeAccommodationReportDates();
+  const from=$('#accommodationReportFrom')?.value||'';
+  const to=$('#accommodationReportTo')?.value||'';
+  const basis=$('#accommodationReportDateBasis')?.value||'check_in';
+  const wantedStatus=$('#accommodationReportStatus')?.value||'all';
+  if(!from||!to||to<from)throw new Error('Choose a valid report From and To date.');
+  return (accommodationBookings||[]).filter(item=>{
+    const key=basis==='created_at'?accommodationDateKeyInNairobi(item.created_at):String(item.check_in||'').slice(0,10);
+    return key>=from&&key<=to&&(wantedStatus==='all'||item.booking_status===wantedStatus);
+  });
+}
+function drawAccommodationReportTable(doc,rows,startY){
+  const x=12;
+  const widths=[27,43,66,25,25,34,28];
+  const headers=['Reference','Guest','Room / Rate','Check-in','Check-out','Status','Hotel net'];
+  let y=startY;
+  const pageBottom=190;
+  const drawHeader=()=>{
+    doc.setFillColor(7,27,61);
+    doc.rect(x,y,widths.reduce((a,b)=>a+b,0),8,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(255);
+    let cx=x;
+    headers.forEach((header,index)=>{doc.text(header,cx+2,y+5.2);cx+=widths[index];});
+    y+=8;
+  };
+  drawHeader();
+  rows.forEach((item,index)=>{
+    const cells=[
+      item.booking_reference||'—',
+      (item.guest_name||'—')+'\n'+(item.guest_phone||'—'),
+      (item.room_category||'Room')+' - '+(item.room_name||'')+'\n'+(item.rate_name||'Room rate'),
+      String(item.check_in||'—'),
+      String(item.check_out||'—'),
+      accommodationBookingStatusLabel(item.booking_status),
+      money(item.hotel_net_amount_kes ?? item.hotel_booking_amount_kes ?? item.total_amount_kes)
+    ];
+    const wrapped=cells.map((value,i)=>doc.splitTextToSize(accommodationPdfSafe(value),Math.max(8,widths[i]-4)));
+    const rowHeight=Math.max(9,...wrapped.map(lines=>lines.length*4+3));
+    if(y+rowHeight>pageBottom){
+      doc.addPage('a4','landscape');
+      y=14;
+      drawHeader();
+    }
+    if(index%2===0){doc.setFillColor(248,250,252);doc.rect(x,y,widths.reduce((a,b)=>a+b,0),rowHeight,'F');}
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(35);
+    let cx=x;
+    wrapped.forEach((lines,i)=>{doc.text(lines,cx+2,y+4);cx+=widths[i];});
+    doc.setDrawColor(225);doc.line(x,y+rowHeight,x+widths.reduce((a,b)=>a+b,0),y+rowHeight);
+    y+=rowHeight;
+  });
+  return y;
+}
+function downloadAccommodationBookingReport(){
+  const Pdf=accommodationPdfEngine();
+  if(!Pdf){
+    status($('#accommodationBookingReportStatus'),'PDF generator could not load. Refresh the page and try again.','error');
+    return;
+  }
+  let rows;
+  try{rows=accommodationFilteredReportRows();}
+  catch(error){status($('#accommodationBookingReportStatus'),error.message,'error');return;}
+  if(!rows.length){
+    status($('#accommodationBookingReportStatus'),'No bookings match the selected report period and status.','error');
+    return;
+  }
+  const from=$('#accommodationReportFrom').value;
+  const to=$('#accommodationReportTo').value;
+  const basis=$('#accommodationReportDateBasis').value;
+  const wantedStatus=$('#accommodationReportStatus').value;
+  const hotelBookingValue=rows.reduce((sum,item)=>sum+Number(item.hotel_booking_amount_kes ?? item.total_amount_kes ?? 0),0);
+  const hotelCommission=rows.reduce((sum,item)=>sum+Number(item.hotel_commission_kes||0),0);
+  const hotelNet=rows.reduce((sum,item)=>sum+Number(item.hotel_net_amount_kes ?? item.hotel_booking_amount_kes ?? item.total_amount_kes ?? 0),0);
+  const accepted=rows.filter(item=>['accepted','completed'].includes(item.booking_status)).length;
+
+  const doc=new Pdf({orientation:'landscape',unit:'mm',format:'a4'});
+  doc.setProperties({
+    title:'Accommodation Booking Report '+from+' to '+to,
+    subject:'LEOGO accommodation provider booking report',
+    author:'LEOGO DIGITAL MARKET'
+  });
+  doc.setFillColor(7,27,61);doc.rect(0,0,297,28,'F');
+  doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(16);
+  doc.text('LEOGO DIGITAL MARKET',12,11);
+  doc.setFontSize(11);doc.text('Accommodation Booking Report',12,19);
+  doc.setFontSize(9);doc.text(accommodationPdfSafe(accommodationProvider?.business_name||'Accommodation Provider'),285,19,{align:'right'});
+
+  doc.setTextColor(30);doc.setFont('helvetica','normal');doc.setFontSize(8);
+  doc.text('Period: '+from+' to '+to+' | Basis: '+(basis==='created_at'?'Booking received date':'Check-in date')+' | Status: '+(wantedStatus==='all'?'All statuses':accommodationBookingStatusLabel(wantedStatus)),12,36);
+
+  const metricY=43;
+  const metrics=[
+    ['Bookings',rows.length],
+    ['Accepted / completed',accepted],
+    ['Hotel booking value',money(hotelBookingValue)],
+    ['LEOGO commission',money(hotelCommission)],
+    ['Hotel net value',money(hotelNet)]
+  ];
+  let mx=12;
+  metrics.forEach(([label,value])=>{
+    doc.setFillColor(245,248,252);doc.roundedRect(mx,metricY,50,17,2,2,'F');
+    doc.setTextColor(100);doc.setFontSize(7);doc.text(accommodationPdfSafe(label),mx+4,metricY+5);
+    doc.setTextColor(7,27,61);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(accommodationPdfSafe(value),mx+4,metricY+12);
+    doc.setFont('helvetica','normal');mx+=54;
+  });
+
+  drawAccommodationReportTable(doc,rows,67);
+  accommodationPdfFooter(doc);
+  doc.save('leogo-accommodation-bookings-'+from+'-to-'+to+'.pdf');
+  status($('#accommodationBookingReportStatus'),'Booking report PDF downloaded for '+from+' to '+to+'.','success');
+}
+
+function accommodationBookingStatusLabel(value){
+  return {
+    pending_host:'Awaiting response',
+    accepted:'Accepted',
+    rejected:'Rejected',
+    cancelled_by_customer:'Cancelled by customer',
+    cancelled_by_host:'Cancelled by property',
+    completed:'Completed'
+  }[value]||String(value||'').replaceAll('_',' ');
+}
+function renderAccommodationBookings(){
+  const target=$('#accommodationBookingList');if(!target)return;
+  const filter=$('#accommodationBookingFilter')?.value||'all';
+  const rows=(accommodationBookings||[]).filter(item=>filter==='all'||item.booking_status===filter);
+  $('#accommodationBookingMetric').textContent=String((accommodationBookings||[]).length);
+  if(!rows.length){
+    target.innerHTML='<div class="empty-card">No accommodation bookings match this filter.</div>';
+    return;
+  }
+  target.innerHTML=rows.map(item=>
+    '<article class="accommodation-provider-booking-card '+(item.booking_status==='pending_host'?'needs-action':'')+'">'+
+      '<header><div><span>'+escapeHtml(item.booking_reference||'Booking')+'</span><h4>'+escapeHtml(item.room_category||'Room')+' · '+escapeHtml(item.room_name||'Room')+'</h4><small>'+escapeHtml(item.property_name||'Property')+'</small></div><b class="status-chip">'+escapeHtml(accommodationBookingStatusLabel(item.booking_status))+'</b></header>'+
+      '<div class="accommodation-provider-booking-grid">'+
+        '<div><small>Guest</small><strong>'+escapeHtml(item.guest_name||'—')+'</strong><span>'+escapeHtml(item.guest_phone||'—')+'</span></div>'+
+        '<div><small>Stay</small><strong>'+escapeHtml(String(item.check_in||'—'))+' → '+escapeHtml(String(item.check_out||'—'))+'</strong><span>'+Number(item.nights||0)+' night(s) · '+Number(item.guests||0)+' guest(s)</span></div>'+
+        '<div><small>Rate</small><strong>'+escapeHtml(item.rate_name||'Room rate')+'</strong><span>'+money(item.nightly_price_kes)+'/night</span></div>'+
+        '<div><small>Hotel booking</small><strong>'+money(item.hotel_booking_amount_kes ?? item.total_amount_kes)+'</strong><span>Before LEOGO commission</span></div>'+
+        '<div><small>LEOGO commission ('+Number(item.hotel_commission_percent||0)+'%)</small><strong>'+money(item.hotel_commission_kes||0)+'</strong><span>Deducted from hotel amount</span></div>'+
+        '<div><small>Hotel net</small><strong>'+money(item.hotel_net_amount_kes ?? item.hotel_booking_amount_kes ?? item.total_amount_kes)+'</strong><span>Amount due to property</span></div>'+
+        '<div><small>Customer service fee ('+Number(item.customer_service_fee_percent||0)+'%)</small><strong>'+money(item.customer_service_fee_kes||0)+'</strong><span>Paid on top by customer</span></div>'+
+        '<div><small>Customer total</small><strong>'+money(item.customer_total_kes ?? item.total_amount_kes)+'</strong><span>Requested '+escapeHtml(formatDate(item.created_at))+'</span></div>'+
+      '</div>'+
+      (item.special_requests?'<p><strong>Special request:</strong> '+escapeHtml(item.special_requests)+'</p>':'')+
+      (item.host_response?'<p><strong>Your response:</strong> '+escapeHtml(item.host_response)+'</p>':'')+
+      (item.booking_status==='pending_host'
+        ? '<div class="accommodation-provider-booking-actions"><button type="button" data-accommodation-booking-action="accept" data-accommodation-booking-id="'+escapeHtml(item.id)+'">Accept Booking</button><button type="button" class="danger" data-accommodation-booking-action="reject" data-accommodation-booking-id="'+escapeHtml(item.id)+'">Reject</button></div>'
+        : ['accepted','completed'].includes(item.booking_status)
+          ? '<div class="accommodation-provider-booking-actions"><button type="button" data-accommodation-guest-pdf="'+escapeHtml(item.id)+'">Download Guest Details PDF</button></div>'
+          : '')+
+    '</article>'
+  ).join('');
+}
+async function loadAccommodationBookings(){
+  if(!currentUser||accommodationProvider?.verification_status!=='approved')return;
+  const {data,error}=await client.rpc('accommodation_provider_list_bookings');
+  if(error)throw error;
+  accommodationBookings=Array.isArray(data)?data:[];
+  initializeAccommodationReportDates();
+  renderAccommodationBookings();
+}
+async function respondAccommodationBooking(button){
+  const bookingId=button.dataset.accommodationBookingId;
+  const action=button.dataset.accommodationBookingAction;
+  const item=accommodationBookings.find(row=>String(row.id)===String(bookingId));
+  if(!item)return;
+  let response='';
+  if(action==='reject'){
+    response=window.prompt('Reason for rejecting this booking:','')||'';
+    if(response.trim().length<3){status($('#accommodationBookingStatus'),'Add a short reason before rejecting the booking.','error');return;}
+    if(!window.confirm('Reject booking '+item.booking_reference+'?'))return;
+  }else{
+    response=window.prompt('Optional message to the customer:','')||'';
+    if(!window.confirm('Accept booking '+item.booking_reference+'?'))return;
+  }
+  const original=button.textContent;button.disabled=true;button.textContent=action==='accept'?'Accepting…':'Rejecting…';
+  try{
+    const {error}=await client.rpc('accommodation_provider_respond_booking',{
+      p_booking_id:bookingId,p_action:action,p_response:response||null
+    });
+    if(error)throw error;
+    status($('#accommodationBookingStatus'),action==='accept'?'Booking accepted. Customer has been notified.':'Booking rejected. Customer has been notified.','success');
+    await Promise.all([loadAccommodationBookings(),loadAccommodationNotifications()]);
+  }catch(error){
+    status($('#accommodationBookingStatus'),error?.message||'Booking response could not be saved.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+}
+
+function accommodationSummaryRows(){
+  if(!accommodationProvider)return [];
+  return [
+    ['Business / Operator',accommodationProvider.business_name],
+    ['Owner / Manager',accommodationProvider.owner_name],
+    ['ID Number',accommodationProvider.id_number],
+    ['Phone',accommodationProvider.contact_phone],
+    ['Email',accommodationProvider.contact_email||'—'],
+    ['Location',[accommodationProvider.town,accommodationProvider.sub_county,accommodationProvider.county].filter(Boolean).join(', ')],
+    ['Operating Location',accommodationProvider.location_details],
+    ['Coordinates',(accommodationProvider.base_latitude!=null&&accommodationProvider.base_longitude!=null)?(accommodationProvider.base_latitude+', '+accommodationProvider.base_longitude):'Not pinned'],
+    ['Map Link',accommodationProvider.base_map_link||'—'],
+    ['About',accommodationProvider.business_description||'—'],
+    ['Status',String(accommodationProvider.verification_status||'').replaceAll('_',' ')],
+    ['Business ID / Identification',accommodationProvider.business_id_document_path?'Uploaded':'Missing'],
+    ['Business Licence',accommodationProvider.business_licence_path?'Uploaded':'Not provided'],
+    ['Registration Certificate',accommodationProvider.registration_certificate_path?'Uploaded':'Not provided'],
+    ['Other Permits',(accommodationProvider.other_permit_paths||[]).length+' file(s)']
+  ];
+}
+function populateAccommodationApplication(){
+  if(!accommodationProvider)return;
+  $('#accommodationBusinessName').value=accommodationProvider.business_name||'';
+  $('#accommodationOwnerName').value=accommodationProvider.owner_name||'';
+  $('#accommodationIdNumber').value=accommodationProvider.id_number||'';
+  $('#accommodationPhone').value=accommodationProvider.contact_phone||'';
+  $('#accommodationEmail').value=accommodationProvider.contact_email||currentUser?.email||'';
+  $('#accommodationTown').value=accommodationProvider.town||'';
+  $('#accommodationLocation').value=accommodationProvider.location_details||'';
+  $('#accommodationMapLink').value=accommodationProvider.base_map_link||'';
+  $('#accommodationLatitude').value=accommodationProvider.base_latitude??'';
+  $('#accommodationLongitude').value=accommodationProvider.base_longitude??'';
+  $('#accommodationDescription').value=accommodationProvider.business_description||'';
+  $('#accommodationBusinessIdDocument').required=!accommodationProvider.business_id_document_path;
+  const target=$('#accommodationPinStatus');
+  if(target)target.textContent=(accommodationProvider.base_latitude!=null&&accommodationProvider.base_longitude!=null)
+    ? '✓ Location pinned: '+accommodationProvider.base_latitude+', '+accommodationProvider.base_longitude
+    : 'Location not pinned yet.';
+  ensureAccommodationLocations(accommodationProvider.county_code||'',accommodationProvider.sub_county_code||'').catch(console.warn);
+}
+function accommodationNotificationTarget(view=''){
+  const value=String(view||'');
+  if(['bookings','accommodation-bookings'].includes(value))return 'bookings';
+  if(['properties','accommodation-properties','rooms','units'].includes(value))return 'properties';
+  if(['profile','accommodation-profile'].includes(value))return 'profile';
+  if(['earnings','accommodation-earnings'].includes(value))return 'earnings';
+  if(['settlements','accommodation-settlements'].includes(value))return 'settlements';
+  if(['availability','accommodation-availability'].includes(value))return 'availability';
+  return 'notifications';
+}
+function renderAccommodationNotifications(){
+  const list=$('#accommodationNotificationList');
+  const unread=accommodationNotifications.filter(item=>!item.read_at).length;
+  const sidebarBadge=$('#accommodationNotificationBadge');
+  const headBadge=$('#accommodationHeadNotificationBadge');
+  [sidebarBadge,headBadge].forEach(badge=>{
+    if(!badge)return;
+    badge.hidden=!unread;
+    badge.textContent=unread>99?'99+':String(unread);
+  });
+  updateSharedPartnerNotificationBadge(unread);
+  if(!list)return;
+  list.innerHTML=accommodationNotifications.length?accommodationNotifications.map(item=>
+    '<article class="seller-notification-item '+(item.read_at?'':'unread')+'" data-accommodation-notification-id="'+escapeHtml(item.id)+'">'+
+      '<div><strong>'+escapeHtml(item.title||'Accommodation update')+'</strong><p>'+escapeHtml(item.message||'')+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div>'+
+      '<div class="seller-notification-actions">'+
+        (item.action_view?'<button type="button" data-open-accommodation-notification="'+escapeHtml(item.id)+'" data-accommodation-notification-view="'+escapeHtml(item.action_view)+'">Open</button>':'')+
+        (item.read_at?'':'<button class="secondary" type="button" data-mark-accommodation-notification="'+escapeHtml(item.id)+'">Mark read</button>')+
       '</div>'+
     '</article>'
   ).join(''):'<div class="empty-card">No Accommodation notifications yet.</div>';

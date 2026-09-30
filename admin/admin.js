@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 97308)
-Total output lines: 5796
-
 // LEOGO DIGITAL MARKET — Admin Control Center V1
 (() => {
   'use strict';
@@ -1768,7 +1765,2972 @@ Total output lines: 5796
       '<div><small>Phone</small><strong>'+escapeHtml(item.customer_phone||'—')+'</strong></div>'+
       '<div><small>Order</small><strong>'+escapeHtml(item.order_reference)+'</strong></div>'+
       '<div><small>Delivered</small><strong>'+escapeHtml(formatDate(item.delivered_at,true))+'</strong></div>';
-    $('#admi…47308 tokens truncated…port',partner_name:item.provider_name,partner_email:item.provider_email}))
+    $('#adminAftersalesState').innerHTML=
+      '<div><small>Status</small><strong>'+escapeHtml(aftersalesStatusLabel(item.status))+'</strong></div>'+
+      '<div><small>Case submitted</small><strong>'+escapeHtml(formatDate(item.created_at,true))+'</strong></div>'+
+      '<div><small>Last updated</small><strong>'+escapeHtml(formatDate(item.updated_at,true))+'</strong></div>'+
+      '<div><small>Resolved</small><strong>'+escapeHtml(formatDate(item.resolved_at,true))+'</strong></div>';
+    $('#adminAftersalesRequest').innerHTML=
+      '<div><small>Issue</small><strong>'+escapeHtml(aftersalesIssueLabel(item.issue_type))+'</strong></div>'+
+      '<div><small>Preferred solution</small><strong>'+escapeHtml(aftersalesSolutionLabel(item.preferred_solution))+'</strong></div>'+
+      '<div class="admin-aftersales-details-copy"><small>Customer explanation</small><p>'+escapeHtml(item.details||'—')+'</p></div>';
+
+    $('#adminAftersalesCaseStatus').value=item.status;
+    $('#adminAftersalesNotes').value=item.admin_notes||'';
+    $('#openAftersalesEvidence').disabled=!item.evidence_path;
+    $('#openAftersalesEvidence').textContent=item.evidence_path?'View Customer Evidence':'No Evidence Attached';
+    setFormStatus($('#adminAftersalesStatus'),'');
+  };
+
+  const loadAftersalesCases=async()=>{
+    const {data,error}=await db.rpc('admin_list_marketplace_aftersales');
+    if(error) throw error;
+    state.aftersalesCases=Array.isArray(data)?data:[];
+    if(state.activeAftersalesCaseId&&!state.aftersalesCases.some((item)=>item.case_id===state.activeAftersalesCaseId)){
+      state.activeAftersalesCaseId=null;
+    }
+    renderAftersalesCases();
+    renderAftersalesDetail();
+  };
+
+  const saveActiveAftersalesCase=async(button)=>{
+    const item=state.aftersalesCases.find((row)=>row.case_id===state.activeAftersalesCaseId);
+    if(!item){
+      setFormStatus($('#adminAftersalesStatus'),'Open an Aftersales case first.','error');
+      return;
+    }
+    const nextStatus=$('#adminAftersalesCaseStatus').value;
+    const notes=$('#adminAftersalesNotes').value.trim();
+    if(['resolved','rejected'].includes(nextStatus)&&notes.length<3){
+      setFormStatus($('#adminAftersalesStatus'),'Add Customer Care notes before closing this case.','error');
+      return;
+    }
+    await withButtonLock(button,'Saving…',async()=>{
+      const {data,error}=await db.rpc('admin_update_marketplace_aftersales',{
+        p_case_id:item.case_id,
+        p_status:nextStatus,
+        p_admin_notes:notes||null
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+      await Promise.all([loadAftersalesCases(),loadAuditLog()]);
+      setFormStatus($('#adminAftersalesStatus'),'Case updated and the customer was notified.','success');
+      globalStatus('Aftersales case '+item.case_reference+' updated.');
+    });
+  };
+
+  const openActiveAftersalesEvidence=async(button)=>{
+    const item=state.aftersalesCases.find((row)=>row.case_id===state.activeAftersalesCaseId);
+    if(!item?.evidence_path) return;
+    await withButtonLock(button,'Opening…',async()=>{
+      const {data,error}=await db.storage.from('marketplace-aftersales-evidence').createSignedUrl(item.evidence_path,600);
+      if(error) throw error;
+      if(!data?.signedUrl) throw new Error('Evidence link could not be created');
+      window.open(data.signedUrl,'_blank','noopener');
+    });
+  };
+
+  const paymentStatusLabel=(status)=>({
+    submitted:'Submitted — verify',
+    verified_paid:'Paid',
+    cod_due:'COD due',
+    cod_paid:'Paid on delivery',
+    rejected:'Rejected'
+  }[status]||String(status||'').replaceAll('_',' '));
+
+  const orderStatusLabel=(status)=>({
+    placed:'Placed',
+    processing:'Seller preparing',
+    with_rider:'With rider',
+    delivered:'Delivered',
+    cancelled:'Cancelled'
+  }[status]||String(status||'').replaceAll('_',' '));
+
+  const sellerFulfilmentLabel=(status)=>({
+    new:'New order',
+    received:'Received',
+    packed_ready:'Packed & ready',
+    handed_to_rider:'Handed to rider',
+    delivered:'Delivered',
+    cancelled:'Cancelled'
+  }[status]||String(status||'').replaceAll('_',' '));
+
+  const deliveryStatusLabel=(status)=>({
+    awaiting_assignment:'Awaiting assignment',
+    assigned:'Rider assigned',
+    picked_up:'Picked up from Seller',
+    arrived_sorting_center:'Arrived at LEOGO Sorting Center',
+    sorting_received:'Received at LEOGO Sorting Center',
+    ready_for_dispatch:'Ready for dispatch',
+    on_the_way:'On the way',
+    delivered_to_pickup_station:'Delivered to Pickup Station — awaiting receipt',
+    ready_for_pickup:'Pickup Station received — Ready for Pickup',
+    delivered:'Delivered',
+    failed:'Failed',
+    cancelled:'Cancelled'
+  }[status]||String(status||'').replaceAll('_',' '));
+
+  const filteredMarketplaceOrders=()=>{
+    const term=($('#adminOrderSearch')?.value||'').trim().toLowerCase();
+    const payment= $('#adminOrderPaymentFilter')?.value||'all';
+    const status= $('#adminOrderStatusFilter')?.value||'all';
+
+    return state.marketplaceOrders.filter((order)=>{
+      const values=[
+        order.order_reference,order.receiver_name,order.contact_number,order.customer_email,
+        order.payment_method,order.payment_status,order.order_status
+      ].map((value)=>String(value||'').toLowerCase());
+
+      return (!term||values.some((value)=>value.includes(term)))
+        && (payment==='all'||order.payment_status===payment)
+        && (status==='all'||order.order_status===status);
+    });
+  };
+
+  const verifyMarketplaceOrderPayment=async(button,orderId,paid)=>{
+    if(!adminHas('orders.payment_verify')){
+      globalStatus('Your staff role cannot verify customer payments.','error');
+      return;
+    }
+    let notes='';
+    if(!paid){
+      notes=window.prompt('Reason the payment could not be verified:','')||'';
+      if(notes.trim().length<3){
+        globalStatus('Enter a clear payment rejection reason.','error');
+        return;
+      }
+    }
+
+    if(paid&&!window.confirm('Confirm that this customer payment has been verified in the LEOGO receiving account?')) return;
+
+    await withButtonLock(button,paid?'Verifying…':'Rejecting…',async()=>{
+      const {error}=await db.rpc('admin_verify_marketplace_order_payment',{
+        p_order_id:orderId,
+        p_paid:paid,
+        p_notes:notes||null
+      });
+      if(error){
+        globalStatus(friendlyError(error),'error');
+        return;
+      }
+
+      await Promise.all([loadMarketplaceOrders({refreshActiveDetail:false}),loadAuditLog()]);
+      if(state.activeMarketplaceOrderId===orderId){
+        await loadMarketplaceOrderDetail(orderId,{scroll:false});
+      }
+      globalStatus(paid?'Order payment verified.':'Order payment rejected.');
+    });
+  };
+
+  const renderMarketplaceOrders=()=>{
+    const all=state.marketplaceOrders;
+    const orders=filteredMarketplaceOrders();
+
+    $('#adminOrderTotal').textContent=all.length;
+    $('#adminOrderPaymentPending').textContent=all.filter((o)=>o.payment_status==='submitted').length;
+    $('#adminOrderWithRider').textContent=all.filter((o)=>o.order_status==='with_rider').length;
+    $('#adminOrderDelivered').textContent=all.filter((o)=>o.order_status==='delivered').length;
+
+    $('#adminMarketplaceOrderBody').innerHTML=orders.length?orders.map((o)=>`<tr class="${state.activeMarketplaceOrderId===o.id?'admin-order-row-active':''}">
+      <td><strong>${escapeHtml(o.order_reference)}</strong><small>${formatDate(o.created_at,true)}</small></td>
+      <td><strong>${escapeHtml(o.receiver_name)}</strong><small>${escapeHtml(o.customer_email||o.contact_number||'')}</small></td>
+      <td><strong>${formatMoney(o.grand_total_kes)}</strong><small>${Number(o.seller_count||0)} Seller(s)</small></td>
+      <td><span class="status-chip">${escapeHtml(paymentStatusLabel(o.payment_status))}</span><small>${escapeHtml(String(o.payment_method||'').replaceAll('_',' '))}</small></td>
+      <td><span class="status-chip">${escapeHtml(orderStatusLabel(o.order_status))}</span></td>
+      <td><small class="order-payment-proof">${escapeHtml(o.payment_message||'No payment message')}</small></td>
+      <td class="settlement-admin-actions admin-order-row-actions">
+        <button type="button" data-open-marketplace-order="${escapeHtml(o.id)}">View Order</button>
+        ${o.payment_status==='submitted' && adminHas('orders.payment_verify')
+          ? '<button type="button" data-order-payment="paid" data-order-id="'+escapeHtml(o.id)+'">Verify Paid</button><button type="button" class="danger" data-order-payment="reject" data-order-id="'+escapeHtml(o.id)+'">Reject</button>'
+          : ''}
+      </td>
+    </tr>`).join(''):'<tr><td colspan="7">No marketplace orders match the current filters.</td></tr>';
+
+    $$('[data-open-marketplace-order]').forEach((button)=>button.addEventListener('click',()=>{
+      loadMarketplaceOrderDetail(button.dataset.openMarketplaceOrder,{scroll:true});
+    }));
+
+    $$('[data-order-payment]').forEach((button)=>button.addEventListener('click',()=>{
+      verifyMarketplaceOrderPayment(button,button.dataset.orderId,button.dataset.orderPayment==='paid');
+    }));
+  };
+
+  const orderItemMediaUrl=(path)=>{
+    if(!path) return '';
+    return db.storage.from('seller-product-media').getPublicUrl(String(path)).data?.publicUrl||'';
+  };
+
+  const safeHttpUrl=(value)=>{
+    try{
+      const url=new URL(String(value||''));
+      return ['http:','https:'].includes(url.protocol)?url.href:'';
+    }catch{return '';}
+  };
+
+  const orderDeliveryAddress=(order)=>{
+    if(order.delivery_zone==='pickup'){
+      return order.pickup_station_name
+        ? [order.pickup_station_name,order.pickup_station_address].filter(Boolean).join(' — ')
+        : 'Customer collection at selected LEOGO pickup station';
+    }
+    return [order.estate,order.landmark,order.sub_county,order.county].filter(Boolean).join(', ')||'Delivery address not supplied';
+  };
+
+  const sellerReadiness=(sellers)=>{
+    if(!sellers.length) return {ready:false,label:'Waiting for Seller order records'};
+    const ready=sellers.every((seller)=>['packed_ready','handed_to_rider','delivered'].includes(seller.fulfilment_status));
+    return {
+      ready,
+      label:ready?'All Seller portions are packed & ready':'Waiting for Seller preparation'
+    };
+  };
+
+  const deliveryQrTarget = (order) => {
+    const url=new URL('../scan/',window.location.href);
+    url.searchParams.set('order',order.id);
+    url.searchParams.set('ref',order.order_reference||'');
+    url.searchParams.set('type','marketplace');
+    return url.href;
+  };
+
+  const loadImageForCanvas = (src) => new Promise((resolve,reject)=>{
+    const image=new Image();
+    image.onload=()=>resolve(image);
+    image.onerror=()=>reject(new Error('Image could not load'));
+    image.src=src;
+  });
+
+  const canvasWrapText = (ctx,text,x,y,maxWidth,lineHeight,maxLines=99) => {
+    const words=String(text||'').replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+    const lines=[];
+    let line='';
+    for(const word of words){
+      const test=line?line+' '+word:word;
+      if(ctx.measureText(test).width>maxWidth && line){
+        lines.push(line);
+        line=word;
+        if(lines.length>=maxLines) break;
+      }else{
+        line=test;
+      }
+    }
+    if(lines.length<maxLines && line) lines.push(line);
+    if(words.length && lines.length===maxLines){
+      const joined=lines.join(' ');
+      if(joined.length<String(text||'').trim().length){
+        let last=lines[lines.length-1]||'';
+        while(last.length>3 && ctx.measureText(last+'...').width>maxWidth) last=last.slice(0,-1);
+        lines[lines.length-1]=last+'...';
+      }
+    }
+    lines.forEach((value,index)=>ctx.fillText(value,x,y+(index*lineHeight)));
+    return y+(lines.length*lineHeight);
+  };
+
+  const buildDeliveryQrCanvas = async (text,size=250) => {
+    if(!window.QRCode) throw new Error('QR generator did not load. Refresh Admin and try again.');
+    const holder=document.createElement('div');
+    holder.style.position='fixed';
+    holder.style.left='-10000px';
+    holder.style.top='-10000px';
+    document.body.appendChild(holder);
+    try{
+      new window.QRCode(holder,{
+        text,
+        width:size,
+        height:size,
+        correctLevel:window.QRCode.CorrectLevel?.M ?? 0
+      });
+      await new Promise((resolve)=>window.setTimeout(resolve,30));
+      const qrCanvas=holder.querySelector('canvas');
+      if(qrCanvas) return qrCanvas;
+
+      const img=holder.querySelector('img');
+      if(img){
+        if(!img.complete) await new Promise((resolve)=>{img.onload=resolve;});
+        const canvas=document.createElement('canvas');
+        canvas.width=size;
+        canvas.height=size;
+        canvas.getContext('2d').drawImage(img,0,0,size,size);
+        return canvas;
+      }
+      throw new Error('QR code could not be generated.');
+    }finally{
+      holder.remove();
+    }
+  };
+
+  const buildOrderDeliverySummaryCanvas = async (detail) => {
+    if(!detail?.order) throw new Error('Open an order before downloading its delivery summary.');
+
+    const order=detail.order;
+    const items=Array.isArray(detail.items)?detail.items:[];
+    const sellers=Array.isArray(detail.sellers)?detail.sellers:[];
+    const delivery=detail.delivery||null;
+    const width=1240;
+    const height=1754;
+    const canvas=document.createElement('canvas');
+    canvas.width=width;
+    canvas.height=height;
+    const ctx=canvas.getContext('2d');
+
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,width,height);
+    ctx.fillStyle='#07152f';
+    ctx.fillRect(0,0,width,220);
+    ctx.fillStyle='#ff7800';
+    ctx.fillRect(0,220,width,16);
+
+    try{
+      const logoUrl=new URL('../assets/images/leogo-official-logo.jpg',window.location.href).href;
+      const logo=await loadImageForCanvas(logoUrl);
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(52,44,126,126);
+      ctx.drawImage(logo,52,44,126,126);
+    }catch{}
+
+    ctx.textBaseline='top';
+    ctx.fillStyle='#ffffff';
+    ctx.font='700 42px Arial, sans-serif';
+    ctx.fillText('LEOGO DIGITAL MARKET',205,54);
+    ctx.font='700 24px Arial, sans-serif';
+    ctx.fillStyle='#ffb26e';
+    ctx.fillText('ORDER SUMMARY / DELIVERY LABEL',205,110);
+    ctx.font='18px Arial, sans-serif';
+    ctx.fillStyle='#d7dfeb';
+    ctx.fillText('For fulfilment, pickup, Rider handover and final delivery.',205,150);
+
+    const qrUrl=deliveryQrTarget(order);
+    const qr=await buildDeliveryQrCanvas(qrUrl,230);
+    const contentWidth=width-108;
+
+    // Keep the summary full-width. The QR is placed below the summary instead
+    // of beside it so the printed label reads naturally from top to bottom.
+    let y=286;
+    ctx.fillStyle='#6b778b';
+    ctx.font='700 16px Arial, sans-serif';
+    ctx.fillText('ORDER REFERENCE',54,y);
+    y+=30;
+    ctx.fillStyle='#07152f';
+    ctx.font='700 38px Arial, sans-serif';
+    ctx.fillText(String(order.order_reference||'ORDER'),54,y);
+    y+=62;
+
+    ctx.fillStyle='#fff4e8';
+    ctx.fillRect(54,y,contentWidth,82);
+    ctx.fillStyle='#b44f00';
+    ctx.font='700 18px Arial, sans-serif';
+    ctx.fillText('STATUS',72,y+18);
+    ctx.fillStyle='#07152f';
+    ctx.font='700 24px Arial, sans-serif';
+    ctx.fillText(orderStatusLabel(order.order_status).toUpperCase()+'  |  '+deliveryStatusLabel(delivery?.status||'awaiting_assignment').toUpperCase(),175,y+13);
+    y+=116;
+
+    const sectionTitle=(title,atY)=>{
+      ctx.fillStyle='#07152f';
+      ctx.font='700 22px Arial, sans-serif';
+      ctx.fillText(title,54,atY);
+      ctx.fillStyle='#ff7800';
+      ctx.fillRect(54,atY+31,contentWidth,4);
+      return atY+52;
+    };
+
+    y=sectionTitle('DELIVER TO',y);
+    ctx.fillStyle='#07152f';
+    ctx.font='700 30px Arial, sans-serif';
+    ctx.fillText(String(order.receiver_name||'Receiver'),54,y);
+    y+=44;
+    ctx.font='700 23px Arial, sans-serif';
+    ctx.fillStyle='#26364f';
+    ctx.fillText(String(order.contact_number||'No phone'),54,y);
+    y+=38;
+    ctx.font='22px Arial, sans-serif';
+    ctx.fillStyle='#44526a';
+    y=canvasWrapText(ctx,orderDeliveryAddress(order),54,y,contentWidth,31,3)+12;
+
+    y=sectionTitle('ORDER ITEMS',y);
+    const visibleItems=items.slice(0,7);
+    if(!visibleItems.length){
+      ctx.font='20px Arial, sans-serif';
+      ctx.fillStyle='#6b778b';
+      ctx.fillText('No item lines found.',54,y);
+      y+=40;
+    }else{
+      for(const item of visibleItems){
+        const name=item.variant_name?item.product_name+' - '+item.variant_name:item.product_name;
+        ctx.font='700 22px Arial, sans-serif';
+        ctx.fillStyle='#07152f';
+        ctx.fillText(Number(item.quantity||0)+' x',54,y);
+        ctx.font='22px Arial, sans-serif';
+        canvasWrapText(ctx,name,112,y,840,29,2);
+        ctx.font='700 20px Arial, sans-serif';
+        ctx.textAlign='right';
+        ctx.fillText(formatMoney(item.line_total_kes),1180,y);
+        ctx.textAlign='left';
+        y+=58;
+        ctx.fillStyle='#e2e8f0';
+        ctx.fillRect(54,y-9,contentWidth,1);
+      }
+      if(items.length>visibleItems.length){
+        ctx.fillStyle='#6b778b';
+        ctx.font='700 18px Arial, sans-serif';
+        ctx.fillText('+'+(items.length-visibleItems.length)+' more item line(s)',54,y);
+        y+=34;
+      }
+    }
+
+    y=sectionTitle('PAYMENT',Math.min(y+8,1250));
+    const codDue=order.payment_status==='cod_due';
+    ctx.fillStyle=codDue?'#fff0e5':'#edf9f1';
+    ctx.fillRect(54,y,contentWidth,92);
+    ctx.fillStyle=codDue?'#a94300':'#177245';
+    ctx.font='700 20px Arial, sans-serif';
+    ctx.fillText(codDue?'COLLECT ON DELIVERY':'PAYMENT STATUS',72,y+16);
+    ctx.font='700 30px Arial, sans-serif';
+    ctx.fillText(codDue?formatMoney(order.grand_total_kes):paymentStatusLabel(order.payment_status).toUpperCase(),72,y+46);
+    ctx.fillStyle='#394960';
+    ctx.font='18px Arial, sans-serif';
+    ctx.textAlign='right';
+    ctx.fillText(String(order.payment_method||'').replaceAll('_',' ').toUpperCase(),1170,y+53);
+    ctx.textAlign='left';
+    y+=122;
+
+    ctx.fillStyle='#07152f';
+    ctx.font='700 19px Arial, sans-serif';
+    ctx.fillText('RIDER',54,y);
+    ctx.font='20px Arial, sans-serif';
+    ctx.fillStyle='#34445d';
+    ctx.fillText(delivery?.rider_name||'Not yet assigned',150,y);
+    if(delivery?.rider_phone){
+      ctx.font='18px Arial, sans-serif';
+      ctx.fillText(delivery.rider_phone,500,y+2);
+    }
+
+    y+=42;
+    ctx.font='700 19px Arial, sans-serif';
+    ctx.fillStyle='#07152f';
+    ctx.fillText('SELLER(S)',54,y);
+    ctx.font='18px Arial, sans-serif';
+    ctx.fillStyle='#34445d';
+    y=canvasWrapText(ctx,sellers.map((seller)=>seller.business_name).filter(Boolean).join(', ')||'Seller details available in Admin',165,y,1010,26,2)+28;
+
+    if(delivery?.admin_notes){
+      ctx.font='700 17px Arial, sans-serif';
+      ctx.fillStyle='#07152f';
+      ctx.fillText('STAFF / RIDER INSTRUCTIONS',54,y);
+      ctx.font='17px Arial, sans-serif';
+      ctx.fillStyle='#44526a';
+      y=canvasWrapText(ctx,delivery.admin_notes,54,y+28,contentWidth,24,3)+18;
+    }
+
+    if(delivery?.rider_notes){
+      ctx.font='700 17px Arial, sans-serif';
+      ctx.fillStyle='#07152f';
+      ctx.fillText('RIDER UPDATE',54,y);
+      ctx.font='17px Arial, sans-serif';
+      ctx.fillStyle='#44526a';
+      y=canvasWrapText(ctx,delivery.rider_notes,54,y+28,contentWidth,24,2)+12;
+    }
+
+    // QR block below the order summary.
+    const footerY=1658;
+    const qrSize=230;
+    const qrBlockHeight=qrSize+76;
+    const preferredQrY=Math.max(y+22,1260);
+    const qrY=Math.min(preferredQrY,footerY-qrBlockHeight-16);
+    const qrX=Math.round((width-qrSize)/2);
+
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(qrX-14,qrY-12,qrSize+28,qrBlockHeight);
+    ctx.drawImage(qr,qrX,qrY,qrSize,qrSize);
+    ctx.fillStyle='#07152f';
+    ctx.font='700 17px Arial, sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('SCAN ORDER',width/2,qrY+qrSize+14);
+    ctx.font='700 14px Arial, sans-serif';
+    ctx.fillStyle='#5d6b7f';
+    ctx.fillText(String(order.order_reference||'LEOGO ORDER'),width/2,qrY+qrSize+40);
+    ctx.textAlign='left';
+
+    ctx.fillStyle='#07152f';
+    ctx.fillRect(0,footerY,width,height-footerY);
+    ctx.fillStyle='#ffffff';
+    ctx.font='700 18px Arial, sans-serif';
+    ctx.fillText('Permanent LEOGO order QR — authorized Staff and assigned Pickup Station Partners can use it to identify this order.',54,footerY+28);
+    ctx.font='16px Arial, sans-serif';
+    ctx.fillStyle='#c9d4e4';
+    ctx.fillText('Printed '+formatDate(new Date().toISOString(),true)+'  |  Do not expose this label after delivery.',54,footerY+62);
+    ctx.textAlign='right';
+    ctx.fillStyle='#ffb26e';
+    ctx.font='700 17px Arial, sans-serif';
+    ctx.fillText(String(order.order_reference||''),1186,footerY+47);
+    ctx.textAlign='left';
+
+    return canvas;
+  };
+
+  const downloadOrderDeliverySummary = async () => {
+    const detail=state.activeMarketplaceOrderDetail;
+    if(!detail?.order) return;
+    const button=$('#downloadOrderDeliverySummary');
+    const original=button?.textContent||'Download Order Summary + QR';
+    try{
+      if(button){button.disabled=true;button.textContent='Preparing Summary…';}
+      setFormStatus($('#adminOrderDetailStatus'),'Generating order summary with permanent LEOGO order QR…');
+      const canvas=await buildOrderDeliverySummaryCanvas(detail);
+      const blob=await new Promise((resolve)=>canvas.toBlob(resolve,'image/png'));
+      if(!blob) throw new Error('Delivery summary image could not be created.');
+      const url=URL.createObjectURL(blob);
+      const link=document.createElement('a');
+      link.href=url;
+      link.download=(detail.order.order_reference||'LEOGO-order')+'-order-summary.png';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(url),1500);
+      setFormStatus($('#adminOrderDetailStatus'),'Order summary with QR downloaded successfully.','success');
+    }catch(error){
+      setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
+    }finally{
+      if(button){button.disabled=false;button.textContent=original;}
+    }
+  };
+
+  const printOrderDeliverySummary = async () => {
+    const detail=state.activeMarketplaceOrderDetail;
+    if(!detail?.order) return;
+
+    const paperSize=$('#orderSummaryPaperSize')?.value||'a6';
+    const popup=window.open('','_blank',paperSize==='80mm'?'width=420,height=760':'width=900,height=1100');
+    if(!popup){
+      setFormStatus($('#adminOrderDetailStatus'),'Your browser blocked the print window. Allow pop-ups for LEOGO Admin and try again.','error');
+      return;
+    }
+
+    const button=$('#printOrderDeliverySummary');
+    const original=button?.textContent||'Print Order Summary';
+    try{
+      if(button){button.disabled=true;button.textContent='Preparing…';}
+      popup.document.write('<!doctype html><title>Preparing LEOGO Delivery Summary</title><body style="font-family:Arial;padding:24px">Preparing delivery summary…</body>');
+      const canvas=await buildOrderDeliverySummaryCanvas(detail);
+      const dataUrl=canvas.toDataURL('image/png');
+      const pageCss=paperSize==='80mm'
+        ? '@page{size:80mm 113mm;margin:0}html,body{width:80mm;height:113mm;margin:0;padding:0;background:#fff}img{width:80mm;height:113mm;object-fit:contain;display:block;margin:0}'
+        : '@page{size:A6 portrait;margin:0}html,body{width:105mm;height:148mm;margin:0;padding:0;background:#fff}img{width:105mm;height:148mm;object-fit:contain;display:block;margin:0}';
+      const paperLabel=paperSize==='80mm'?'80 mm thermal':'A6';
+      popup.document.open();
+      popup.document.write('<!doctype html><html><head><title>'+escapeHtml(detail.order.order_reference||'LEOGO Order Summary')+'</title><style>'+pageCss+'</style></head><body><img id="label" src="'+dataUrl+'" alt="LEOGO Order Summary"><script>document.getElementById("label").onload=function(){setTimeout(function(){window.print();},120)};<\/script></body></html>');
+      popup.document.close();
+      setFormStatus($('#adminOrderDetailStatus'),'Order summary opened for '+paperLabel+' printing.','success');
+    }catch(error){
+      popup.close();
+      setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
+    }finally{
+      if(button){button.disabled=false;button.textContent=original;}
+    }
+  };
+
+  const renderMarketplaceOrderDetail=()=>{
+    const panel=$('#adminOrderDetailPanel');
+    const detail=state.activeMarketplaceOrderDetail;
+    if(!panel||!detail?.order) return;
+
+    const order=detail.order;
+    const items=Array.isArray(detail.items)?detail.items:[];
+    const sellers=Array.isArray(detail.sellers)?detail.sellers:[];
+    const delivery=detail.delivery||null;
+    const readiness=sellerReadiness(sellers);
+    const codNeedsCollection=String(order.payment_method||'').toLowerCase()==='cod'
+      && !['cod_paid','verified_paid'].includes(String(order.payment_status||'').toLowerCase());
+    const codInstruction='COD: Collect and confirm the full '+formatMoney(order.grand_total_kes)+' payment before handing over the order to the customer.';
+
+    panel.hidden=false;
+    if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=false;
+    if($('#printOrderDeliverySummary')) $('#printOrderDeliverySummary').disabled=false;
+    $('#adminOrderDetailTitle').textContent=order.order_reference||'Order Details';
+    $('#adminOrderDetailSubtitle').textContent=formatDate(order.created_at,true)+' · '+orderStatusLabel(order.order_status);
+    setFormStatus($('#adminOrderDetailStatus'));
+
+    const locationUrl=safeHttpUrl(order.location_link);
+    $('#adminOrderCustomerDetail').innerHTML=
+      '<div class="admin-order-info-row"><small>Receiver</small><strong>'+escapeHtml(order.receiver_name||'—')+'</strong></div>'+
+      '<div class="admin-order-info-row"><small>Phone</small><strong>'+escapeHtml(order.contact_number||'—')+'</strong></div>'+
+      '<div class="admin-order-info-row"><small>Customer email</small><strong>'+escapeHtml(order.customer_email||'—')+'</strong></div>'+
+      '<div class="admin-order-info-row"><small>Delivery method</small><strong>'+escapeHtml(String(order.delivery_zone||'').replaceAll('_',' '))+'</strong></div>'+
+      '<div class="admin-order-info-row admin-order-address-row"><small>Destination</small><strong>'+escapeHtml(orderDeliveryAddress(order))+'</strong></div>'+
+      (locationUrl?'<a class="admin-order-location-link" href="'+escapeHtml(locationUrl)+'" target="_blank" rel="noopener">Open customer location pin ↗</a>':'');
+
+    const paymentActions=order.payment_status==='submitted' && adminHas('orders.payment_verify')
+      ? '<div class="admin-order-payment-actions"><button type="button" data-detail-payment="paid">Verify Paid</button><button type="button" class="danger" data-detail-payment="reject">Reject Payment</button></div>'
+      : '';
+
+    $('#adminOrderPaymentDetail').innerHTML=
+      '<div class="admin-order-info-row"><small>Payment method</small><strong>'+escapeHtml(String(order.payment_method||'').replaceAll('_',' '))+'</strong></div>'+
+      '<div class="admin-order-info-row"><small>Payment status</small><strong>'+escapeHtml(paymentStatusLabel(order.payment_status))+'</strong></div>'+
+      '<div class="admin-order-payment-proof-full"><small>Payment confirmation / proof</small><p>'+escapeHtml(order.payment_message||'No payment message submitted')+'</p></div>'+
+      '<div class="admin-order-totals">'+
+        '<span><small>Items subtotal</small><strong>'+formatMoney(order.items_subtotal_kes)+'</strong></span>'+
+        '<span><small>Service fee</small><strong>'+formatMoney(order.service_fee_kes)+'</strong></span>'+
+        '<span><small>Pickup fee</small><strong>'+formatMoney(order.pickup_fee_kes)+'</strong></span>'+
+        '<span><small>Delivery fee</small><strong>'+formatMoney(order.delivery_fee_kes)+'</strong></span>'+
+        '<span class="grand"><small>Grand total</small><strong>'+formatMoney(order.grand_total_kes)+'</strong></span>'+
+      '</div>'+
+      (order.payment_verified_at?'<p class="admin-order-verified-note">Verified '+escapeHtml(formatDate(order.payment_verified_at,true))+(order.payment_verified_by_name?' by '+escapeHtml(order.payment_verified_by_name):'')+'</p>':'')+
+      paymentActions;
+
+    $('#adminOrderItemList').innerHTML=items.length?items.map((item)=>{
+      const imageUrl=orderItemMediaUrl(item.variant_image_path||item.product_image_path);
+      const itemName=item.variant_name?item.product_name+' — '+item.variant_name:item.product_name;
+      return '<article class="admin-order-item-card">'+
+        '<div class="admin-order-item-image">'+(imageUrl?'<img src="'+escapeHtml(imageUrl)+'" alt="">':'<span>📦</span>')+'</div>'+
+        '<div class="admin-order-item-main">'+
+          '<span>'+escapeHtml(item.seller_name||'Seller')+'</span>'+
+          '<h5>'+escapeHtml(itemName)+'</h5>'+
+          '<p>'+Number(item.quantity)+' × '+formatMoney(item.unit_price_kes)+(item.measurement_unit?' · '+escapeHtml(item.measurement_unit):'')+'</p>'+
+        '</div>'+
+        '<strong>'+formatMoney(item.line_total_kes)+'</strong>'+
+      '</article>';
+    }).join(''):'<div class="loading-card">No order items found.</div>';
+
+    $('#adminOrderSellerList').innerHTML=sellers.length?sellers.map((seller)=>{
+      const stages=[
+        ['Received',seller.received_at],
+        ['Packed & Ready',seller.packed_ready_at],
+        ['Handed to Rider',seller.handed_to_rider_at],
+        ['Delivered',seller.delivered_at]
+      ];
+      const sellerItems=(seller.items||[]).map((item)=>'<li><strong>'+escapeHtml(item.product_name||'Product')+'</strong>'+(item.variant_name?' · '+escapeHtml(item.variant_name):'')+' · '+Number(item.quantity)+(item.measurement_unit?' '+escapeHtml(item.measurement_unit):'')+'</li>').join('');
+      return '<article class="admin-order-seller-card">'+
+        '<header><div><span>SELLER</span><h5>'+escapeHtml(seller.business_name||'Seller')+'</h5><p>'+escapeHtml(seller.seller_phone||'')+(seller.seller_email?' · '+escapeHtml(seller.seller_email):'')+'</p></div>'+
+          '<span class="status-chip">'+escapeHtml(sellerFulfilmentLabel(seller.fulfilment_status))+'</span></header>'+
+        '<div class="admin-order-seller-facts">'+
+          '<span><small>Seller subtotal</small><strong>'+formatMoney(seller.seller_subtotal_kes)+'</strong></span>'+
+          '<span><small>Pickup location</small><strong>'+escapeHtml(seller.seller_location||'Not supplied')+'</strong></span>'+
+          '<span><small>Shop coordinates</small><strong>'+(seller.seller_latitude!=null&&seller.seller_longitude!=null?escapeHtml(seller.seller_latitude+', '+seller.seller_longitude):'Not pinned')+'</strong></span>'+
+        '</div>'+
+        (seller.seller_map_link?'<p><a class="download-quote" href="'+escapeHtml(seller.seller_map_link)+'" target="_blank" rel="noopener noreferrer">📍 Open Seller Shop in Google Maps ↗</a></p>':'')+
+        (sellerItems?'<div class="admin-order-seller-products"><small>PRODUCTS FROM THIS SELLER</small><ul>'+sellerItems+'</ul></div>':'')+
+        '<div class="admin-order-timeline">'+stages.map(([label,date])=>'<span class="'+(date?'done':'')+'"><i></i><b>'+escapeHtml(label)+'</b><small>'+escapeHtml(date?formatDate(date,true):'Pending')+'</small></span>').join('')+'</div>'+
+      '</article>';
+    }).join(''):'<div class="loading-card">No Seller fulfilment records found.</div>';
+
+    const activeRiders=state.riders.filter((r)=>r.status==='active');
+    const assignmentLocked=delivery&&['picked_up','arrived_sorting_center','sorting_received','ready_for_dispatch','on_the_way','delivered'].includes(delivery.status);
+    const canAssignRider=adminHas('delivery.manage')||adminHas('orders.manage');
+    const canManageSorting=adminHas('delivery.manage')||adminHas('orders.manage');
+    const sortingActionHtml=!delivery||!canManageSorting
+      ? ''
+      : ['picked_up','arrived_sorting_center'].includes(delivery.status)
+        ? '<div class="admin-sorting-actions"><button type="button" data-sorting-status="sorting_received">Confirm Received at Sorting Center</button><small>Use this when the order is physically handed in at LEOGO Sorting Center.</small></div>'
+        : delivery.status==='sorting_received'
+          ? '<div class="admin-sorting-actions"><button type="button" data-sorting-status="ready_for_dispatch">Mark Ready for Dispatch</button><small>After this, the assigned Rider can continue final delivery from the Sorting Center.</small></div>'
+          : delivery.status==='ready_for_dispatch'
+            ? '<div class="admin-sorting-ready"><strong>✓ Ready for dispatch</strong><span>The assigned Rider can now start final delivery from LEOGO Sorting Center.</span></div>'
+            : '';
+    const riderOptions='<option value="">Choose active LEOGO rider…</option>'+activeRiders.map((r)=>
+      '<option value="'+escapeHtml(r.user_id)+'" '+(delivery?.rider_id===r.user_id?'selected':'')+'>'+
+        escapeHtml(r.display_name)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):'')+
+      '</option>'
+    ).join('');
+
+    const deliveryTimeline=[
+      ['Assigned',delivery?.assigned_at],
+      ['Picked Up from Seller',delivery?.picked_up_at],
+      ['Arrived Sorting Center',delivery?.arrived_sorting_center_at],
+      ['Received at Sorting Center',delivery?.sorting_received_at],
+      ['Ready for Dispatch',delivery?.ready_for_dispatch_at],
+      ['On the Way',delivery?.on_the_way_at],
+      ['Delivered',delivery?.delivered_at]
+    ];
+
+    $('#adminOrderDeliveryDetail').innerHTML=
+      '<div class="admin-order-delivery-summary">'+
+        '<span><small>Seller readiness</small><strong>'+escapeHtml(readiness.label)+'</strong></span>'+
+        '<span><small>Delivery status</small><strong>'+escapeHtml(deliveryStatusLabel(delivery?.status||'awaiting_assignment'))+'</strong></span>'+
+        '<span><small>Current rider</small><strong>'+escapeHtml(delivery?.rider_name||'Not assigned')+'</strong></span>'+
+        '<span><small>Rider phone</small><strong>'+escapeHtml(delivery?.rider_phone||'—')+'</strong></span>'+
+      '</div>'+
+      '<div class="admin-order-timeline admin-order-delivery-timeline">'+deliveryTimeline.map(([label,date])=>'<span class="'+(date?'done':'')+'"><i></i><b>'+escapeHtml(label)+'</b><small>'+escapeHtml(date?formatDate(date,true):'Pending')+'</small></span>').join('')+'</div>'+
+      sortingActionHtml+
+      (codNeedsCollection
+        ? '<div class="admin-order-cod-warning"><strong>💵 COD — payment must be collected before customer handover</strong><span>'+escapeHtml(codInstruction)+'</span></div>'
+        : '')+
+      '<div class="admin-order-delivery-notes">'+
+        '<label><span>Rider instructions / delivery notes</span><textarea id="adminRiderInstructions" maxlength="2000" rows="3" placeholder="Add pickup, customer, payment or handling instructions for the Rider…">'+escapeHtml(delivery?.admin_notes||'')+'</textarea></label>'+
+        '<div class="admin-order-delivery-note-actions">'+
+          (codNeedsCollection?'<button type="button" class="secondary" id="useCodRiderInstruction">Use COD Instruction</button>':'')+
+          '<button type="button" id="saveAdminRiderInstructions">Save Instructions</button>'+
+        '</div>'+
+        '<div class="admin-order-rider-note-readback"><small>Rider notes / delivery update</small><p>'+escapeHtml(delivery?.rider_notes||'No Rider notes added yet.')+'</p></div>'+
+      '</div>'+
+      (!canAssignRider
+        ? '<div class="admin-order-assignment-locked">Your staff role can view delivery status but cannot assign or reassign Riders.</div>'
+        : assignmentLocked
+          ? '<div class="admin-order-assignment-locked">Rider assignment is locked because delivery has already started.</div>'
+          : activeRiders.length
+            ? '<div class="admin-order-rider-assign"><select id="adminOrderRiderSelect">'+riderOptions+'</select><button type="button" id="assignRiderFromOrder">'+(delivery?.rider_id?'Reassign Rider':'Assign Rider')+'</button></div><div id="adminOrderDeliveryStatus" class="form-status" aria-live="polite"></div>'
+            : '<div class="admin-order-no-rider"><strong>No active LEOGO rider account exists yet.</strong><p>Create a Rider from Staff Management and the Rider will become selectable here automatically.</p><button type="button" disabled>Assign Rider</button></div>'
+      );
+
+    $$('[data-detail-payment]').forEach((button)=>button.addEventListener('click',()=>{
+      verifyMarketplaceOrderPayment(button,order.id,button.dataset.detailPayment==='paid');
+    }));
+
+
+  };
+
+  const updateActiveOrderSortingStatus = async (button,status) => {
+    const order=state.activeMarketplaceOrderDetail?.order;
+    if(!order?.id){
+      showOrderDeliveryStatus('The open order could not be identified. Refresh and try again.','error');
+      return;
+    }
+
+    const label=status==='sorting_received'
+      ?'confirm this order has been received at the LEOGO Sorting Center'
+      :'mark this order ready for dispatch from the LEOGO Sorting Center';
+    if(!window.confirm('Confirm you want to '+label+'?')) return;
+
+    await withButtonLock(button,status==='sorting_received'?'Confirming…':'Updating…',async()=>{
+      showOrderDeliveryStatus(status==='sorting_received'
+        ?'Confirming Sorting Center receipt…'
+        :'Marking order ready for dispatch…');
+      try{
+        const {data,error}=await db.rpc('admin_update_sorting_center_status',{
+          p_order_id:order.id,
+          p_status:status
+        });
+        if(error) throw error;
+        if(data?.error) throw new Error(data.error);
+
+        showOrderDeliveryStatus(status==='sorting_received'
+          ?'Order received at LEOGO Sorting Center.'
+          :'Order is ready for dispatch. The assigned Rider can continue delivery.','success');
+        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders({refreshActiveDetail:false}),loadAuditLog()]);
+        await loadMarketplaceOrderDetail(order.id,{scroll:false});
+      }catch(error){
+        showOrderDeliveryStatus(friendlyError(error),'error');
+      }
+    });
+  };
+
+  const saveActiveOrderRiderInstructions = async (button) => {
+    const order=state.activeMarketplaceOrderDetail?.order;
+    const notes=$('#adminRiderInstructions')?.value||'';
+    if(!order?.id){
+      showOrderDeliveryStatus('The open order could not be identified. Refresh and try again.','error');
+      return;
+    }
+
+    await withButtonLock(button,'Saving…',async()=>{
+      showOrderDeliveryStatus('Saving Rider instructions…');
+      try{
+        const {data,error}=await db.rpc('admin_update_delivery_instructions',{
+          p_order_id:order.id,
+          p_admin_notes:notes
+        });
+        if(error) throw error;
+        if(data?.error) throw new Error(data.error);
+        showOrderDeliveryStatus('Rider instructions saved successfully.','success');
+        await Promise.all([loadAuditLog(),loadMarketplaceOrders({refreshActiveDetail:false})]);
+        await loadMarketplaceOrderDetail(order.id,{scroll:false});
+      }catch(error){
+        showOrderDeliveryStatus(friendlyError(error),'error');
+      }
+    });
+  };
+
+  const applyCodRiderInstruction = () => {
+    const detail=state.activeMarketplaceOrderDetail;
+    const order=detail?.order;
+    const box=$('#adminRiderInstructions');
+    if(!order||!box) return;
+    const instruction='COD: Collect and confirm the full '+formatMoney(order.grand_total_kes)+' payment before handing over the order to the customer.';
+    const current=box.value.trim();
+    box.value=current
+      ? (current.includes(instruction)?current:current+'\n'+instruction)
+      : instruction;
+    box.focus();
+  };
+
+  const showOrderDeliveryStatus = (message='',type='') => {
+    setFormStatus($('#adminOrderDetailStatus'),message,type);
+    setFormStatus($('#adminOrderDeliveryStatus'),message,type);
+  };
+
+  const assignActiveOrderRider = async (button) => {
+    const detail=state.activeMarketplaceOrderDetail;
+    const order=detail?.order;
+    const riderId=$('#adminOrderRiderSelect')?.value;
+
+    if(!order?.id){
+      showOrderDeliveryStatus('The open order could not be identified. Refresh the order and try again.','error');
+      return;
+    }
+    if(!riderId){
+      showOrderDeliveryStatus('Choose an active LEOGO rider first.','error');
+      return;
+    }
+
+    await withButtonLock(button,'Assigning…',async()=>{
+      showOrderDeliveryStatus('Assigning rider…');
+      try{
+        const {data,error}=await db.rpc('admin_assign_rider_to_order',{
+          p_order_id:order.id,
+          p_rider_id:riderId
+        });
+        if(error) throw error;
+        if(data?.error) throw new Error(data.error);
+
+        showOrderDeliveryStatus('Rider assigned successfully. Customer, Seller and Rider were notified.','success');
+        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders({refreshActiveDetail:false}),loadAuditLog()]);
+        await loadMarketplaceOrderDetail(order.id,{scroll:false});
+      }catch(error){
+        showOrderDeliveryStatus(friendlyError(error),'error');
+      }
+    });
+  };
+
+  const loadMarketplaceOrderDetail=async(orderId,{scroll=true}={})=>{
+    const panel=$('#adminOrderDetailPanel');
+    const loadToken=++state.orderDetailLoadToken;
+    state.activeMarketplaceOrderId=orderId;
+    state.activeMarketplaceOrderDetail=null;
+
+    if(panel){
+      panel.hidden=false;
+      if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=true;
+      if($('#printOrderDeliverySummary')) $('#printOrderDeliverySummary').disabled=true;
+      $('#adminOrderDetailTitle').textContent='Loading order…';
+      $('#adminOrderDetailSubtitle').textContent='Retrieving customer, Seller, item, payment and delivery information.';
+      $('#adminOrderCustomerDetail').textContent='Loading…';
+      $('#adminOrderPaymentDetail').textContent='Loading…';
+      $('#adminOrderItemList').innerHTML='<div class="loading-card">Loading items…</div>';
+      $('#adminOrderSellerList').innerHTML='<div class="loading-card">Loading Seller fulfilment…</div>';
+      $('#adminOrderDeliveryDetail').innerHTML='<div class="loading-card">Loading delivery state…</div>';
+    }
+
+    renderMarketplaceOrders();
+
+    const [detailResult,riderResult,sortingResult]=await Promise.all([
+      db.rpc('admin_get_marketplace_order_detail',{p_order_id:orderId}),
+      db.rpc('admin_list_riders'),
+      db.rpc('admin_get_delivery_sorting_state',{p_order_id:orderId})
+    ]);
+    if(loadToken!==state.orderDetailLoadToken || state.activeMarketplaceOrderId!==orderId) return;
+    if(detailResult.error){
+      state.activeMarketplaceOrderDetail=null;
+      setFormStatus($('#adminOrderDetailStatus'),friendlyError(detailResult.error),'error');
+      return;
+    }
+    if(!riderResult.error) state.riders=Array.isArray(riderResult.data)?riderResult.data:[];
+
+    state.activeMarketplaceOrderDetail=detailResult.data;
+    if(!sortingResult.error&&sortingResult.data&&state.activeMarketplaceOrderDetail?.delivery){
+      state.activeMarketplaceOrderDetail.delivery={
+        ...state.activeMarketplaceOrderDetail.delivery,
+        ...sortingResult.data
+      };
+    }
+    renderMarketplaceOrderDetail();
+
+    if(scroll) panel?.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  const closeMarketplaceOrderDetail=()=>{
+    state.orderDetailLoadToken++;
+    state.activeMarketplaceOrderId=null;
+    state.activeMarketplaceOrderDetail=null;
+    if($('#adminOrderDetailPanel')) $('#adminOrderDetailPanel').hidden=true;
+    if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=true;
+    if($('#printOrderDeliverySummary')) $('#printOrderDeliverySummary').disabled=true;
+    renderMarketplaceOrders();
+  };
+
+  const catalogueMediaUrl = (path) => {
+    if (!path) return '';
+    return db.storage.from('seller-product-media').getPublicUrl(String(path)).data?.publicUrl || '';
+  };
+
+  const filteredCatalogueProducts = () => {
+    const term = ($('#adminCatalogueSearch')?.value || '').trim().toLowerCase();
+    const statusFilter = $('#adminCatalogueStatusFilter')?.value || 'all';
+    const sellerFilter = $('#adminCatalogueSellerFilter')?.value || 'all';
+    const categoryFilter = $('#adminCatalogueCategoryFilter')?.value || 'all';
+
+    return state.catalogueProducts.filter((product) => {
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      const searchable = [
+        product.product_name, product.seller_name, product.seller_owner,
+        product.category_name, product.subcategory_name, product.product_details,
+        ...variants.map((variant) => variant.variant_name)
+      ].map((value) => String(value || '').toLowerCase());
+
+      return (!term || searchable.some((value) => value.includes(term)))
+        && (statusFilter === 'all' || product.listing_status === statusFilter)
+        && (sellerFilter === 'all' || product.seller_id === sellerFilter)
+        && (categoryFilter === 'all' || product.category_id === categoryFilter);
+    });
+  };
+
+  const renderCatalogueCategories = () => {
+    const box = $('#adminCatalogueCategoryList');
+    if (!box) return;
+
+    box.innerHTML = state.catalogueCategories.length
+      ? state.catalogueCategories.map((category) => {
+          const subs = Array.isArray(category.subcategories) ? category.subcategories : [];
+          return `<article class="admin-category-card">
+            <header>
+              <div><strong>${escapeHtml(category.name)}</strong><small>${Number(category.product_count || 0)} product(s) · ${Number(category.active_product_count || 0)} active</small></div>
+              <span class="status-chip">${category.is_aggregator ? 'Aggregator' : category.is_assignable ? 'Seller category' : 'System category'}</span>
+            </header>
+            <div class="admin-category-subs">${subs.length
+              ? subs.map((sub) => `<span><b>${escapeHtml(sub.name)}</b><small>${Number(sub.product_count || 0)} product(s)</small></span>`).join('')
+              : '<span><b>No sub-categories</b></span>'}</div>
+          </article>`;
+        }).join('')
+      : '<div class="loading-card">No categories configured.</div>';
+  };
+
+  const renderCatalogueProducts = () => {
+    const products = filteredCatalogueProducts();
+    const box = $('#adminCatalogueProductList');
+    if (!box) return;
+
+    $('#adminCatalogueTotal').textContent = state.catalogueProducts.length;
+    $('#adminCatalogueActive').textContent = state.catalogueProducts.filter((p) => p.listing_status === 'active').length;
+    $('#adminCatalogueVariants').textContent = state.catalogueProducts.filter((p) => p.has_variants).length;
+    $('#adminCatalogueCategories').textContent = state.catalogueCategories.filter((c) => c.is_active).length;
+
+    const sellers = [...new Map(state.catalogueProducts.map((p) => [p.seller_id, p.seller_name])).entries()]
+      .sort((a,b) => String(a[1] || '').localeCompare(String(b[1] || '')));
+    const sellerSelect = $('#adminCatalogueSellerFilter');
+    if (sellerSelect) {
+      const current = sellerSelect.value || 'all';
+      sellerSelect.innerHTML = '<option value="all">All Sellers</option>' + sellers
+        .map(([id,name]) => '<option value="'+escapeHtml(id)+'">'+escapeHtml(name || 'Seller')+'</option>').join('');
+      sellerSelect.value = sellers.some(([id]) => id === current) ? current : 'all';
+    }
+
+    const categorySelect = $('#adminCatalogueCategoryFilter');
+    if (categorySelect) {
+      const current = categorySelect.value || 'all';
+      categorySelect.innerHTML = '<option value="all">All Categories</option>' + state.catalogueCategories
+        .filter((c) => c.is_active && !c.is_aggregator)
+        .map((c) => '<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.name)+'</option>').join('');
+      categorySelect.value = state.catalogueCategories.some((c) => c.id === current) ? current : 'all';
+    }
+
+    if (!products.length) {
+      box.innerHTML = '<div class="loading-card">No Seller products match the current filters.</div>';
+      return;
+    }
+
+    box.innerHTML = products.map((product) => {
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      const mainUrl = catalogueMediaUrl(product.main_image_path);
+      const variantHtml = product.has_variants
+        ? '<div class="admin-product-variants">' + (
+            variants.length
+              ? variants.map((variant) => {
+                  const imageUrl = catalogueMediaUrl(variant.image_path);
+                  return '<div class="admin-product-variant">' +
+                    (imageUrl ? '<img src="'+escapeHtml(imageUrl)+'" alt="">' : '<span class="admin-media-placeholder">📷</span>') +
+                    '<div><b>'+escapeHtml(variant.variant_name)+'</b><small>'+formatMoney(variant.price_kes)+' · Qty '+Number(variant.quantity_available || 0)+'</small></div>' +
+                  '</div>';
+                }).join('')
+              : '<div class="admin-product-warning">Variant-enabled product has no saved variant rows.</div>'
+          ) + '</div>'
+        : '';
+
+      const nextAction = product.listing_status === 'suspended'
+        ? '<button type="button" data-admin-product-status="active" data-admin-product-id="'+escapeHtml(product.id)+'">Reactivate</button>'
+        : '<button type="button" class="danger" data-admin-product-status="suspended" data-admin-product-id="'+escapeHtml(product.id)+'">Suspend Listing</button>';
+
+      return `<article class="admin-catalogue-product-card">
+        <div class="admin-catalogue-product-image">${mainUrl
+          ? '<img src="'+escapeHtml(mainUrl)+'" alt="'+escapeHtml(product.product_name)+'">'
+          : '<span>📦</span>'}</div>
+        <div class="admin-catalogue-product-main">
+          <div class="admin-catalogue-product-title">
+            <div>
+              <span>${escapeHtml(product.category_name || 'Uncategorised')}${product.subcategory_name ? ' · '+escapeHtml(product.subcategory_name) : ''}</span>
+              <h3>${escapeHtml(product.product_name)}</h3>
+              <p>Seller: <strong>${escapeHtml(product.seller_name || 'Unknown Seller')}</strong> · ${escapeHtml(product.seller_email || '')}</p>
+            </div>
+            <div class="admin-catalogue-badges">
+              <span class="status-chip">Approval: ${escapeHtml(product.product_approval_status || 'pending')}</span>
+              <span class="status-chip">${escapeHtml(product.listing_status)}</span>
+              <span class="status-chip">${escapeHtml(product.availability_status)}</span>
+              ${product.has_variants ? '<span class="status-chip">'+variants.length+' variants</span>' : ''}
+            </div>
+          </div>
+          <div class="admin-product-facts">
+            <span><small>Price</small><strong>${formatMoney(product.price_kes)}</strong></span>
+            <span><small>Stock</small><strong>${Number(product.quantity_available || 0)} ${escapeHtml(product.measurement_unit || '')}</strong></span>
+            <span><small>Updated</small><strong>${formatDate(product.updated_at, true)}</strong></span>
+            <span><small>Seller status</small><strong>${escapeHtml(product.seller_status || '—')}</strong></span>
+          </div>
+          <p class="admin-product-description">${escapeHtml(product.product_details || '')}</p>
+          ${variantHtml}
+          <div class="admin-catalogue-actions">
+            <button type="button" data-seller-record="${escapeHtml(product.seller_id)}">View Seller</button>
+            ${nextAction}
+          </div>
+        </div>
+      </article>`;
+    }).join('');
+
+    $$('[data-admin-product-status]', box).forEach((button) => button.addEventListener('click', async () => {
+      const status = button.dataset.adminProductStatus;
+      const product = state.catalogueProducts.find((item) => item.id === button.dataset.adminProductId);
+      if (!product) return;
+
+      const prompt = status === 'suspended'
+        ? 'Suspend "'+product.product_name+'" from the marketplace? The Seller will be notified.'
+        : 'Reactivate "'+product.product_name+'" as an active listing?';
+      if (!window.confirm(prompt)) return;
+
+      await withButtonLock(button, status === 'suspended' ? 'Suspending…' : 'Activating…', async () => {
+        const { error } = await db.rpc('admin_set_seller_product_listing_status', {
+          p_product_id: product.id,
+          p_status: status
+        });
+        if (error) {
+          globalStatus(friendlyError(error), 'error');
+          return;
+        }
+        await Promise.all([loadCatalogue(), loadSellers(), loadAuditLog()]);
+        globalStatus(status === 'suspended' ? 'Product listing suspended. Seller notified.' : 'Product listing reactivated. Seller notified.');
+      });
+    }));
+
+    $$('[data-seller-record]', box).forEach((button) => button.addEventListener('click', () => openSellerRecord(button.dataset.sellerRecord)));
+  };
+
+  const personalSaleMediaUrl = (path) => {
+    if (!path) return '';
+    return db.storage.from('customer-sale-media').getPublicUrl(String(path)).data?.publicUrl || '';
+  };
+
+  const renderPersonalMarketplaceAdmin = () => {
+    const listingBox = $('#adminPersonalSaleList');
+    const interestBox = $('#adminPersonalInterestList');
+    if (!listingBox || !interestBox) return;
+
+    const listings = state.personalSales;
+    const interests = state.personalSaleInterests;
+    $('#adminPersonalSaleTotal').textContent = listings.length;
+    $('#adminPersonalSaleAvailable').textContent = listings.filter((item) => item.approval_status === 'approved' && item.sale_status === 'available').length;
+    $('#adminPersonalSaleClosed').textContent = listings.filter((item) => ['sold','removed'].includes(item.sale_status)).length;
+    $('#adminPersonalInterestOpen').textContent = interests.filter((item) => ['new','contacted'].includes(item.status)).length;
+
+    listingBox.innerHTML = listings.length ? listings.map((item) => {
+      const imageUrl = personalSaleMediaUrl(item.item_image_path);
+      const approved = item.approval_status === 'approved';
+      const canManage = approved;
+      const statusActions = !canManage
+        ? '<span class="status-chip">Awaiting / historical approval</span>'
+        : item.sale_status === 'available'
+          ? '<button type="button" class="danger" data-personal-sale-status="sold" data-personal-sale-id="'+escapeHtml(item.id)+'">Mark Sold</button><button type="button" class="danger" data-personal-sale-status="removed" data-personal-sale-id="'+escapeHtml(item.id)+'">Remove Listing</button>'
+          : '<button type="button" data-personal-sale-status="available" data-personal-sale-id="'+escapeHtml(item.id)+'">Restore as Available</button>';
+
+      return `<article class="admin-personal-sale-card">
+        <div class="admin-personal-sale-image">${imageUrl ? '<img src="'+escapeHtml(imageUrl)+'" alt="">' : '<span>🏷️</span>'}</div>
+        <div class="admin-personal-sale-main">
+          <div class="admin-personal-sale-title">
+            <div><span>PERSONAL ITEM</span><h4>${escapeHtml(item.item_name)}</h4><p>${escapeHtml(item.seller_name)} · ${escapeHtml(item.seller_email || '')}</p></div>
+            <div class="admin-catalogue-badges">
+              <span class="status-chip">Approval: ${escapeHtml(item.approval_status)}</span>
+              <span class="status-chip">Sale: ${escapeHtml(item.sale_status)}</span>
+            </div>
+          </div>
+          <div class="admin-product-facts">
+            <span><small>Marked price</small><strong>${formatMoney(item.marked_price_kes)}</strong></span>
+            <span><small>Owner phone</small><strong>${escapeHtml(item.phone || '—')}</strong></span>
+            <span><small>Location</small><strong>${escapeHtml(item.location || '—')}</strong></span>
+            <span><small>Buyer interest</small><strong>${Number(item.open_interest_count || 0)} open / ${Number(item.interest_count || 0)} total</strong></span>
+          </div>
+          <div class="admin-catalogue-actions">${statusActions}</div>
+        </div>
+      </article>`;
+    }).join('') : '<div class="loading-card">No personal item listings have been submitted yet.</div>';
+
+    interestBox.innerHTML = interests.length ? interests.map((item) => {
+      const open = ['new','contacted'].includes(item.status);
+      return `<article class="admin-personal-interest-card">
+        <div class="admin-personal-interest-headline">
+          <div><span>${escapeHtml(item.status)}</span><h4>${escapeHtml(item.buyer_name)} is interested in ${escapeHtml(item.item_name)}</h4><p>${formatMoney(item.marked_price_kes)} · ${formatDate(item.created_at,true)}</p></div>
+        </div>
+        <div class="admin-contact-grid">
+          <div><small>BUYER — ADMIN ONLY</small><strong>${escapeHtml(item.buyer_name)}</strong><span>${escapeHtml(item.buyer_phone || '—')}</span><span>${escapeHtml(item.buyer_email || '—')}</span></div>
+          <div><small>ITEM OWNER — ADMIN ONLY</small><strong>${escapeHtml(item.seller_name)}</strong><span>${escapeHtml(item.seller_phone || '—')}</span><span>${escapeHtml(item.seller_email || '—')}</span></div>
+        </div>
+        ${item.message ? '<div class="admin-interest-message"><small>BUYER MESSAGE</small><p>'+escapeHtml(item.message)+'</p></div>' : ''}
+        <div class="admin-catalogue-actions">
+          ${item.status === 'new' ? '<button type="button" data-personal-interest-status="contacted" data-personal-interest-id="'+escapeHtml(item.id)+'">Mark Contacted</button>' : ''}
+          ${open ? '<button type="button" data-personal-interest-status="closed" data-personal-interest-id="'+escapeHtml(item.id)+'">Close Request</button>' : '<span class="status-chip">Closed</span>'}
+        </div>
+      </article>`;
+    }).join('') : '<div class="loading-card">No customer interest requests yet.</div>';
+
+    Array.from(listingBox.querySelectorAll('[data-personal-sale-status]')).forEach((button)=>button.addEventListener('click',async()=>{
+      const status=button.dataset.personalSaleStatus;
+      const listing=state.personalSales.find((item)=>item.id===button.dataset.personalSaleId);
+      if(!listing) return;
+      const prompt=status==='sold'
+        ? 'Mark "'+listing.item_name+'" as SOLD? It will disappear from the public marketplace.'
+        : status==='removed'
+          ? 'Remove "'+listing.item_name+'" from the public marketplace?'
+          : 'Restore "'+listing.item_name+'" as available?';
+      if(!window.confirm(prompt)) return;
+      await withButtonLock(button,status==='available'?'Restoring…':'Updating…',async()=>{
+        const {error}=await db.rpc('admin_set_personal_sale_status',{
+          p_listing_id:listing.id,p_status:status,p_notes:null
+        });
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        await Promise.all([loadPersonalMarketplace(),loadAuditLog()]);
+        globalStatus(status==='sold'?'Personal item marked sold.':status==='removed'?'Personal item removed from public marketplace.':'Personal item restored as available.');
+      });
+    }));
+
+    Array.from(interestBox.querySelectorAll('[data-personal-interest-status]')).forEach((button)=>button.addEventListener('click',async()=>{
+      const status=button.dataset.personalInterestStatus;
+      await withButtonLock(button,status==='contacted'?'Updating…':'Closing…',async()=>{
+        const {error}=await db.rpc('admin_update_personal_sale_interest',{
+          p_interest_id:button.dataset.personalInterestId,p_status:status,p_notes:null
+        });
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        await Promise.all([loadPersonalMarketplace(),loadAuditLog()]);
+        globalStatus(status==='contacted'?'Interest request marked contacted. Both customers were notified.':'Interest request closed.');
+      });
+    }));
+  };
+
+  const loadPersonalMarketplace = async () => {
+    const listingBox=$('#adminPersonalSaleList');
+    const interestBox=$('#adminPersonalInterestList');
+    try{
+      const [listingResult,interestResult]=await Promise.all([
+        db.rpc('admin_list_personal_marketplace'),
+        db.rpc('admin_list_personal_sale_interests')
+      ]);
+      if(listingResult.error) throw listingResult.error;
+      if(interestResult.error) throw interestResult.error;
+      state.personalSales=Array.isArray(listingResult.data)?listingResult.data:[];
+      state.personalSaleInterests=Array.isArray(interestResult.data)?interestResult.data:[];
+      renderPersonalMarketplaceAdmin();
+    }catch(error){
+      console.error('Personal marketplace admin load failed:',error);
+      if(listingBox) listingBox.innerHTML='<div class="loading-card admin-load-error">Personal listings could not load: '+escapeHtml(friendlyError(error))+'</div>';
+      if(interestBox) interestBox.innerHTML='<div class="loading-card admin-load-error">Interest requests could not load.</div>';
+      throw error;
+    }
+  };
+
+  $('#refreshPersonalMarketplace')?.addEventListener('click',()=>withButtonLock($('#refreshPersonalMarketplace'),'Refreshing…',loadPersonalMarketplace));
+
+  const adminReviewStars=(rating)=>{
+    const value=Math.max(0,Math.min(5,Number(rating||0)));
+    return '★'.repeat(value)+'☆'.repeat(5-value);
+  };
+
+  const renderProductReviews=()=>{
+    const box=$('#adminProductReviewList');
+    if(!box) return;
+    const filter=$('#adminProductReviewStatusFilter')?.value||'submitted';
+    const rows=state.productReviews.filter((review)=>filter==='all'||review.moderation_status===filter);
+    const pending=state.productReviews.filter((review)=>review.moderation_status==='submitted').length;
+    if($('#adminProductReviewPending')) $('#adminProductReviewPending').textContent=pending;
+
+    if(!rows.length){
+      box.innerHTML='<div class="loading-card">No product reviews match this filter.</div>';
+      return;
+    }
+
+    box.innerHTML=rows.map((review)=>{
+      const approved=review.moderation_status==='approved';
+      const rejected=review.moderation_status==='rejected';
+      return '<article class="admin-product-review-card" data-product-review-card="'+escapeHtml(review.review_id)+'">'+
+        '<header><div><span>VERIFIED PURCHASE REVIEW</span><h4>'+escapeHtml(review.product_name)+(review.variant_name?' · '+escapeHtml(review.variant_name):'')+'</h4>'+
+        '<p>Order <strong>'+escapeHtml(review.order_reference)+'</strong> · Seller <strong>'+escapeHtml(review.seller_name)+'</strong></p></div>'+
+        '<div class="admin-product-review-rating"><strong>'+adminReviewStars(review.rating)+'</strong><span>'+Number(review.rating)+'/5</span></div></header>'+
+        '<div class="admin-product-review-meta">'+
+          '<span><small>Customer</small><strong>'+escapeHtml(review.customer_name||'Customer')+'</strong></span>'+
+          '<span><small>Submitted</small><strong>'+formatDate(review.created_at,true)+'</strong></span>'+
+          '<span><small>Status</small><strong>'+escapeHtml(String(review.moderation_status||'submitted').replaceAll('_',' '))+'</strong></span>'+
+        '</div>'+
+        '<div class="admin-product-review-comment"><small>CUSTOMER REVIEW</small><p>'+escapeHtml(review.comment||'Rating only — no written comment.')+'</p></div>'+
+        '<label class="admin-product-review-note"><span>Admin moderation note</span><textarea data-product-review-note maxlength="1500" rows="2" placeholder="Required when rejecting; optional when approving…">'+escapeHtml(review.admin_notes||'')+'</textarea></label>'+
+        '<div class="admin-product-review-actions">'+
+          (approved?'<span class="admin-product-review-approved">✓ Approved & public</span>':'<button type="button" data-product-review-action="approved" data-review-id="'+escapeHtml(review.review_id)+'">Approve Review</button>')+
+          (rejected?'<span class="admin-product-review-rejected">Rejected</span>':'<button type="button" class="danger" data-product-review-action="rejected" data-review-id="'+escapeHtml(review.review_id)+'">Reject</button>')+
+        '</div>'+
+      '</article>';
+    }).join('');
+  };
+
+  const renderOrderReviews=()=>{ 
+    const box=$('#adminOrderReviewList');
+    if(!box) return;
+    const filter=$('#adminOrderReviewStatusFilter')?.value||'submitted';
+    const rows=state.orderReviews.filter((review)=>filter==='all'||review.moderation_status===filter);
+
+    if(!rows.length){
+      box.innerHTML='<div class="loading-card">No overall order reviews match this filter.</div>';
+      return;
+    }
+
+    box.innerHTML=rows.map((review)=>{
+      const approved=review.moderation_status==='approved';
+      const rejected=review.moderation_status==='rejected';
+      return '<article class="admin-product-review-card" data-order-review-card="'+escapeHtml(review.review_id)+'">'+
+        '<header><div><span>VERIFIED DELIVERED ORDER REVIEW</span><h4>'+escapeHtml(review.order_reference)+'</h4>'+
+        '<p>'+Number(review.item_count||0)+' item(s) · '+Number(review.seller_count||0)+' Seller(s)</p></div>'+
+        '<div class="admin-product-review-rating"><strong>'+adminReviewStars(review.rating)+'</strong><span>'+Number(review.rating)+'/5</span></div></header>'+
+        '<div class="admin-product-review-meta">'+
+          '<span><small>Customer</small><strong>'+escapeHtml(review.customer_name||'Customer')+'</strong></span>'+
+          '<span><small>Email</small><strong>'+escapeHtml(review.customer_email||'—')+'</strong></span>'+
+          '<span><small>Submitted</small><strong>'+formatDate(review.created_at,true)+'</strong></span>'+
+          '<span><small>Status</small><strong>'+escapeHtml(String(review.moderation_status||'submitted').replaceAll('_',' '))+'</strong></span>'+
+        '</div>'+
+        '<div class="admin-product-review-comment"><small>OVERALL ORDER REVIEW</small><p>'+escapeHtml(review.comment||'Rating only — no written comment.')+'</p></div>'+
+        '<label class="admin-product-review-note"><span>Admin moderation note</span><textarea data-order-review-note maxlength="1500" rows="2" placeholder="Required when rejecting; optional when approving…">'+escapeHtml(review.admin_notes||'')+'</textarea></label>'+
+        '<div class="admin-product-review-actions">'+
+          (approved?'<span class="admin-product-review-approved">✓ Approved</span>':'<button type="button" data-order-review-action="approved" data-review-id="'+escapeHtml(review.review_id)+'">Approve Review</button>')+
+          (rejected?'<span class="admin-product-review-rejected">Rejected</span>':'<button type="button" class="danger" data-order-review-action="rejected" data-review-id="'+escapeHtml(review.review_id)+'">Reject</button>')+
+        '</div>'+
+      '</article>';
+    }).join('');
+  };
+
+  const moderateOrderReview=async(button)=>{
+    const reviewId=button.dataset.reviewId;
+    const action=button.dataset.orderReviewAction;
+    const card=button.closest('[data-order-review-card]');
+    const notes=card?.querySelector('[data-order-review-note]')?.value.trim()||'';
+
+    if(action==='rejected'&&!notes){
+      globalStatus('Add an Admin note explaining why this order review is rejected.','error');
+      card?.querySelector('[data-order-review-note]')?.focus();
+      return;
+    }
+
+    const confirmation=action==='approved'
+      ? 'Approve this overall order review?'
+      : 'Reject this order review? The customer will be notified.';
+    if(!window.confirm(confirmation)) return;
+
+    await withButtonLock(button,action==='approved'?'Approving…':'Rejecting…',async()=>{
+      const {data,error}=await db.rpc('admin_moderate_order_review',{
+        p_review_id:reviewId,
+        p_action:action,
+        p_admin_notes:notes||null
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+
+      await Promise.all([loadCatalogue(),loadAuditLog()]);
+      globalStatus(action==='approved'
+        ? 'Order review approved.'
+        : 'Order review rejected. Customer notified.');
+    });
+  };
+
+  const moderateProductReview=async(button)=>{
+    const reviewId=button.dataset.reviewId;
+    const action=button.dataset.productReviewAction;
+    const card=button.closest('[data-product-review-card]');
+    const notes=card?.querySelector('[data-product-review-note]')?.value.trim()||'';
+
+    if(action==='rejected'&&!notes){
+      globalStatus('Add an Admin note explaining why this product review is rejected.','error');
+      card?.querySelector('[data-product-review-note]')?.focus();
+      return;
+    }
+
+    const confirmation=action==='approved'
+      ? 'Approve this verified product review and publish it on the customer website?'
+      : 'Reject this review? It will remain private and the customer will be notified.';
+    if(!window.confirm(confirmation)) return;
+
+    await withButtonLock(button,action==='approved'?'Approving…':'Rejecting…',async()=>{
+      const {data,error}=await db.rpc('admin_moderate_product_review',{
+        p_review_id:reviewId,
+        p_action:action,
+        p_admin_notes:notes||null
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+
+      await Promise.all([loadCatalogue(),loadAuditLog()]);
+      globalStatus(action==='approved'
+        ? 'Product review approved and published.'
+        : 'Product review rejected. Customer notified.');
+    });
+  };
+
+  const loadCatalogue = async () => {
+    const productBox = $('#adminCatalogueProductList');
+    const categoryBox = $('#adminCatalogueCategoryList');
+
+    try {
+      if (productBox && !state.catalogueProducts.length) {
+        productBox.innerHTML = '<div class="loading-card">Loading Seller products…</div>';
+      }
+      if (categoryBox && !state.catalogueCategories.length) {
+        categoryBox.innerHTML = '<div class="loading-card">Loading categories…</div>';
+      }
+
+      const [productsResult,categoriesResult,reviewsResult,orderReviewsResult] = await Promise.all([
+        db.rpc('admin_list_catalogue_products'),
+        db.rpc('admin_list_catalogue_categories'),
+        db.rpc('admin_list_product_reviews'),
+        db.rpc('admin_list_order_reviews')
+      ]);
+
+      if (productsResult.error) throw productsResult.error;
+      if (categoriesResult.error) throw categoriesResult.error;
+      if (reviewsResult.error) throw reviewsResult.error;
+      if (orderReviewsResult.error) throw orderReviewsResult.error;
+
+      state.catalogueProducts = Array.isArray(productsResult.data) ? productsResult.data : [];
+      state.catalogueCategories = Array.isArray(categoriesResult.data) ? categoriesResult.data : [];
+      state.productReviews = Array.isArray(reviewsResult.data) ? reviewsResult.data : [];
+      state.orderReviews = Array.isArray(orderReviewsResult.data) ? orderReviewsResult.data : [];
+
+      renderCatalogueProducts();
+      renderCatalogueCategories();
+      renderProductReviews();
+      renderOrderReviews();
+      return state.catalogueProducts;
+    } catch (error) {
+      console.error('Admin catalogue load failed:', error);
+      if (productBox) {
+        productBox.innerHTML =
+          '<div class="loading-card admin-load-error"><strong>Seller products could not load.</strong><small>'+
+          escapeHtml(friendlyError(error))+
+          '</small><button type="button" id="retryAdminCatalogue">Retry Catalogue</button></div>';
+        $('#retryAdminCatalogue')?.addEventListener('click', () => loadCatalogue());
+      }
+      if (categoryBox) {
+        categoryBox.innerHTML = '<div class="loading-card">Categories could not load. Use Refresh Catalogue.</div>';
+      }
+      throw error;
+    }
+  };
+
+  $('#refreshAdminCatalogue')?.addEventListener('click', () =>
+    withButtonLock($('#refreshAdminCatalogue'), 'Refreshing…', loadCatalogue)
+  );
+  $('#refreshProductReviews')?.addEventListener('click', () =>
+    withButtonLock($('#refreshProductReviews'), 'Refreshing…', loadCatalogue)
+  );
+  $('#refreshOrderReviews')?.addEventListener('click', () =>
+    withButtonLock($('#refreshOrderReviews'), 'Refreshing…', loadCatalogue)
+  );
+  $('#adminProductReviewStatusFilter')?.addEventListener('change', renderProductReviews);
+  $('#adminOrderReviewStatusFilter')?.addEventListener('change', renderOrderReviews);
+  $('#adminProductReviewList')?.addEventListener('click',(event)=>{
+    const button=event.target.closest?.('[data-product-review-action]');
+    if(button) moderateProductReview(button);
+  });
+  $('#adminOrderReviewList')?.addEventListener('click',(event)=>{
+    const button=event.target.closest?.('[data-order-review-action]');
+    if(button) moderateOrderReview(button);
+  });
+  $('#adminCatalogueSearch')?.addEventListener('input', renderCatalogueProducts);
+  $('#adminCatalogueStatusFilter')?.addEventListener('change', renderCatalogueProducts);
+  $('#adminCatalogueSellerFilter')?.addEventListener('change', renderCatalogueProducts);
+  $('#adminCatalogueCategoryFilter')?.addEventListener('change', renderCatalogueProducts);
+
+  let supportChatPollTimer=null;
+
+  const supportChatStatusLabel=(status)=>({
+    waiting:'Waiting for assignment',
+    open:'Open',
+    closed:'Closed'
+  }[status]||String(status||'').replaceAll('_',' '));
+
+  const filteredSupportChats=()=>{
+    const term=($('#supportChatSearch')?.value||'').trim().toLowerCase();
+    const filter=$('#supportChatFilter')?.value||'active';
+    const uid=state.user?.id||'';
+    return state.supportThreads.filter((thread)=>{
+      const haystack=[thread.customer_name,thread.customer_phone,thread.last_message_preview,thread.assigned_staff_name]
+        .map((value)=>String(value||'').toLowerCase());
+      if(term&&!haystack.some((value)=>value.includes(term))) return false;
+      if(filter==='mine') return thread.assigned_staff_id===uid && thread.status!=='closed';
+      if(filter==='waiting') return !thread.assigned_staff_id && thread.status!=='closed';
+      if(filter==='closed') return thread.status==='closed';
+      if(filter==='active') return thread.status!=='closed';
+      return true;
+    });
+  };
+
+  const renderSupportChatThreads=()=>{
+    const list=$('#supportChatThreadList');
+    if(!list) return;
+    const uid=state.user?.id||'';
+    const waiting=state.supportThreads.filter((thread)=>!thread.assigned_staff_id&&thread.status!=='closed').length;
+    const mine=state.supportThreads.filter((thread)=>thread.assigned_staff_id===uid&&thread.status!=='closed').length;
+    const unread=state.supportThreads.reduce((sum,thread)=>sum+Number(thread.unread_count||0),0);
+    const attention=state.supportThreads.filter((thread)=>!thread.assigned_staff_id||Number(thread.unread_count||0)>0).length;
+
+    if($('#supportChatWaitingCount')) $('#supportChatWaitingCount').textContent=waiting;
+    if($('#supportChatMineCount')) $('#supportChatMineCount').textContent=mine;
+    if($('#supportChatUnreadCount')) $('#supportChatUnreadCount').textContent=unread;
+    if($('#sidebarChatCount')) $('#sidebarChatCount').textContent=attention;
+
+    const rows=filteredSupportChats();
+    list.innerHTML=rows.length?rows.map((thread)=>{
+      const active=state.activeSupportThreadId===thread.thread_id;
+      const mineThread=thread.assigned_staff_id===uid;
+      const badge=Number(thread.unread_count||0)>0
+        ? '<b class="support-chat-unread">'+Number(thread.unread_count||0)+'</b>'
+        : '';
+      return '<button type="button" class="support-chat-thread'+(active?' active':'')+'" data-support-thread="'+escapeHtml(thread.thread_id)+'">'+
+        '<div class="support-chat-thread-top"><strong>'+escapeHtml(thread.customer_name||'Customer')+'</strong>'+badge+'</div>'+
+        '<span>'+escapeHtml(thread.last_message_preview||'No messages yet')+'</span>'+
+        '<footer><small>'+escapeHtml(thread.assigned_staff_name?('Assigned: '+thread.assigned_staff_name):(thread.status==='closed'?'Closed':'Waiting for assignment'))+'</small>'+
+          '<time>'+escapeHtml(formatDate(thread.last_message_at||thread.created_at,true))+'</time></footer>'+
+        (mineThread?'<i>MY CHAT</i>':'')+
+      '</button>';
+    }).join(''):'<div class="loading-card">No Customer Care chats match this filter.</div>';
+  };
+
+  const renderSupportChatConversation=()=>{
+    const empty=$('#supportChatEmpty');
+    const active=$('#supportChatActive');
+    const thread=state.supportThreads.find((item)=>item.thread_id===state.activeSupportThreadId);
+    if(!thread){
+      if(empty) empty.hidden=false;
+      if(active) active.hidden=true;
+      return;
+    }
+    if(empty) empty.hidden=true;
+    if(active) active.hidden=false;
+
+    const uid=state.user?.id||'';
+    const mine=thread.assigned_staff_id===uid;
+    const elevated=['super_admin','admin'].includes(state.admin?.role||'');
+    $('#supportChatCustomerName').textContent=thread.customer_name||'Customer';
+    $('#supportChatCustomerMeta').textContent=[thread.customer_phone||'',supportChatStatusLabel(thread.status)].filter(Boolean).join(' · ');
+    $('#supportChatAssignment').textContent=thread.assigned_staff_name
+      ? 'Assigned to '+thread.assigned_staff_name
+      : 'Waiting for assignment';
+
+    const claim=$('#claimSupportChat');
+    if(claim){
+      claim.hidden=mine||(thread.assigned_staff_id&&!elevated);
+      claim.textContent=thread.assigned_staff_id?'Assign to Me':'Claim Chat';
+    }
+    const toggle=$('#toggleSupportChatStatus');
+    if(toggle){
+      toggle.disabled=!(mine||elevated);
+      toggle.textContent=thread.status==='closed'?'Reopen Chat':'Close Chat';
+    }
+    const reply=$('#supportChatReply');
+    const send=$('#sendSupportChatReply');
+    if(reply) reply.disabled=!mine||thread.status==='closed';
+    if(send){
+      send.disabled=!mine||thread.status==='closed';
+      send.textContent='Send Reply';
+    }
+
+    const box=$('#supportChatMessages');
+    if(box){
+      box.innerHTML=state.supportMessages.length?state.supportMessages.map((message)=>{
+        const staffMessage=message.sender_role==='staff';
+        return '<article class="support-chat-message '+(staffMessage?'staff':'customer')+'">'+
+          '<div><strong>'+(staffMessage?'LEOGO Customer Care':escapeHtml(thread.customer_name||'Customer'))+'</strong><span>'+escapeHtml(formatDate(message.created_at,true))+'</span></div>'+
+          '<p>'+escapeHtml(message.body).replace(/\n/g,'<br>')+'</p>'+
+        '</article>';
+      }).join(''):'<div class="support-chat-empty-message">No messages in this conversation yet.</div>';
+      window.setTimeout(()=>{box.scrollTop=box.scrollHeight;},20);
+    }
+  };
+
+  const loadSupportThread=async(threadId,{silent=false}={})=>{
+    if(!threadId) return;
+    state.activeSupportThreadId=threadId;
+    if(!silent) setFormStatus($('#supportChatStatus'),'Loading conversation…');
+    const {data,error}=await db.rpc('staff_list_support_messages',{p_thread_id:threadId});
+    if(error) throw error;
+    state.supportMessages=Array.isArray(data)?data:[];
+    const current=state.supportThreads.find((thread)=>thread.thread_id===threadId);
+    if(current&&current.assigned_staff_id===state.user?.id) current.unread_count=0;
+    renderSupportChatThreads();
+    renderSupportChatConversation();
+    setFormStatus($('#supportChatStatus'));
+  };
+
+  const loadSupportChats=async({refreshActive=false}={})=>{
+    const {data,error}=await db.rpc('staff_list_support_threads');
+    if(error) throw error;
+    state.supportThreads=Array.isArray(data)?data:[];
+    if(state.activeSupportThreadId&&!state.supportThreads.some((thread)=>thread.thread_id===state.activeSupportThreadId)){
+      state.activeSupportThreadId=null;
+      state.supportMessages=[];
+    }
+    renderSupportChatThreads();
+    renderSupportChatConversation();
+    if(refreshActive&&state.activeSupportThreadId){
+      await loadSupportThread(state.activeSupportThreadId,{silent:true});
+    }
+  };
+
+  const claimActiveSupportChat=async(button)=>{
+    const threadId=state.activeSupportThreadId;
+    if(!threadId) return;
+    await withButtonLock(button,'Assigning…',async()=>{
+      const {data,error}=await db.rpc('staff_claim_support_thread',{p_thread_id:threadId});
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+      await loadSupportChats();
+      await loadSupportThread(threadId,{silent:true});
+      globalStatus('Customer Care chat assigned to your desk.');
+    });
+  };
+
+  const setActiveSupportChatStatus=async(button)=>{
+    const thread=state.supportThreads.find((item)=>item.thread_id===state.activeSupportThreadId);
+    if(!thread) return;
+    const next=thread.status==='closed'?'open':'closed';
+    await withButtonLock(button,next==='closed'?'Closing…':'Reopening…',async()=>{
+      const {data,error}=await db.rpc('staff_set_support_thread_status',{
+        p_thread_id:thread.thread_id,
+        p_status:next
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+      await loadSupportChats();
+      await loadSupportThread(thread.thread_id,{silent:true});
+      globalStatus(next==='closed'?'Customer Care chat closed.':'Customer Care chat reopened.');
+    });
+  };
+
+  const sendSupportChatReply=async(event)=>{
+    event.preventDefault();
+    const thread=state.supportThreads.find((item)=>item.thread_id===state.activeSupportThreadId);
+    const textarea=$('#supportChatReply');
+    const body=textarea?.value.trim()||'';
+    if(!thread||!body) return;
+    const button=$('#sendSupportChatReply');
+    await withButtonLock(button,'Sending…',async()=>{
+      setFormStatus($('#supportChatStatus'),'Submitting Customer Care reply…');
+      const {data,error}=await db.rpc('staff_send_support_message',{
+        p_thread_id:thread.thread_id,
+        p_body:body
+      });
+      if(error) throw error;
+      if(data?.error) throw new Error(data.error);
+      textarea.value='';
+      await Promise.all([
+        loadSupportChats(),
+        loadSupportThread(thread.thread_id,{silent:true})
+      ]);
+      setFormStatus($('#supportChatStatus'),'Reply sent to customer.','success');
+    });
+  };
+
+  const stopSupportChatPolling=()=>{
+    if(supportChatPollTimer){
+      window.clearInterval(supportChatPollTimer);
+      supportChatPollTimer=null;
+    }
+  };
+
+  const startSupportChatPolling=()=>{
+    stopSupportChatPolling();
+    supportChatPollTimer=window.setInterval(()=>{
+      const open=document.querySelector('[data-admin-panel="chat"]')?.classList.contains('active');
+      if(open&&document.visibilityState==='visible'){
+        loadSupportChats({refreshActive:true}).catch(()=>{});
+      }
+    },4500);
+  };
+
+  const loadCustomers = async () => {
+    const { data, error } = await db.rpc('admin_list_customers');
+    if (error) throw error;
+    state.customers = data || [];
+    renderCustomers();
+  };
+  const renderCustomers = () => {
+    const term = ($('#customerSearch')?.value || '').trim().toLowerCase();
+    const rows = state.customers.filter((customer) => !term || [customer.full_name, customer.email, customer.phone, customer.county, customer.sub_county, customer.estate].some((value) => String(value || '').toLowerCase().includes(term)));
+    $('#customerTableBody').innerHTML = rows.length ? rows.map((customer) => `<tr><td><input type="checkbox" data-customer-select="${customer.user_id}" ${state.selectedCustomers.has(customer.user_id) ? 'checked' : ''} aria-label="Select ${escapeHtml(customer.full_name || 'customer')}"></td><td><strong>${escapeHtml(customer.full_name || 'Profile incomplete')}</strong><small>${escapeHtml(customer.email || '')}</small></td><td>${escapeHtml(customer.phone || '—')}</td><td>${escapeHtml([customer.county, customer.sub_county, customer.estate].filter(Boolean).join(' · ') || '—')}</td><td>${formatDate(customer.created_at)}</td><td>${formatDate(customer.last_sign_in_at, true)}</td></tr>`).join('') : '<tr><td colspan="6">No customers match this search.</td></tr>';
+    $$('[data-customer-select]').forEach((input) => input.addEventListener('change', () => { input.checked ? state.selectedCustomers.add(input.dataset.customerSelect) : state.selectedCustomers.delete(input.dataset.customerSelect); updateCustomerSelection(rows); }));
+    updateCustomerSelection(rows);
+  };
+  const filteredCustomers = () => {
+    const term = ($('#customerSearch')?.value || '').trim().toLowerCase();
+    return state.customers.filter((customer) => !term || [customer.full_name, customer.email, customer.phone, customer.county, customer.sub_county, customer.estate].some((value) => String(value || '').toLowerCase().includes(term)));
+  };
+  const updateCustomerSelection = (rows = filteredCustomers()) => {
+    $('#customerSelectedCount').textContent = `${state.selectedCustomers.size} selected`;
+    $('#selectAllCustomers').checked = rows.length > 0 && rows.every((item) => state.selectedCustomers.has(item.user_id));
+  };
+
+  const renderServiceLocations = () => {
+    const countySelect = $('#serviceSubcountyCounty');
+    if (countySelect) countySelect.innerHTML = '<option value="">Choose county</option>' + state.serviceCounties.map((county) => '<option value="' + escapeHtml(county.code) + '">' + escapeHtml(county.name) + '</option>').join('');
+    const list = $('#serviceLocationList');
+    if (!list) return;
+    list.innerHTML = state.serviceCounties.length ? state.serviceCounties.map((county) => {
+      const subs = state.serviceSubcounties.filter((sub) => sub.county_code === county.code);
+      return '<article class="location-admin-card"><header><div><strong>' + escapeHtml(county.name) + '</strong><small>' + subs.length + ' active sub-counties</small></div><button type="button" data-service-county-toggle="' + escapeHtml(county.code) + '" data-next-active="false">Deactivate</button></header><div class="location-subcounty-chips">' + (subs.length ? subs.map((sub) => '<span>' + escapeHtml(sub.name) + '</span>').join('') : '<small>No active sub-counties.</small>') + '</div></article>';
+    }).join('') : '<div class="loading-card">No active service counties.</div>';
+    $$('[data-service-county-toggle]').forEach((button) => button.addEventListener('click', async () => {
+      if (!window.confirm('Deactivate this county for new customer and partner selections? Existing records will remain.')) return;
+      const { error } = await db.rpc('admin_set_service_county_active', { p_code: button.dataset.serviceCountyToggle, p_active: false });
+      if (error) { setFormStatus($('#serviceLocationStatus'), friendlyError(error), 'error'); return; }
+      setFormStatus($('#serviceLocationStatus'), 'County deactivated. Existing records were preserved.', 'success');
+      await loadServiceLocations();
+    }));
+  };
+  const loadServiceLocations = async () => {
+    const [countyResult, subcountyResult] = await Promise.all([
+      db.from('kenya_counties').select('code,name').eq('is_active', true).order('name'),
+      db.from('kenya_subcounties').select('code,county_code,name').eq('is_active', true).order('name')
+    ]);
+    if (countyResult.error || subcountyResult.error) throw countyResult.error || subcountyResult.error;
+    state.serviceCounties = countyResult.data || [];
+    state.serviceSubcounties = subcountyResult.data || [];
+    renderServiceLocations();
+  };
+
+  const loadBusinessSettings = async () => {
+    const { data, error } = await db.from('business_settings').select('*').eq('id', 1).single();
+    if (error) throw error;
+    state.business = data;
+    const form = $('#businessSettingsForm');
+    Object.entries(data).forEach(([key, value]) => { if (form.elements[key]) form.elements[key].value = value ?? ''; });
+    const themeForm = $('#customerThemeForm');
+    if (themeForm) {
+      themeForm.elements.name.value = data.customer_theme_name || 'LEOGO Default';
+      themeForm.elements.primary.value = data.customer_theme_primary || '#071a3a';
+      themeForm.elements.secondary.value = data.customer_theme_secondary || '#123a76';
+      themeForm.elements.accent.value = data.customer_theme_accent || '#ff7800';
+      themeForm.elements.background.value = data.customer_theme_background || '#f5f7fb';
+      themeForm.elements.active.checked = data.customer_theme_active !== false;
+      renderCustomerThemePreview();
+    }
+  };
+
+  const renderCustomerThemePreview = () => {
+    const form = $('#customerThemeForm');
+    const preview = $('#customerThemePreview');
+    if (!form || !preview) return;
+    preview.style.setProperty('--theme-primary', form.elements.primary.value || '#071a3a');
+    preview.style.setProperty('--theme-secondary', form.elements.secondary.value || '#123a76');
+    preview.style.setProperty('--theme-accent', form.elements.accent.value || '#ff7800');
+    preview.style.setProperty('--theme-background', form.elements.background.value || '#f5f7fb');
+  };
+
+  const saveCustomerTheme = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = event.submitter || $('button[type="submit"]', form);
+    await withButtonLock(button, 'Publishing…', async () => {
+      const payload = {
+        name: form.elements.name.value.trim(),
+        primary: form.elements.primary.value,
+        secondary: form.elements.secondary.value,
+        accent: form.elements.accent.value,
+        background: form.elements.background.value,
+        active: form.elements.active.checked
+      };
+      const { data, error } = await db.rpc('admin_update_customer_theme', { p_theme: payload });
+      if (error) {
+        setFormStatus($('#customerThemeStatus'), friendlyError(error), 'error');
+        return;
+      }
+      state.business = { ...state.business,
+        customer_theme_name: data.name,
+        customer_theme_primary: data.primary,
+        customer_theme_secondary: data.secondary,
+        customer_theme_accent: data.accent,
+        customer_theme_background: data.background,
+        customer_theme_active: data.active
+      };
+      setFormStatus($('#customerThemeStatus'), data.active
+        ? 'Customer Website theme published. Refresh the customer page to see it.'
+        : 'Seasonal theme disabled. The Customer Website will use the original LEOGO colours.', 'success');
+      if (isSuperAdmin()) await loadAuditLog();
+    });
+  };
+
+  const saveBusinessSettings = async (event) => {
+    event.preventDefault();
+    const button = event.submitter || $('button[type="submit"]', event.currentTarget);
+    await withButtonLock(button, 'Saving…', async () => {
+      const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+      const { data, error } = await db.rpc('admin_update_business_settings', { p_settings: payload });
+      if (error) { setFormStatus($('#businessSettingsStatus'), friendlyError(error), 'error'); return; }
+      state.business = data;
+      setFormStatus($('#businessSettingsStatus'), 'Business details saved. The change is recorded in Audit Log.', 'success');
+      await loadAuditLog();
+    });
+  };
+
+  const partnerSubscriptionLabel=(value)=>({premium:'Premium Partner',seller:'Seller',service_provider:'Service Provider',cyber:'Cyber',accommodation:'Accommodation',transport:'Transporter'}[value]||value);
+  const loadPartnerSubscriptionSettings=async()=>{
+    const {data,error}=await db.rpc('admin_list_partner_subscription_settings');
+    if(error)throw error;
+    const target=$('#partnerSubscriptionSettingsList');
+    if(!target)return;
+    target.innerHTML=(data||[]).map(item=>`<fieldset data-partner-fee="${escapeHtml(item.partner_type)}"><legend>${escapeHtml(partnerSubscriptionLabel(item.partner_type))}</legend><label><span>Monthly (KSh)</span><input name="monthly" type="number" min="0" step="1" required value="${Number(item.monthly_amount_kes||0)}"></label><label><span>Yearly (KSh)</span><input name="yearly" type="number" min="0" step="1" required value="${Number(item.yearly_amount_kes||0)}"></label>${item.partner_type==='premium'?`<label><span>Extra acceptance (KSh)</span><input name="extra" type="number" min="0" step="1" required value="${Number(item.extra_acceptance_amount_kes||0)}"></label>`:''}</fieldset>`).join('');
+  };
+  const savePartnerSubscriptionSettings=async(event)=>{
+    event.preventDefault();const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const rows=$$('[data-partner-fee]',event.currentTarget);
+      const results=await Promise.all(rows.map(row=>db.rpc('admin_save_partner_subscription_setting',{p_partner_type:row.dataset.partnerFee,p_monthly_amount_kes:Number($('[name="monthly"]',row).value),p_yearly_amount_kes:Number($('[name="yearly"]',row).value),p_extra_acceptance_amount_kes:row.dataset.partnerFee==='premium'?Number($('[name="extra"]',row).value):null})));
+      const failed=results.find(result=>result.error);if(failed){setFormStatus($('#partnerSubscriptionSettingsStatus'),friendlyError(failed.error),'error');return;}
+      setFormStatus($('#partnerSubscriptionSettingsStatus'),'Partner subscription fees saved. New payments will use these prices.','success');
+      await Promise.all([loadPartnerSubscriptionSettings(),loadAuditLog()]);
+    });
+  };
+
+  const loadPaymentSettings = async () => {
+    const [accountsResult, assignmentsResult] = await Promise.all([
+      db.from('payment_accounts').select('*').order('created_at', { ascending: false }),
+      db.from('payment_account_assignments').select('*').order('function_code')
+    ]);
+    if (accountsResult.error) throw accountsResult.error;
+    if (assignmentsResult.error) throw assignmentsResult.error;
+    state.paymentAccounts = accountsResult.data || [];
+    state.paymentAssignments = assignmentsResult.data || [];
+    renderPaymentAccounts();
+    renderPaymentAssignments();
+  };
+
+  const accountNumber = (account) => account.till_number || account.paybill_number || account.account_number || 'Instructions only';
+  const renderPaymentAccounts = () => {
+    $('#paymentAccountList').innerHTML = state.paymentAccounts.length ? state.paymentAccounts.map((account) => `<article class="payment-card">
+      <header><div><h3>${escapeHtml(account.display_name)}</h3><span class="status-chip">${escapeHtml(account.status)}</span></div><b>${escapeHtml(account.account_type.replaceAll('_', ' '))}</b></header>
+      <p><strong>${escapeHtml(accountNumber(account))}</strong><br>${escapeHtml(account.purpose_description || 'No purpose description')}<br>${escapeHtml(account.instructions || '')}</p>
+      <div class="card-actions"><button data-edit-payment="${account.id}">Edit</button>${account.status === 'active' ? `<button data-payment-status="inactive" data-payment-id="${account.id}">Deactivate</button>` : `<button data-payment-status="active" data-payment-id="${account.id}">Activate</button>`}<button class="danger" data-payment-status="archived" data-payment-id="${account.id}">Archive</button></div>
+    </article>`).join('') : '<div class="loading-card">No payment destination yet. Add the first Till, Paybill, bank, or other account.</div>';
+    $$('[data-edit-payment]').forEach((button) => button.addEventListener('click', () => openPaymentModal(button.dataset.editPayment)));
+    $$('[data-payment-status]').forEach((button) => button.addEventListener('click', () => changePaymentStatus(button)));
+  };
+
+  const renderPaymentAssignments = () => {
+    const active = state.paymentAccounts.filter((account) => account.status === 'active');
+    $('#paymentAssignmentList').innerHTML = Object.entries(functionLabels).map(([code, label]) => {
+      const assignment = state.paymentAssignments.find((item) => item.function_code === code);
+      return `<div class="assignment-row"><label>${escapeHtml(label)}<select data-assignment-code="${code}"><option value="">Choose active account…</option>${active.map((account) => `<option value="${account.id}" ${assignment?.account_id === account.id ? 'selected' : ''}>${escapeHtml(account.display_name)} — ${escapeHtml(accountNumber(account))}</option>`).join('')}</select></label></div>`;
+    }).join('');
+    $$('[data-assignment-code]').forEach((select) => select.addEventListener('change', () => assignPaymentAccount(select)));
+  };
+
+  const togglePaymentFields = () => {
+    const type = $('#paymentAccountType').value;
+    $$('[data-payment-field]').forEach((label) => {
+      const tags = label.dataset.paymentField.split(' ');
+      label.hidden = !(tags.includes(type.replace('mpesa_', '')) || (tags.includes('business') && ['mpesa_till', 'mpesa_paybill'].includes(type)) || (tags.includes('account_name') && ['mpesa_till', 'bank'].includes(type)) || (tags.includes('account_number') && ['mpesa_paybill', 'bank', 'other'].includes(type)));
+    });
+  };
+
+  const openPaymentModal = (id = '') => {
+    const form = $('#paymentAccountForm');
+    form.reset();
+    const account = state.paymentAccounts.find((item) => item.id === id);
+    if (account) Object.entries(account).forEach(([key, value]) => { if (form.elements[key]) form.elements[key].value = value ?? ''; });
+    form.elements.id.value = id;
+    $('#paymentModalTitle').textContent = account ? 'Edit Payment Method' : 'Add Payment Method';
+    setFormStatus($('#paymentAccountStatus'));
+    togglePaymentFields();
+    $('#paymentAccountModal').hidden = false;
+  };
+
+  const savePaymentAccount = async (event) => {
+    event.preventDefault();
+    const button = event.submitter;
+    await withButtonLock(button, 'Saving…', async () => {
+      const fields = Object.fromEntries(new FormData(event.currentTarget).entries());
+      const id = fields.id || null;
+      delete fields.id;
+      fields.status = state.paymentAccounts.find((item) => item.id === id)?.status || 'active';
+      const { error } = await db.rpc('admin_save_payment_account', { p_account_id: id, p_account: fields });
+      if (error) { setFormStatus($('#paymentAccountStatus'), friendlyError(error), 'error'); return; }
+      closeModals();
+      globalStatus(`Payment account ${id ? 'updated' : 'created'} and audited.`);
+      await Promise.all([loadPaymentSettings(), loadDashboard(), loadAuditLog()]);
+    });
+  };
+
+  const changePaymentStatus = async (button) => {
+    const status = button.dataset.paymentStatus;
+    if (status === 'archived' && !window.confirm('Archive this payment account? Existing transaction history is retained and assignments will be removed.')) return;
+    await withButtonLock(button, 'Saving…', async () => {
+      const { error } = await db.rpc('admin_set_payment_account_status', { p_account_id: button.dataset.paymentId, p_status: status });
+      if (error) { globalStatus(friendlyError(error), 'error'); return; }
+      globalStatus(`Payment account marked ${status}.`);
+      await Promise.all([loadPaymentSettings(), loadDashboard(), loadAuditLog()]);
+    });
+  };
+
+  const assignPaymentAccount = async (select) => {
+    if (!select.value) return;
+    select.disabled = true;
+    const { error } = await db.rpc('admin_assign_payment_account', { p_function_code: select.dataset.assignmentCode, p_account_id: select.value });
+    select.disabled = false;
+    if (error) { globalStatus(friendlyError(error), 'error'); await loadPaymentSettings(); return; }
+    globalStatus(`${functionLabels[select.dataset.assignmentCode]} payment destination updated.`);
+    await Promise.all([loadPaymentSettings(), loadAuditLog()]);
+  };
+
+  const renderTransportNetwork = () => {
+    const providers=Array.isArray(state.transportProviders)?state.transportProviders:[];
+    const vehicles=Array.isArray(state.transportVehicles)?state.transportVehicles:[];
+    const approvedProviders=providers.filter(item=>item.application_status==='approved').length;
+    const pendingProviderCount=providers.filter(item=>['submitted','under_review','changes_requested'].includes(item.application_status)).length;
+    const pendingVehicles=vehicles.filter(item=>['pending','under_review','changes_requested'].includes(item.approval_status)).length;
+    const approvedVehicles=vehicles.filter(item=>item.approval_status==='approved').length;
+    if($('#adminTransportProviderCount'))$('#adminTransportProviderCount').textContent=providers.length;
+    if($('#adminTransportApprovedCount'))$('#adminTransportApprovedCount').textContent=approvedProviders;
+    if($('#adminTransportPendingCount'))$('#adminTransportPendingCount').textContent=pendingProviderCount+pendingVehicles;
+    if($('#adminTransportVehicleCount'))$('#adminTransportVehicleCount').textContent=approvedVehicles;
+
+    const providerBody=$('#adminTransportProviderBody');
+    if(providerBody)providerBody.innerHTML=providers.length?providers.map(item=>`
+      <tr>
+        <td><strong>${escapeHtml(item.business_name||'Transport Provider')}</strong><small>${escapeHtml(item.owner_name||'')} · ${escapeHtml(item.phone||'')}</small><small>${escapeHtml(item.email||'')}</small></td>
+        <td>${escapeHtml(String(item.provider_type||'').replaceAll('_',' '))}</td>
+        <td>${escapeHtml((item.services_offered||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'—')}</td>
+        <td><strong>${escapeHtml(item.town||'—')}</strong><small>${escapeHtml([item.sub_county,item.county].filter(Boolean).join(', '))}</small></td>
+        <td><span class="status-chip">${escapeHtml(String(item.application_status||'').replaceAll('_',' '))}</span></td>
+        <td><strong>${Number(item.approved_vehicle_count||0)}</strong><small>${Number(item.vehicle_count||0)} total</small></td>
+        <td><div class="partner-record-actions"><button type="button" data-view-transport-provider="${escapeHtml(item.user_id)}">View Details</button>${item.application_status==='approved'?'<button type="button" class="danger" data-transport-provider-suspend="true" data-transport-provider-id="'+escapeHtml(item.user_id)+'">Suspend Account</button>':item.application_status==='suspended'?'<button type="button" data-transport-provider-suspend="false" data-transport-provider-id="'+escapeHtml(item.user_id)+'">Reactivate</button>':''}</div></td>
+      </tr>`).join(''):'<tr><td colspan="7">No Transport / Parcel Provider registrations yet.</td></tr>';
+
+    const vehicleBody=$('#adminTransportVehicleBody');
+    if(vehicleBody)vehicleBody.innerHTML=vehicles.length?vehicles.map(item=>{
+      const photo=item.vehicle_profile_picture_path?db.storage.from('transport-public-media').getPublicUrl(item.vehicle_profile_picture_path).data.publicUrl:'';
+      return `<tr>
+        <td><div class="admin-transport-vehicle-cell">${photo?'<img src="'+escapeHtml(photo)+'" alt="Vehicle">':'<span>🚚</span>'}<div><strong>${escapeHtml(item.vehicle_type||'Vehicle')} · ${escapeHtml(item.registration_number||'')}</strong><small>${escapeHtml([item.make_model,item.colour].filter(Boolean).join(' · ')||'')}</small></div></div></td>
+        <td><strong>${escapeHtml(item.provider_name||'Provider')}</strong></td>
+        <td>${escapeHtml((item.service_types||[]).map(v=>String(v).replaceAll('_',' ')).join(', ')||'—')}<small>${escapeHtml(item.capacity_description||'')}</small></td>
+        <td><strong>${escapeHtml(item.driver_full_name||'No driver supplied')}</strong><small>${escapeHtml([item.driver_id_number,item.driver_phone,item.driver_licence_number].filter(Boolean).join(' · ')||'Private verification')}</small></td>
+        <td><span class="status-chip">${escapeHtml(String(item.approval_status||'').replaceAll('_',' '))}</span></td>
+        <td>${formatDate(item.submitted_at,true)}</td>
+        <td><div class="partner-record-actions"><button type="button" data-view-transport-vehicle="${escapeHtml(item.id)}">View Details</button>${item.approval_status==='approved'&&item.is_available!==false?'<button type="button" class="danger" data-transport-vehicle-active="false" data-transport-vehicle-id="'+escapeHtml(item.id)+'">Suspend Vehicle</button>':item.approval_status==='disabled'||item.is_available===false?'<button type="button" data-transport-vehicle-active="true" data-transport-vehicle-id="'+escapeHtml(item.id)+'">Reactivate</button>':''}</div></td>
+      </tr>`;
+    }).join(''):'<tr><td colspan="7">No Transport Provider vehicles yet.</td></tr>';
+
+    Array.from(providerBody.querySelectorAll('[data-view-transport-provider]')).forEach((button)=>button.addEventListener('click',()=>openTransportProviderRecord(button.dataset.viewTransportProvider)));
+    Array.from(providerBody.querySelectorAll('[data-transport-provider-suspend]')).forEach((button)=>button.addEventListener('click',()=>setTransportProviderSuspended(button,button.dataset.transportProviderId,button.dataset.transportProviderSuspend==='true')));
+    Array.from(vehicleBody.querySelectorAll('[data-view-transport-vehicle]')).forEach((button)=>button.addEventListener('click',()=>openTransportVehicleRecord(button.dataset.viewTransportVehicle)));
+    Array.from(vehicleBody.querySelectorAll('[data-transport-vehicle-active]')).forEach((button)=>button.addEventListener('click',()=>setTransportVehicleActive(button,button.dataset.transportVehicleId,button.dataset.transportVehicleActive==='true')));
+  };
+
+  const renderTransportRequests = () => {
+    const target=$('#adminTransportRequestList');
+    const requests=Array.isArray(state.transportRequests)?state.transportRequests:[];
+    if($('#adminTransportRequestCount'))$('#adminTransportRequestCount').textContent=requests.length;
+    if(!target)return;
+    const approvedVehicles=(state.transportVehicles||[]).filter((v)=>v.approval_status==='approved'&&v.is_available!==false);
+    target.innerHTML=requests.length?requests.map((item)=>{
+      const selected=item.assigned_vehicle_id||item.requested_vehicle_id||'';
+      const options=approvedVehicles.map((v)=>'<option value="'+escapeHtml(v.id)+'" data-provider-id="'+escapeHtml(v.provider_id)+'" '+(String(v.id)===String(selected)?'selected':'')+'>'+escapeHtml((v.provider_name||'Provider')+' — '+(v.vehicle_type||'Vehicle')+' '+(v.registration_number||''))+'</option>').join('');
+      const action=item.request_status==='submitted'||item.request_status==='declined'
+        ? '<div class="admin-service-request-actions"><select data-transport-assignment-select="'+escapeHtml(item.id)+'"><option value="">Select approved vehicle</option>'+options+'</select><button type="button" data-assign-transport-request="'+escapeHtml(item.id)+'">Assign & Dispatch</button></div>'
+        : '<div class="admin-service-request-actions"><span class="status-chip">'+escapeHtml(String(item.request_status||'').replaceAll('_',' '))+'</span></div>';
+      return '<article class="admin-service-request-card" data-admin-transport-request="'+escapeHtml(item.id)+'">'+
+        '<header><div><strong>'+escapeHtml(item.request_reference||'Transport Request')+'</strong><small>'+escapeHtml(formatDate(item.created_at,true))+' · '+escapeHtml(item.customer_name||'Customer')+' · '+escapeHtml(item.customer_phone||'')+'</small></div><b>'+escapeHtml(String(item.request_status||'').replaceAll('_',' '))+'</b></header>'+
+        '<div class="admin-service-request-grid"><div><small>SERVICE</small><strong>'+escapeHtml(String(item.service_type||'Transport').replaceAll('_',' '))+'</strong></div><div><small>PICKUP</small><strong>'+escapeHtml(item.pickup_location||'—')+'</strong></div><div><small>DESTINATION</small><strong>'+escapeHtml(item.destination_location||'—')+'</strong></div></div>'+
+        '<small><strong>Requested provider:</strong> '+escapeHtml(item.requested_provider_name||'—')+' · '+escapeHtml(item.requested_vehicle_label||'—')+'</small>'+
+        (item.parcel_description?'<p>'+escapeHtml(item.parcel_description)+'</p>':'')+
+        (item.customer_notes?'<p><strong>Customer note:</strong> '+escapeHtml(item.customer_notes)+'</p>':'')+
+        (item.provider_quote_kes!=null?'<div class="admin-service-request-grid"><div><small>TRANSPORT COST</small><strong>'+formatMoney(item.provider_quote_kes)+'</strong></div><div><small>CUSTOMER SERVICE FEE</small><strong>'+formatMoney(item.quote_customer_service_fee_kes||0)+' ('+Number(item.quote_customer_service_fee_percent||0)+'%)</strong></div><div><small>CUSTOMER TOTAL</small><strong>'+formatMoney(item.quote_customer_total_kes||0)+'</strong></div><div><small>LEOGO COMMISSION</small><strong>'+formatMoney(item.quote_partner_commission_kes||0)+' ('+Number(item.quote_partner_commission_percent||0)+'%)</strong></div><div><small>PROVIDER NET</small><strong>'+formatMoney(item.quote_partner_net_kes||0)+'</strong></div></div>':'')+
+        action+
+      '</article>';
+    }).join(''):'<div class="empty-state">No customer Transport / Parcel requests yet.</div>';
+  };
+
+  const loadTransportNetwork = async () => {
+    const [providersResult,vehiclesResult,requestsResult]=await Promise.all([
+      db.rpc('admin_list_transport_providers'),
+      db.rpc('admin_list_transport_vehicles'),
+      db.rpc('admin_list_transport_requests')
+    ]);
+    if(providersResult.error)throw providersResult.error;
+    if(vehiclesResult.error)throw vehiclesResult.error;
+    if(requestsResult.error)throw requestsResult.error;
+    state.transportProviders=Array.isArray(providersResult.data)?providersResult.data:[];
+    state.transportVehicles=Array.isArray(vehiclesResult.data)?vehiclesResult.data:[];
+    state.transportRequests=Array.isArray(requestsResult.data)?requestsResult.data:[];
+    renderTransportNetwork();
+    renderTransportRequests();
+  };
+
+  document.addEventListener('click',async(event)=>{
+    const button=event.target.closest?.('[data-assign-transport-request]');
+    if(!button)return;
+    const requestId=button.dataset.assignTransportRequest;
+    const select=document.querySelector('[data-transport-assignment-select="'+CSS.escape(requestId)+'"]');
+    const vehicleId=select?.value||'';
+    const vehicle=(state.transportVehicles||[]).find((item)=>String(item.id)===String(vehicleId));
+    if(!vehicle){globalStatus('Select an approved available Transport Provider vehicle.','error');return;}
+    await withButtonLock(button,'Dispatching…',async()=>{
+      const {error}=await db.rpc('admin_assign_transport_request',{
+        p_request_id:requestId,
+        p_provider_id:vehicle.provider_id,
+        p_vehicle_id:vehicle.id,
+        p_notes:null
+      });
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      globalStatus('Transport request assigned and sent to the Transport Provider.');
+      await Promise.all([loadTransportNetwork(),loadAuditLog()]);
+    });
+  });
+
+  const loadDeliveryOps = async () => {
+    const [ridersResult,jobsResult,sellerStatesResult]=await Promise.all([
+      db.rpc('admin_list_riders'),
+      db.rpc('admin_list_delivery_jobs'),
+      db.from('marketplace_seller_orders').select('order_id,fulfilment_status')
+    ]);
+    if(ridersResult.error) throw ridersResult.error;
+    if(jobsResult.error) throw jobsResult.error;
+    if(sellerStatesResult.error) throw sellerStatesResult.error;
+    state.riders=ridersResult.data||[];
+    state.deliveryJobs=jobsResult.data||[];
+    state.deliverySellerStates=sellerStatesResult.data||[];
+    renderDeliveryOps();
+  };
+  const renderDeliveryOps = () => {
+    const activeRiders=state.riders.filter(r=>r.status==='active');
+    $('#adminRiderCount').textContent=activeRiders.length;
+    $('#adminDeliveryAwaiting').textContent=state.deliveryJobs.filter(j=>j.status==='awaiting_assignment').length;
+    $('#adminDeliveryActive').textContent=state.deliveryJobs.filter(j=>['assigned','picked_up','on_the_way'].includes(j.status)).length;
+    $('#adminDeliveryDone').textContent=state.deliveryJobs.filter(j=>j.status==='delivered').length;
+
+    $('#adminRiderList').innerHTML=state.riders.length?state.riders.map(r=>`<article class="station-card">
+      <header><div><h3>${escapeHtml(r.display_name)}</h3><span class="status-chip">${escapeHtml(r.status)}</span></div><strong>Rider</strong></header>
+      <p>${escapeHtml(r.email||'')}<br>${escapeHtml(r.phone||'No phone')}${r.vehicle_type?'<br>'+escapeHtml(r.vehicle_type)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):''):''}</p>
+    </article>`).join(''):'<div class="loading-card">No LEOGO riders authorized yet.</div>';
+
+    $('#adminDeliveryJobBody').innerHTML=state.deliveryJobs.length?state.deliveryJobs.map(job=>{
+      const states=state.deliverySellerStates.filter(s=>s.order_id===job.order_id).map(s=>s.fulfilment_status);
+      const readiness=states.length&&states.every(s=>['packed_ready','handed_to_rider','delivered'].includes(s))?'Ready for rider':states.length?states.map(s=>String(s).replaceAll('_',' ')).join(', '):'Waiting for Seller';
+      const riderOptions='<option value="">Choose rider…</option>'+activeRiders.map(r=>'<option value="'+escapeHtml(r.user_id)+'" '+(r.user_id===job.rider_id?'selected':'')+'>'+escapeHtml(r.display_name)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):'')+'</option>').join('');
+      const destination=[job.estate,job.landmark,job.sub_county,job.county].filter(Boolean).join(', ')||job.delivery_zone;
+      const assignable=!['picked_up','on_the_way','delivered','cancelled'].includes(job.status);
+      return `<tr>
+        <td><strong>${escapeHtml(job.order_reference)}</strong><small>${formatDate(job.created_at,true)}</small></td>
+        <td><strong>${escapeHtml(job.customer_name)}</strong><small>${escapeHtml(job.customer_phone||'')} · ${escapeHtml(destination||'')}</small></td>
+        <td><span class="status-chip">${escapeHtml(readiness)}</span></td>
+        <td><strong>${escapeHtml(job.rider_name||'Not assigned')}</strong><small>${escapeHtml(job.rider_phone||'')}</small></td>
+        <td><span class="status-chip">${escapeHtml(String(job.status).replaceAll('_',' '))}</span></td>
+        <td>${assignable?'<div class="delivery-assign"><select data-delivery-rider="'+escapeHtml(job.order_id)+'">'+riderOptions+'</select><button data-assign-delivery="'+escapeHtml(job.order_id)+'">Assign</button></div>':'—'}</td>
+      </tr>`;
+    }).join(''):'<tr><td colspan="6">No delivery jobs yet.</td></tr>';
+
+    $$('[data-assign-delivery]').forEach(button=>button.addEventListener('click',async()=>{
+      const select=$('[data-delivery-rider="'+button.dataset.assignDelivery+'"]');
+      if(!select?.value){globalStatus('Choose an active LEOGO rider first.','error');return;}
+      await withButtonLock(button,'Assigning…',async()=>{
+        const {error}=await db.rpc('admin_assign_rider_to_order',{p_order_id:button.dataset.assignDelivery,p_rider_id:select.value});
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        globalStatus('Order assigned to LEOGO rider. Customer and Seller were notified.');
+        await Promise.all([loadDeliveryOps(),loadMarketplaceOrders({refreshActiveDetail:false}),loadAuditLog()]);
+      });
+    }));
+  };
+  const addRider = async (event) => {
+    event.preventDefault();
+    const button=event.submitter;
+    await withButtonLock(button,'Authorizing…',async()=>{
+      const {error}=await db.rpc('admin_add_rider',{
+        p_email:$('#adminRiderEmail').value.trim(),
+        p_display_name:$('#adminRiderName').value.trim(),
+        p_phone:$('#adminRiderPhone').value.trim()||null,
+        p_vehicle_type:$('#adminRiderVehicle').value.trim()||null,
+        p_vehicle_registration:$('#adminRiderPlate').value.trim()||null
+      });
+      if(error){setFormStatus($('#adminRiderStatus'),friendlyError(error),'error');return;}
+      event.currentTarget.reset();
+      setFormStatus($('#adminRiderStatus'),'Rider account authorized successfully.','success');
+      await Promise.all([loadDeliveryOps(),loadDashboard(),loadAuditLog()]);
+    });
+  };
+
+  const loadPickupStations = async () => {
+    const withdrawalBody=$('#pickupWithdrawalBody');
+    const returnBody=$('#pickupReturnBody');
+    const eventList=$('#pickupStationEventList');
+    if(withdrawalBody)withdrawalBody.innerHTML='<tr><td colspan="6">Loading withdrawal requests…</td></tr>';
+    if(returnBody)returnBody.innerHTML='<tr><td colspan="6">Loading return parcels…</td></tr>';
+    if(eventList)eventList.innerHTML='<div class="loading-card">Loading Pickup Station activity…</div>';
+
+    const [stationsResult,partnersResult,eventsResult,withdrawalsResult,returnsResult,financeResult]=await Promise.all([
+      db.from('pickup_stations').select('*').order('display_order').order('station_name'),
+      db.rpc('admin_list_pickup_station_partners'),
+      db.rpc('admin_list_pickup_station_events',{p_limit:60}),
+      db.rpc('admin_list_pickup_station_withdrawals'),
+      db.rpc('admin_list_pickup_station_returns'),
+      db.rpc('admin_get_pickup_station_finance_settings')
+    ]);
+
+    state.pickupStationPartners=!partnersResult.error&&Array.isArray(partnersResult.data)?partnersResult.data:[];
+    state.pickupStationEvents=!eventsResult.error&&Array.isArray(eventsResult.data)?eventsResult.data:[];
+    state.pickupStationWithdrawals=!withdrawalsResult.error&&Array.isArray(withdrawalsResult.data)?withdrawalsResult.data:[];
+    state.pickupStationReturns=!returnsResult.error&&Array.isArray(returnsResult.data)?returnsResult.data:[];
+
+    // Render these independent queues immediately so an unrelated station-card error can
+    // never leave "Loading..." on screen after the RPC has already completed.
+    if(withdrawalsResult.error&&withdrawalBody){
+      withdrawalBody.innerHTML='<tr><td colspan="6">Withdrawal requests could not load. Use Refresh to try again.</td></tr>';
+    }else{
+      renderPickupStationWithdrawals();
+    }
+    if(returnsResult.error&&returnBody){
+      returnBody.innerHTML='<tr><td colspan="6">Return parcels could not load. Use Refresh to try again.</td></tr>';
+    }else{
+      renderPickupStationReturns();
+    }
+    if(eventsResult.error&&eventList){
+      eventList.innerHTML='<div class="loading-card">Pickup Station activity could not load. Use Refresh to try again.</div>';
+    }else{
+      renderPickupStationEvents();
+    }
+
+    if(!financeResult.error){
+      state.pickupStationFinanceSettings=financeResult.data||{handled_parcel_earning_kes:20};
+      const financeForm=$('#pickupStationFinanceForm');
+      const earningInput=financeForm?.elements?.handled_parcel_earning_kes;
+      if(earningInput)earningInput.value=Number(state.pickupStationFinanceSettings.handled_parcel_earning_kes??20);
+      if($('#pickupHandledParcelEarningSummary'))$('#pickupHandledParcelEarningSummary').textContent=formatMoney(state.pickupStationFinanceSettings.handled_parcel_earning_kes??20);
+    }
+
+    if(stationsResult.error)throw stationsResult.error;
+    const partnerMap=new Map(state.pickupStationPartners.map(row=>[String(row.pickup_station_id),row]));
+    state.pickupStations=(Array.isArray(stationsResult.data)?stationsResult.data:[]).map(station=>({...station,partner:partnerMap.get(String(station.id))||null}));
+    renderPickupStations();
+
+    if(financeResult.error)globalStatus('Pickup Station finance settings could not load: '+friendlyError(financeResult.error),'error');
+  };
+
+  const savePickupStationFinanceSettings=async(event)=>{
+    event.preventDefault();
+    const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const amount=Number(event.currentTarget.elements.handled_parcel_earning_kes.value);
+      if(!Number.isFinite(amount)||amount<0){
+        setFormStatus($('#pickupStationFinanceStatus'),'Enter a valid earning amount of zero or above.','error');
+        return;
+      }
+      const {data,error}=await db.rpc('admin_update_pickup_station_finance_settings',{p_handled_parcel_earning_kes:amount});
+      if(error){
+        setFormStatus($('#pickupStationFinanceStatus'),friendlyError(error),'error');
+        return;
+      }
+      state.pickupStationFinanceSettings=data||{handled_parcel_earning_kes:amount};
+      setFormStatus($('#pickupStationFinanceStatus'),'Pickup Station earning updated. New successful parcel handovers will use '+formatMoney(amount)+'.','success');
+      if($('#pickupHandledParcelEarningSummary'))$('#pickupHandledParcelEarningSummary').textContent=formatMoney(amount);
+      await loadAuditLog().catch(()=>{});
+    });
+  };
+
+  const assignPickupStationPartner=async(stationId)=>{
+    const station=state.pickupStations.find(row=>row.id===stationId);
+    const email=(window.prompt('Enter the LEOGO account email for the Pickup Station Partner:','')||'').trim();
+    if(!email)return;
+    const displayName=(window.prompt('Partner display / contact name (optional):',station?.partner?.partner_name||'')||'').trim();
+    const phone=(window.prompt('Partner phone number (optional):',station?.partner?.partner_phone||station?.contact_phone||'')||'').trim();
+    globalStatus('Assigning Pickup Station Partner…');
+    const {data,error}=await db.rpc('admin_assign_pickup_station_partner',{
+      p_station_id:stationId,p_email:email,p_display_name:displayName||null,p_phone:phone||null
+    });
+    if(error){globalStatus(friendlyError(error),'error');return;}
+    globalStatus((data?.station_name||station?.station_name||'Pickup Station')+' assigned to '+email+'.');
+    await Promise.all([loadPickupStations(),loadAuditLog().catch(()=>{})]);
+  };
+
+  const unassignPickupStationPartner=async(stationId)=>{
+    const station=state.pickupStations.find(row=>row.id===stationId);
+    if(!window.confirm('Remove Pickup Station Partner access from '+(station?.station_name||'this station')+'?'))return;
+    const {error}=await db.rpc('admin_unassign_pickup_station_partner',{p_station_id:stationId});
+    if(error){globalStatus(friendlyError(error),'error');return;}
+    globalStatus('Pickup Station Partner access removed.');
+    await Promise.all([loadPickupStations(),loadAuditLog().catch(()=>{})]);
+  };
+
+  const renderPickupStations = () => {
+    $('#pickupStationList').innerHTML = state.pickupStations.length ? state.pickupStations.map((station) => {
+      const partner=station.partner||null;
+      const partnerInfo=partner?.partner_user_id
+        ? '<div class="station-partner"><b>📦 Pickup Partner</b><br>'+escapeHtml(partner.partner_name||partner.partner_email||'Assigned Partner')+
+          (partner.partner_email?'<br>'+escapeHtml(partner.partner_email):'')+
+          (partner.partner_phone?'<br>☎ '+escapeHtml(partner.partner_phone):'')+
+          '<br><span class="status-chip">'+escapeHtml(partner.partner_status||'active')+'</span></div>'
+        : '<div class="station-partner"><b>📦 Pickup Partner</b><br><span style="color:#7b8798">Not assigned</span></div>';
+      return `<article class="station-card"><header><div><h3>${escapeHtml(station.station_name)}</h3><span class="status-chip">${station.is_active ? 'Active' : 'Inactive'}</span></div><strong>${formatMoney(station.shipping_fee_kes??0)} shipping</strong></header><p>${escapeHtml(station.address_line)}${station.door_number ? `, Door ${escapeHtml(station.door_number)}` : ''}<br>${escapeHtml([station.town, station.sub_county, station.county].filter(Boolean).join(' · '))}<br>${escapeHtml(station.landmark || '')}${station.contact_phone ? `<br>☎ ${escapeHtml(station.contact_phone)}` : ''}${station.operating_hours ? `<br>◷ ${escapeHtml(station.operating_hours)}` : ''}${station.latitude!=null&&station.longitude!=null?`<br>📍 ${escapeHtml(station.latitude)}, ${escapeHtml(station.longitude)}`:''}${station.map_link?`<br><a href="${escapeHtml(station.map_link)}" target="_blank" rel="noopener noreferrer">Open location ↗</a>`:''}<br><b>Shipping fee:</b> ${escapeHtml(formatMoney(station.shipping_fee_kes??0))}<br><b>Pickup service fee:</b> ${Number(station.service_fee_percent||0)}%</p>${partnerInfo}<div class="card-actions"><button data-edit-station="${station.id}">Edit Station</button><button class="primary-button" data-set-pickup-shipping="${station.id}">Set Shipping Fee</button>${partner?.partner_user_id?'<button class="secondary-button" data-unassign-pickup-partner="'+station.id+'">Unassign Partner</button>':'<button class="primary-button" data-assign-pickup-partner="'+station.id+'">Create / Assign Partner Account</button>'}<a class="secondary-button" href="../pickup/" target="_blank" rel="noopener">Open Partner Portal ↗</a></div></article>`;
+    }).join('') : '<div class="loading-card">No pickup stations configured.</div>';
+    $$('[data-edit-station]').forEach((button) => button.addEventListener('click', () => openPickupModal(button.dataset.editStation)));
+    $$('[data-set-pickup-shipping]').forEach(button=>button.addEventListener('click',async()=>{
+      const station=state.pickupStations.find(row=>row.id===button.dataset.setPickupShipping);
+      if(!station)return;
+      const raw=window.prompt('Set shipping fee for '+station.station_name+' (KSh):',String(Number(station.shipping_fee_kes??50)));
+      if(raw===null)return;
+      const amount=Number(raw);
+      if(!Number.isFinite(amount)||amount<0){globalStatus('Enter a valid shipping fee of zero or above.','error');return;}
+      button.disabled=true;
+      const {error}=await db.rpc('admin_update_pickup_station_shipping_fee',{p_station_id:station.id,p_shipping_fee_kes:amount});
+      button.disabled=false;
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      globalStatus(station.station_name+' shipping fee updated to '+formatMoney(amount)+'.');
+      await Promise.all([loadPickupStations(),loadAuditLog().catch(()=>{})]);
+    }));
+    $$('[data-assign-pickup-partner]').forEach(button=>button.addEventListener('click',()=>assignPickupStationPartner(button.dataset.assignPickupPartner)));
+    $$('[data-unassign-pickup-partner]').forEach(button=>button.addEventListener('click',()=>unassignPickupStationPartner(button.dataset.unassignPickupPartner)));
+  };
+
+  const reviewPickupWithdrawal=async(button)=>{
+    const id=button.dataset.pickupWithdrawal;
+    const decision=button.dataset.decision;
+    let notes='';
+    if(decision==='reject'){
+      notes=(window.prompt('Reason for rejecting this withdrawal:','')||'').trim();
+      if(notes.length<3)return;
+    }else if(decision==='paid'){
+      if(!window.confirm('Confirm this Pickup Station withdrawal has been paid?'))return;
+      notes=(window.prompt('Payment note / reference (optional):','')||'').trim();
+    }
+    button.disabled=true;
+    const {error}=await db.rpc('admin_review_pickup_station_withdrawal',{p_withdrawal_id:id,p_decision:decision,p_notes:notes||null});
+    button.disabled=false;
+    if(error){globalStatus(friendlyError(error),'error');return;}
+    globalStatus('Pickup Station withdrawal updated.');
+    await Promise.all([loadPickupStations(),loadAuditLog().catch(()=>{})]);
+  };
+
+  const renderPickupStationWithdrawals=()=>{
+    const body=$('#pickupWithdrawalBody');if(!body)return;
+    body.innerHTML=state.pickupStationWithdrawals.length?state.pickupStationWithdrawals.map(row=>{
+      const actions=row.status==='pending'
+        ? '<button data-pickup-withdrawal="'+row.id+'" data-decision="approve">Approve</button><button class="secondary-button" data-pickup-withdrawal="'+row.id+'" data-decision="reject">Reject</button>'
+        : row.status==='approved'
+          ? '<button data-pickup-withdrawal="'+row.id+'" data-decision="paid">Mark Paid</button>'
+          : '—';
+      return '<tr><td><b>'+escapeHtml(row.station_name)+'</b><br><small>'+escapeHtml(row.partner_name||row.partner_email||'Partner')+'</small></td>'+
+        '<td><b>'+formatMoney(row.requested_amount_kes)+'</b></td>'+
+        '<td>'+escapeHtml(row.payout_method||'')+'<br><small>'+escapeHtml(row.payout_account_name||'')+(row.payout_phone?' · '+escapeHtml(row.payout_phone):'')+(row.payout_account_number?' · '+escapeHtml(row.payout_account_number):'')+'</small></td>'+
+        '<td>'+escapeHtml(formatDate(row.submitted_at,true))+'</td><td><span class="status-chip">'+escapeHtml(row.status)+'</span></td><td>'+actions+'</td></tr>';
+    }).join(''):'<tr><td colspan="6">No Pickup Station withdrawal requests yet.</td></tr>';
+    $$('[data-pickup-withdrawal]').forEach(button=>button.addEventListener('click',()=>reviewPickupWithdrawal(button)));
+  };
+
+  const updatePickupReturnStatus=async(button)=>{
+    const id=button.dataset.pickupReturn;
+    const select=$('[data-pickup-return-status="'+id+'"]');
+    if(!select)return;
+    const notes=(window.prompt('Optional Admin note for this return parcel:','')||'').trim();
+    button.disabled=true;
+    const {error}=await db.rpc('admin_update_pickup_return_status',{p_return_id:id,p_status:select.value,p_notes:notes||null});
+    button.disabled=false;
+    if(error){globalStatus(friendlyError(error),'error');return;}
+    globalStatus('Return parcel status updated.');
+    await Promise.all([loadPickupStations(),loadAuditLog().catch(()=>{})]);
+  };
+
+  const renderPickupStationReturns=()=>{
+    const body=$('#pickupReturnBody');if(!body)return;
+    const statuses=['received_at_station','awaiting_dispatch','dispatched','completed','cancelled'];
+    body.innerHTML=state.pickupStationReturns.length?state.pickupStationReturns.map(row=>
+      '<tr><td><b>'+escapeHtml(row.return_reference)+'</b>'+(row.original_order_reference?'<br><small>Original '+escapeHtml(row.original_order_reference)+'</small>':'')+'</td>'+
+      '<td>'+escapeHtml(row.station_name)+'</td><td>'+escapeHtml(row.customer_name)+'<br><small>'+escapeHtml(row.customer_phone)+'</small></td>'+
+      '<td>'+escapeHtml(row.item_description)+'<br><small>'+escapeHtml(row.return_reason)+'</small></td>'+
+      '<td><select data-pickup-return-status="'+row.id+'">'+statuses.map(s=>'<option value="'+s+'" '+(s===row.status?'selected':'')+'>'+escapeHtml(s.replaceAll('_',' '))+'</option>').join('')+'</select></td>'+
+      '<td><button data-pickup-return="'+row.id+'">Save</button></td></tr>'
+    ).join(''):'<tr><td colspan="6">No Pickup Station return parcels yet.</td></tr>';
+    $$('[data-pickup-return]').forEach(button=>button.addEventListener('click',()=>updatePickupReturnStatus(button)));
+  };
+
+  const renderPickupStationEvents=()=>{
+    const list=$('#pickupStationEventList');if(!list)return;
+    list.innerHTML=state.pickupStationEvents.length?state.pickupStationEvents.map(row=>
+      '<article class="admin-product-review-card"><div class="admin-product-review-main"><span>'+escapeHtml(String(row.event_type||'update').replaceAll('_',' '))+'</span><h4>'+escapeHtml(row.parcel_reference||'Parcel')+'</h4><p>'+escapeHtml(row.station_name||'Pickup Station')+(row.notes?' · '+escapeHtml(row.notes):'')+'</p><small>'+escapeHtml(formatDate(row.created_at,true))+(row.actor_email?' · '+escapeHtml(row.actor_email):'')+'</small></div></article>'
+    ).join(''):'<div class="loading-card">No Pickup Station activity yet.</div>';
+  };
+  const pickupStationCoordinatesFromText=(value='')=>{
+    const text=String(value||'').trim();
+    const direct=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+    if(direct)return {lat:Number(direct[1]),lng:Number(direct[2])};
+    const maps=text.match(/(?:@|q=|query=)(-?\d{1,2}(?:\.\d+)?)[,%2C\s]+(-?\d{1,3}(?:\.\d+)?)/i);
+    return maps?{lat:Number(maps[1]),lng:Number(maps[2])}:null;
+  };
+  const setPickupStationCoordinates=(lat,lng,label='Pickup Station pinned')=>{
+    const latitude=Number(lat),longitude=Number(lng),target=$('#pickupStationPinStatus');
+    if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+      if(target){target.textContent='Invalid Pickup Station coordinates.';target.className='form-status error';}
+      return false;
+    }
+    $('#pickupStationLatitude').value=latitude.toFixed(7);
+    $('#pickupStationLongitude').value=longitude.toFixed(7);
+    if(!$('#pickupStationMapLink').value.trim())$('#pickupStationMapLink').value='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
+    if(target){target.textContent='✓ '+label+': '+latitude.toFixed(7)+', '+longitude.toFixed(7);target.className='form-status success';}
+    return true;
+  };
+  $('#pinPickupStationLocation')?.addEventListener('click',()=>{
+    const target=$('#pickupStationPinStatus');
+    if(!navigator.geolocation){
+      if(target){target.textContent='This browser cannot access location. Paste a Maps link or enter coordinates.';target.className='form-status error';}
+      return;
+    }
+    if(target){target.textContent='Getting Pickup Station location…';target.className='form-status';}
+    navigator.geolocation.getCurrentPosition((position)=>{
+      setPickupStationCoordinates(position.coords.latitude,position.coords.longitude,'Pickup Station pinned');
+    },(error)=>{
+      if(target){target.textContent=error.code===1?'Location permission was not granted. Paste a Maps link or coordinates instead.':'Pickup Station location could not be detected.';target.className='form-status error';}
+    },{enableHighAccuracy:true,timeout:15000,maximumAge:15000});
+  });
+  $('#pickupStationMapLink')?.addEventListener('change',(event)=>{
+    const coords=pickupStationCoordinatesFromText(event.currentTarget.value);
+    if(coords)setPickupStationCoordinates(coords.lat,coords.lng,'Coordinates detected from shared location');
+  });
+
+  const openPickupModal = (id = '') => {
+    const form = $('#pickupStationForm');
+    form.reset();
+    const station = state.pickupStations.find((item) => item.id === id);
+    if (station) Object.entries(station).forEach(([key, value]) => {
+      if (!form.elements[key]) return;
+      if (form.elements[key].type === 'checkbox') form.elements[key].checked = Boolean(value);
+      else form.elements[key].value = value ?? '';
+    });
+    form.elements.id.value = id;
+    $('#pickupModalTitle').textContent = station ? 'Edit Pickup Station' : 'Add Pickup Station';
+    const pinStatus=$('#pickupStationPinStatus');if(pinStatus){pinStatus.textContent=station?.latitude!=null&&station?.longitude!=null?'✓ Pickup Station pinned: '+station.latitude+', '+station.longitude:'Pickup Station location not pinned yet.';pinStatus.className=station?.latitude!=null&&station?.longitude!=null?'form-status success':'form-status';}
+    setFormStatus($('#pickupStationStatus'));
+    $('#pickupStationModal').hidden = false;
+  };
+  const savePickupStation = async (event) => {
+    event.preventDefault();
+    const button = event.submitter;
+    await withButtonLock(button, 'Saving…', async () => {
+      const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+      const id = values.id || null;
+      delete values.id;
+      values.is_active = event.currentTarget.elements.is_active.checked;
+      const latitude=Number(values.latitude),longitude=Number(values.longitude);
+      if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){setFormStatus($('#pickupStationStatus'),'Pin the Pickup Station location and confirm valid latitude and longitude before saving.','error');return;}
+      values.latitude=latitude;values.longitude=longitude;
+      const { error } = await db.rpc('admin_save_pickup_station', { p_station_id: id, p_station: values });
+      if (error) { setFormStatus($('#pickupStationStatus'), friendlyError(error), 'error'); return; }
+      closeModals();
+      globalStatus(`Pickup station ${id ? 'updated' : 'created'} and audited.`);
+      await Promise.all([loadPickupStations(), loadDashboard(), loadAuditLog()]);
+    });
+  };
+
+  const loadDeliveryRateSettings = async () => {
+    const {data,error}=await db.rpc('admin_get_delivery_rate_settings');
+    if(error)throw error;
+    state.deliveryRateSettings=data||{};
+    const form=$('#deliveryRateSettingsForm');
+    if(form){
+      form.elements.cbd_fee_kes.value=Number(data?.cbd_fee_kes??50);
+      form.elements.estate_fee_kes.value=Number(data?.estate_fee_kes??80);
+      form.elements.outside_town_fee_kes.value=Number(data?.outside_town_fee_kes??200);
+      form.elements.standard_max_weight_kg.value=Number(data?.standard_max_weight_kg??50);
+      form.elements.standard_max_area_sqm.value=Number(data?.standard_max_area_sqm??1);
+      form.elements.rate_note.value=data?.rate_note||'';
+    }
+    if($('#deliveryRateCbdSummary'))$('#deliveryRateCbdSummary').textContent=formatMoney(data?.cbd_fee_kes??50);
+    if($('#deliveryRateEstateSummary'))$('#deliveryRateEstateSummary').textContent=formatMoney(data?.estate_fee_kes??80);
+    if($('#deliveryRateOutsideSummary'))$('#deliveryRateOutsideSummary').textContent='From '+formatMoney(data?.outside_town_fee_kes??200);
+  };
+  const saveDeliveryRateSettings = async (event) => {
+    event.preventDefault();
+    const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const values=Object.fromEntries(new FormData(event.currentTarget).entries());
+      const {data,error}=await db.rpc('admin_update_delivery_rate_settings',{
+        p_cbd_fee_kes:Number(values.cbd_fee_kes),
+        p_estate_fee_kes:Number(values.estate_fee_kes),
+        p_outside_town_fee_kes:Number(values.outside_town_fee_kes),
+        p_standard_max_weight_kg:Number(values.standard_max_weight_kg),
+        p_standard_max_area_sqm:Number(values.standard_max_area_sqm),
+        p_rate_note:String(values.rate_note||'').trim()||null
+      });
+      if(error){setFormStatus($('#deliveryRateSettingsStatus'),friendlyError(error),'error');return;}
+      state.deliveryRateSettings=data||state.deliveryRateSettings;
+      setFormStatus($('#deliveryRateSettingsStatus'),'Delivery rates updated. New Marketplace and Cyber orders will use these charges immediately.','success');
+      await Promise.all([loadDeliveryRateSettings(),loadAuditLog().catch(()=>{})]);
+      document.dispatchEvent(new CustomEvent('leogo:delivery-rates-updated',{detail:data||{}}));
+    });
+  };
+
+  const loadTransportFinanceSettings = async () => {
+    const {data,error}=await db.rpc('admin_get_transport_finance_settings');
+    if(error)throw error;
+    state.transportFinanceSettings=data||{};
+    const form=$('#transportFinanceSettingsForm');
+    if(form){
+      form.elements.partner_commission_percent.value=Number(data?.partner_commission_percent??10);
+      form.elements.customer_service_fee_percent.value=Number(data?.customer_service_fee_percent??2);
+    }
+  };
+  const saveTransportFinanceSettings = async (event) => {
+    event.preventDefault();
+    const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const values=Object.fromEntries(new FormData(event.currentTarget).entries());
+      const {error}=await db.rpc('admin_update_transport_finance_settings',{
+        p_partner_commission_percent:Number(values.partner_commission_percent),
+        p_customer_service_fee_percent:Number(values.customer_service_fee_percent)
+      });
+      if(error){setFormStatus($('#transportFinanceSettingsStatus'),friendlyError(error),'error');return;}
+      setFormStatus($('#transportFinanceSettingsStatus'),'Transport commission and customer service fee updated. New quotes will use these rates.','success');
+      await Promise.all([loadTransportFinanceSettings(),loadAuditLog()]);
+    });
+  };
+
+  const loadAccommodationFinanceSettings = async () => {
+    const {data,error}=await db.rpc('admin_get_accommodation_finance_settings');
+    if(error)throw error;
+    state.accommodationFinanceSettings=data||{};
+    const form=$('#accommodationFinanceSettingsForm');
+    if(form){
+      form.elements.hotel_commission_percent.value=Number(data?.hotel_commission_percent??10);
+      form.elements.customer_service_fee_percent.value=Number(data?.customer_service_fee_percent??3);
+    }
+  };
+  const saveAccommodationFinanceSettings = async (event) => {
+    event.preventDefault();
+    const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const values=Object.fromEntries(new FormData(event.currentTarget).entries());
+      const {error}=await db.rpc('admin_update_accommodation_finance_settings',{
+        p_hotel_commission_percent:Number(values.hotel_commission_percent),
+        p_customer_service_fee_percent:Number(values.customer_service_fee_percent)
+      });
+      if(error){
+        setFormStatus($('#accommodationFinanceSettingsStatus'),friendlyError(error),'error');
+        return;
+      }
+      setFormStatus($('#accommodationFinanceSettingsStatus'),'Accommodation commission and customer service fee updated. New bookings will use these rates; existing bookings keep their saved rates.','success');
+      await Promise.all([loadAccommodationFinanceSettings(),loadAuditLog().catch(()=>{})]);
+    });
+  };
+
+  const loadWalletSettings = async () => {
+    const { data, error } = await db.from('wallet_settings').select('*').eq('id', 1).single();
+    if (error) throw error;
+    state.walletSettings = data;
+    const form = $('#walletFeesForm');
+    ['maintenance_fee_kes', 'statement_fee_per_200_kes', 'reward_minimum_spend_kes', 'reward_rate'].forEach((key) => { form.elements[key].value = data[key] ?? 0; });
+    $('#walletMaintenanceSummary').textContent = formatMoney(data.maintenance_fee_kes);
+    $('#walletStatementSummary').textContent = formatMoney(data.statement_fee_per_200_kes);
+    $('#walletRewardMinimumSummary').textContent = formatMoney(data.reward_minimum_spend_kes);
+    $('#walletRewardRateSummary').textContent = `${Number(data.reward_rate || 0) * 100}%`;
+  };
+  const saveWalletSettings = async (event) => {
+    event.preventDefault();
+    const button = event.submitter;
+    await withButtonLock(button, 'Saving…', async () => {
+      const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+      const { error } = await db.rpc('admin_save_wallet_settings', {
+        p_maintenance_fee_kes: Number(values.maintenance_fee_kes),
+        p_reward_minimum_spend_kes: Number(values.reward_minimum_spend_kes),
+        p_reward_rate: Number(values.reward_rate),
+        p_statement_fee_per_200_kes: Number(values.statement_fee_per_200_kes)
+      });
+      if (error) { setFormStatus($('#walletFeesStatus'), friendlyError(error), 'error'); return; }
+      setFormStatus($('#walletFeesStatus'), 'Fee and reward rules saved and audited.', 'success');
+      await Promise.all([loadWalletSettings(), loadAuditLog()]);
+    });
+  };
+
+  const filteredSellers = () => {
+    const term = ($('#adminSellerSearch')?.value || '').trim().toLowerCase();
+    const statusFilter = $('#adminSellerStatusFilter')?.value || 'all';
+    return state.sellers.filter((seller) => {
+      const values = [seller.business_name,seller.owner_name,seller.id_number,seller.phone,seller.email,seller.town,seller.county].map((v)=>String(v||'').toLowerCase());
+      return (!term || values.some((v)=>v.includes(term))) && (statusFilter==='all' || seller.application_status===statusFilter);
+    });
+  };
+  const renderSellers = () => {
+    $('#adminSellerTotal').textContent = state.sellers.length;
+    $('#adminSellerApproved').textContent = state.sellers.filter((s)=>s.application_status==='approved').length;
+    $('#adminSellerPending').textContent = state.sellers.filter((s)=>['submitted','under_review'].includes(s.application_status)).length;
+    $('#adminSellerProducts').textContent = state.sellers.reduce((sum,s)=>sum+Number(s.product_count||0),0);
+    const rows=filteredSellers();
+    $('#adminSellerTableBody').innerHTML = rows.length ? rows.map((s)=>`<tr class="seller-admin-row">
+      <td data-label="Business"><strong>${escapeHtml(s.business_name)}</strong><small>${escapeHtml(s.email||'')}</small></td>
+      <td data-label="Owner"><strong>${escapeHtml(s.owner_name)}</strong></td>
+      <td data-label="ID / Phone"><strong>${escapeHtml(s.id_number)}</strong><small>${escapeHtml(s.phone)}</small></td>
+      <td data-label="Location"><strong>${escapeHtml(s.town||'—')}</strong><small>${escapeHtml([s.sub_county,s.county].filter(Boolean).join(', '))}</small><small>${s.shop_latitude!=null&&s.shop_longitude!=null?'📍 Shop pinned':'Shop pin missing'}</small></td>
+      <td data-label="Status"><span class="status-chip">${escapeHtml(s.application_status)}</span></td>
+      <td data-label="Products"><strong>${Number(s.product_count||0)}</strong><small>${Number(s.active_product_count||0)} active</small></td>
+      <td data-label="Flash Sale"><strong>${Number(s.flash_sale_request_count||0)}</strong></td>
+      <td data-label="Action"><div class="partner-record-actions"><button type="button" class="seller-record-button" data-seller-record="${s.user_id}">View Details</button>${s.application_status==='approved'?'<button type="button" class="danger" data-seller-suspend="true" data-seller-id="'+escapeHtml(s.user_id)+'">Suspend Account</button>':s.application_status==='suspended'?'<button type="button" data-seller-suspend="false" data-seller-id="'+escapeHtml(s.user_id)+'">Reactivate</button>':''}</div></td>
+    </tr>`).join('') : '<tr><td colspan="8">No sellers match the current filters.</td></tr>';
+    $$('[data-seller-record]').forEach((button)=>button.addEventListener('click',()=>openSellerRecord(button.dataset.sellerRecord)));
+    $$('[data-seller-suspend]').forEach((button)=>button.addEventListener('click',()=>setSellerSuspended(button,button.dataset.sellerId,button.dataset.sellerSuspend==='true')));
+  };
+  const loadSellers = async () => {
+    const {data,error}=await db.rpc('admin_list_sellers');
+    if(error) throw error;
+    state.sellers=data||[];
+    renderSellers();
+  };
+
+  const setSellerSuspended=async(button,sellerId,suspended)=>{
+    const notes=window.prompt((suspended?'Reason / note for suspension':'Optional reactivation note')+':','')||'';
+    if(suspended&&!window.confirm('Suspend this Seller account? All approved Seller products will immediately disappear from the customer website until the account is reactivated.'))return;
+    await withButtonLock(button,suspended?'Suspending…':'Reactivating…',async()=>{
+      const {error}=await db.rpc('admin_set_seller_account_status',{
+        p_seller_id:sellerId,
+        p_suspended:suspended,
+        p_notes:notes||null
+      });
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadSellers(),loadCatalogue(),loadAuditLog().catch(()=>{})]);
+      globalStatus(suspended?'Seller account suspended. Products are hidden from customers.':'Seller account reactivated.');
+    });
+  };
+
+  const serviceListingPriceText=(item)=>{
+    if(item.pricing_model==='quote')return 'Quote after request';
+    const from=Number(item.price_from_kes||0);
+    const to=Number(item.price_to_kes||0);
+    if(item.pricing_model==='fixed')return formatMoney(from)+(item.unit_label?' · '+item.unit_label:'');
+    if(item.pricing_model==='hourly')return formatMoney(from)+' / hour';
+    if(item.pricing_model==='from')return 'From '+formatMoney(from)+(to?' – '+formatMoney(to):'')+(item.unit_label?' · '+item.unit_label:'');
+    return from?formatMoney(from):'—';
+  };
+  const partnerRecordGridHtml=(pairs=[])=>pairs
+    .filter(([,value])=>value!==undefined&&value!==null&&String(value)!=='')
+    .map(([label,value])=>'<div><small>'+escapeHtml(label)+'</small><strong>'+escapeHtml(Array.isArray(value)?value.join(', '):String(value))+'</strong></div>')
+    .join('');
+
+  const openPartnerRecordShell=(eyebrow,title)=>{
+    const modal=$('#partnerRecordModal');
+    if(!modal)return false;
+    $('#partnerRecordEyebrow').textContent=eyebrow;
+    $('#partnerRecordTitle').textContent=title;
+    $('#partnerRecordGrid').innerHTML='<div><small>STATUS</small><strong>Loading record…</strong></div>';
+    $('#partnerRecordRelated').innerHTML='';
+    $('#partnerRecordMedia').innerHTML='';
+    $('#partnerRecordMedia').hidden=true;
+    setFormStatus($('#partnerRecordStatus'),'');
+    modal.hidden=false;
+    return true;
+  };
+
+  const renderPartnerRecordMedia=async(payload,kind)=>{
+    const target=$('#partnerRecordMedia');
+    if(!target)return;
+    const entries=adminMediaEntries(payload||{},kind);
+    target.innerHTML='';
+    target.hidden=!entries.length;
+    if(!entries.length)return;
+    const heading=document.createElement('div');
+    heading.className='review-media-heading';
+    heading.innerHTML='<span>FILES & PHOTOS</span><strong>Verification & profile media</strong><small>Private documents remain visible only to authorized Admin staff.</small>';
+    target.appendChild(heading);
+    const grid=document.createElement('div');
+    grid.className='review-media-grid';
+    target.appendChild(grid);
+    for(const entry of entries){
+      grid.appendChild(await renderAdminMediaCard(entry));
+    }
+  };
+
+  const openServiceProviderRecord=async(providerId)=>{
+    if(!openPartnerRecordShell('SERVICE PROVIDER RECORD','Service Provider Details'))return;
+    try{
+      const {data,error}=await db.rpc('admin_get_service_provider_record',{p_provider_id:providerId});
+      if(error)throw error;
+      const account=data?.account||{};
+      const services=Array.isArray(data?.services)?data.services:[];
+      $('#partnerRecordTitle').textContent=account.business_name||'Service Provider Details';
+      $('#partnerRecordGrid').innerHTML=partnerRecordGridHtml([
+        ['Business name',account.business_name],['Owner name',account.owner_name],['Email',account.email],['Phone',account.phone],
+        ['ID number',account.id_number],['Primary service',account.primary_service],['Service category',account.service_category],
+        ['Experience',account.experience_years!=null?account.experience_years+' years':''],['County',account.county],['Sub-County',account.sub_county],
+        ['Town / Area',account.town],['Location details',account.location_details],['Service area notes',account.service_area_notes],
+        ['Availability',String(account.availability_status||'').replaceAll('_',' ')],['Account status',String(account.application_status||'').replaceAll('_',' ')],
+        ['Approved',formatDate(account.approved_at,true)],['Admin notes',account.admin_notes],['Business description',account.business_description]
+      ]);
+      await renderPartnerRecordMedia(account,'service_provider_application');
+      $('#partnerRecordRelated').innerHTML='<div class="review-media-heading"><span>SERVICES</span><strong>'+services.length+' service listing(s)</strong></div>'+
+        (services.length?'<div class="partner-related-grid">'+services.map(service=>
+          '<article><div><strong>'+escapeHtml(service.service_name||'Service')+'</strong><small>'+escapeHtml(service.category_name||'')+'</small></div>'+
+          '<span class="status-chip">'+escapeHtml(String(service.approval_status||'').replaceAll('_',' '))+'</span>'+
+          '<p>'+escapeHtml(service.description||service.service_area||'')+'</p>'+
+          '<small>'+(service.is_available?'Customer available':'Hidden / unavailable')+'</small></article>'
+        ).join('')+'</div>':'<div class="loading-card">No services added yet.</div>');
+    }catch(error){
+      setFormStatus($('#partnerRecordStatus'),friendlyError(error),'error');
+    }
+  };
+
+  const openTransportProviderRecord=async(providerId)=>{
+    if(!openPartnerRecordShell('TRANSPORT PROVIDER RECORD','Transport Provider Details'))return;
+    try{
+      const {data,error}=await db.rpc('admin_get_transport_provider_record',{p_provider_id:providerId});
+      if(error)throw error;
+      const account=data?.account||{};
+      const vehicles=Array.isArray(data?.vehicles)?data.vehicles:[];
+      $('#partnerRecordTitle').textContent=account.business_name||'Transport Provider Details';
+      $('#partnerRecordGrid').innerHTML=partnerRecordGridHtml([
+        ['Business name',account.business_name],['Owner name',account.owner_name],['Email',account.email],['Phone',account.phone],
+        ['ID number',account.id_number],['Provider type',String(account.provider_type||'').replaceAll('_',' ')],
+        ['Services offered',account.services_offered],['County',account.county],['Sub-County',account.sub_county],['Town / Area',account.town],
+        ['Location details',account.location_details],['Coverage notes',account.coverage_notes],['Availability',String(account.availability_status||'').replaceAll('_',' ')],
+        ['Account status',String(account.application_status||'').replaceAll('_',' ')],['Base latitude',account.base_latitude],['Base longitude',account.base_longitude],
+        ['Base map link',account.base_map_link],['Approved',formatDate(account.approved_at,true)],['Admin notes',account.admin_notes],['Business description',account.business_description]
+      ]);
+      await renderPartnerRecordMedia(account,'transport_provider_application');
+      $('#partnerRecordRelated').innerHTML='<div class="review-media-heading"><span>VEHICLES</span><strong>'+vehicles.length+' vehicle(s)</strong><small>Use the vehicle View Details button for private driver verification.</small></div>'+
+        (vehicles.length?'<div class="partner-related-grid">'+vehicles.map(vehicle=>
+          '<article><div><strong>'+escapeHtml([vehicle.vehicle_type,vehicle.registration_number].filter(Boolean).join(' · ')||'Vehicle')+'</strong><small>'+escapeHtml([vehicle.make_model,vehicle.colour].filter(Boolean).join(' · '))+'</small></div>'+
+          '<span class="status-chip">'+escapeHtml(String(vehicle.approval_status||'').replaceAll('_',' '))+'</span>'+
+          '<p>'+escapeHtml(vehicle.capacity_description||vehicle.service_area||'')+'</p><small>'+(vehicle.is_available?'Customer available':'Hidden / unavailable')+'</small></article>'
+        ).join('')+'</div>':'<div class="loading-card">No vehicles added yet.</div>');
+    }catch(error){
+      setFormStatus($('#partnerRecordStatus'),friendlyError(error),'error');
+    }
+  };
+
+  const openTransportVehicleRecord=async(vehicleId)=>{
+    const vehicle=(state.transportVehicles||[]).find((item)=>String(item.id)===String(vehicleId));
+    if(!vehicle||!openPartnerRecordShell('TRANSPORT VEHICLE RECORD','Vehicle Details'))return;
+    $('#partnerRecordTitle').textContent=[vehicle.vehicle_type,vehicle.registration_number].filter(Boolean).join(' · ')||'Vehicle Details';
+    $('#partnerRecordGrid').innerHTML=partnerRecordGridHtml([
+      ['Provider',vehicle.provider_name],['Vehicle type',vehicle.vehicle_type],['Registration',vehicle.registration_number],
+      ['Make / Model',vehicle.make_model],['Colour',vehicle.colour],['Service types',vehicle.service_types],
+      ['Capacity',vehicle.capacity_description],['Maximum weight',vehicle.max_weight_kg!=null?vehicle.max_weight_kg+' kg':''],
+      ['Service area',vehicle.service_area],['Waiting point',vehicle.waiting_point_name],['Waiting latitude',vehicle.waiting_point_latitude],
+      ['Waiting longitude',vehicle.waiting_point_longitude],['Waiting map link',vehicle.waiting_point_map_link],
+      ['Vehicle status',String(vehicle.approval_status||'').replaceAll('_',' ')],['Customer availability',vehicle.is_available?'Available':'Hidden / unavailable'],
+      ['Driver full name',vehicle.driver_full_name],['Driver ID number',vehicle.driver_id_number],['Driver phone',vehicle.driver_phone],
+      ['Driver licence',vehicle.driver_licence_number],['Admin notes',vehicle.admin_notes],['Submitted',formatDate(vehicle.submitted_at,true)]
+    ]);
+    await renderPartnerRecordMedia(vehicle,'transport_vehicle');
+    $('#partnerRecordRelated').innerHTML='<div class="partner-record-private-note">Driver identity details and passport photo are Admin-only verification information.</div>';
+  };
+
+  const setServiceProviderSuspended=async(button,providerId,suspended)=>{
+    const label=suspended?'suspend':'reactivate';
+    const notes=window.prompt((suspended?'Reason / note for suspension':'Optional reactivation note')+':','')||'';
+    if(suspended&&!window.confirm('Suspend this Service Provider account? Its profile and all services will immediately disappear from the customer website.'))return;
+    await withButtonLock(button,suspended?'Suspending…':'Reactivating…',async()=>{
+      const {error}=await db.rpc('admin_set_service_provider_account_status',{p_provider_id:providerId,p_suspended:suspended,p_notes:notes||null});
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadServiceProviders(),loadServiceListings(),loadAuditLog().catch(()=>{})]);
+      globalStatus('Service Provider account '+label+'d. Customer visibility updated.');
+    });
+  };
+
+  const setServiceListingActive=async(button,serviceId,active)=>{
+    const item=(state.serviceListings||[]).find((row)=>String(row.service_id)===String(serviceId));
+    if(!item)return;
+    const notes=window.prompt((active?'Optional reactivation note':'Reason / note for suspension')+':','')||'';
+    if(!active&&!window.confirm('Suspend "'+(item.service_name||'this service')+'"? It will immediately disappear from the customer website.'))return;
+    await withButtonLock(button,active?'Reactivating…':'Suspending…',async()=>{
+      const {error}=await db.rpc('admin_set_service_listing_availability',{p_service_id:serviceId,p_active:active,p_notes:notes||null});
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadServiceListings(),loadServiceProviders(),loadAuditLog().catch(()=>{})]);
+      globalStatus(active?'Service reactivated and customer-visible again.':'Service suspended and hidden from customers.');
+    });
+  };
+
+  const setTransportProviderSuspended=async(button,providerId,suspended)=>{
+    const notes=window.prompt((suspended?'Reason / note for suspension':'Optional reactivation note')+':','')||'';
+    if(suspended&&!window.confirm('Suspend this Transport Provider account? All of its vehicles will immediately disappear from the customer website.'))return;
+    await withButtonLock(button,suspended?'Suspending…':'Reactivating…',async()=>{
+      const {error}=await db.rpc('admin_set_transport_provider_account_status',{p_provider_id:providerId,p_suspended:suspended,p_notes:notes||null});
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadTransportNetwork(),loadAuditLog().catch(()=>{})]);
+      globalStatus(suspended?'Transport Provider suspended and hidden from customers.':'Transport Provider reactivated.');
+    });
+  };
+
+  const setTransportVehicleActive=async(button,vehicleId,active)=>{
+    const vehicle=(state.transportVehicles||[]).find((item)=>String(item.id)===String(vehicleId));
+    if(!vehicle)return;
+    const notes=window.prompt((active?'Optional reactivation note':'Reason / note for suspension')+':','')||'';
+    if(!active&&!window.confirm('Suspend '+([vehicle.vehicle_type,vehicle.registration_number].filter(Boolean).join(' ')||'this vehicle')+'? It will immediately disappear from the customer website.'))return;
+    await withButtonLock(button,active?'Reactivating…':'Suspending…',async()=>{
+      const {error}=await db.rpc('admin_set_transport_vehicle_availability',{p_vehicle_id:vehicleId,p_active:active,p_notes:notes||null});
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      await Promise.all([loadTransportNetwork(),loadAuditLog().catch(()=>{})]);
+      globalStatus(active?'Vehicle reactivated and customer-visible again.':'Vehicle suspended and hidden from customers.');
+    });
+  };
+
+  const renderServiceListings=()=>{
+    const target=$('#adminServiceListingBody');if(!target)return;
+    const filter=$('#adminServiceListingFilter')?.value||'all';
+    const rows=(state.serviceListings||[]).filter((item)=>filter==='all'||item.approval_status===filter);
+    target.innerHTML=rows.length?rows.map((item)=>{
+      const pending=['pending','under_review','changes_requested'].includes(item.approval_status);
+      const action=pending
+        ? '<button type="button" data-open-service-listing-approval="'+escapeHtml(item.service_id)+'">Open Approval →</button>'
+        : item.approval_status==='approved'
+          ? '<div class="partner-record-actions"><button type="button" data-view-service-provider="'+escapeHtml(item.provider_id)+'">View Provider</button>'+
+            (item.is_available
+              ? '<button type="button" class="danger" data-service-listing-active="false" data-service-listing-id="'+escapeHtml(item.service_id)+'">Suspend Service</button>'
+              : '<button type="button" data-service-listing-active="true" data-service-listing-id="'+escapeHtml(item.service_id)+'">Reactivate Service</button>')+
+            '</div>'
+          : '<button type="button" data-view-service-provider="'+escapeHtml(item.provider_id)+'">View Provider</button>';
+      return '<tr>'+
+        '<td data-label="Service"><strong>'+escapeHtml(item.service_name||'Service')+'</strong><small>'+escapeHtml(item.category_name||'Uncategorised')+'</small></td>'+
+        '<td data-label="Provider"><strong>'+escapeHtml(item.provider_name||'Service Provider')+'</strong><small>'+escapeHtml(item.provider_email||'')+'</small></td>'+
+        '<td data-label="Pricing"><strong>'+escapeHtml(serviceListingPriceText(item))+'</strong><small>'+escapeHtml(String(item.pricing_model||'').replaceAll('_',' '))+'</small></td>'+
+        '<td data-label="Area"><strong>'+escapeHtml(item.service_area||'—')+'</strong><small>'+escapeHtml(item.availability_notes||'')+'</small></td>'+
+        '<td data-label="Availability"><span class="status-chip">'+(item.is_available?'Available':'Unavailable')+'</span></td>'+
+        '<td data-label="Approval"><span class="status-chip">'+escapeHtml(String(item.approval_status||'').replaceAll('_',' '))+'</span><small>'+escapeHtml(formatDate(item.approved_at||item.submitted_at,true))+'</small></td>'+
+        '<td data-label="Action">'+action+'</td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="7">No Service Listings match this filter.</td></tr>';
+    Array.from(target.querySelectorAll('[data-open-service-listing-approval]')).forEach((button)=>button.addEventListener('click',()=>openApproval('service_listing',button.dataset.openServiceListingApproval)));
+    Array.from(target.querySelectorAll('[data-view-service-provider]')).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
+    Array.from(target.querySelectorAll('[data-service-listing-active]')).forEach((button)=>button.addEventListener('click',()=>setServiceListingActive(button,button.dataset.serviceListingId,button.dataset.serviceListingActive==='true')));
+  };
+  const loadServiceListings=async()=>{
+    const {data,error}=await db.rpc('admin_list_service_listings');
+    if(error)throw error;
+    state.serviceListings=Array.isArray(data)?data:[];
+    renderServiceListings();
+  };
+
+  const renderServiceProviders = () => {
+    const rows=state.serviceProviders||[];
+    const approved=rows.filter((item)=>item.application_status==='approved').length;
+    const pending=rows.filter((item)=>['submitted','under_review','changes_requested'].includes(item.application_status)).length;
+    const approvedServices=rows.reduce((sum,item)=>sum+Number(item.approved_service_count||0),0);
+    $('#serviceProviderTotal').textContent=rows.length;
+    $('#serviceProviderApproved').textContent=approved;
+    $('#serviceProviderPending').textContent=pending;
+    $('#serviceProviderApprovedServices').textContent=approvedServices;
+    $('#serviceProviderTableBody').innerHTML=rows.length?rows.map((item)=>{
+      const pendingApproval=state.approvals.find((approval)=>approval.kind==='service_provider_application'&&approval.record_id===item.user_id);
+      return '<tr>'+
+        '<td data-label="Provider"><strong>'+escapeHtml(item.business_name||'Service Provider')+'</strong><small>'+escapeHtml(item.owner_name||item.email||'')+'</small></td>'+
+        '<td data-label="Primary Service"><strong>'+escapeHtml(item.primary_service||'—')+'</strong><small>'+escapeHtml(item.service_category||'')+'</small></td>'+
+        '<td data-label="Location"><strong>'+escapeHtml(item.town||'—')+'</strong><small>'+escapeHtml([item.sub_county,item.county].filter(Boolean).join(', '))+'</small></td>'+
+        '<td data-label="Availability"><span class="status-chip">'+escapeHtml(String(item.availability_status||'available').replaceAll('_',' '))+'</span></td>'+
+        '<td data-label="Status"><span class="status-chip">'+escapeHtml(String(item.application_status||'').replaceAll('_',' '))+'</span></td>'+
+        '<td data-label="Services"><strong>'+Number(item.service_count||0)+'</strong><small>'+Number(item.approved_service_count||0)+' approved</small></td>'+
+        '<td data-label="Action"><div class="partner-record-actions">'+
+          (pendingApproval?'<button type="button" data-provider-review="'+escapeHtml(item.user_id)+'">Open Approval →</button>':'')+
+          '<button type="button" data-view-service-provider="'+escapeHtml(item.user_id)+'">View Details</button>'+
+          (item.application_status==='approved'
+            ? '<button type="button" class="danger" data-service-provider-suspend="true" data-service-provider-id="'+escapeHtml(item.user_id)+'">Suspend Account</button>'
+            : item.application_status==='suspended'
+              ? '<button type="button" data-service-provider-suspend="false" data-service-provider-id="'+escapeHtml(item.user_id)+'">Reactivate</button>'
+              : '')+
+        '</div></td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="7">No Service Provider accounts yet.</td></tr>';
+    const serviceProviderTable=$('#serviceProviderTableBody');
+    Array.from(serviceProviderTable?.querySelectorAll('[data-provider-review]')||[]).forEach((button)=>button.addEventListener('click',()=>openApproval('service_provider_application',button.dataset.providerReview)));
+    Array.from(serviceProviderTable?.querySelectorAll('[data-view-service-provider]')||[]).forEach((button)=>button.addEventListener('click',()=>openServiceProviderRecord(button.dataset.viewServiceProvider)));
+    Array.from(serviceProviderTable?.querySelectorAll('[data-service-provider-suspend]')||[]).forEach((button)=>button.addEventListener('click',()=>setServiceProviderSuspended(button,button.dataset.serviceProviderId,button.dataset.serviceProviderSuspend==='true')));
+  };
+  const loadServiceProviders = async () => {
+    const {data,error}=await db.rpc('admin_list_service_providers');
+    if(error)throw error;
+    state.serviceProviders=Array.isArray(data)?data:[];
+    renderServiceProviders();
+  };
+
+  const serviceRequestStatusText=(value)=>({
+    submitted:'Waiting for dispatch',awaiting_payment_verification:'Payment verification',
+    payment_verified:'Payment verified · ready',payment_rejected:'Payment rejected',
+    dispatched:'With provider',accepted:'Accepted',declined:'Provider declined',
+    quoted:'Quote sent to customer',quote_accepted:'Quote accepted',quote_rejected:'Quote rejected',
+    in_progress:'In progress',completed:'Completed',cancelled:'Cancelled'
+  }[value]||String(value||'').replaceAll('_',' '));
+  const renderServiceRequests=()=>{
+    const all=state.serviceRequests||[];
+    $('#adminServiceRequestTotal').textContent=all.length;
+    $('#adminServicePaymentPending').textContent=all.filter(r=>r.request_status==='awaiting_payment_verification').length;
+    $('#adminServiceReadyDispatch').textContent=all.filter(r=>['submitted','payment_verified'].includes(r.request_status)).length;
+    $('#adminServiceActiveJobs').textContent=all.filter(r=>['dispatched','accepted','quoted','quote_accepted','in_progress'].includes(r.request_status)).length;
+    const filter=$('#adminServiceRequestFilter')?.value||'all';
+    let rows=all;
+    if(filter==='awaiting_payment_verification')rows=rows.filter(r=>r.request_status===filter);
+    if(filter==='ready')rows=rows.filter(r=>['submitted','payment_verified'].includes(r.request_status));
+    if(filter==='dispatched')rows=rows.filter(r=>['dispatched','quoted'].includes(r.request_status));
+    if(filter==='active')rows=rows.filter(r=>['accepted','quote_accepted','in_progress'].includes(r.request_status));
+    if(filter==='closed')rows=rows.filter(r=>['completed','cancelled','declined','quote_rejected','payment_rejected'].includes(r.request_status));
+    const target=$('#adminServiceRequestList');if(!target)return;
+    target.innerHTML=rows.length?rows.map(item=>{
+      const actions=[];
+      if(item.request_status==='awaiting_payment_verification'){
+        actions.push('<button class="verify" type="button" data-service-payment="'+escapeHtml(item.id)+'" data-approved="true">Verify Fee</button>');
+        actions.push('<button class="reject" type="button" data-service-payment="'+escapeHtml(item.id)+'" data-approved="false">Reject Fee</button>');
+      }
+      if(['submitted','payment_verified'].includes(item.request_status))actions.push('<button class="dispatch" type="button" data-dispatch-service-request="'+escapeHtml(item.id)+'">Dispatch to Provider</button>');
+      if(!['completed','cancelled'].includes(item.request_status))actions.push('<button class="cancel" type="button" data-cancel-service-request="'+escapeHtml(item.id)+'">Cancel</button>');
+      const feeAmount=item.request_type==='direct'?Number(item.direct_request_fee_kes||0):Number(item.quotation_fee_kes||0);
+      const feeLabel=item.request_type==='direct'?'Direct request fee':'Quotation fee';
+      return '<article class="admin-service-request-card"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at,true))+' · '+escapeHtml(item.service_name||'Service')+'</small></div><b>'+escapeHtml(serviceRequestStatusText(item.request_status))+'</b></header>'+
+        '<div class="admin-service-request-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>PROVIDER</small><strong>'+escapeHtml(item.business_name||'Provider')+'</strong><span>'+escapeHtml(item.provider_phone||'—')+'</span></div><div><small>REQUEST</small><strong>'+(item.request_type==='quotation'?'Paid quotation':'Direct service')+'</strong><span>'+escapeHtml(item.service_location||'—')+'</span></div></div>'+
+        '<p><strong>Job details:</strong> '+escapeHtml(item.request_details||'—')+'</p>'+
+        '<p><strong>Preferred schedule:</strong> '+escapeHtml((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+(item.nearest_landmark?' · Landmark: '+escapeHtml(item.nearest_landmark):'')+'</p>'+
+        (feeAmount>0?'<p><strong>'+escapeHtml(feeLabel)+':</strong> '+escapeHtml(formatMoney(feeAmount))+' · '+escapeHtml(String(item.payment_status||'').replaceAll('_',' '))+(item.payment_reference?' · Ref '+escapeHtml(item.payment_reference):'')+'</p>':'')+
+        (item.provider_quote_kes?'<p><strong>Provider quotation:</strong> '+escapeHtml(formatMoney(item.provider_quote_kes))+(item.provider_quote_notes?' · '+escapeHtml(item.provider_quote_notes):'')+'</p>':'')+
+        (item.admin_notes?'<p><strong>Admin note:</strong> '+escapeHtml(item.admin_notes)+'</p>':'')+
+        '<div class="admin-service-request-actions">'+actions.join('')+'</div></article>';
+    }).join(''):'<div class="reserved-module slim"><span>🛠️</span><h3>No matching service requests</h3><p>Requests in this status will appear here.</p></div>';
+  };
+  const loadServiceOperations=async()=>{
+    const [requestsResult,settingsResult]=await Promise.all([
+      db.rpc('admin_list_service_requests'),
+      db.rpc('admin_get_service_marketplace_settings')
+    ]);
+    if(requestsResult.error)throw requestsResult.error;
+    if(settingsResult.error)throw settingsResult.error;
+    state.serviceRequests=Array.isArray(requestsResult.data)?requestsResult.data:[];
+    state.serviceMarketplaceSettings=settingsResult.data||{direct_request_fee_kes:50,quotation_fee_kes:50};
+    if($('#adminDirectServiceRequestFee'))$('#adminDirectServiceRequestFee').value=Number(state.serviceMarketplaceSettings.direct_request_fee_kes??50);
+    if($('#adminServiceQuotationFee'))$('#adminServiceQuotationFee').value=Number(state.serviceMarketplaceSettings.quotation_fee_kes??50);
+    renderServiceRequests();
+  };
+  const saveServiceQuotationFee=async(event)=>{
+    event.preventDefault();
+    const button=event.submitter||event.currentTarget.querySelector('button[type="submit"]');
+    await withButtonLock(button,'Saving…',async()=>{
+      const directFee=Number($('#adminDirectServiceRequestFee').value);
+      const quotationFee=Number($('#adminServiceQuotationFee').value);
+      const {data,error}=await db.rpc('admin_update_service_request_fees',{p_direct_request_fee_kes:directFee,p_quotation_fee_kes:quotationFee});
+      if(error){setFormStatus($('#serviceQuotationFeeStatus'),friendlyError(error),'error');return;}
+      state.serviceMarketplaceSettings=data;
+      setFormStatus($('#serviceQuotationFeeStatus'),'Service fees saved. Direct requests: '+formatMoney(data.direct_request_fee_kes)+'; quotation requests: '+formatMoney(data.quotation_fee_kes)+'.','success');
+      await loadAuditLog().catch(()=>{});
+    });
+  };
+  const handleServiceRequestAction=async(button)=>{
+    const id=button.dataset.servicePayment||button.dataset.dispatchServiceRequest||button.dataset.cancelServiceRequest;
+    if(!id)return;
+    await withButtonLock(button,'Saving…',async()=>{
+      let result;
+      if(button.dataset.servicePayment){
+        const approved=button.dataset.approved==='true';
+        const notes=window.prompt(approved?'Optional verification note:':'Reason payment was rejected:','')||null;
+        result=await db.rpc('admin_verify_service_quotation_payment',{p_request_id:id,p_approved:approved,p_notes:notes});
+      }else if(button.dataset.dispatchServiceRequest){
+        const notes=window.prompt('Optional dispatch note for this request:','')||null;
+        result=await db.rpc('admin_dispatch_service_request',{p_request_id:id,p_notes:notes});
+      }else{
+        const notes=window.prompt('Enter the cancellation reason:','')||'';
+        if(notes.trim().length<3)return;
+        result=await db.rpc('admin_cancel_service_request',{p_request_id:id,p_notes:notes});
+      }
+      if(result.error){globalStatus(friendlyError(result.error),'error');return;}
+      globalStatus('Service request updated successfully.');
+      await Promise.all([loadServiceOperations(),loadAuditLog().catch(()=>{})]);
+    });
+  };
+
+  const adminServiceReviewStars=(rating)=>'★'.repeat(Math.max(0,Math.min(5,Number(rating)||0)))+'☆'.repeat(Math.max(0,5-(Number(rating)||0)));
+
+  const renderReviewList=(target,rows,emptyLabel)=>{
+    if(!target)return;
+    target.innerHTML=rows.length?rows.map((item)=>{
+      const context=item.service_name||item.vehicle_label||(item.partner_type==='transport'?'Transport & Parcel Service':'Professional Service');
+      const typeLabel=item.partner_type==='transport'?'Transport & Parcel':'Service Provider';
+      const verified=item.verified_completed_service
+        ? '<span class="service-review-verified">✓ Verified completed LEOGO '+(item.partner_type==='transport'?'transport job':'service')+'</span>'
+        : '<span class="service-review-verified neutral">Unverified review — cannot be approved</span>';
+      const actions=item.moderation_status==='submitted'
+        ? '<div class="admin-product-review-actions"><button class="approve" type="button" data-moderate-service-review="'+escapeHtml(item.review_id)+'" data-review-action="approved">Approve</button><button class="reject" type="button" data-moderate-service-review="'+escapeHtml(item.review_id)+'" data-review-action="rejected">Reject</button></div>'
+        : '<div class="admin-product-review-actions"><span class="status-chip">'+escapeHtml(String(item.moderation_status||'').replaceAll('_',' '))+'</span></div>';
+      return '<article class="admin-product-review-item admin-service-review-item">'+
+        '<header><div><span>'+escapeHtml(typeLabel)+'</span><strong>'+escapeHtml(item.provider_name||typeLabel)+'</strong><small>'+escapeHtml(context)+'</small></div><b>'+escapeHtml(adminServiceReviewStars(item.rating))+' '+escapeHtml(item.rating)+'/5</b></header>'+
+        '<div class="admin-service-review-meta"><span><strong>Customer:</strong> '+escapeHtml(item.customer_name||'Customer')+'</span><span><strong>Submitted:</strong> '+escapeHtml(formatDate(item.created_at,true))+'</span>'+verified+'</div>'+
+        (item.request_reference?'<p><strong>Service request:</strong> '+escapeHtml(item.request_reference)+'</p>':'')+
+        '<p class="admin-product-review-comment">'+escapeHtml(item.comment||'Customer submitted a rating without a written comment.')+'</p>'+
+        (item.admin_notes?'<p class="admin-review-note"><strong>Admin note:</strong> '+escapeHtml(item.admin_notes)+'</p>':'')+
+        actions+
+      '</article>';
+    }).join(''):'<div class="loading-card">'+escapeHtml(emptyLabel)+'</div>';
+    $$('[data-moderate-service-review]',target).forEach((button)=>button.addEventListener('click',()=>moderateServiceReview(button)));
+  };
+
+  const renderServiceReviews=()=>{
+    const all=Array.isArray(state.serviceReviews)?state.serviceReviews:[];
+    const servicePending=all.filter((item)=>item.partner_type==='service_provider'&&item.moderation_status==='submitted').length;
+    const transportPending=all.filter((item)=>item.partner_type==='transport'&&item.moderation_status==='submitted').length;
+    if($('#adminServiceReviewPending'))$('#adminServiceReviewPending').textContent=servicePending;
+    if($('#adminTransportReviewPending'))$('#adminTransportReviewPending').textContent=transportPending;
+
+    const serviceStatus=$('#adminServiceReviewStatusFilter')?.value||'submitted';
+    const transportStatus=$('#adminTransportReviewStatusFilter')?.value||'submitted';
+
+    const serviceRows=all.filter((item)=>
+      item.partner_type==='service_provider' &&
+      (serviceStatus==='all'||item.moderation_status===serviceStatus)
+    );
+    const transportRows=all.filter((item)=>
+      item.partner_type==='transport' &&
+      (transportStatus==='all'||item.moderation_status===transportStatus)
+    );
+
+    renderReviewList($('#adminServiceReviewList'),serviceRows,'No Service Provider reviews match this filter.');
+    renderReviewList($('#adminTransportReviewList'),transportRows,'No Transport reviews match this filter.');
+  };
+
+  const loadServiceReviews=async()=>{
+    const {data,error}=await db.rpc('admin_list_service_reviews');
+    if(error)throw error;
+    state.serviceReviews=Array.isArray(data)?data:[];
+    renderServiceReviews();
+  };
+
+  const moderateServiceReview=async(button)=>{
+    const reviewId=button.dataset.moderateServiceReview;
+    const action=button.dataset.reviewAction;
+    if(!reviewId||!['approved','rejected'].includes(action))return;
+    let notes=null;
+    if(action==='rejected'){
+      notes=window.prompt('Enter the reason this service review should not be published:','')||'';
+      if(notes.trim().length<3){globalStatus('Add a clear rejection reason before rejecting the review.','error');return;}
+    }else{
+      notes=window.prompt('Optional Admin note for this approved review:','')||null;
+    }
+    await withButtonLock(button,action==='approved'?'Approving…':'Rejecting…',async()=>{
+      const {error}=await db.rpc('admin_moderate_service_review',{
+        p_review_id:reviewId,
+        p_action:action,
+        p_admin_notes:notes||null
+      });
+      if(error){globalStatus(friendlyError(error),'error');return;}
+      const review=state.serviceReviews.find((item)=>String(item.review_id)===String(reviewId));
+      const label=review?.partner_type==='transport'?'Transport review':'Service Provider review';
+      globalStatus(action==='approved'?label+' approved and published to customers.':label+' rejected and kept off the public Customer Front.');
+      await Promise.all([loadServiceReviews(),loadAuditLog().catch(()=>{})]);
+    });
+  };
+
+  const sellerDocumentCard = async (label,path) => {
+    if(!path) return '<article class="review-media-card"><div class="review-media-card-head"><strong>'+escapeHtml(label)+'</strong><span>Not provided</span></div></article>';
+    try{
+      const {data,error}=await db.storage.from('seller-verification').createSignedUrl(String(path),900);
+      if(error)throw error;
+      const url=data?.signedUrl||'';
+      const isPdf=/\.pdf(?:\?|$)/i.test(path);
+      return '<article class="review-media-card"><div class="review-media-card-head"><strong>'+escapeHtml(label)+'</strong><span>Private document</span></div>'+(isPdf?'':'<a class="review-media-image-link" href="'+escapeHtml(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escapeHtml(url)+'" alt="'+escapeHtml(label)+'"></a>')+'<div class="review-media-actions"><a href="'+escapeHtml(url)+'" target="_blank" rel="noopener noreferrer">View document ↗</a></div></article>';
+    }catch(error){return '<article class="review-media-card"><div class="review-media-card-head"><strong>'+escapeHtml(label)+'</strong><span>Preview unavailable</span></div><div class="review-media-error">'+escapeHtml(friendlyError(error))+'</div></article>';}
+  };
+  const openSellerRecord = async (userId) => {
+    const s=state.sellers.find((item)=>item.user_id===userId);
+    if(!s)return;
+    $('#sellerRecordTitle').textContent=s.business_name||'Seller';
+    const rows=[
+      ['Business name',s.business_name],['Owner name',s.owner_name],['Email',s.email],['ID number',s.id_number],['Phone',s.phone],
+      ['County',s.county],['Sub-County',s.sub_county],['Town',s.town],['Location / landmark',s.location_details],
+      ['Shop coordinates',(s.shop_latitude!=null&&s.shop_longitude!=null)?(s.shop_latitude+', '+s.shop_longitude):'Not pinned'],['Shop map link',s.shop_map_link||'—'],
+      ['Business description',s.business_description],['Application status',s.application_status],['Submitted',formatDate(s.submitted_at,true)],
+      ['Approved',formatDate(s.approved_at,true)],['Admin notes',s.admin_notes],['Products',s.product_count],['Active products',s.active_product_count],
+      ['Flash Sale requests',s.flash_sale_request_count],['Account created',formatDate(s.created_at,true)]
+    ];
+    $('#sellerRecordGrid').innerHTML=rows.map(([label,value])=>`<div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value==null||value===''?'—':value)}</strong></div>`).join('');
+    const existingDocs=$('#sellerRecordModal .seller-admin-docs'); if(existingDocs) existingDocs.remove();
+    const docs=[['Business ID / Identification',s.business_id_document_path],['Business Licence',s.business_licence_path],['CR12 / Registration Certificate',s.registration_certificate_path],...((s.other_permit_paths||[]).map((path,index)=>['Other Permit '+(index+1),path]))];
+    const docHtml=await Promise.all(docs.map(([label,path])=>sellerDocumentCard(label,path)));
+    $('#sellerRecordGrid').insertAdjacentHTML('afterend','<section class="review-media seller-admin-docs"><div class="review-media-heading"><span>PRIVATE VERIFICATION DOCUMENTS</span><strong>Business Documents</strong><small>Visible only to authorized LEOGO Admin users.</small></div><div class="review-media-grid">'+docHtml.join('')+'</div></section>');
+    $('#sellerRecordModal').hidden=false;
+  };
+
+
+  const settlementDestination = (account) => {
+    if (account.account_type === 'mpesa_mobile') return account.phone_number || '—';
+    if (account.account_type === 'mpesa_till') return 'Till ' + (account.till_number || '—');
+    if (account.account_type === 'mpesa_paybill') return 'Paybill ' + (account.paybill_number || '—') + ' · A/C ' + (account.account_number || '—');
+    return (account.bank_name || 'Bank') + ' · ' + (account.account_number || '—') + (account.bank_branch ? ' · ' + account.bank_branch : '');
+  };
+  const loadSellerSettlements = async () => {
+    const [accountsResult,providerAccountsResult,transportAccountsResult,requestsResult,providerRequestsResult,transportRequestsResult,settlementsResult,providerSettlementsResult,transportSettlementsResult] = await Promise.all([
+      db.rpc('admin_list_seller_settlement_accounts'),
+      db.rpc('admin_list_service_provider_settlement_accounts'),
+      db.rpc('admin_list_transport_provider_settlement_accounts'),
+      db.rpc('admin_list_seller_settlement_requests'),
+      db.rpc('admin_list_service_provider_settlement_requests'),
+      db.rpc('admin_list_transport_provider_settlement_requests'),
+      db.rpc('admin_list_seller_settlements'),
+      db.rpc('admin_list_service_provider_settlements'),
+      db.rpc('admin_list_transport_provider_settlements')
+    ]);
+    for (const result of [accountsResult,providerAccountsResult,transportAccountsResult,requestsResult,providerRequestsResult,transportRequestsResult,settlementsResult,providerSettlementsResult,transportSettlementsResult]) {
+      if (result.error) throw result.error;
+    }
+    state.sellerSettlementAccounts = accountsResult.data || [];
+    state.providerSettlementAccounts = providerAccountsResult.data || [];
+    state.transportSettlementAccounts = transportAccountsResult.data || [];
+    state.sellerSettlementRequests = requestsResult.data || [];
+    state.providerSettlementRequests = providerRequestsResult.data || [];
+    state.transportSettlementRequests = transportRequestsResult.data || [];
+    state.sellerSettlements = settlementsResult.data || [];
+    state.providerSettlements = providerSettlementsResult.data || [];
+    state.transportSettlements = transportSettlementsResult.data || [];
+    renderSellerSettlements();
+  };
+  const settlementAccountsForType = (partnerType) => partnerType === 'seller'
+    ? state.sellerSettlementAccounts
+    : partnerType === 'service_provider'
+      ? state.providerSettlementAccounts
+      : state.transportSettlementAccounts;
+  const settlementPartnerId = (account,partnerType) => partnerType === 'seller' ? account.seller_id : account.provider_id;
+  const settlementPartnerName = (account,partnerType) => partnerType === 'seller'
+    ? (account.seller_name || 'Seller')
+    : (account.provider_name || (partnerType === 'transport' ? 'Transport Provider' : 'Service Provider'));
+
+  const renderManualSettlementPartners = (preservePartnerId = '') => {
+    const type = $('#adminSettlementPartnerType')?.value || 'seller';
+    const accounts = settlementAccountsForType(type).filter((account)=>account.status==='approved');
+    const partnerIds = [...new Set(accounts.map((account)=>settlementPartnerId(account,type)).filter(Boolean))];
+    const current = preservePartnerId || $('#adminSettlementSeller')?.value || '';
+    $('#adminSettlementSeller').innerHTML = partnerIds.length
+      ? '<option value="">Choose Partner…</option>' + partnerIds.map((partnerId)=>{
+          const account=accounts.find((item)=>settlementPartnerId(item,type)===partnerId);
+          const label=settlementPartnerName(account||{},type);
+          return '<option value="'+escapeHtml(partnerId)+'" '+(partnerId===current?'selected':'')+'>'+escapeHtml(label)+'</option>';
+        }).join('')
+      : '<option value="">No approved settlement account holders</option>';
+    renderSellerSettlementAccountOptions();
+  };
+
+  const renderSellerSettlementAccountOptions = () => {
+    const type = $('#adminSettlementPartnerType')?.value || 'seller';
+    const partnerId = $('#adminSettlementSeller')?.value || '';
+    const approved = settlementAccountsForType(type).filter((account) =>
+      settlementPartnerId(account,type) === partnerId && account.status === 'approved'
+    );
+    $('#adminSettlementAccount').innerHTML = approved.length
+      ? '<option value="">Choose approved account…</option>' + approved.map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.account_name)} — ${escapeHtml(settlementDestination(account))}${account.is_primary ? ' (Primary)' : ''}</option>`).join('')
+      : '<option value="">No approved settlement account</option>';
+  };
+  const renderSellerSettlements = () => {
+    const partnerAccounts = [
+      ...state.sellerSettlementAccounts.map((account)=>({...account,partner_type:'seller',partner_id:account.seller_id,partner_name:account.seller_name,partner_email:account.seller_email})),
+      ...state.providerSettlementAccounts.map((account)=>({...account,partner_type:'service_provider',partner_id:account.provider_id,partner_name:account.provider_name,partner_email:account.provider_email})),
+      ...state.transportSettlementAccounts.map((account)=>({...account,partner_type:'transport',partner_id:account.provider_id,partner_name:account.provider_name,partner_email:account.provider_email}))
+    ];
+    const pending = partnerAccounts.filter((account) => account.status === 'pending_review').length;
+    const approved = partnerAccounts.filter((account) => account.status === 'approved').length;
+    const partnerRequests=[
+      ...state.sellerSettlementRequests.map((request)=>({...request,partner_type:'seller',partner_id:request.seller_id,partner_name:request.seller_name,partner_email:request.seller_email,partner_note:request.seller_note})),
+      ...state.providerSettlementRequests.map((request)=>({...request,partner_type:'service_provider',partner_id:request.provider_id,partner_name:request.provider_name,partner_email:request.provider_email,partner_note:request.provider_note})),
+      ...state.transportSettlementRequests.map((request)=>({...request,partner_type:'transport',partner_id:request.provider_id,partner_name:request.provider_name,partner_email:request.provider_email,partner_note:request.provider_note}))
+    ];
+    const partnerSettlements=[
+      ...state.sellerSettlements.map((item)=>({...item,partner_type:'seller',partner_name:item.seller_name,partner_email:item.seller_email})),
+      ...state.providerSettlements.map((item)=>({...item,partner_type:'service_provider',partner_name:item.provider_name,partner_email:item.provider_email})),
+      ...state.transportSettlements.map((item)=>({...item,partner_type:'transport',partner_name:item.provider_name,partner_email:item.provider_email}))
     ].sort((a,b)=>new Date(b.paid_at||0)-new Date(a.paid_at||0));
     const pendingRequests = partnerRequests.filter((request) => ['pending','under_review'].includes(request.status)).length;
     $('#adminSettlementPending').textContent = pending + pendingRequests;
