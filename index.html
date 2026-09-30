@@ -1211,6 +1211,17 @@
               <div class="premium-form-status" id="premiumPaymentMessage" role="status" aria-live="polite"></div>
               <div class="premium-payment-history"><h5>Recent Premium payments</h5><div id="premiumPaymentHistory"><p>No Premium payment submitted yet.</p></div></div>
             </section>
+            <section class="premium-setup-card premium-payment-card" id="premiumMeetupCreditCard">
+              <div class="premium-form-head"><span>3</span><div><h4>Extra Meetup Credits</h4><p>Your subscription includes one accepted meetup per rolling 24 hours. Buy a credit to send another request during that period.</p></div></div>
+              <div class="premium-admin-rate-note" id="premiumMeetupCreditSummary">Loading the current Admin rate and available credits…</div>
+              <form id="premiumMeetupCreditForm" hidden>
+                <label><span>Number of extra meetups</span><input id="premiumMeetupCreditQuantity" type="number" min="1" max="100" value="1" required></label>
+                <label><span>Payment reference</span><textarea id="premiumMeetupCreditReference" rows="3" minlength="4" maxlength="80" placeholder="Paste the payment reference" required></textarea></label>
+                <label class="premium-paid-check"><input id="premiumMeetupCreditPaid" type="checkbox" required><span>I have paid the displayed amount and request Admin confirmation.</span></label>
+                <button class="premium-primary-button" type="submit">Submit Extra Meetup Payment</button>
+              </form>
+              <div class="premium-form-status" id="premiumMeetupCreditMessage" role="status" aria-live="polite"></div>
+            </section>
           </div>
           <div class="premium-next-stage-note"><strong>After customer approval:</strong> approved Verified Premium Profiles will be listed for you. An active plan unlocks interest, consensual meetup booking and limited in-site chat. Your phone number remains hidden until the Verified Premium Profile accepts your request.</div>
         </section>
@@ -1358,4 +1369,4 @@
     </div>
   </div>
 </section>
-<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=pickup-station-arrival-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=stay-card-v3" defer></script><script src="js/cyber.js?v=delivery-rates-1" defer></script><script src="js/wallet.js?v=payment-routing-2" defer></script><script src="js/premium.js?v=payment-routing-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
+<footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=pickup-station-arrival-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=stay-card-v3" defer></script><script src="js/cyber.js?v=delivery-rates-1" defer></script><script src="js/wallet.js?v=payment-routing-2" defer></script><script src="js/premium.js?v=customer-meetup-limit-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
