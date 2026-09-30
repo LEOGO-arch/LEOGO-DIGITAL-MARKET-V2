@@ -432,9 +432,11 @@ const runParcelAction=async(mode,code,notes='',photoFile=null,customerIdNumber='
   if(preview.error)throw preview.error;
   const p=preview.data||{};
 
-  if(mode==='receive'&&p.parcel_status!=='booked'){
+  if(mode==='receive'){
+    if(p.parcel_status==='booked')throw new Error('Parcel arrival has not yet been confirmed by the Rider.');
     if(p.parcel_status==='received')throw new Error(p.order_reference+' has already been received at this Pickup Station.');
     if(p.parcel_status==='handed_over')throw new Error(p.order_reference+' has already been handed over.');
+    if(p.parcel_status!=='arrived_pending_receipt')throw new Error('This parcel is not awaiting station receipt.');
   }
   if(mode==='handover'&&p.parcel_status!=='received'){
     if(p.parcel_status==='handed_over')throw new Error(p.order_reference+' has already been handed over.');
