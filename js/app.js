@@ -949,6 +949,8 @@
   const checkoutCoordinates = document.getElementById('checkoutCoordinates');
   let pickupStations = [];
   let deliveryRateSettings = { cbd_fee_kes:50, estate_fee_kes:80, outside_town_fee_kes:200, standard_max_weight_kg:50, standard_max_area_sqm:1, rate_note:'' };
+  let orderSettings = { cod_limit_kes:10000, service_fee_threshold_kes:3000, service_fee_below_percent:2, service_fee_at_or_above_percent:1.5 };
+  let lipaPolePoleSettings = { cancellation_deduction_percent:25, overdue_refund_deduction_percent:25, overdue_interest_percent:5, reminder_days_before_due:3 };
   let updateCheckoutReadiness = () => {};
   const deliveryMoney=(value)=>'KSh '+Number(value||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 
@@ -979,6 +981,60 @@
     deliveryRateSettings={...deliveryRateSettings,...data};
     applyDeliveryRateLabels();
     updateCheckoutFees();
+  };
+
+  const checkoutServiceRateFor=(subtotal)=>{
+    const threshold=Number(orderSettings.service_fee_threshold_kes??3000);
+    const percent=Number(subtotal)>=threshold
+      ? Number(orderSettings.service_fee_at_or_above_percent??1.5)
+      : Number(orderSettings.service_fee_below_percent??2);
+    return percent/100;
+  };
+  const applyOrderSettingLabels=()=>{
+    const threshold=Number(orderSettings.service_fee_threshold_kes??3000);
+    const low=Number(orderSettings.service_fee_below_percent??2);
+    const high=Number(orderSettings.service_fee_at_or_above_percent??1.5);
+    const cod=Number(orderSettings.cod_limit_kes??10000);
+    const lowLimit=Math.max(0,threshold-1);
+    const lowNode=document.getElementById('checkoutServiceRuleLow');
+    const highNode=document.getElementById('checkoutServiceRuleHigh');
+    const codLabel=document.getElementById('checkoutCodLimitLabel');
+    const codRule=document.getElementById('checkoutCodRuleText');
+    if(lowNode)lowNode.innerHTML='Orders up to KSh '+lowLimit.toLocaleString('en-KE')+': <b>'+low.toLocaleString('en-KE')+'%</b>';
+    if(highNode)highNode.innerHTML='Orders from KSh '+threshold.toLocaleString('en-KE')+': <b>'+high.toLocaleString('en-KE')+'%</b>';
+    if(codLabel)codLabel.textContent='Available below KSh '+cod.toLocaleString('en-KE');
+    if(codRule)codRule.textContent='Cash on Delivery is only available for orders below KSh '+cod.toLocaleString('en-KE')+'. The customer must pay the Transport & Parcel Delivery fee first before the order is dispatched.';
+    if(checkoutShell)checkoutShell.dataset.codLimit=String(cod);
+  };
+  const loadOrderSettings=async()=>{
+    const client=window.leogoAuth?.client;if(!client)return;
+    const {data,error}=await client.rpc('public_get_order_settings');
+    if(error||!data)return;
+    orderSettings={...orderSettings,...data};
+    applyOrderSettingLabels();
+    updateCheckoutFees();
+  };
+
+  const lppCancellationPercent=()=>Number(lipaPolePoleSettings.cancellation_deduction_percent??25);
+  const lppCancellationRate=()=>lppCancellationPercent()/100;
+  const lppOverdueRefundPercent=()=>Number(lipaPolePoleSettings.overdue_refund_deduction_percent??25);
+  const lppInterestPercent=()=>Number(lipaPolePoleSettings.overdue_interest_percent??5);
+  const applyLipaPolePoleSettingLabels=()=>{
+    const cancellation=lppCancellationPercent();
+    const overdue=lppOverdueRefundPercent();
+    const interest=lppInterestPercent();
+    const cancelRule=document.getElementById('lppCancellationRuleText');
+    const overdueRule=document.getElementById('lppOverdueRuleText');
+    if(cancelRule)cancelRule.textContent='If the customer cancels, LEOGO refunds the amount paid less a '+cancellation.toLocaleString('en-KE')+'% cancellation deduction.';
+    if(overdueRule)overdueRule.textContent='If the deadline is missed, the account may be refunded less '+overdue.toLocaleString('en-KE')+'% or receive an additional charge equal to '+interest.toLocaleString('en-KE')+'% of the total payable amount.';
+  };
+  const loadLipaPolePoleSettings=async()=>{
+    const client=window.leogoAuth?.client;if(!client)return;
+    const {data,error}=await client.rpc('public_get_lipa_pole_pole_settings');
+    if(error||!data)return;
+    lipaPolePoleSettings={...lipaPolePoleSettings,...data};
+    applyLipaPolePoleSettingLabels();
+    if(typeof renderLppAccounts==='function')renderLppAccounts();
   };
   const escapePickupText = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
@@ -1073,7 +1129,7 @@
 
   function updateCheckoutFees() {
     const subtotal = Number(checkoutShell?.dataset.checkoutSubtotal || 0);
-    const serviceRate = subtotal >= 3000 ? 0.015 : 0.02;
+    const serviceRate = checkoutServiceRateFor(subtotal);
     const serviceFee = subtotal * serviceRate;
     const deliveryRules = {
       cbd: { amount: Number(deliveryRateSettings.cbd_fee_kes??50), label: deliveryMoney(deliveryRateSettings.cbd_fee_kes??50) },
@@ -1113,9 +1169,15 @@
   document.addEventListener('leogo:authchange', (event) => {
     loadPickupStations(event.detail?.user || null);
     loadDeliveryRateSettings();
+    loadOrderSettings();
+    loadLipaPolePoleSettings();
   });
   window.setTimeout(loadDeliveryRateSettings,700);
+  window.setTimeout(loadOrderSettings,720);
+  window.setTimeout(loadLipaPolePoleSettings,740);
   applyDeliveryRateLabels();
+  applyOrderSettingLabels();
+  applyLipaPolePoleSettingLabels();
   updateCheckoutFees();
 
   checkoutPinLocation?.addEventListener('click', () => {
@@ -1260,7 +1322,7 @@
   };
 
   const updateCashOnDeliveryAvailability = () => {
-    const limit = Number(checkoutShell?.dataset.codLimit || 10000);
+    const limit = Number(orderSettings.cod_limit_kes ?? checkoutShell?.dataset.codLimit ?? 10000);
     const codButton = customerShellModal?.querySelector('[data-payment-method="cod"]');
     const unavailable = checkoutSubtotal() >= limit;
     codButton?.classList.toggle('is-disabled', unavailable);
@@ -1497,7 +1559,7 @@
     ].filter(Boolean).join(', ') || 'Not provided';
     const deliveryAddress = pickupStation ? pickupStationAddress(pickupStation) : writtenDeliveryAddress;
     const subtotal = testCartSubtotal();
-    const serviceRate = subtotal >= 3000 ? 0.015 : 0.02;
+    const serviceRate = checkoutServiceRateFor(subtotal);
     const serviceFee = Math.round(subtotal * serviceRate);
     const pickupRate = Number(pickupStation?.service_fee_percent || 0);
     const pickupFee = Math.round(subtotal * (pickupRate / 100));
