@@ -2544,18 +2544,18 @@
         <div class="lpp-plan-money"><div><span>Total Amount</span><strong>${money(plan.total)}</strong></div><div><span>Deposit Paid</span><strong>${money(paid)}</strong></div><div><span>Total Paid</span><strong>${money(paid)}</strong></div><div><span>Total Balance</span><strong>${money(balance)}</strong></div></div>
         <div class="lpp-progress"><i style="width:${progress}%"></i></div>
         ${pending > 0 ? '<p class="lpp-pending-note">⏳ ' + money(pending) + ' submitted and waiting for Admin/Staff confirmation. Pending payments do not reduce the balance.</p>' : ''}
-        <p class="lpp-collection-lock ${lppDaysRemaining(plan.deadline) < 0 && balance > 0 ? 'lpp-deadline-warning' : ''}">${balance <= 0 ? '✓ Full payment completed. Item collection can be released after final confirmation.' : (lppDaysRemaining(plan.deadline) < 0 ? '⚠ Deadline missed: subject to a 25% refund deduction or a 5% charge on the total payable amount.' : '🔒 Item collection remains locked until the full amount is paid and confirmed.')}</p>
-        ${plan.cancellation?.status === 'pending' ? '<p class="lpp-cancellation-pending">Cancellation requested. Estimated refund: <strong>' + money(plan.cancellation.estimatedRefund) + '</strong> after a 25% deduction, subject to Admin/Staff confirmation and payment verification.</p>' : ''}
+        <p class="lpp-collection-lock ${lppDaysRemaining(plan.deadline) < 0 && balance > 0 ? 'lpp-deadline-warning' : ''}">${balance <= 0 ? '✓ Full payment completed. Item collection can be released after final confirmation.' : (lppDaysRemaining(plan.deadline) < 0 ? '⚠ Deadline missed: subject to a '+lppOverdueRefundPercent().toLocaleString('en-KE')+'% refund deduction or a '+lppInterestPercent().toLocaleString('en-KE')+'% charge on the total payable amount.' : '🔒 Item collection remains locked until the full amount is paid and confirmed.')}</p>
+        ${plan.cancellation?.status === 'pending' ? '<p class="lpp-cancellation-pending">Cancellation requested. Estimated refund: <strong>' + money(plan.cancellation.estimatedRefund) + '</strong> after a '+lppCancellationPercent().toLocaleString('en-KE')+'% deduction, subject to Admin/Staff confirmation and payment verification.</p>' : ''}
         <div class="lpp-plan-actions">
           <button type="button" data-lpp-pay="${receiptEscape(plan.id)}" ${balance <= 0 || plan.cancellation ? 'disabled' : ''}>Do Payment</button>
           <button class="lpp-cancel-button" type="button" data-lpp-cancel="${receiptEscape(plan.id)}" ${plan.cancellation || balance <= 0 ? 'disabled' : ''}>Cancel Lipa Pole Pole Order</button>
         </div>
         <form class="lpp-cancel-form" data-lpp-cancel-form="${receiptEscape(plan.id)}" hidden>
           <h5>Cancel Lipa Pole Pole Order</h5>
-          <div class="lpp-refund-preview"><div><span>Submitted/approved payments</span><strong>${money(paid + pending)}</strong></div><div><span>25% cancellation deduction</span><strong>− ${money(Math.round((paid + pending) * 0.25))}</strong></div><div><span>Estimated refund</span><strong>${money(Math.round((paid + pending) * 0.75))}</strong></div></div>
+          <div class="lpp-refund-preview"><div><span>Submitted/approved payments</span><strong>${money(paid + pending)}</strong></div><div><span>${lppCancellationPercent().toLocaleString('en-KE')}% cancellation deduction</span><strong>− ${money(Math.round((paid + pending) * lppCancellationRate()))}</strong></div><div><span>Estimated refund</span><strong>${money(Math.round((paid + pending) * (1-lppCancellationRate())))}</strong></div></div>
           <label><span>Reason for cancellation</span><select name="reason" required><option value="">Select reason</option><option>Changed my mind</option><option>Unable to complete payments</option><option>Seller or item concern</option><option>Other reason</option></select></label>
           <label><span>Additional information <small>(optional)</small></span><textarea name="details" rows="3" placeholder="Explain the cancellation request"></textarea></label>
-          <label class="payment-paid-check"><input name="acceptDeduction" type="checkbox"><span>I understand that an approved cancellation refund is subject to a 25% deduction from verified payments.</span></label>
+          <label class="payment-paid-check"><input name="acceptDeduction" type="checkbox"><span>I understand that an approved cancellation refund is subject to a ${lppCancellationPercent().toLocaleString('en-KE')}% deduction from verified payments.</span></label>
           <button type="submit">Submit Cancellation Request</button>
           <p class="payment-step-status" data-lpp-cancel-status></p>
         </form>
@@ -2666,7 +2666,7 @@
       return;
     }
     if (!form.elements.acceptDeduction.checked) {
-      status.textContent = 'Confirm that you understand the 25% cancellation deduction.';
+      status.textContent = 'Confirm that you understand the '+lppCancellationPercent().toLocaleString('en-KE')+'% cancellation deduction.';
       return;
     }
     const verifiedOrSubmitted = approvedLppTotal(plan) + pendingLppTotal(plan);
@@ -2676,8 +2676,8 @@
       details: form.elements.details.value.trim(),
       requestedAt: new Date().toISOString(),
       paymentBase: verifiedOrSubmitted,
-      deduction: Math.round(verifiedOrSubmitted * 0.25),
-      estimatedRefund: Math.round(verifiedOrSubmitted * 0.75)
+      deduction: Math.round(verifiedOrSubmitted * lppCancellationRate()),
+      estimatedRefund: Math.round(verifiedOrSubmitted * (1-lppCancellationRate()))
     };
     saveLppPlans();
     renderLppAccounts();
