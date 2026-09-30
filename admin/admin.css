@@ -860,3 +860,51 @@
 @media(max-width:1050px){.report-workspace{grid-template-columns:1fr}.report-catalogue{position:static;max-height:none}.report-catalogue nav{display:flex;overflow:auto;padding-bottom:3px}.report-catalogue-group{display:flex;flex:0 0 auto;align-items:center}.report-catalogue-group>strong{display:none}.report-catalogue button{white-space:nowrap}.report-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.report-search-filter{grid-column:1/-1}.report-filters>button{grid-column:1/-1}}
 @media(max-width:700px){.report-page-head,.report-title-row,.report-results-head,.report-pagination{flex-direction:column}.report-page-head button,.report-actions,.report-actions>*{width:100%}.report-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.report-pagination>div{width:100%;justify-content:space-between}}
 @media(max-width:480px){.report-filters,.report-summary{grid-template-columns:1fr}.report-search-filter{grid-column:auto}}
+
+
+/* Active System Settings cards */
+.active-settings-grid button{
+  border:1px solid var(--line);
+  background:#fff;
+  border-radius:16px;
+  padding:18px;
+  text-align:left;
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) auto;
+  grid-template-areas:
+    "icon title action"
+    "icon note action";
+  gap:5px 10px;
+  color:var(--navy);
+  cursor:pointer;
+  font:inherit;
+  min-height:112px;
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
+}
+.active-settings-grid button:hover,
+.active-settings-grid button:focus-visible{
+  transform:translateY(-2px);
+  border-color:#ffc48c;
+  box-shadow:0 12px 28px rgba(7,27,61,.09);
+  outline:none;
+}
+.active-settings-grid button>span{grid-area:icon;font-size:1.45rem;align-self:start}
+.active-settings-grid button>strong{grid-area:title;font-size:.92rem;align-self:end}
+.active-settings-grid button>small{grid-area:note;color:var(--muted);font-size:.72rem;line-height:1.35;align-self:start}
+.active-settings-grid button>b{grid-area:action;align-self:center;color:var(--orange);font-size:.7rem;white-space:nowrap}
+.system-setting-preview{
+  margin:0 21px 18px;
+  padding:13px 14px;
+  border:1px solid #dce4ee;
+  border-radius:11px;
+  background:#f8fafc;
+  color:#526178;
+  font-size:.76rem;
+  line-height:1.55;
+}
+@media(max-width:650px){
+  .active-settings-grid button{min-height:126px;padding:18px 16px;grid-template-columns:48px minmax(0,1fr) auto}
+  .active-settings-grid button>strong{font-size:1rem}
+  .active-settings-grid button>small{font-size:.77rem}
+  .system-setting-preview{margin:0 16px 16px}
+}
