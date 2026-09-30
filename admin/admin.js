@@ -100,6 +100,13 @@
     dashboardTo: null,
     selectedCustomers: new Set(),
     selectedData: new Set(),
+    reportCode: 'orders',
+    reportRows: [],
+    reportSelected: new Set(),
+    reportStatuses: {},
+    reportPage: 1,
+    reportPageSize: 25,
+    reportInitialized: false,
     busy: false
   };
 
@@ -5245,6 +5252,123 @@
     $('#selectAllData').checked = rows.length>0 && rows.every((row)=>state.selectedData.has(dataRecordId(row)));
   };
 
+  const reportDefinitions = {
+    orders:{group:'Commerce',title:'Orders',description:'Customer orders, payment status, fees and fulfilment totals.',columns:[['date','Date','date'],['reference','Order'],['customer','Customer'],['payment_status','Payment'],['status','Order status'],['items_subtotal_kes','Items','money'],['service_fee_kes','Service fee','money'],['delivery_fee_kes','Delivery fee','money'],['pickup_fee_kes','Pickup fee','money'],['total_kes','Total','money']]},
+    sales_revenue:{group:'Finance',title:'Sales & Revenue',description:'Gross trading value and recognised LEOGO revenue by source. Wallet balances are excluded.',columns:[['date','Date','date'],['source','Source'],['reference','Reference'],['status','Status'],['gross_kes','Gross value','money'],['leogo_revenue_kes','LEOGO revenue','money'],['basis','Revenue basis']]},
+    customers:{group:'People',title:'Customers',description:'Registered customer profiles and locations.',columns:[['date','Registered','date'],['customer','Customer'],['phone','Phone'],['location','Location'],['status','Status']]},
+    products:{group:'Commerce',title:'Products',description:'Seller catalogue, pricing, stock and approval status.',columns:[['date','Created','date'],['product','Product'],['seller','Seller'],['category','Category'],['price_kes','Price','money'],['quantity','Stock','number'],['availability','Availability'],['status','Approval']]},
+    sellers:{group:'Partners',title:'Sellers',description:'Seller businesses, locations and application status.',columns:[['date','Registered','date'],['business','Business'],['owner','Owner'],['phone','Phone'],['location','Location'],['status','Status'],['approved_at','Approved','date']]},
+    service_providers:{group:'Partners',title:'Service Providers',description:'Provider accounts, categories, locations and availability.',columns:[['date','Registered','date'],['business','Business'],['owner','Owner'],['phone','Phone'],['category','Category'],['location','Location'],['availability','Availability'],['status','Status']]},
+    service_requests:{group:'Operations',title:'Service Requests',description:'Customer service requests, quotations, fees and job progress.',columns:[['date','Created','date'],['reference','Reference'],['provider','Provider'],['type','Type'],['location','Location'],['payment_status','Payment'],['status','Status'],['quotation_fee_kes','Quotation fee','money'],['direct_fee_kes','Direct fee','money'],['provider_quote_kes','Provider quote','money'],['provider_labour_kes','Labour','money']]},
+    transport:{group:'Operations',title:'Transport & Parcel',description:'Transport requests, routes, quotations, LEOGO fees and partner net.',columns:[['date','Created','date'],['reference','Reference'],['service_type','Service'],['provider','Provider'],['route','Route'],['status','Status'],['provider_quote_kes','Provider quote','money'],['customer_total_kes','Customer total','money'],['leogo_commission_kes','Commission','money'],['service_fee_kes','Service fee','money'],['partner_net_kes','Partner net','money']]},
+    deliveries:{group:'Operations',title:'Deliveries',description:'Marketplace delivery jobs, riders and fulfilment milestones.',columns:[['date','Created / assigned','date'],['reference','Order'],['customer','Customer'],['rider_id','Rider ID'],['destination','Destination'],['status','Status'],['picked_up_at','Picked up','date'],['delivered_at','Delivered','date']]},
+    pickup_stations:{group:'Operations',title:'Pickup Stations',description:'Station locations, charges, parcel activity and partner earnings.',columns:[['date','Created','date'],['station','Station'],['location','Location'],['contact','Contact'],['service_fee_percent','Service fee','percent'],['shipping_fee_kes','Shipping fee','money'],['parcels','Parcels','number'],['earnings_kes','Earnings','money'],['status','Status']]},
+    wallet:{group:'Wallet / SACCO',title:'Wallet Overview',description:'Customer wallet accounts and confirmed funds. These values are not LEOGO revenue.',wallet:true,columns:[['date','Opened','date'],['customer','Customer'],['phone','Phone'],['status','Status'],['confirmed_balance_kes','Balance','money'],['deposits_kes','Confirmed deposits','money'],['withdrawals_kes','Completed withdrawals','money']]},
+    deposits:{group:'Wallet / SACCO',title:'Deposits',description:'Wallet and savings deposit requests. Deposited funds are not LEOGO revenue.',wallet:true,columns:[['date','Submitted','date'],['customer','Customer'],['kind','Kind'],['amount_kes','Amount','money'],['reference','Payment reference'],['status','Status'],['reviewed_at','Reviewed','date']]},
+    withdrawals:{group:'Wallet / SACCO',title:'Withdrawals',description:'Customer withdrawal requests and settlement progress. These are not expenses or revenue.',wallet:true,columns:[['date','Submitted','date'],['customer','Customer'],['amount_kes','Amount','money'],['method','Method'],['account','Destination'],['status','Status'],['settlement_reference','Settlement reference'],['completed_at','Completed','date']]},
+    savings:{group:'Wallet / SACCO',title:'Savings Challenges',description:'Customer savings commitments and targets. Savings balances are not LEOGO revenue.',wallet:true,columns:[['date','Created','date'],['customer','Customer'],['daily_amount_kes','Daily amount','money'],['period_days','Days','number'],['target_kes','Target','money'],['start_date','Start','date'],['end_date','End','date'],['status','Status']]},
+    loans:{group:'Wallet / SACCO',title:'Loan Applications',description:'Loan requests and eligibility snapshots; customer balances remain separate from revenue.',wallet:true,columns:[['date','Submitted','date'],['customer','Customer'],['amount_kes','Requested','money'],['purpose','Purpose'],['wallet_balance_kes','Wallet balance','money'],['saved_kes','Saved','money'],['saving_days','Saving days','number'],['status','Status'],['reviewed_at','Reviewed','date']]},
+    premium:{group:'Programs',title:'Premium',description:'Membership payments, plan periods and current membership status.',columns:[['date','Submitted','date'],['customer','Customer'],['plan','Plan'],['amount_kes','Amount','money'],['duration_hours','Hours','number'],['reference','Reference'],['status','Payment status'],['membership_status','Membership'],['ends_at','Ends','date']]},
+    accommodation:{group:'Programs',title:'Accommodation',description:'Bookings with customer total, hotel net and recognised LEOGO revenue.',columns:[['date','Created','date'],['reference','Booking'],['guest','Guest'],['property','Property'],['unit','Room / unit'],['stay','Stay'],['status','Status'],['customer_total_kes','Customer total','money'],['hotel_commission_kes','Hotel commission','money'],['service_fee_kes','Service fee','money'],['leogo_revenue_kes','LEOGO revenue','money'],['hotel_net_kes','Hotel net','money']]},
+    cyber:{group:'Programs',title:'Cyber Services',description:'Cyber service and shop orders, payments and fulfilment.',columns:[['date','Created','date'],['reference','Order'],['item_type','Type'],['item','Item'],['quantity','Qty','number'],['fulfilment','Fulfilment'],['payment_status','Payment'],['status','Status'],['subtotal_kes','Subtotal','money'],['delivery_fee_kes','Delivery fee','money'],['total_kes','Total','money']]},
+    payments:{group:'Finance',title:'Payments',description:'Customer payment records across marketplace, Premium, accommodation and cyber modules.',columns:[['date','Date','date'],['module','Module'],['reference','Reference'],['party','Customer / item'],['amount_kes','Amount','money'],['method','Method'],['status','Status']]},
+    settlements:{group:'Finance',title:'Partner Settlements',description:'Seller, service provider, transport and Pickup Station settlement requests and completed payouts.',columns:[['date','Created','date'],['partner_type','Partner type'],['partner','Partner'],['amount_kes','Amount','money'],['reference','Reference'],['status','Status'],['paid_at','Paid','date']]},
+    loyalty:{group:'Programs',title:'Loyalty & Points',description:'Shopping reward credits, eligible spend and reward rates.',columns:[['date','Credited','date'],['customer','Customer'],['reference','Order'],['eligible_subtotal_kes','Eligible spend','money'],['reward_rate','Reward rate','percent'],['reward_amount_kes','Reward','money'],['status','Status']]},
+    approvals:{group:'Governance',title:'Approvals',description:'Seller, provider, wallet deposit and loan approval activity.',columns:[['date','Submitted','date'],['type','Type'],['applicant','Applicant'],['phone','Phone'],['amount_or_detail','Amount / detail'],['status','Status']]},
+    admin_activity:{group:'Governance',title:'Admin Activity',description:'Immutable administrative action history for oversight and audit.',columns:[['date','Date','date'],['admin','Admin'],['action','Action'],['entity_type','Entity'],['reference','Reference'],['status','State']]},
+    advertisements:{group:'Governance',title:'Advertisements',description:'Advertisement schedule, publication state and website pop-up use.',columns:[['date','Created','date'],['title','Title'],['starts_at','Starts','date'],['ends_at','Ends','date'],['published_at','Published','date'],['popup','Website pop-up','boolean'],['status','Status']]}
+  };
+  const reportRowId = (row) => String(row.id || row.reference || JSON.stringify(row));
+  const reportCell = (value,type,exporting=false) => {
+    if(value===null||value===undefined||value==='') return exporting ? '' : '—';
+    if(type==='money') return exporting ? Number(value||0) : formatMoney(value);
+    if(type==='date') return formatDate(value,true);
+    if(type==='percent') return `${Number(value||0).toLocaleString('en-KE',{maximumFractionDigits:2})}%`;
+    if(type==='boolean') return value ? 'Yes' : 'No';
+    if(type==='number') return Number(value||0).toLocaleString('en-KE');
+    return String(value).replaceAll('_',' ');
+  };
+  const reportPeriodLabel = () => `${$('#reportFrom')?.value||'—'} to ${$('#reportTo')?.value||'—'}`;
+  const renderReportCatalogue = () => {
+    const search=String($('#reportCatalogueSearch')?.value||'').trim().toLowerCase();
+    const groups={};
+    Object.entries(reportDefinitions).forEach(([code,definition])=>{if(search&&!`${definition.title} ${definition.group}`.toLowerCase().includes(search))return;(groups[definition.group] ||= []).push([code,definition]);});
+    $('#reportCatalogue').innerHTML=Object.entries(groups).map(([group,items])=>`<div class="report-catalogue-group"><strong>${escapeHtml(group)}</strong>${items.map(([code,item])=>`<button type="button" data-report-code="${escapeHtml(code)}" class="${code===state.reportCode?'active':''}">${escapeHtml(item.title)}</button>`).join('')}</div>`).join('')||'<small>No reports match.</small>';
+    $$('[data-report-code]',$('#reportCatalogue')).forEach(button=>button.addEventListener('click',()=>selectReport(button.dataset.reportCode)));
+  };
+  const renderReportSummary = () => {
+    const definition=reportDefinitions[state.reportCode];
+    const moneyColumns=definition.columns.filter(([, ,type])=>type==='money').slice(0,3);
+    const cards=[['Records',state.reportRows.length.toLocaleString('en-KE')],...moneyColumns.map(([key,label])=>[label,formatMoney(state.reportRows.reduce((sum,row)=>sum+Number(row[key]||0),0))])];
+    $('#reportSummary').innerHTML=cards.map(([label,value])=>`<article><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></article>`).join('');
+  };
+  const renderReport = () => {
+    const definition=reportDefinitions[state.reportCode], pageSize=state.reportPageSize, pageCount=Math.max(1,Math.ceil(state.reportRows.length/pageSize));
+    state.reportPage=Math.min(Math.max(1,state.reportPage),pageCount);
+    const start=(state.reportPage-1)*pageSize, rows=state.reportRows.slice(start,start+pageSize);
+    $('#reportTable thead').innerHTML=`<tr><th><input id="reportPageCheckbox" type="checkbox" aria-label="Select visible rows"></th>${definition.columns.map(([,label])=>`<th>${escapeHtml(label)}</th>`).join('')}</tr>`;
+    $('#reportTable tbody').innerHTML=rows.length?rows.map(row=>`<tr><td><input type="checkbox" data-report-row="${escapeHtml(reportRowId(row))}" ${state.reportSelected.has(reportRowId(row))?'checked':''}></td>${definition.columns.map(([key,,type])=>`<td data-label="${escapeHtml(key)}">${escapeHtml(reportCell(row[key],type))}</td>`).join('')}</tr>`).join(''):`<tr><td class="report-empty" colspan="${definition.columns.length+1}">No records match this report and filter period.</td></tr>`;
+    $('#reportRecordCount').textContent=`${state.reportRows.length.toLocaleString('en-KE')} record${state.reportRows.length===1?'':'s'}`;
+    $('#reportSelectionCount').textContent=`${state.reportSelected.size.toLocaleString('en-KE')} selected`;
+    $('#reportPageLabel').textContent=`Page ${state.reportPage} of ${pageCount}`;
+    $('#reportPreviousPage').disabled=state.reportPage<=1;$('#reportNextPage').disabled=state.reportPage>=pageCount;
+    const pageCheckbox=$('#reportPageCheckbox');if(pageCheckbox)pageCheckbox.checked=rows.length>0&&rows.every(row=>state.reportSelected.has(reportRowId(row)));
+    $$('[data-report-row]',$('#reportTable')).forEach(input=>input.addEventListener('change',()=>{input.checked?state.reportSelected.add(input.dataset.reportRow):state.reportSelected.delete(input.dataset.reportRow);renderReport();}));
+    pageCheckbox?.addEventListener('change',()=>{rows.forEach(row=>pageCheckbox.checked?state.reportSelected.add(reportRowId(row)):state.reportSelected.delete(reportRowId(row)));renderReport();});
+    renderReportSummary();
+  };
+  const updateReportStatusOptions = () => {
+    const select=$('#reportStatus'), current=select.value;
+    const remembered=new Set(state.reportStatuses[state.reportCode]||[]);
+    state.reportRows.forEach(row=>{if(row.status)remembered.add(String(row.status));});
+    state.reportStatuses[state.reportCode]=[...remembered].sort();
+    select.innerHTML='<option value="">All statuses</option>'+state.reportStatuses[state.reportCode].map(status=>`<option value="${escapeHtml(status)}">${escapeHtml(status.replaceAll('_',' '))}</option>`).join('');
+    select.value=current;
+  };
+  const loadReport = async () => {
+    const from=$('#reportFrom').value,to=$('#reportTo').value;
+    if(!from||!to||to<from){globalStatus('Choose a valid report date range.','error');return;}
+    const status=$('#reportLoadStatus');status.textContent='Loading…';status.className='report-load-status loading';
+    try{
+      const {data,error}=await db.rpc('admin_generate_report',{p_report_code:state.reportCode,p_from:from,p_to:to,p_status:$('#reportStatus').value||null,p_search:$('#reportSearch').value.trim()||null});
+      if(error)throw error;
+      state.reportRows=Array.isArray(data?.records)?data.records:[];state.reportSelected.clear();state.reportPage=1;
+      updateReportStatusOptions();renderReport();status.textContent=`Updated ${formatDate(data?.generated_at||new Date().toISOString(),true)}`;status.className='report-load-status';
+    }catch(error){status.textContent='Could not load';status.className='report-load-status error';globalStatus('Report could not load: '+friendlyError(error),'error');}
+  };
+  const selectReport = async (code) => {
+    if(!reportDefinitions[code])return;
+    state.reportCode=code;state.reportRows=[];state.reportSelected.clear();state.reportPage=1;
+    $('#reportStatus').value='';$('#reportSearch').value='';
+    const definition=reportDefinitions[code];$('#reportEyebrow').textContent=definition.group.toUpperCase();$('#reportTitle').textContent=definition.title;$('#reportDescription').textContent=definition.description;$('#reportFinanceNote').hidden=!definition.wallet;
+    renderReportCatalogue();renderReport();await loadReport();
+  };
+  const initializeReports = async () => {
+    if(!state.reportInitialized){const to=new Date(),from=new Date();from.setDate(from.getDate()-30);$('#reportTo').value=to.toISOString().slice(0,10);$('#reportFrom').value=from.toISOString().slice(0,10);state.reportInitialized=true;renderReportCatalogue();}
+    await selectReport(state.reportCode);
+  };
+  const reportExportRows = (rows) => {const definition=reportDefinitions[state.reportCode];return [definition.columns.map(([,label])=>label),...rows.map(row=>definition.columns.map(([key,,type])=>reportCell(row[key],type,true)))];};
+  const reportPdfBlob = (definition,rows) => {
+    const jsPDF=window.jspdf?.jsPDF;if(!jsPDF)return pdfBlob(`LEOGO DIGITAL MARKET — ${definition.title}`,reportExportRows(rows));
+    const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'}),margin=10,pageWidth=277,columns=definition.columns,colWidth=pageWidth/columns.length;
+    const generatedBy=state.admin?.display_name||state.user?.email||'LEOGO Admin';
+    const totals=columns.filter(([, ,type])=>type==='money').slice(0,3).map(([key,label])=>`${label}: ${formatMoney(rows.reduce((sum,row)=>sum+Number(row[key]||0),0))}`).join('   ');
+    const header=()=>{doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text('LEOGO DIGITAL MARKET',margin,12);doc.setFontSize(11);doc.text(definition.title,margin,19);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.text(`Period: ${reportPeriodLabel()}   Generated: ${formatDate(new Date().toISOString(),true)}   By: ${generatedBy}`,margin,25);doc.text(`Summary — Records: ${rows.length}${totals?'   '+totals:''}`,margin,30);doc.setFillColor(240,243,247);doc.rect(margin,34,pageWidth,8,'F');doc.setFont('helvetica','bold');columns.forEach(([,label],i)=>doc.text(doc.splitTextToSize(label,colWidth-2)[0]||'',margin+i*colWidth+1,39));doc.setFont('helvetica','normal');};
+    header();let y=47;doc.setFontSize(6.5);
+    rows.forEach(row=>{const cells=columns.map(([key,,type])=>doc.splitTextToSize(String(reportCell(row[key],type,true)),colWidth-2).slice(0,2));const height=Math.max(7,...cells.map(lines=>lines.length*3+2));if(y+height>196){doc.addPage();header();y=47;doc.setFontSize(6.5);}cells.forEach((lines,i)=>doc.text(lines,margin+i*colWidth+1,y));doc.setDrawColor(225,229,235);doc.line(margin,y+height-2,margin+pageWidth,y+height-2);y+=height;});
+    return doc.output('blob');
+  };
+  const exportReport = async (format) => {
+    const scope=$('#reportExportScope').value,source=scope==='selected'?state.reportRows.filter(row=>state.reportSelected.has(reportRowId(row))):state.reportRows;
+    if(!source.length){globalStatus(scope==='selected'?'Select at least one report row first.':'There are no filtered records to export.','error');return;}
+    const definition=reportDefinitions[state.reportCode],filters={from:$('#reportFrom').value,to:$('#reportTo').value,status:$('#reportStatus').value,search:$('#reportSearch').value};
+    await auditExport(state.reportCode,scope,format,source.length,filters);
+    const filename=`leogo-${state.reportCode}-${new Date().toISOString().slice(0,10)}.${format}`;
+    const rows=reportExportRows(source),blob=format==='xlsx'?xlsxBlob(`LEOGO DIGITAL MARKET — ${definition.title}`,[[`Reporting period: ${reportPeriodLabel()}`],[`Generated by: ${state.admin?.display_name||state.user?.email||'LEOGO Admin'}`],[],...rows]):reportPdfBlob(definition,source);
+    downloadBlob(blob,filename);globalStatus(`${source.length} ${definition.title} record(s) exported and audited.`);
+    if(isSuperAdmin())await loadAuditLog().catch(()=>{});
+  };
+
   const crcTable = (() => { const table=[]; for(let n=0;n<256;n++){let c=n; for(let k=0;k<8;k++) c=(c&1)?0xedb88320^(c>>>1):c>>>1; table[n]=c>>>0;} return table; })();
   const crc32 = (bytes) => { let c=0xffffffff; for(const b of bytes)c=crcTable[(c^b)&255]^(c>>>8); return (c^0xffffffff)>>>0; };
   const zipStore = (files) => { const encoder=new TextEncoder(), parts=[], central=[]; let offset=0; const u16=n=>new Uint8Array([n&255,(n>>>8)&255]), u32=n=>new Uint8Array([n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255]); for(const [name,content] of Object.entries(files)){const nb=encoder.encode(name), data=typeof content==='string'?encoder.encode(content):content, crc=crc32(data); const local=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(data.length),...u32(data.length),...u16(nb.length),...u16(0),...nb]); parts.push(local,data); const cd=new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(data.length),...u32(data.length),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(offset),...nb]); central.push(cd); offset+=local.length+data.length;} const centralSize=central.reduce((n,p)=>n+p.length,0), end=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(central.length),...u16(central.length),...u32(centralSize),...u32(offset),...u16(0)]); return new Blob([...parts,...central,end],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}); };
@@ -5339,6 +5463,9 @@
     if (view === 'products') {
       Promise.all([loadCatalogue(),loadPersonalMarketplace()])
         .catch((error) => globalStatus('Product management data could not load: '+friendlyError(error), 'error'));
+    }
+    if (view === 'reports') {
+      initializeReports().catch((error)=>globalStatus('Reports could not load: '+friendlyError(error),'error'));
     }
     if (view === 'providers') {
       Promise.all([loadServiceProviders(),loadServiceListings(),loadServiceOperations()]).catch((error) => globalStatus('Service operations could not load: '+friendlyError(error), 'error'));
@@ -5451,6 +5578,15 @@
     });
 
     $('#refreshAdminData').addEventListener('click', () => withButtonLock($('#refreshAdminData'), 'Refreshing…', loadAll));
+    $('#reportCatalogueSearch')?.addEventListener('input',renderReportCatalogue);
+    $('#reportFilters')?.addEventListener('submit',(event)=>{event.preventDefault();loadReport();});
+    $('#refreshReport')?.addEventListener('click',(event)=>withButtonLock(event.currentTarget,'Refreshing…',loadReport));
+    $('#selectAllReportRows')?.addEventListener('click',()=>{state.reportRows.forEach(row=>state.reportSelected.add(reportRowId(row)));renderReport();});
+    $('#clearReportSelection')?.addEventListener('click',()=>{state.reportSelected.clear();renderReport();});
+    $('#reportPageSize')?.addEventListener('change',(event)=>{state.reportPageSize=Number(event.target.value)||25;state.reportPage=1;renderReport();});
+    $('#reportPreviousPage')?.addEventListener('click',()=>{state.reportPage=Math.max(1,state.reportPage-1);renderReport();});
+    $('#reportNextPage')?.addEventListener('click',()=>{state.reportPage+=1;renderReport();});
+    $$('[data-report-export]').forEach(button=>button.addEventListener('click',()=>withButtonLock(button,'Exporting…',()=>exportReport(button.dataset.reportExport))));
     $('#refreshApprovals').addEventListener('click', () => withButtonLock($('#refreshApprovals'), 'Refreshing…', async () => { await Promise.all([loadApprovals(), loadDashboard()]); }));
     $('#refreshServiceProviders')?.addEventListener('click', () => withButtonLock($('#refreshServiceProviders'), 'Refreshing…', async () => { await Promise.all([loadServiceProviders(),loadServiceListings(),loadServiceOperations(),loadServiceReviews(),loadApprovals()]); }));
     $('#refreshAccommodationProviders')?.addEventListener('click',()=>withButtonLock($('#refreshAccommodationProviders'),'Refreshing…',async()=>{await Promise.all([loadAccommodationSummary(),loadApprovals()]);}));
