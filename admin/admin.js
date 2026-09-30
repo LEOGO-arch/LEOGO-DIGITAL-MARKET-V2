@@ -5583,8 +5583,8 @@
   };
 
   const changeSettingsTab = (tab) => {
-    $('#settingsTabs [data-settings-panel]').forEach((button) => button.classList.toggle('active', button.dataset.settingsPanel === tab));
-    $('[data-settings-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.settingsContent === tab));
+    $$('#settingsTabs [data-settings-panel]').forEach((button) => button.classList.toggle('active', button.dataset.settingsPanel === tab));
+    $$('[data-settings-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.settingsContent === tab));
     if (tab === 'data') renderDataManagement();
     if (tab === 'orders') loadOrderSettings().catch((error)=>setFormStatus($('#orderSettingsStatus'),friendlyError(error),'error'));
     if (tab === 'lipa') loadLipaPolePoleSettings().catch((error)=>setFormStatus($('#lipaPolePoleSettingsStatus'),friendlyError(error),'error'));
@@ -5669,8 +5669,8 @@
         renderApprovals();
       }
     }));
-    $('#settingsTabs [data-settings-panel]').forEach((button) => button.addEventListener('click', () => changeSettingsTab(button.dataset.settingsPanel)));
-    $('[data-settings-card]').forEach((button)=>button.addEventListener('click',()=>openSystemSettingsCard(button.dataset.settingsCard)));
+    $$('#settingsTabs [data-settings-panel]').forEach((button) => button.addEventListener('click', () => changeSettingsTab(button.dataset.settingsPanel)));
+    $$('[data-settings-card]').forEach((button)=>button.addEventListener('click',()=>openSystemSettingsCard(button.dataset.settingsCard)));
     $$('#approvalFilters [data-approval-filter]').forEach((button) => button.addEventListener('click', () => {
       state.approvalFilter = button.dataset.approvalFilter;
       $$('#approvalFilters [data-approval-filter]').forEach((item) => item.classList.toggle('active', item === button));
