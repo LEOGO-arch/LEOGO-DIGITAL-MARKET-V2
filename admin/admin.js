@@ -512,7 +512,7 @@
     }
     const { data, error } = await db.auth.getSession();
     if (error || !data.session?.user) {
-      window.location.replace('../staff/?next=admin');
+      showGate('login');
       return;
     }
     await enterAdmin(data.session.user);
@@ -5611,15 +5611,42 @@
   const closeModals = () => { $$('.modal').forEach((modal) => { modal.hidden = true; }); state.activeApproval = null; };
 
   const bindEvents = () => {
-    $('#adminLoginForm').addEventListener('submit', (event) => {
+    $('#adminLoginForm').addEventListener('submit', async (event) => {
       event.preventDefault();
-      window.location.href='../staff/?next=admin';
+      if (!db) {
+        setFormStatus($('#adminLoginStatus'),'The secure connection could not load. Refresh this page.','error');
+        return;
+      }
+      const button=$('#adminLoginButton');
+      await withButtonLock(button,'Signing in…',async()=>{
+        setFormStatus($('#adminLoginStatus'),'Signing in securely…');
+        const email=$('#adminEmail')?.value.trim()||'';
+        const password=$('#adminPassword')?.value||'';
+        const {data,error}=await db.auth.signInWithPassword({email,password});
+        if(error){
+          setFormStatus($('#adminLoginStatus'),friendlyError(error),'error');
+          return;
+        }
+        const admin=await verifyAdmin(data.session?.user);
+        if(!admin){
+          await db.auth.signOut();
+          state.admin=null;
+          state.user=null;
+          showGate('login');
+          setFormStatus($('#adminLoginStatus'),'This account is not an active LEOGO administrator. Use the authorized Admin account.','error');
+          return;
+        }
+        setFormStatus($('#adminLoginStatus'),'Admin account verified. Opening Control Center…','success');
+        await enterAdmin(data.session.user);
+      });
     });
     const signOut = async () => {
       await db?.auth.signOut();
       state.admin = null;
       state.user = null;
-      window.location.replace('../staff/');
+      showGate('login');
+      if($('#adminPassword'))$('#adminPassword').value='';
+      setFormStatus($('#adminLoginStatus'),'Signed out. Sign in with an authorized LEOGO Admin account.');
     };
     $('#adminLogout').addEventListener('click', signOut);
     $('#deniedLogout').addEventListener('click', signOut);
