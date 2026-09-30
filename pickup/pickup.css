@@ -67,3 +67,13 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
 }
 
 .tracking-result-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}.tracking-result-head small{color:#f47a00;font-size:10px;font-weight:900}.tracking-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}.tracking-grid>div{border:1px solid var(--line);border-radius:11px;padding:10px;background:#fff}.tracking-grid small{display:block;color:var(--muted);font-size:10px;margin-bottom:4px}.tracking-grid strong{display:block;color:#15233d;font-size:13px}.tracking-station,.tracking-delivery-note{margin-top:12px;border-radius:12px;padding:13px;background:#eef5ff;border:1px solid #d8e5f5}.tracking-station>span{color:#f47a00;font-size:10px;font-weight:900}.tracking-station h4{margin:5px 0 7px}.lookup-error{color:#b42318!important;font-weight:700}@media(max-width:560px){.tracking-grid{grid-template-columns:1fr}}
+
+
+/* Rider delivered parcel awaiting Pickup Station receipt */
+.pending-arrival-metric{border-color:#f2c287!important;background:#fff9ef!important}
+.pending-arrival-metric small{color:#9a570f!important}
+.pending-arrival-metric strong{color:#b66000!important}
+.pill.arrived_pending_receipt{background:#fff1df!important;color:#a75400!important}
+.arrival-pending-note{display:grid;gap:4px;margin-top:9px;padding:10px 11px;border:1px solid #f2c287;border-radius:10px;background:#fff8ed;color:#7f480f}
+.arrival-pending-note strong{font-size:10px}
+.arrival-pending-note span{font-size:9px;line-height:1.45}
