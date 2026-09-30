@@ -155,7 +155,7 @@ const renderParcels=()=>{
       ${p.parcel_status==='arrived_pending_receipt'?'<div class="arrival-pending-note"><strong>⚠ Pending Arrival Receipt</strong><span>The Rider has delivered this parcel. Confirm physical receipt with a parcel photo before it becomes Ready for Collection.</span></div>':''}
       <div class="parcel-actions">
         <button data-track="${esc(p.order_reference)}">Track</button>
-        ${['booked','arrived_pending_receipt'].includes(p.parcel_status)?'<button class="primary" data-receive="'+esc(p.order_reference)+'">Confirm Receipt</button>':''}
+        ${p.parcel_status==='arrived_pending_receipt'?'<button class="primary" data-receive="'+esc(p.order_reference)+'">Confirm Receipt</button>':''}
         ${p.parcel_status==='received'?'<button class="primary" data-handover="'+esc(p.order_reference)+'">Hand Over</button>':''}
       </div>
     </article>`).join(''):'<div class="compact-row"><strong>No parcels match this view.</strong><p>Refresh or change the filter.</p></div>';
