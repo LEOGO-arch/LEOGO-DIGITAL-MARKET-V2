@@ -737,3 +737,6 @@ if(cyberRoleButton){
 }
 $$('[data-role-target]').filter(b=>b.dataset.roleTarget!=='cyber').forEach(b=>b.addEventListener('click',()=>{shell.hidden=true;}));
 })();
+
+/* LEOGO shipping profiles + Group/Global Orders (isolated extension). */
+(()=>{if(document.querySelector('script[data-leogo-shipping-moq]'))return;const s=document.createElement('script');s.src='shipping-moq.js?v=1';s.defer=true;s.dataset.leogoShippingMoq='1';document.head.appendChild(s);})();
