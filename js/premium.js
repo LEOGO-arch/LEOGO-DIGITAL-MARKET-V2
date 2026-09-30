@@ -27,12 +27,16 @@
   const applicationPaymentPaid = document.getElementById('premiumApplicationPaymentPaid');
   const applicationPaymentDestination = document.getElementById('premiumApplicationPaymentDestination');
   const paymentDestination = document.getElementById('premiumPaymentDestination');
+  const meetupCreditForm = document.getElementById('premiumMeetupCreditForm');
+  const meetupCreditSummary = document.getElementById('premiumMeetupCreditSummary');
+  const meetupCreditMessage = document.getElementById('premiumMeetupCreditMessage');
   const profileDirectory = document.getElementById('premiumProfileDirectory');
   const directoryAccessBadge = document.getElementById('premiumDirectoryAccessBadge');
   let plans = [];
   let currentUser = null;
   let currentCustomer = null;
   let premiumPaymentDestination = null;
+  let meetupBilling = null;
   let loadingFor = '';
   let premiumGalleryPhotos = [];
   let premiumGalleryIndex = 0;
@@ -110,6 +114,17 @@
     [applicationPaymentDestination, paymentDestination].forEach((element) => {
       if (element) element.textContent = message;
     });
+  };
+
+  const renderMeetupBilling = (activeMembership=false) => {
+    if (!meetupCreditSummary) return;
+    const amount=Number(meetupBilling?.unit_amount_kes||200);
+    const credits=Number(meetupBilling?.credits||0);
+    const latest=meetupBilling?.latest_payment||{};
+    const nextFree=meetupBilling?.next_free_at&&new Date(meetupBilling.next_free_at)>new Date()
+      ? ` Next free meetup: ${formatDate(meetupBilling.next_free_at)}.` : '';
+    meetupCreditSummary.textContent=`One accepted meetup per rolling 24 hours is included. Extra meetups cost ${formatMoney(amount)} each. Available paid credits: ${credits}.${nextFree}${latest.payment_status==='pending'?' Your latest payment is awaiting Admin confirmation.':''}`;
+    if(meetupCreditForm)meetupCreditForm.hidden=!(activeMembership&&currentCustomer?.application_status==='approved');
   };
 
   const normalizeKenyanPhone = (value) => {
@@ -471,12 +486,14 @@
     const original = button?.textContent || 'Send Meetup Request';
     if (button) { button.disabled = true; button.textContent = 'Sending…'; }
     try {
-      const { error } = await client.rpc('premium_customer_request_meetup', {
+      const { data,error } = await client.rpc('premium_customer_request_meetup', {
         p_profile_user_id: profile.profile_user_id,
         p_message: null
       });
       if (error) throw error;
-      setMessage(applicationMessage, 'Meetup request sent. You can chat privately inside LEOGO now; contact details stay hidden until the Premium Profile accepts.', 'success');
+      setMessage(applicationMessage, data?.access_source==='paid'
+        ? 'Extra meetup request sent using one paid credit. The credit will be returned automatically if the Premium Profile rejects the request.'
+        : 'Meetup request sent using your included daily meetup. You can chat privately inside LEOGO now; contact details stay hidden until acceptance.', 'success');
       await loadVerifiedProfileDirectory(currentCustomer, true);
     } catch (error) {
       setMessage(applicationMessage, error?.message || 'The meetup request could not be sent.', 'error');
@@ -650,6 +667,7 @@
   const resetDashboard = () => {
     currentCustomer = null;
     premiumPaymentDestination = null;
+    meetupBilling = null;
     renderPremiumPaymentDestination();
     setApplicationOpen(false);
     setStatusValue(applicationStatus, '', 'Not started');
@@ -661,6 +679,8 @@
     loadVerifiedProfileDirectory(null, false);
     renderPaymentHistory([]);
     if (paymentForm) paymentForm.hidden = true;
+    if (meetupCreditForm) meetupCreditForm.hidden = true;
+    if (meetupCreditSummary) meetupCreditSummary.textContent='Log in and activate a Premium plan to manage extra meetup credits.';
   };
 
   const loadPremiumAccount = async (user, force = false) => {
@@ -673,14 +693,15 @@
       : { data: null, error: new Error('Payment routing unavailable') };
     premiumPaymentDestination = destinationResult.error ? null : destinationResult.data;
     renderPremiumPaymentDestination();
-    const [customerResult, privateResult, paymentsResult, membershipResult] = await Promise.all([
+    const [customerResult, privateResult, paymentsResult, membershipResult,meetupBillingResult] = await Promise.all([
       client.from('premium_customers').select('*').eq('user_id', user.id).maybeSingle(),
       client.from('premium_customer_private_details').select('*').eq('user_id', user.id).maybeSingle(),
       client.from('premium_membership_payments').select('id, plan_name, amount_kes, duration_hours, payment_status, submitted_at, admin_notes').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(5),
-      client.from('premium_memberships').select('*').eq('user_id', user.id).maybeSingle()
+      client.from('premium_memberships').select('*').eq('user_id', user.id).maybeSingle(),
+      client.rpc('premium_customer_get_meetup_billing_status')
     ]);
     if (currentUser?.id !== user.id) return;
-    const firstError = [customerResult, privateResult, paymentsResult, membershipResult].find((result) => result.error)?.error;
+    const firstError = [customerResult, privateResult, paymentsResult, membershipResult,meetupBillingResult].find((result) => result.error)?.error;
     if (firstError) {
       loadingFor = '';
       setMessage(applicationMessage, 'Your Premium account could not be loaded. Please refresh and try again.', 'error');
@@ -690,10 +711,12 @@
     setApplicationOpen(false);
     const payments = paymentsResult.data || [];
     const membership = membershipResult.data;
+    meetupBilling=meetupBillingResult.data||null;
     if (currentCustomer) fillExistingCustomer(currentCustomer, privateResult.data);
     setStatusValue(applicationStatus, currentCustomer?.application_status, 'Not started');
     setStatusValue(paymentStatus, payments[0]?.payment_status, 'No payment');
     const active = membership && membership.membership_status === 'active' && new Date(membership.ends_at) > new Date();
+    renderMeetupBilling(active);
     setStatusValue(membershipStatus, active ? 'active' : membership?.membership_status, 'Inactive');
     if (membershipExpiry) membershipExpiry.textContent = active ? formatDate(membership.ends_at) : '—';
     if (membershipRemaining) membershipRemaining.textContent = active ? 'Paid access is active' : (currentCustomer ? 'Account remains ready for renewal' : 'Create your customer account');
@@ -824,6 +847,22 @@
       setMessage(paymentMessage, 'Payment submitted successfully. Membership will begin after Admin confirms it.', 'success');
       loadingFor = '';
       await loadPremiumAccount(currentUser, true);
+    });
+  });
+
+  meetupCreditForm?.addEventListener('submit',(event)=>{
+    event.preventDefault();
+    if(!currentUser||!meetupCreditForm.reportValidity())return;
+    runOnce(meetupCreditForm,'Submitting securely…',async()=>{
+      const quantity=Number(document.getElementById('premiumMeetupCreditQuantity')?.value||1);
+      const reference=document.getElementById('premiumMeetupCreditReference')?.value.trim()||'';
+      setMessage(meetupCreditMessage,'Submitting your extra meetup payment for Admin confirmation…');
+      const {error}=await client.rpc('premium_customer_submit_extra_meetup_payment',{p_quantity:quantity,p_payment_reference:reference});
+      if(error){setMessage(meetupCreditMessage,error.message||'The extra meetup payment could not be submitted.','error');return;}
+      meetupCreditForm.reset();
+      if(document.getElementById('premiumMeetupCreditQuantity'))document.getElementById('premiumMeetupCreditQuantity').value='1';
+      setMessage(meetupCreditMessage,'Payment submitted. The meetup credit becomes available after Admin confirms it.','success');
+      loadingFor='';await loadPremiumAccount(currentUser,true);
     });
   });
 
