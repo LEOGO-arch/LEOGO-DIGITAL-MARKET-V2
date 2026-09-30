@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=email-notifications-1">
+  <link rel="stylesheet" href="admin.css?v=admin-reports-1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
 <style>
 .service-operations-card{margin-top:18px}.service-fee-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.service-fee-form label{display:grid;gap:6px;font-weight:800}.service-fee-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px;width:180px}.service-fee-form button,.admin-service-request-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.service-fee-form small{width:100%;font-weight:800}.admin-service-request-list{display:grid;gap:14px}.admin-service-request-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.admin-service-request-card header{display:flex;justify-content:space-between;gap:12px}.admin-service-request-card header strong,.admin-service-request-card header small{display:block}.admin-service-request-card header b{font-size:11px;text-transform:capitalize;background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;height:max-content}.admin-service-request-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.admin-service-request-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.admin-service-request-grid small,.admin-service-request-grid strong{display:block}.admin-service-request-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-service-request-actions .verify{background:#157f3d}.admin-service-request-actions .reject,.admin-service-request-actions .cancel{background:#a42832}.admin-service-request-actions .dispatch{background:#ff7200}.admin-service-request-card p{margin:0;color:#526177}.service-request-summary-grid{margin:14px 0}@media(max-width:720px){.admin-service-request-grid{grid-template-columns:1fr}.admin-service-request-card header{display:grid}}
@@ -806,7 +806,34 @@
       </section>
 
       <section class="admin-panel" data-admin-panel="loyalty"><div class="section-head"><div><span>CUSTOMER RETENTION</span><h2>Loyalty &amp; Rewards</h2><p>Shopping rewards are connected to the existing wallet reward rules.</p></div><button data-admin-view="settings" data-settings-tab="fees" class="primary-button">Edit Reward Rules</button></div><div class="reserved-module slim"><span>★</span><h3>Wallet reward engine connected</h3><p>Eligible spend, rate and credited rewards remain auditable in the Wallet system.</p></div></section>
-      <section class="admin-panel" data-admin-panel="reports"><div class="section-head"><div><span>BUSINESS INTELLIGENCE</span><h2>Reports</h2><p>Operational, financial and marketplace reporting.</p></div></div><div class="reserved-module"><span>↗</span><h3>Reports workspace reserved</h3><p>Version 1 keeps this area ready while real order, seller and settlement ledgers are completed.</p></div></section>
+      <section class="admin-panel" data-admin-panel="reports">
+        <div class="section-head report-page-head"><div><span>BUSINESS INTELLIGENCE</span><h2>Reports</h2><p>Operational, financial, customer and partner reporting from live LEOGO records.</p></div><button id="refreshReport" class="secondary-button" type="button">Refresh Report</button></div>
+        <div class="report-workspace">
+          <aside class="report-catalogue" aria-label="Report catalogue">
+            <label class="report-search-label"><span>Find a report</span><input id="reportCatalogueSearch" type="search" placeholder="Search reports…"></label>
+            <nav id="reportCatalogue"></nav>
+          </aside>
+          <div class="report-main">
+            <section class="content-card report-filter-card">
+              <div class="report-title-row"><div><span id="reportEyebrow">COMMERCE</span><h3 id="reportTitle">Orders</h3><p id="reportDescription">Detailed customer orders and payment status.</p></div><span id="reportLoadStatus" class="report-load-status">Ready</span></div>
+              <form id="reportFilters" class="report-filters">
+                <label><span>From</span><input id="reportFrom" type="date" required></label>
+                <label><span>To</span><input id="reportTo" type="date" required></label>
+                <label><span>Status</span><select id="reportStatus"><option value="">All statuses</option></select></label>
+                <label class="report-search-filter"><span>Search</span><input id="reportSearch" type="search" placeholder="Reference, name or location…"></label>
+                <button class="primary-button" type="submit">Run Report</button>
+              </form>
+            </section>
+            <section id="reportSummary" class="report-summary" aria-label="Report summary"></section>
+            <section class="content-card report-results-card">
+              <div class="report-results-head"><div><strong id="reportRecordCount">0 records</strong><small id="reportSelectionCount">0 selected</small></div><div class="report-actions"><button id="selectAllReportRows" class="secondary-button" type="button">Select all filtered</button><button id="clearReportSelection" class="secondary-button" type="button">Clear</button><select id="reportExportScope" aria-label="Export scope"><option value="selected">Selected rows</option><option value="filtered">All filtered rows</option></select><button class="secondary-button" type="button" data-report-export="xlsx">Export Excel</button><button class="secondary-button" type="button" data-report-export="pdf">Export PDF</button></div></div>
+              <p class="report-finance-note" id="reportFinanceNote" hidden>Customer Wallet / SACCO deposits, withdrawals, savings and balances are held customer funds. They are not included in LEOGO revenue.</p>
+              <div class="responsive-table report-table-wrap"><table id="reportTable"><thead></thead><tbody><tr><td>Choose filters and run a report.</td></tr></tbody></table></div>
+              <div class="report-pagination"><label>Rows per page <select id="reportPageSize"><option>25</option><option>50</option><option>100</option></select></label><div><button id="reportPreviousPage" class="secondary-button" type="button">Previous</button><span id="reportPageLabel">Page 1 of 1</span><button id="reportNextPage" class="secondary-button" type="button">Next</button></div></div>
+            </section>
+          </div>
+        </div>
+      </section>
 
       <section class="admin-panel" data-admin-panel="settings">
         <div class="section-head"><div><span>ADMINISTRATION</span><h2>System Settings</h2><p>Official business information, payment destinations, fees and reserved system modules.</p></div></div>
@@ -1113,7 +1140,7 @@
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  <script src="admin.js?v=pickup-station-arrival-1" defer></script>
+  <script src="admin.js?v=admin-reports-1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>
   <script src="cyber.js?v=delivery-rates-admin-3" defer></script>
