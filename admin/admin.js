@@ -539,6 +539,8 @@
       [loadServiceLocations, () => adminHas('settings.manage')],
       [loadBusinessSettings, () => adminHas('settings.manage')],
       [loadPaymentSettings, () => adminHas('payments.manage')],
+      [loadOrderSettings, () => adminHas('settings.manage') || adminHas('fees.manage')],
+      [loadLipaPolePoleSettings, () => adminHas('settings.manage') || adminHas('fees.manage')],
       [loadPartnerSubscriptionSettings, () => adminHas('settings.manage') || adminHas('fees.manage')],
       [loadPickupStations, () => adminHas('orders.read') || adminHas('delivery.manage')],
       [loadWalletSettings, () => adminHas('approvals.read') || adminHas('fees.manage')],
@@ -3483,6 +3485,62 @@
     });
   };
 
+  const renderOrderSettingsPreview=(data)=>{
+    const node=$('#orderSettingsPreview');if(!node)return;
+    const threshold=Number(data?.service_fee_threshold_kes||3000);
+    const low=Number(data?.service_fee_below_percent||2);
+    const high=Number(data?.service_fee_at_or_above_percent||1.5);
+    const cod=Number(data?.cod_limit_kes||10000);
+    node.textContent='Checkout rule: below KSh '+threshold.toLocaleString('en-KE')+' → '+low.toLocaleString('en-KE')+'% service fee; at/above threshold → '+high.toLocaleString('en-KE')+'%. COD is unavailable at KSh '+cod.toLocaleString('en-KE')+' or above.';
+  };
+  const loadOrderSettings=async()=>{
+    const {data,error}=await db.rpc('admin_get_order_settings');if(error)throw error;
+    const form=$('#orderSettingsForm');if(!form)return;
+    ['cod_limit_kes','service_fee_threshold_kes','service_fee_below_percent','service_fee_at_or_above_percent'].forEach(key=>{if(form.elements[key])form.elements[key].value=data?.[key]??'';});
+    renderOrderSettingsPreview(data||{});
+  };
+  const saveOrderSettings=async(event)=>{
+    event.preventDefault();const form=event.currentTarget;const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const {data,error}=await db.rpc('admin_save_order_settings',{
+        p_cod_limit_kes:Number(form.elements.cod_limit_kes.value),
+        p_service_fee_threshold_kes:Number(form.elements.service_fee_threshold_kes.value),
+        p_service_fee_below_percent:Number(form.elements.service_fee_below_percent.value),
+        p_service_fee_at_or_above_percent:Number(form.elements.service_fee_at_or_above_percent.value)
+      });
+      if(error){setFormStatus($('#orderSettingsStatus'),friendlyError(error),'error');return;}
+      renderOrderSettingsPreview(data||{});
+      setFormStatus($('#orderSettingsStatus'),'Order settings saved. Customer checkout will use these values automatically.','success');
+      if(isSuperAdmin())await loadAuditLog();
+    });
+  };
+
+  const renderLipaPolePoleSettingsPreview=(data)=>{
+    const node=$('#lipaPolePoleSettingsPreview');if(!node)return;
+    node.textContent='Current rule: cancellation deduction '+Number(data?.cancellation_deduction_percent||25).toLocaleString('en-KE')+'%; overdue refund deduction '+Number(data?.overdue_refund_deduction_percent||25).toLocaleString('en-KE')+'%; overdue extension interest '+Number(data?.overdue_interest_percent||5).toLocaleString('en-KE')+'%; reminder '+Number(data?.reminder_days_before_due||3)+' day(s) before the seller-set deadline.';
+  };
+  const loadLipaPolePoleSettings=async()=>{
+    const {data,error}=await db.rpc('admin_get_lipa_pole_pole_settings');if(error)throw error;
+    const form=$('#lipaPolePoleSettingsForm');if(!form)return;
+    ['cancellation_deduction_percent','overdue_refund_deduction_percent','overdue_interest_percent','reminder_days_before_due'].forEach(key=>{if(form.elements[key])form.elements[key].value=data?.[key]??'';});
+    renderLipaPolePoleSettingsPreview(data||{});
+  };
+  const saveLipaPolePoleSettings=async(event)=>{
+    event.preventDefault();const form=event.currentTarget;const button=event.submitter;
+    await withButtonLock(button,'Saving…',async()=>{
+      const {data,error}=await db.rpc('admin_save_lipa_pole_pole_settings',{
+        p_cancellation_deduction_percent:Number(form.elements.cancellation_deduction_percent.value),
+        p_overdue_refund_deduction_percent:Number(form.elements.overdue_refund_deduction_percent.value),
+        p_overdue_interest_percent:Number(form.elements.overdue_interest_percent.value),
+        p_reminder_days_before_due:Number(form.elements.reminder_days_before_due.value)
+      });
+      if(error){setFormStatus($('#lipaPolePoleSettingsStatus'),friendlyError(error),'error');return;}
+      renderLipaPolePoleSettingsPreview(data||{});
+      setFormStatus($('#lipaPolePoleSettingsStatus'),'Lipa Pole Pole policy saved. Seller-set deposits and payment periods were not changed.','success');
+      if(isSuperAdmin())await loadAuditLog();
+    });
+  };
+
   const partnerSubscriptionLabel=(value)=>({premium:'Premium Partner',seller:'Seller',service_provider:'Service Provider',cyber:'Cyber',accommodation:'Accommodation',transport:'Transporter'}[value]||value);
   const loadPartnerSubscriptionSettings=async()=>{
     const {data,error}=await db.rpc('admin_list_partner_subscription_settings');
@@ -5525,9 +5583,29 @@
   };
 
   const changeSettingsTab = (tab) => {
-    $$('#settingsTabs [data-settings-panel]').forEach((button) => button.classList.toggle('active', button.dataset.settingsPanel === tab));
-    $$('[data-settings-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.settingsContent === tab));
+    $('#settingsTabs [data-settings-panel]').forEach((button) => button.classList.toggle('active', button.dataset.settingsPanel === tab));
+    $('[data-settings-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.settingsContent === tab));
     if (tab === 'data') renderDataManagement();
+    if (tab === 'orders') loadOrderSettings().catch((error)=>setFormStatus($('#orderSettingsStatus'),friendlyError(error),'error'));
+    if (tab === 'lipa') loadLipaPolePoleSettings().catch((error)=>setFormStatus($('#lipaPolePoleSettingsStatus'),friendlyError(error),'error'));
+  };
+  const openSystemSettingsCard=(target)=>{
+    const scrollTo=(selector)=>window.setTimeout(()=>$(selector)?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+    if(target==='orders'){changeSettingsTab('orders');scrollTo('#orderSettingsForm');return;}
+    if(target==='delivery'){
+      activeTransportSection='zones';
+      changeView('transport');
+      changeTransportSection('zones');
+      scrollTo('#deliveryRateSettingsForm');
+      return;
+    }
+    if(target==='wallet'){changeSettingsTab('fees');scrollTo('#walletFeesForm');return;}
+    if(target==='lipa'){changeSettingsTab('lipa');scrollTo('#lipaPolePoleSettingsForm');return;}
+    if(target==='premium'){changeSettingsTab('fees');scrollTo('#partnerSubscriptionSettingsForm');return;}
+    if(target==='accommodation'){changeSettingsTab('fees');scrollTo('#accommodationFinanceSettingsForm');return;}
+    if(target==='notifications'){changeSettingsTab('email');scrollTo('#emailNotificationSettingsForm');return;}
+    if(target==='security'){changeView('staff');scrollTo('#createStaffForm');return;}
+    if(target==='preferences'){changeSettingsTab('business');scrollTo('#businessSettingsForm');return;}
   };
   const closeSidebar = () => { $('#adminSidebar').classList.remove('open'); $('#sidebarScrim').classList.remove('open'); };
   const closeModals = () => { $$('.modal').forEach((modal) => { modal.hidden = true; }); state.activeApproval = null; };
@@ -5564,7 +5642,8 @@
         renderApprovals();
       }
     }));
-    $$('#settingsTabs [data-settings-panel]').forEach((button) => button.addEventListener('click', () => changeSettingsTab(button.dataset.settingsPanel)));
+    $('#settingsTabs [data-settings-panel]').forEach((button) => button.addEventListener('click', () => changeSettingsTab(button.dataset.settingsPanel)));
+    $('[data-settings-card]').forEach((button)=>button.addEventListener('click',()=>openSystemSettingsCard(button.dataset.settingsCard)));
     $$('#approvalFilters [data-approval-filter]').forEach((button) => button.addEventListener('click', () => {
       state.approvalFilter = button.dataset.approvalFilter;
       $$('#approvalFilters [data-approval-filter]').forEach((item) => item.classList.toggle('active', item === button));
@@ -5761,6 +5840,8 @@
     $('#dashboardExportToggle').addEventListener('click',()=>{$('#dashboardExportMenu').hidden=!$('#dashboardExportMenu').hidden;});
     $$('[data-dashboard-export]').forEach(button=>button.addEventListener('click',async()=>{await exportDashboard(button.dataset.dashboardExport);$('#dashboardExportMenu').hidden=true;}));
     $('#businessSettingsForm').addEventListener('submit', saveBusinessSettings);
+    $('#orderSettingsForm')?.addEventListener('submit', saveOrderSettings);
+    $('#lipaPolePoleSettingsForm')?.addEventListener('submit', saveLipaPolePoleSettings);
     $('#customerThemeForm')?.addEventListener('submit', saveCustomerTheme);
     $('#customerThemeForm')?.addEventListener('input', renderCustomerThemePreview);
     $('#walletFeesForm').addEventListener('submit', saveWalletSettings);
