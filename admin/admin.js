@@ -2085,19 +2085,11 @@
     ctx.fillText('For fulfilment, pickup, Rider handover and final delivery.',205,150);
 
     const qrUrl=deliveryQrTarget(order);
-    const qr=await buildDeliveryQrCanvas(qrUrl,250);
-    ctx.fillStyle='#ffffff';
-    ctx.fillRect(930,278,270,330);
-    ctx.drawImage(qr,940,288,250,250);
-    ctx.fillStyle='#07152f';
-    ctx.font='700 16px Arial, sans-serif';
-    ctx.textAlign='center';
-    ctx.fillText('SCAN ORDER',1065,546);
-    ctx.font='700 13px Arial, sans-serif';
-    ctx.fillStyle='#5d6b7f';
-    ctx.fillText(String(order.order_reference||'LEOGO ORDER'),1065,572);
-    ctx.textAlign='left';
+    const qr=await buildDeliveryQrCanvas(qrUrl,230);
+    const contentWidth=width-108;
 
+    // Keep the summary full-width. The QR is placed below the summary instead
+    // of beside it so the printed label reads naturally from top to bottom.
     let y=286;
     ctx.fillStyle='#6b778b';
     ctx.font='700 16px Arial, sans-serif';
@@ -2109,7 +2101,7 @@
     y+=62;
 
     ctx.fillStyle='#fff4e8';
-    ctx.fillRect(54,y,830,82);
+    ctx.fillRect(54,y,contentWidth,82);
     ctx.fillStyle='#b44f00';
     ctx.font='700 18px Arial, sans-serif';
     ctx.fillText('STATUS',72,y+18);
@@ -2123,7 +2115,7 @@
       ctx.font='700 22px Arial, sans-serif';
       ctx.fillText(title,54,atY);
       ctx.fillStyle='#ff7800';
-      ctx.fillRect(54,atY+31,830,4);
+      ctx.fillRect(54,atY+31,contentWidth,4);
       return atY+52;
     };
 
@@ -2138,7 +2130,7 @@
     y+=38;
     ctx.font='22px Arial, sans-serif';
     ctx.fillStyle='#44526a';
-    y=canvasWrapText(ctx,orderDeliveryAddress(order),54,y,830,31,4)+12;
+    y=canvasWrapText(ctx,orderDeliveryAddress(order),54,y,contentWidth,31,3)+12;
 
     y=sectionTitle('ORDER ITEMS',y);
     const visibleItems=items.slice(0,7);
@@ -2154,14 +2146,14 @@
         ctx.fillStyle='#07152f';
         ctx.fillText(Number(item.quantity||0)+' x',54,y);
         ctx.font='22px Arial, sans-serif';
-        canvasWrapText(ctx,name,112,y,570,29,2);
+        canvasWrapText(ctx,name,112,y,840,29,2);
         ctx.font='700 20px Arial, sans-serif';
         ctx.textAlign='right';
-        ctx.fillText(formatMoney(item.line_total_kes),880,y);
+        ctx.fillText(formatMoney(item.line_total_kes),1180,y);
         ctx.textAlign='left';
         y+=58;
         ctx.fillStyle='#e2e8f0';
-        ctx.fillRect(54,y-9,830,1);
+        ctx.fillRect(54,y-9,contentWidth,1);
       }
       if(items.length>visibleItems.length){
         ctx.fillStyle='#6b778b';
@@ -2174,7 +2166,7 @@
     y=sectionTitle('PAYMENT',Math.min(y+8,1250));
     const codDue=order.payment_status==='cod_due';
     ctx.fillStyle=codDue?'#fff0e5':'#edf9f1';
-    ctx.fillRect(54,y,830,92);
+    ctx.fillRect(54,y,contentWidth,92);
     ctx.fillStyle=codDue?'#a94300':'#177245';
     ctx.font='700 20px Arial, sans-serif';
     ctx.fillText(codDue?'COLLECT ON DELIVERY':'PAYMENT STATUS',72,y+16);
@@ -2183,7 +2175,7 @@
     ctx.fillStyle='#394960';
     ctx.font='18px Arial, sans-serif';
     ctx.textAlign='right';
-    ctx.fillText(String(order.payment_method||'').replaceAll('_',' ').toUpperCase(),865,y+53);
+    ctx.fillText(String(order.payment_method||'').replaceAll('_',' ').toUpperCase(),1170,y+53);
     ctx.textAlign='left';
     y+=122;
 
@@ -2204,7 +2196,7 @@
     ctx.fillText('SELLER(S)',54,y);
     ctx.font='18px Arial, sans-serif';
     ctx.fillStyle='#34445d';
-    y=canvasWrapText(ctx,sellers.map((seller)=>seller.business_name).filter(Boolean).join(', ')||'Seller details available in Admin',165,y,715,26,2)+28;
+    y=canvasWrapText(ctx,sellers.map((seller)=>seller.business_name).filter(Boolean).join(', ')||'Seller details available in Admin',165,y,1010,26,2)+28;
 
     if(delivery?.admin_notes){
       ctx.font='700 17px Arial, sans-serif';
@@ -2212,7 +2204,7 @@
       ctx.fillText('STAFF / RIDER INSTRUCTIONS',54,y);
       ctx.font='17px Arial, sans-serif';
       ctx.fillStyle='#44526a';
-      y=canvasWrapText(ctx,delivery.admin_notes,54,y+28,830,24,3)+18;
+      y=canvasWrapText(ctx,delivery.admin_notes,54,y+28,contentWidth,24,3)+18;
     }
 
     if(delivery?.rider_notes){
@@ -2221,10 +2213,29 @@
       ctx.fillText('RIDER UPDATE',54,y);
       ctx.font='17px Arial, sans-serif';
       ctx.fillStyle='#44526a';
-      canvasWrapText(ctx,delivery.rider_notes,54,y+28,830,24,2);
+      y=canvasWrapText(ctx,delivery.rider_notes,54,y+28,contentWidth,24,2)+12;
     }
 
-    const footerY=1608;
+    // QR block below the order summary.
+    const footerY=1658;
+    const qrSize=230;
+    const qrBlockHeight=qrSize+76;
+    const preferredQrY=Math.max(y+22,1260);
+    const qrY=Math.min(preferredQrY,footerY-qrBlockHeight-16);
+    const qrX=Math.round((width-qrSize)/2);
+
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(qrX-14,qrY-12,qrSize+28,qrBlockHeight);
+    ctx.drawImage(qr,qrX,qrY,qrSize,qrSize);
+    ctx.fillStyle='#07152f';
+    ctx.font='700 17px Arial, sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('SCAN ORDER',width/2,qrY+qrSize+14);
+    ctx.font='700 14px Arial, sans-serif';
+    ctx.fillStyle='#5d6b7f';
+    ctx.fillText(String(order.order_reference||'LEOGO ORDER'),width/2,qrY+qrSize+40);
+    ctx.textAlign='left';
+
     ctx.fillStyle='#07152f';
     ctx.fillRect(0,footerY,width,height-footerY);
     ctx.fillStyle='#ffffff';
