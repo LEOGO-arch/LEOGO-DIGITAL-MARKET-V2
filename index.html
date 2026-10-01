@@ -456,18 +456,27 @@
     <a class="category-card" href="#premium" data-system-category="premium-18"><span>🔞</span><strong>LEOGO Premium 18+</strong></a>
   </div>
 </section>
-
-<section class="section live-product-catalogue" id="live-product-catalogue">
-  <div class="section-heading live-catalogue-heading">
-    <div>
-      <span class="live-catalogue-eyebrow">LIVE SELLER PRODUCTS</span>
-      <h2 id="liveCatalogueTitle">Marketplace</h2>
-      <p id="liveCatalogueSubtitle">Approved products from LEOGO Sellers appear here directly from the live catalogue.</p>
-    </div>
-    <button id="showAllLiveProducts" type="button">View All Products</button>
+<section class="flash-sale" id="flash-sale"><div class="flash-shell"><div class="flash-head"><div><h2>⚡ Flash Sale</h2><small>LEOGO Admin-approved limited-time offers from Sellers and Service Partners</small></div><a href="#flash-sale">Live Deals</a></div><div class="flash-grid" id="customerFlashSaleGrid"><article class="flash-item flash-loading-item"><div class="flash-img">⚡</div><div class="flash-body"><h3>Loading live Flash Sales…</h3><span class="flash-seller">Only Admin-approved active offers appear here.</span></div></article></div></div></section>
+<section class="section" id="catalogue"><div class="section-heading"><h2>🔥 Popular Near You</h2><a href="#catalogue">View all</a></div><div class="seller-grid"><article class="seller-card"><div class="seller-photo food-photo">🍲</div><strong>Royale Kitchen</strong><span>★ 4.6 (128)</span><small>20–30 mins</small></article><article class="seller-card"><div class="seller-photo grocery-photo">🥦</div><strong>ABC Grocery</strong><span>★ 4.5 (84)</span><small>30–40 mins</small></article><article class="seller-card"><div class="seller-photo fruit-photo">🍎</div><strong>Fresh Basket</strong><span>★ 4.6 (96)</span><small>25–35 mins</small></article></div></section>
+<section class="section" id="services">
+  <div class="service-provider-public-heading">
+    <div><span>LEOGO SERVICES</span><h2>Verified Service Providers</h2><p>Approved local professionals and service businesses available through LEOGO.</p></div>
   </div>
-  <div class="live-catalogue-status" id="liveCatalogueStatus" role="status" aria-live="polite">Loading approved Seller products…</div>
-  <div class="live-product-grid" id="liveProductGrid"></div>
+  <div id="publicServiceProviderList" class="service-provider-public-grid">
+    <div class="service-provider-public-empty">Approved Service Providers will appear here.</div>
+  </div>
+
+  <div class="service-provider-public-heading transport-provider-public-heading" id="verifiedTransportProviders">
+    <div><span>TRANSPORT &amp; PARCEL</span><h2>Verified Transport Providers</h2><p>Approved Transport &amp; Parcel vehicles. Customer ratings are published only after LEOGO Admin approval.</p></div>
+  </div>
+  <div id="publicTransportProviderList" class="service-provider-public-grid transport-provider-public-grid">
+    <div class="service-provider-public-empty">Approved Transport Providers will appear here.</div>
+  </div>
+
+  <div class="section-heading"><h2>⚡ Featured Local Sellers</h2><a href="#services">View all</a></div>
+  <div class="featured-row"><article><span>🥩</span><strong>John's<br>Butchery</strong><small>★ 4.7</small></article><article><span>🥬</span><strong>Siaya Fresh<br>Veggies</strong><small>★ 4.6</small></article><article><span>💊</span><strong>CarePlus<br>Pharmacy</strong><small>★ 4.8</small></article><article><span>🍗</span><strong>Best Cuts<br>Butchery</strong><small>★ 4.6</small></article></div>
+
+  <div class="local-strip"><div><strong>Support local businesses. Shop local.</strong><small>LEOGO is our community.</small></div><span>♥</span></div>
 </section>
 <section class="accommodation-marketplace" id="accommodation">
   <div class="accommodation-shell">
@@ -484,8 +493,23 @@
     <div class="accommodation-listing-grid" id="accommodationListingGrid"></div>
   </div>
 </section>
-<section class="section" id="catalogue"><div class="section-heading"><h2>🔥 Popular Near You</h2><a href="#catalogue">View all</a></div><div class="seller-grid"><article class="seller-card"><div class="seller-photo food-photo">🍲</div><strong>Royale Kitchen</strong><span>★ 4.6 (128)</span><small>20–30 mins</small></article><article class="seller-card"><div class="seller-photo grocery-photo">🥦</div><strong>ABC Grocery</strong><span>★ 4.5 (84)</span><small>30–40 mins</small></article><article class="seller-card"><div class="seller-photo fruit-photo">🍎</div><strong>Fresh Basket</strong><span>★ 4.6 (96)</span><small>25–35 mins</small></article></div></section>
-<section class="flash-sale" id="flash-sale"><div class="flash-shell"><div class="flash-head"><div><h2>⚡ Flash Sale</h2><small>LEOGO Admin-approved limited-time offers from Sellers and Service Partners</small></div><a href="#flash-sale">Live Deals</a></div><div class="flash-grid" id="customerFlashSaleGrid"><article class="flash-item flash-loading-item"><div class="flash-img">⚡</div><div class="flash-body"><h3>Loading live Flash Sales…</h3><span class="flash-seller">Only Admin-approved active offers appear here.</span></div></article></div></div></section>
+<section class="section live-product-catalogue" id="live-product-catalogue">
+  <div class="section-heading live-catalogue-heading">
+    <div>
+      <span class="live-catalogue-eyebrow">LIVE SELLER PRODUCTS</span>
+      <h2 id="liveCatalogueTitle">Marketplace</h2>
+      <p id="liveCatalogueSubtitle">Approved products from LEOGO Sellers appear here directly from the live catalogue.</p>
+    </div>
+    <button id="showAllLiveProducts" type="button">View All Products</button>
+  </div>
+  <div class="live-catalogue-status" id="liveCatalogueStatus" role="status" aria-live="polite">Loading approved Seller products…</div>
+  <div class="live-product-grid" id="liveProductGrid"></div>
+</section>
+
+
+
+
+
 <section class="section" id="community"><div class="community-boards"><article class="clipboard" id="looking-for"><div class="clipboard-head"><h3>📋 What People Are Looking For</h3><button class="request-add-button" id="openRequestForm" type="button" aria-haspopup="dialog" aria-controls="requestModal">＋ Add Request</button></div><div class="clip-list"><div class="clip-row"><span class="clip-icon">⚡</span><div><b>Rose needs an Electric Kettle</b><small>Home appliance</small></div><span class="clip-tag">APPROVED</span></div><div class="clip-row"><span class="clip-icon">🛏️</span><div><b>Brian needs a 4×6 Mattress</b><small>Home &amp; living</small></div><span class="clip-tag">APPROVED</span></div><div class="clip-row"><span class="clip-icon">🔧</span><div><b>Mary needs a Plumber</b><small>Service request</small></div><span class="clip-tag">APPROVED</span></div></div><div class="clip-footer"><small>Admin-approved requests</small><a href="#looking-for">See More →</a></div></article><article class="clipboard sell" id="selling"><div class="clipboard-head"><h3>🏷️ What Are You Selling?</h3><button class="selling-add-button" id="openSellingForm" type="button" aria-haspopup="dialog" aria-controls="sellingModal">＋ Sell an Item</button></div><div class="clip-list personal-sale-list" id="sellerMarketplaceList">
   <div class="customer-empty-state compact"><span>🏷️</span><h4>Loading personal sale listings…</h4><p>Admin-approved one-off customer items will appear here.</p></div>
 </div><div class="clip-footer"><small>Admin-approved personal listings</small><a href="#live-product-catalogue" id="personalSalesSeeMore">See More →</a></div></article></div></section>
@@ -526,26 +550,7 @@
     <div class="premium-entry-status" id="premiumEntryStatus" aria-live="polite"></div>
   </div>
 </section>
-<section class="section" id="services">
-  <div class="section-heading"><h2>⚡ Featured Local Sellers</h2><a href="#services">View all</a></div>
-  <div class="featured-row"><article><span>🥩</span><strong>John's<br>Butchery</strong><small>★ 4.7</small></article><article><span>🥬</span><strong>Siaya Fresh<br>Veggies</strong><small>★ 4.6</small></article><article><span>💊</span><strong>CarePlus<br>Pharmacy</strong><small>★ 4.8</small></article><article><span>🍗</span><strong>Best Cuts<br>Butchery</strong><small>★ 4.6</small></article></div>
 
-  <div class="service-provider-public-heading">
-    <div><span>LEOGO SERVICES</span><h2>Verified Service Providers</h2><p>Approved local professionals and service businesses available through LEOGO.</p></div>
-  </div>
-  <div id="publicServiceProviderList" class="service-provider-public-grid">
-    <div class="service-provider-public-empty">Approved Service Providers will appear here.</div>
-  </div>
-
-  <div class="service-provider-public-heading transport-provider-public-heading" id="verifiedTransportProviders">
-    <div><span>TRANSPORT &amp; PARCEL</span><h2>Verified Transport Providers</h2><p>Approved Transport &amp; Parcel vehicles. Customer ratings are published only after LEOGO Admin approval.</p></div>
-  </div>
-  <div id="publicTransportProviderList" class="service-provider-public-grid transport-provider-public-grid">
-    <div class="service-provider-public-empty">Approved Transport Providers will appear here.</div>
-  </div>
-
-  <div class="local-strip"><div><strong>Support local businesses. Shop local.</strong><small>LEOGO is our community.</small></div><span>♥</span></div>
-</section>
 <section class="section advertisement-section" id="advertisement">
   <div class="section-heading advertisement-heading"><div><h2>📢 Advertisement</h2><p>Featured announcements and promotions selected by LEOGO.</p></div><span>ADMIN MANAGED</span></div>
   <article class="advertisement-card" id="activeAdvertisementCard">
