@@ -155,6 +155,78 @@
       ? { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Nairobi' }
       : { dateStyle: 'medium', timeZone: 'Africa/Nairobi' }).format(date);
   };
+  const setSidebarActionCount = (id, value) => {
+    const node = $('#'+id);
+    if (!node) return;
+    const count = Math.max(0, Number(value || 0));
+    node.textContent = count.toLocaleString('en-KE');
+    node.hidden = false;
+    node.setAttribute('aria-label', count+' item'+(count===1?'':'s')+' requiring Admin attention');
+  };
+
+  const updateSidebarActionCounts = () => {
+    const approvals = Array.isArray(state.approvals) ? state.approvals : [];
+    const countApprovalKinds = (kinds) => approvals.filter((item) => kinds.includes(String(item.kind||''))).length;
+    const countApprovalPrefix = (prefix) => approvals.filter((item) => String(item.kind||'').startsWith(prefix)).length;
+
+    const orderAttention = (state.marketplaceOrders||[])
+      .filter((item) => item.payment_status === 'submitted').length;
+
+    const productAttention =
+      countApprovalKinds(['seller_product']) +
+      (state.productReviews||[]).filter((item)=>item.moderation_status==='submitted').length +
+      (state.orderReviews||[]).filter((item)=>item.moderation_status==='submitted').length;
+
+    const sellerAttention = countApprovalKinds([
+      'seller_application','seller_profile_change'
+    ]);
+
+    const providerAttention =
+      countApprovalKinds([
+        'service_provider_application','service_provider_profile_change','service_listing'
+      ]) +
+      (state.serviceRequests||[]).filter((item)=>
+        ['awaiting_payment_verification','submitted','payment_verified'].includes(item.request_status)
+      ).length;
+
+    const transportApprovalAttention = countApprovalKinds([
+      'transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application'
+    ]);
+    const transportRequestAttention = (state.transportRequests||[])
+      .filter((item)=>['submitted','declined'].includes(item.request_status)).length;
+    const deliveryAttention = (state.deliveryJobs||[])
+      .filter((item)=>['awaiting_assignment','failed'].includes(item.status)).length;
+    const pickupWithdrawalAttention = (state.pickupStationWithdrawals||[])
+      .filter((item)=>['pending','approved'].includes(item.status)).length;
+    const pickupReturnAttention = (state.pickupStationReturns||[])
+      .filter((item)=>['received_at_station','awaiting_dispatch'].includes(item.status)).length;
+    const transportAttention =
+      transportApprovalAttention + transportRequestAttention + deliveryAttention +
+      pickupWithdrawalAttention + pickupReturnAttention;
+
+    const walletApprovalAttention = countApprovalPrefix('wallet');
+    const wallet = state.dashboard?.wallet || {};
+    const walletDashboardAttention =
+      Number(wallet.pending_deposits||0) +
+      Number(wallet.pending_withdrawals||0) +
+      Number(wallet.loan_applications||0);
+    const walletAttention = Math.max(walletApprovalAttention, walletDashboardAttention);
+
+    const premiumAttention = countApprovalPrefix('premium');
+    const accommodationAttention =
+      countApprovalPrefix('accommodation') +
+      (state.accommodationBookings||[]).filter((item)=>item.booking_status==='pending_host').length;
+
+    setSidebarActionCount('sidebarOrderCount', orderAttention);
+    setSidebarActionCount('sidebarProductCount', productAttention);
+    setSidebarActionCount('sidebarSellerCount', sellerAttention);
+    setSidebarActionCount('sidebarProviderCount', providerAttention);
+    setSidebarActionCount('sidebarTransportCount', transportAttention);
+    setSidebarActionCount('sidebarWalletCount', walletAttention);
+    setSidebarActionCount('sidebarPremiumCount', premiumAttention);
+    setSidebarActionCount('sidebarAccommodationCount', accommodationAttention);
+  };
+
   const adminNotificationSeenStorageKey = () => 'leogo_admin_notification_seen_'+String(state.user?.id||'anonymous');
   const adminNotificationSeenSet = () => {
     try {
@@ -560,6 +632,7 @@
     if (failed) globalStatus(`Some permitted Admin data could not load: ${friendlyError(failed.reason)}`, 'error');
     if (isSuperAdmin()) renderDataManagement();
     $('#lastSynced').textContent = formatDate(new Date().toISOString(), true);
+    updateSidebarActionCounts();
     renderAdminNotifications();
   };
 
@@ -708,6 +781,7 @@
     // including Seller product submissions.
     if ($('#statApprovals')) $('#statApprovals').textContent = Number(state.approvals.length).toLocaleString('en-KE');
     if ($('#sidebarApprovalCount')) $('#sidebarApprovalCount').textContent = state.approvals.length;
+    updateSidebarActionCounts();
 
     const compact = $('#dashboardApprovalList');
     const nonPaymentApprovals=state.approvals
@@ -1957,6 +2031,7 @@
     $('#adminOrderPaymentPending').textContent=all.filter((o)=>o.payment_status==='submitted').length;
     $('#adminOrderWithRider').textContent=all.filter((o)=>o.order_status==='with_rider').length;
     $('#adminOrderDelivered').textContent=all.filter((o)=>o.order_status==='delivered').length;
+    updateSidebarActionCounts();
 
     $('#adminMarketplaceOrderBody').innerHTML=orders.length?orders.map((o)=>`<tr class="${state.activeMarketplaceOrderId===o.id?'admin-order-row-active':''}">
       <td><strong>${escapeHtml(o.order_reference)}</strong><small>${formatDate(o.created_at,true)}</small></td>
@@ -2970,6 +3045,7 @@
     const rows=state.productReviews.filter((review)=>filter==='all'||review.moderation_status===filter);
     const pending=state.productReviews.filter((review)=>review.moderation_status==='submitted').length;
     if($('#adminProductReviewPending')) $('#adminProductReviewPending').textContent=pending;
+    updateSidebarActionCounts();
 
     if(!rows.length){
       box.innerHTML='<div class="loading-card">No product reviews match this filter.</div>';
@@ -3793,6 +3869,7 @@
     $('#adminDeliveryAwaiting').textContent=state.deliveryJobs.filter(j=>j.status==='awaiting_assignment').length;
     $('#adminDeliveryActive').textContent=state.deliveryJobs.filter(j=>['assigned','picked_up','on_the_way'].includes(j.status)).length;
     $('#adminDeliveryDone').textContent=state.deliveryJobs.filter(j=>j.status==='delivered').length;
+    updateSidebarActionCounts();
 
     $('#adminRiderList').innerHTML=state.riders.length?state.riders.map(r=>`<article class="station-card">
       <header><div><h3>${escapeHtml(r.display_name)}</h3><span class="status-chip">${escapeHtml(r.status)}</span></div><strong>Rider</strong></header>
@@ -4542,6 +4619,7 @@
     $('#adminServicePaymentPending').textContent=all.filter(r=>r.request_status==='awaiting_payment_verification').length;
     $('#adminServiceReadyDispatch').textContent=all.filter(r=>['submitted','payment_verified'].includes(r.request_status)).length;
     $('#adminServiceActiveJobs').textContent=all.filter(r=>['dispatched','accepted','quoted','quote_accepted','in_progress'].includes(r.request_status)).length;
+    updateSidebarActionCounts();
     const filter=$('#adminServiceRequestFilter')?.value||'all';
     let rows=all;
     if(filter==='awaiting_payment_verification')rows=rows.filter(r=>r.request_status===filter);
@@ -5219,6 +5297,7 @@
     const target=$('#adminAccommodationBookingBody');
     if(!target)return;
     const rows=state.accommodationBookings||[];
+    updateSidebarActionCounts();
     target.innerHTML=rows.length?rows.map((item)=>`
       <tr class="${item.booking_status==='pending_host'?'attention-row':''}">
         <td data-label="Booking"><strong>${escapeHtml(item.booking_reference||'Booking')}</strong><small>${formatDate(item.created_at,true)}</small></td>
