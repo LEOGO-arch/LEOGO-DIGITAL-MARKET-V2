@@ -32,14 +32,38 @@ function campaignPayload(){
 }
 async function loadProducts(){const {data,error}=await client.rpc('seller_list_own_products');if(error)throw error;products=Array.isArray(data)?data:[];const sel=$('#shippingProductSelector');if(sel){sel.innerHTML='<option value="">Choose product</option>'+products.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.product_name)+'</option>').join('');}}
 async function saveForProduct(productId,pShipping,pCampaign){const st=$('#productShippingStatus');if(st)st.textContent='Saving shipping profile…';const {error}=await client.rpc('seller_save_product_shipping',{p_product_id:productId,p_shipping:pShipping,p_campaign:pCampaign});if(error){if(st)st.textContent=error.message;throw error;}if(st)st.textContent='Shipping profile and order type saved.';await Promise.all([loadProducts(),loadCampaigns()]);}
+let pendingProductExtensionSave=null;
 async function afterProductSubmit(){
  const form=$('#sellerProductForm')||$('#productForm');if(!form)return;
- form.addEventListener('submit',async()=>{
-  const pShipping=shippingPayload();let pCampaign=null;
-  try{pCampaign=campaignPayload();}catch{const st=$('#productShippingStatus');if(st)st.textContent='Complete valid MOQ dates.';return;}
-  const name=($('#productName')?.value||'').trim();
-  setTimeout(async()=>{try{await loadProducts();const selected=$('#shippingProductSelector')?.value;const product=products.find(p=>p.id===selected)||products.find(p=>String(p.product_name).trim()===name);if(!product)throw new Error('Product saved, but its shipping profile could not be linked. Select it below and save shipping settings.');await saveForProduct(product.id,pShipping,pCampaign);}catch(e){const st=$('#productShippingStatus');if(st)st.textContent=e.message;}},1300);
+
+ // Capture extension values while the Seller form still contains them.
+ form.addEventListener('submit',()=>{
+  try{
+    pendingProductExtensionSave={
+      shipping:shippingPayload(),
+      campaign:campaignPayload()
+    };
+  }catch(error){
+    pendingProductExtensionSave=null;
+    const st=$('#productShippingStatus');
+    if(st)st.textContent=error?.message||'Complete valid MOQ dates.';
+  }
  },true);
+
+ // The core Seller module emits this only after its normal product/variant save
+ // has completed successfully, removing the previous timeout/name matching race.
+ document.addEventListener('leogo:seller-product-saved',async(event)=>{
+  const productId=event?.detail?.productId;
+  const pending=pendingProductExtensionSave;
+  pendingProductExtensionSave=null;
+  if(!productId||!pending)return;
+  try{
+    await saveForProduct(productId,pending.shipping,pending.campaign);
+  }catch(error){
+    const st=$('#productShippingStatus');
+    if(st)st.textContent=error?.message||'Product saved, but Shipping / MOQ settings need to be saved again.';
+  }
+ });
 }
 function ensureManagement(){
  const form=$('#sellerProductForm')||$('#productForm');if(!form||$('#shippingProductManager'))return;
