@@ -80,9 +80,14 @@ async function mountPartnerSubscription(partnerType,shell){
   const latest=data.latest_payment||{},active=Boolean(data.active);
   const endCopy=active&&data.ends_at?'Active until '+new Date(data.ends_at).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short'}):latest.payment_status==='pending'?'Payment awaiting Admin verification':'Subscription required';
   panel.innerHTML='<header><div><span>PARTNER SUBSCRIPTION</span><h3>'+escapeHtml(partnerTypeLabel(partnerType))+' access</h3><p>'+escapeHtml(endCopy)+'</p></div><b class="'+(active?'active':'')+'">'+(active?'ACTIVE':latest.payment_status==='pending'?'PENDING':'INACTIVE')+'</b></header><div class="partner-subscription-grid"><form data-partner-subscription-form><label>Plan<select name="period"><option value="monthly">Monthly — KSh '+Number(data.monthly_amount_kes||0).toLocaleString('en-KE')+'</option><option value="yearly">Yearly — KSh '+Number(data.yearly_amount_kes||0).toLocaleString('en-KE')+'</option></select></label><label>Payment reference<input name="reference" minlength="4" maxlength="80" required placeholder="M-Pesa / payment code"></label><small>Pay to '+escapeHtml(partnerPaymentDestination(data.payment_destination))+'. Admin must confirm the payment before activation.</small><button type="submit">Submit subscription payment</button><p class="status" data-partner-subscription-status></p></form>'+(partnerType==='premium'?'<form data-premium-credit-form><strong>Need another acceptance now?</strong><small>One acceptance is free per rolling 24 hours. Extra acceptances cost KSh '+Number(data.extra_acceptance_amount_kes||0).toLocaleString('en-KE')+' each. Approved credits available: '+Number(data.acceptance_credits||0)+'.</small><label>Extra acceptances<input name="quantity" type="number" min="1" max="100" value="1" required></label><label>Payment reference<input name="reference" minlength="4" maxlength="80" required></label><button type="submit">Submit extra acceptance payment</button><p class="status" data-premium-credit-status></p></form>':'')+'</div>';
-  const workspace=shell.querySelector('.seller-workspace,.cyber-main,.cyber-workspace')||shell;
-  const head=workspace.querySelector(':scope > header');
-  if(head)head.insertAdjacentElement('afterend',panel);else workspace.prepend(panel);
+  const subscriptionSlot=shell.querySelector('[data-partner-subscription-slot]');
+  if(subscriptionSlot){
+    subscriptionSlot.replaceChildren(panel);
+  }else{
+    const workspace=shell.querySelector('.seller-workspace,.cyber-main,.cyber-workspace')||shell;
+    const head=workspace.querySelector(':scope > header');
+    if(head)head.insertAdjacentElement('afterend',panel);else workspace.prepend(panel);
+  }
   panel.querySelector('[data-partner-subscription-form]')?.addEventListener('submit',async(event)=>{
     event.preventDefault();const formElement=event.currentTarget;const button=event.submitter;button.disabled=true;const original=button.textContent;button.textContent='Submitting…';const output=panel.querySelector('[data-partner-subscription-status]');
     try{const form=new FormData(formElement),result=await client.rpc('partner_submit_subscription_payment',{p_partner_type:partnerType,p_billing_period:form.get('period'),p_payment_reference:String(form.get('reference')||'').trim()});if(result.error)throw result.error;formElement.reset();status(output,'Payment submitted. Admin verification is required before activation.','success');}
@@ -707,6 +712,7 @@ function sellerViewDescription(view){
     flashsale:'Choose an existing product and submit it to Flash Sale.',
     earnings:'View daily earnings, cumulative earnings and your available settlement balance.',
     settlements:'Manage approved payout accounts and settlement requests.',
+    subscription:'Review your Seller subscription, renewal plan and payment status.',
     notifications:'All important Seller and Admin events.',
     profile:'Your registered Seller information and verification details.',
     data:'Download your Seller data and remove selected non-protected records.'
@@ -718,8 +724,8 @@ function closeSellerSidebar(){
 }
 function openSellerView(view='overview'){
   const allowed=seller?.application_status==='approved'
-    ? ['overview','products','orders','reviews','flashsale','earnings','settlements','notifications','profile','data']
-    : ['overview','notifications','profile','data'];
+    ? ['overview','products','orders','reviews','flashsale','earnings','settlements','subscription','notifications','profile','data']
+    : ['overview','subscription','notifications','profile','data'];
   const resolved=allowed.includes(view)?view:'overview';
   $$('[data-seller-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.sellerContent===resolved));
   $$('[data-seller-view]').forEach(button=>button.classList.toggle('active',button.dataset.sellerView===resolved));
@@ -729,6 +735,9 @@ function openSellerView(view='overview'){
   }
   if(resolved==='earnings'&&seller?.application_status==='approved'){
     loadSellerEarnings().catch(error=>console.warn('Seller earnings refresh failed:',error));
+  }
+  if(resolved==='subscription'&&seller){
+    mountPartnerSubscription('seller',sellerDashboard).catch(error=>console.warn('Seller subscription refresh failed:',error));
   }
   closeSellerSidebar();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -848,7 +857,7 @@ async function loadPartnerNotifications(){
     }else if(view==='orders'){
       openSellerView('orders');
       await loadSellerOrders();
-    }else if(['products','earnings','settlements','notifications','profile','data','flashsale'].includes(view)){
+    }else if(['products','earnings','settlements','subscription','notifications','profile','data','flashsale'].includes(view)){
       openSellerView(view);
     }
     await loadPartnerNotifications();
