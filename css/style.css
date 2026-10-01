@@ -2150,3 +2150,20 @@ body.advertisement-lightbox-open{overflow:hidden}
   .feedback-rating-stars button{flex:1}
   .feedback-own-head{display:grid}
 }
+
+
+/* Live home Seller discovery */
+.home-live-seller-card,.home-featured-seller-card{cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.home-live-seller-card:hover,.home-live-seller-card:focus-visible,.home-featured-seller-card:hover,.home-featured-seller-card:focus-visible{transform:translateY(-2px);border-color:#ffb36f;box-shadow:0 9px 24px rgba(10,31,65,.10);outline:none}
+.home-live-seller-photo{overflow:hidden;background:#f1f5f9}
+.home-live-seller-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.home-live-seller-photo>span{font-size:72px}
+.home-featured-seller-image{overflow:hidden}
+.home-featured-seller-image img{width:100%;height:100%;object-fit:cover;display:block}
+.home-featured-seller-image>span{font-size:40px}
+#popularNearYouSellerGrid>.home-seller-empty{grid-column:1/-1}
+#featuredLocalSellerRow>.customer-empty-state{flex:1 0 100%;min-width:260px}
+@media(max-width:600px){
+  .home-live-seller-photo>span{font-size:42px}
+  .home-featured-seller-image>span{font-size:31px}
+}
