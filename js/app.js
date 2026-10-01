@@ -35,6 +35,8 @@
   const requestPinStatus = document.getElementById('requestPinStatus');
   const requestCoordinates = document.getElementById('requestCoordinates');
   const requestFormStatus = document.getElementById('requestFormStatus');
+  const publicLookingRequestList = document.getElementById('publicLookingRequestList');
+  let publicLookingRequests = [];
 
   const closeRequestModal = () => {
     if (!requestModal) return;
@@ -46,6 +48,13 @@
 
   const showRequestModal = () => {
     if (!requestModal) return;
+    const user=window.leogoAuth?.getUser?.();
+    const fullName=user?.user_metadata?.full_name||'';
+    const phone=user?.user_metadata?.phone||'';
+    const nameField=document.getElementById('requestName');
+    const phoneField=document.getElementById('requestPhone');
+    if(nameField&&!nameField.value&&fullName)nameField.value=fullName;
+    if(phoneField&&!phoneField.value&&phone)phoneField.value=phone;
     requestModal.classList.add('is-open');
     requestModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('request-modal-open');
@@ -82,11 +91,80 @@
     );
   });
 
-  requestForm?.addEventListener('submit', (event) => {
+  const renderPublicLookingRequests=()=>{
+    if(!publicLookingRequestList)return;
+    const rows=publicLookingRequests.slice(0,8);
+    publicLookingRequestList.innerHTML=rows.length?rows.map((item)=>{
+      const urgency=String(item.urgency||'normal').replaceAll('_',' ');
+      const icon=item.urgency==='very_urgent'?'🚨':item.urgency==='urgent'?'⚡':'🔎';
+      const budget=Number(item.budget_kes||0)>0?' · Budget KSh '+Number(item.budget_kes).toLocaleString('en-KE',{maximumFractionDigits:0}):'';
+      return '<div class="clip-row">'+
+        '<span class="clip-icon">'+icon+'</span>'+
+        '<div><b>'+String(item.public_title||((item.public_name||'Customer')+' needs '+item.request_details)).replace(/[&<>"']/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))+'</b>'+
+        '<small>'+urgency.replace(/\\b\\w/g,(m)=>m.toUpperCase())+budget+'</small></div>'+
+        '<span class="clip-tag">APPROVED</span>'+
+      '</div>';
+    }).join(''):'<div class="customer-empty-state compact"><span>🔎</span><h4>No approved requests yet</h4><p>Customer requests will appear here after LEOGO Admin approval.</p></div>';
+  };
+
+  const loadPublicLookingRequests=async()=>{
+    const client=window.leogoAuth?.client;
+    if(!client||!publicLookingRequestList)return;
+    const {data,error}=await client.rpc('customer_public_looking_requests');
+    if(error){
+      publicLookingRequestList.innerHTML='<div class="customer-empty-state compact"><span>⚠️</span><h4>Requests could not load</h4><p>Please refresh and try again.</p></div>';
+      return;
+    }
+    publicLookingRequests=Array.isArray(data)?data:[];
+    renderPublicLookingRequests();
+  };
+
+  requestForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!requestForm.reportValidity()) return;
-    requestFormStatus.textContent = 'Form design complete. Live submission and admin approval will be connected in the request workflow phase.';
+
+    const client=window.leogoAuth?.client;
+    const user=window.leogoAuth?.getUser?.();
+    if(!client||!user){
+      requestFormStatus.textContent='Please log in before submitting a request.';
+      window.leogoAuth?.requireLogin?.('Please log in before submitting what you are looking for.');
+      return;
+    }
+
+    const submitButton=requestForm.querySelector('button[type="submit"]');
+    const originalText=submitButton?.textContent||'Submit for Approval';
+    const coordinates=String(requestCoordinates?.value||'').split(',').map((v)=>Number(v.trim()));
+    const hasCoordinates=coordinates.length===2&&coordinates.every(Number.isFinite);
+
+    try{
+      if(submitButton){submitButton.disabled=true;submitButton.textContent='Submitting…';}
+      requestFormStatus.textContent='Sending your request securely to LEOGO Admin…';
+      const budgetRaw=document.getElementById('requestBudget').value;
+      const {error}=await client.rpc('customer_submit_looking_request',{
+        p_requester_name:document.getElementById('requestName').value.trim(),
+        p_phone:document.getElementById('requestPhone').value.trim(),
+        p_location:document.getElementById('requestLocation').value.trim(),
+        p_request_details:document.getElementById('requestDetails').value.trim(),
+        p_urgency:document.getElementById('requestUrgency').value,
+        p_budget_kes:budgetRaw?Number(budgetRaw):null,
+        p_location_link:document.getElementById('requestLocationLink').value.trim()||null,
+        p_latitude:hasCoordinates?coordinates[0]:null,
+        p_longitude:hasCoordinates?coordinates[1]:null
+      });
+      if(error)throw error;
+      requestFormStatus.textContent='✓ Submitted successfully. LEOGO Admin must approve it before it appears publicly.';
+      requestForm.reset();
+      if(requestCoordinates)requestCoordinates.value='';
+      if(requestPinStatus)requestPinStatus.textContent='';
+      window.setTimeout(()=>closeRequestModal(),1600);
+    }catch(error){
+      requestFormStatus.textContent=error?.message||'Your request could not be submitted. Please try again.';
+    }finally{
+      if(submitButton){submitButton.disabled=false;submitButton.textContent=originalText;}
+    }
   });
+
+  window.setTimeout(()=>loadPublicLookingRequests().catch(()=>{}),700);
 
   const sellingModal = document.getElementById('sellingModal');
   const openSellingForm = document.getElementById('openSellingForm');
