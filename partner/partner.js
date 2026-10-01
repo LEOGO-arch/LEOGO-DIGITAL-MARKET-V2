@@ -1947,6 +1947,14 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
     const savedProductId=data?.product_id||editingProduct?.id||null;
     const savedCount=Number(data?.variant_count??variants.length);
 
+    // Additive integration hook: optional extensions (for example Shipping / MOQ)
+    // can persist their own data only after the core Seller product save succeeds.
+    if(savedProductId){
+      document.dispatchEvent(new CustomEvent('leogo:seller-product-saved',{
+        detail:{productId:savedProductId}
+      }));
+    }
+
     status(
       $('#productFormStatus'),
       'Product saved successfully'+(hasVariants?' with '+savedCount+' variant'+(savedCount===1?'':'s'):'')+'. Submitted to Admin for approval before customer publication.',
