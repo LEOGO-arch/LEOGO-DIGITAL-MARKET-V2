@@ -2,7 +2,7 @@
 'use strict';
 const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
 const PUBLISHABLE_KEY='sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
-const client=window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const client=window.leogoPickupDb||window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 if(!client)return;
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -31,6 +31,7 @@ function ensureUI(){
  });
  $('#refreshLoanAssets')?.addEventListener('click',load);
  $('#loanAssetList')?.addEventListener('submit',handleSubmit);
+ $('#loanAssetList')?.addEventListener('click',handleMediaClick);
 }
 function ext(f){if(f.type==='image/png')return'png';if(f.type==='image/webp')return'webp';return'jpg';}
 function validate(f,label){
@@ -60,6 +61,23 @@ function note(a){
  };
  return map[a.custody_status]||'';
 }
+function mediaButtons(a){
+ const items=[];
+ (a.asset_photo_paths||[]).forEach((p,i)=>items.push({label:'Submitted Asset Photo '+(i+1),path:p}));
+ (a.received_photo_paths||[]).forEach((p,i)=>items.push({label:'Receiving Photo '+(i+1),path:p}));
+ (a.inspection_photo_paths||[]).forEach((p,i)=>items.push({label:'Inspection Photo '+(i+1),path:p}));
+ if(a.release_photo_path)items.push({label:'Release Photo',path:a.release_photo_path});
+ return items.length?'<div class="loan-asset-media">'+items.map(x=>'<button type="button" data-asset-media="'+esc(x.path)+'">'+esc(x.label)+'</button>').join('')+'</div>':'';
+}
+async function handleMediaClick(e){
+ const b=e.target.closest('[data-asset-media]');if(!b)return;
+ const popup=window.open('about:blank','_blank');
+ try{
+  const {data,error}=await client.storage.from(BUCKET).createSignedUrl(b.dataset.assetMedia,900);
+  if(error)throw error;
+  if(popup)popup.location=data.signedUrl;else window.location.href=data.signedUrl;
+ }catch(error){if(popup)popup.close();alert(error.message||'Photo could not be opened.');}
+}
 function render(){
  const host=$('#loanAssetList');if(!host)return;
  if(!assets.length){host.innerHTML='<div class="loan-asset-empty">No Asset Loan collateral is currently assigned to this station.</div>';return;}
@@ -72,7 +90,7 @@ function render(){
   }else if(['return_required','release_ready'].includes(a.custody_status)){
    action='<form class="loan-asset-action" data-asset-action="release" data-id="'+a.id+'"><h4>Release Asset to Customer</h4><label>Release / handover photo<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required></label><label>Release note<textarea name="notes" rows="2" placeholder="Optional handover note"></textarea></label><button class="primary" type="submit">Confirm Asset Release</button><p class="status"></p></form>';
   }
-  return '<article class="loan-asset-card '+(a.custody_status==='recovery_review'?'is-warning':'')+'"><header><div><b>'+esc(a.asset_name)+'</b><h3>'+pretty(a.custody_status)+'</h3><small>'+esc(a.asset_type)+(a.brand?' · '+esc(a.brand):'')+(a.model?' · '+esc(a.model):'')+'</small></div><strong>'+money(a.requested_amount_kes)+'</strong></header><div class="loan-asset-grid"><div><small>Customer</small><b>'+esc(a.customer_name||'Customer')+'</b><span>'+esc(a.customer_phone||'')+'</span></div><div><small>Serial</small><b>'+esc(a.serial_number||'Not provided')+'</b></div><div><small>Declared value</small><b>'+(a.declared_value_kes?money(a.declared_value_kes):'—')+'</b></div><div><small>Inspected value</small><b>'+(a.inspection_value_kes?money(a.inspection_value_kes):'Pending')+'</b></div><div><small>Loan</small><b>'+esc(a.loan_reference||pretty(a.application_status))+'</b></div><div><small>Outstanding</small><b>'+(a.loan_outstanding_kes!=null?money(a.loan_outstanding_kes):'—')+'</b></div></div><p class="loan-asset-desc">'+esc(a.asset_description||'')+'</p><div class="loan-asset-rule">'+esc(note(a))+'</div>'+action+'</article>';
+  return '<article class="loan-asset-card '+(a.custody_status==='recovery_review'?'is-warning':'')+'"><header><div><b>'+esc(a.asset_name)+'</b><h3>'+pretty(a.custody_status)+'</h3><small>'+esc(a.asset_type)+(a.brand?' · '+esc(a.brand):'')+(a.model?' · '+esc(a.model):'')+'</small></div><strong>'+money(a.requested_amount_kes)+'</strong></header><div class="loan-asset-grid"><div><small>Customer</small><b>'+esc(a.customer_name||'Customer')+'</b><span>'+esc(a.customer_phone||'')+'</span></div><div><small>Serial</small><b>'+esc(a.serial_number||'Not provided')+'</b></div><div><small>Declared value</small><b>'+(a.declared_value_kes?money(a.declared_value_kes):'—')+'</b></div><div><small>Inspected value</small><b>'+(a.inspection_value_kes?money(a.inspection_value_kes):'Pending')+'</b></div><div><small>Loan</small><b>'+esc(a.loan_reference||pretty(a.application_status))+'</b></div><div><small>Outstanding</small><b>'+(a.loan_outstanding_kes!=null?money(a.loan_outstanding_kes):'—')+'</b></div></div><p class="loan-asset-desc">'+esc(a.asset_description||'')+'</p>'+mediaButtons(a)+'<div class="loan-asset-rule">'+esc(note(a))+'</div>'+action+'</article>';
  }).join('');
 }
 async function load(){
