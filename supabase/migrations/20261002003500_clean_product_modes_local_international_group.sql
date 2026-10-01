@@ -82,20 +82,21 @@ declare
   v_product public.seller_products%rowtype;
   v_campaign public.group_order_campaigns%rowtype;
   v_campaign_id uuid;
-  v_local boolean:=coalesce(nullif(p_shipping->>'local_available','')::boolean,true);
-  v_international boolean:=coalesce(nullif(p_shipping->>'international_order_enabled','')::boolean,false);
-  v_moq boolean:=coalesce(nullif(p_shipping->>'moq_enabled','')::boolean,false);
-  v_group boolean:=coalesce(nullif(p_campaign->>'enabled','')::boolean,false);
-  v_local_price numeric:=nullif(p_shipping->>'local_price_kes','')::numeric;
-  v_international_price numeric:=nullif(p_shipping->>'international_price_kes','')::numeric;
+  v_legacy_type text:=nullif(p_shipping->>'fulfilment_type','');
+  v_local boolean;
+  v_international boolean;
+  v_moq boolean;
+  v_group boolean;
+  v_local_price numeric;
+  v_international_price numeric;
   v_center_fee numeric:=coalesce(nullif(p_shipping->>'international_shipping_fee_to_center_kes','')::numeric,0);
-  v_moq_min numeric:=nullif(p_shipping->>'moq_minimum_quantity','')::numeric;
-  v_moq_max numeric:=nullif(p_shipping->>'moq_maximum_quantity','')::numeric;
+  v_moq_min numeric;
+  v_moq_max numeric;
   v_group_price numeric:=nullif(p_campaign->>'customer_unit_price_kes','')::numeric;
   v_opening timestamptz:=nullif(p_campaign->>'opening_at','')::timestamptz;
   v_closing timestamptz:=nullif(p_campaign->>'closing_at','')::timestamptz;
   v_dispatch date:=nullif(p_campaign->>'expected_dispatch_date','')::date;
-  v_delivery date:=nullif(p_campaign->>'expected_delivery_date','')::date;
+  v_delivery date;
   v_primary_price numeric;
   v_type text;
   v_participants integer:=0;
@@ -109,6 +110,64 @@ begin
   for update;
 
   if not found then raise exception 'Seller product not found'; end if;
+
+  -- New clients send independent switches. Legacy clients that still send
+  -- fulfilment_type continue to work during deployment/cache rollover.
+  v_local:=case
+    when p_shipping ? 'local_available'
+      then coalesce(nullif(p_shipping->>'local_available','')::boolean,true)
+    when v_legacy_type in ('preorder','group_order')
+      then false
+    else true
+  end;
+
+  v_international:=case
+    when p_shipping ? 'international_order_enabled'
+      then coalesce(nullif(p_shipping->>'international_order_enabled','')::boolean,false)
+    when v_legacy_type in ('preorder','group_order') or coalesce(p_shipping->>'origin_type','')='international'
+      then true
+    else false
+  end;
+
+  v_group:=case
+    when p_campaign is not null and p_campaign ? 'enabled'
+      then coalesce(nullif(p_campaign->>'enabled','')::boolean,false)
+    when v_legacy_type='group_order' and p_campaign is not null
+      then true
+    else false
+  end;
+
+  v_moq:=case
+    when p_shipping ? 'moq_enabled'
+      then coalesce(nullif(p_shipping->>'moq_enabled','')::boolean,false)
+    when v_group and p_campaign is not null and nullif(p_campaign->>'minimum_quantity','') is not null
+      then true
+    else false
+  end;
+
+  v_local_price:=coalesce(
+    nullif(p_shipping->>'local_price_kes','')::numeric,
+    case when v_local then v_product.price_kes else null end
+  );
+  v_international_price:=coalesce(
+    nullif(p_shipping->>'international_price_kes','')::numeric,
+    case when v_international then v_product.price_kes else null end
+  );
+  v_moq_min:=coalesce(
+    nullif(p_shipping->>'moq_minimum_quantity','')::numeric,
+    nullif(p_campaign->>'minimum_quantity','')::numeric
+  );
+  v_moq_max:=coalesce(
+    nullif(p_shipping->>'moq_maximum_quantity','')::numeric,
+    nullif(p_campaign->>'maximum_quantity','')::numeric
+  );
+  v_delivery:=coalesce(
+    nullif(p_campaign->>'expected_delivery_date','')::date,
+    nullif(p_campaign->>'expected_delivery_from','')::date,
+    nullif(p_shipping->>'international_expected_delivery_date','')::date,
+    nullif(p_shipping->>'expected_delivery_from','')::date,
+    nullif(p_shipping->>'local_expected_delivery_date','')::date
+  );
 
   if not v_local and not v_international then
     raise exception 'Choose at least Local availability or International order for this product';
@@ -130,7 +189,11 @@ begin
     if nullif(btrim(coalesce(p_shipping->>'origin_country','')),'') is null then
       raise exception 'Enter the international origin country';
     end if;
-    if nullif(p_shipping->>'international_expected_delivery_date','')::date is null then
+    if coalesce(
+      nullif(p_shipping->>'international_expected_delivery_date','')::date,
+      nullif(p_shipping->>'expected_delivery_from','')::date,
+      nullif(p_campaign->>'expected_delivery_from','')::date
+    ) is null then
       raise exception 'Choose the expected international delivery date';
     end if;
   end if;
@@ -196,13 +259,22 @@ begin
     v_dispatch,
     coalesce(
       nullif(p_shipping->>'international_expected_delivery_date','')::date,
+      nullif(p_shipping->>'expected_delivery_from','')::date,
       nullif(p_shipping->>'local_expected_delivery_date','')::date
     ),
     null,
-    v_local,v_local_price,nullif(p_shipping->>'local_expected_delivery_date','')::date,
+    v_local,v_local_price,
+    coalesce(
+      nullif(p_shipping->>'local_expected_delivery_date','')::date,
+      case when v_local and not v_international then nullif(p_shipping->>'expected_delivery_from','')::date else null end
+    ),
     v_international,v_international_price,v_center_fee,
     coalesce(nullif(btrim(coalesce(p_shipping->>'distribution_center','')),''),'LEOGO Distribution Center — Nairobi'),
-    nullif(p_shipping->>'international_expected_delivery_date','')::date,
+    coalesce(
+      nullif(p_shipping->>'international_expected_delivery_date','')::date,
+      case when v_international then nullif(p_shipping->>'expected_delivery_from','')::date else null end,
+      case when v_international then nullif(p_campaign->>'expected_delivery_from','')::date else null end
+    ),
     v_moq,v_moq_min,v_moq_max,
     now()
   )
