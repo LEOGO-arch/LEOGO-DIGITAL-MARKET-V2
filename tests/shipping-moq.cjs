@@ -102,8 +102,8 @@ test('Group campaign accepts optional dispatch date and preserves payment window
   const {qa}=moduleScope('partner/shipping-moq.js','campaignPayload',nodes);
   const campaign=qa.campaignPayload();
   assert.equal(campaign.expected_dispatch_date,null);
-  assert.equal(campaign.opening_at,'2026-10-05T06:00:00.000Z');
-  assert.equal(campaign.closing_at,'2026-10-10T15:00:00.000Z');
+  assert.equal(new Date(campaign.opening_at).getTime(),new Date('2026-10-05T09:00').getTime());
+  assert.equal(new Date(campaign.closing_at).getTime(),new Date('2026-10-10T18:00').getTime());
 });
 
 function customer(){
