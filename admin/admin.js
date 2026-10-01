@@ -5546,7 +5546,14 @@
       globalStatus('Your staff role does not have access to this Admin module.', 'error');
       return;
     }
-    document.querySelectorAll('.admin-panel').forEach((panel) => panel.classList.toggle('active', panel.dataset.adminPanel === view));
+    document.querySelectorAll('.admin-panel').forEach((panel) => {
+      const isTarget = panel.dataset.adminPanel === view;
+      panel.classList.toggle('active', isTarget);
+      // Core Admin panels are class-driven. Group Orders is the only
+      // additive panel that also uses the hidden attribute.
+      if (panel.dataset.adminPanel === 'group_orders') panel.hidden = !isTarget;
+      else panel.hidden = false;
+    });
     document.querySelectorAll('.admin-nav [data-admin-view]').forEach((button) => {
       if(view==='transport'&&button.dataset.adminView==='transport')return;
       button.classList.toggle('active', button.dataset.adminView === view && (!button.dataset.settingsTab || button.dataset.settingsTab === settingsTab));
