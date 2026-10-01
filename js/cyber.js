@@ -459,6 +459,3 @@ window.addEventListener('focus',()=>loadCyberDeliveryRates().catch(()=>{}));
 loadPayment().catch(()=>{});
 loadPublic().catch(e=>status(e.message||'Cyber marketplace could not load.','error'));
 })();
-
-/* LEOGO shipping profiles + Group/Global Orders (isolated extension). */
-(()=>{if(document.querySelector('script[data-leogo-shipping-moq]'))return;const s=document.createElement('script');s.src='js/shipping-moq.js?v=1';s.defer=true;s.dataset.leogoShippingMoq='1';document.head.appendChild(s);})();
