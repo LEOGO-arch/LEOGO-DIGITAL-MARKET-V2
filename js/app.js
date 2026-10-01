@@ -1847,9 +1847,10 @@
   };
 
   const renderSellerProductCard = (product) => {
+    const isGroupOrder = product.fulfilment_type === 'group_order';
     const variants = Array.isArray(product.variants) ? product.variants : [];
     const activeVariants = variants.filter((variant) => variant.is_active !== false);
-    const hasVariants = Boolean(product.has_variants && activeVariants.length);
+    const hasVariants = Boolean(!isGroupOrder && product.has_variants && activeVariants.length);
     const variantStock = activeVariants.reduce((sum, variant) => sum + Number(variant.quantity_available || 0), 0);
     const available = product.availability_status === 'available'
       && (hasVariants ? variantStock > 0 : Number(product.quantity_available || 0) > 0);
@@ -1892,12 +1893,14 @@
       '</div>'+
       '<div class="live-product-body">'+
         '<h3>'+receiptEscape(product.product_name)+'</h3>'+
-        '<div class="live-product-compact-price"><strong data-live-product-price>'+money(product.price_kes)+'</strong></div>'+
+        '<div class="live-product-compact-price"><strong data-live-product-price>'+money(isGroupOrder ? product.group_campaign?.customer_unit_price_kes ?? product.price_kes : product.price_kes)+'</strong></div>'+
         '<div class="live-product-rating live-product-rating-compact"><strong>'+productRatingStars(rating)+'</strong><span>'+rating.toFixed(1)+(reviewCount?' · '+reviewCount+' review'+(reviewCount===1?'':'s'):'')+'</span></div>'+
         '<div class="live-product-primary-actions">'+
-          '<button type="button" class="live-product-cart-start" data-live-cart-start data-product-id="'+receiptEscape(product.id)+'" '+(available?'':'disabled')+'>'+
+          (isGroupOrder
+            ? window.leogoShippingMoq?.joinButtonHtml(product.group_campaign) || '<button type="button" disabled>Group Order unavailable</button>'
+            : '<button type="button" class="live-product-cart-start" data-live-cart-start data-product-id="'+receiptEscape(product.id)+'" '+(available?'':'disabled')+'>'+
             (available?'Add to Cart':'Out of Stock')+
-          '</button>'+
+          '</button>')+
           '<button type="button" class="live-product-details-toggle" data-product-details-toggle aria-expanded="false">View Details</button>'+
         '</div>'+
         (hasVariants
@@ -1911,6 +1914,7 @@
             (product.subcategory_name ? ' · '+receiptEscape(product.subcategory_name) : '')+'</span>'+
             '<small>Seller: '+receiptEscape(product.seller_name || 'LEOGO Seller')+'</small></div>'+
           '<div class="live-product-detail-stock"><small>Availability</small><strong data-live-product-stock>Qty '+Number(hasVariants?variantStock:product.quantity_available || 0)+' '+receiptEscape(product.measurement_unit || 'item')+'</strong></div>'+
+          (window.leogoShippingMoq?.detailsHtml(product) || '')+
           galleryMarkup+
           (product.product_details?'<div class="live-product-detail-section"><div class="live-product-detail-label">Description</div><p class="live-product-description">'+receiptEscape(String(product.product_details || ''))+'</p></div>':'')+
           (reviewCount
@@ -2039,6 +2043,7 @@
     if (!button || button.disabled) return;
     const product = marketplaceProducts.find((item) => item.id === button.dataset.productId);
     if (!product) return;
+    if (product.fulfilment_type === 'group_order') return;
 
     const card = button.closest('[data-live-product-card]');
     const hasVariants = card?.dataset.hasVariants === 'true';

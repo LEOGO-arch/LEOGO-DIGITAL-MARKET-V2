@@ -80,6 +80,13 @@ function ensureManagement(){
  $('#saveShippingProduct').addEventListener('click',async()=>{const id=$('#shippingProductSelector').value;if(!id)return;try{await saveForProduct(id,shippingPayload(),campaignPayload());}catch{}});
 }
 function setv(id,v){const el=$('#'+id);if(el)el.value=v??'';}
+function localDateTime(value){
+ if(!value)return '';
+ const date=new Date(value);
+ if(Number.isNaN(date.getTime()))return '';
+ const pad=n=>String(n).padStart(2,'0');
+ return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
+}
 function applyProductExtension(p){
  if(!p)return;
  const s=p.shipping_profile||{},g=p.group_campaign||{};
@@ -99,8 +106,8 @@ function applyProductExtension(p){
  setv('shippingDeliveryTo',s.expected_delivery_to);
  setv('groupMinimum',g.minimum_quantity);
  setv('groupMaximum',g.maximum_quantity);
- setv('groupOpening',g.opening_at?g.opening_at.slice(0,16):'');
- setv('groupClosing',g.closing_at?g.closing_at.slice(0,16):'');
+ setv('groupOpening',localDateTime(g.opening_at));
+ setv('groupClosing',localDateTime(g.closing_at));
  setv('groupUnitPrice',g.customer_unit_price_kes);
  setv('groupClosePolicy',g.close_policy||'deadline');
  toggleCampaign();
@@ -148,8 +155,8 @@ function ensureDashboard(){
  btn.addEventListener('click',e=>{
   e.preventDefault();
   e.stopPropagation();
-  $('[data-seller-content]',shell).forEach(x=>x.classList.toggle('active',x===panel));
-  $('[data-seller-view]',shell).forEach(x=>x.classList.toggle('active',x===btn));
+  $$('[data-seller-content]',shell).forEach(x=>x.classList.toggle('active',x===panel));
+  $$('[data-seller-view]',shell).forEach(x=>x.classList.toggle('active',x===btn));
   const desc=$('#sellerViewDescription');
   if(desc)desc.textContent='Track Group / Global Order MOQ campaigns, customer commitments and shipment progress.';
   $('#sellerSidebar')?.classList.remove('open');

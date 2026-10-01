@@ -26,6 +26,30 @@ function classify(p){
  else {min=s.inter_county_min??d.inter_county_min;max=s.inter_county_max??d.inter_county_max;unit=s.inter_county_unit||d.inter_county_unit;}
  return {key,label,icon,route,estimate:estimateText(min,max,unit)};
 }
+function canJoin(c){
+ if(!c||!['collecting_orders','moq_reached'].includes(c.status))return false;
+ const now=Date.now(),opening=new Date(c.opening_at).getTime(),closing=new Date(c.closing_at).getTime();
+ if(!Number.isFinite(opening)||!Number.isFinite(closing)||now<opening||now>=closing)return false;
+ const quantity=Number(c.quantity_committed||0);
+ return !(c.close_policy==='moq'&&quantity>=Number(c.minimum_quantity))
+  && !(c.maximum_quantity!=null&&quantity>=Number(c.maximum_quantity));
+}
+function joinButtonHtml(c){
+ return canJoin(c)?'<button class="live-product-cart-start" type="button" data-join-group="'+esc(c.id)+'">Join Group Order</button>'
+  :'<button class="live-product-cart-start" type="button" disabled>Joining unavailable</button>';
+}
+function detailsHtml(p){
+ const type=p.fulfilment_type||'normal',origin=p.shipping_profile;
+ if(!origin&&type==='normal')return '';
+ const s=classify(p),profile=origin||{},dates=p.group_campaign||profile;
+ const from=[profile.origin_town_city,profile.origin_county_region,profile.origin_country].filter(Boolean).join(', ');
+ return '<div class="live-product-detail-section" data-product-shipping-info="'+esc(p.id)+'"><div class="live-product-detail-label">'+
+  (type==='preorder'?'Pre-Order':type==='group_order'?'Group / Global Order – MOQ':'Shipping / Item Origin')+'</div>'+
+  '<small>Ships from '+esc(from||'Seller origin not specified')+'</small><p>'+esc(s.icon+' '+s.label)+' · Estimated delivery: '+esc(s.estimate||'Contact LEOGO for an estimate')+'</p>'+
+  (dates.expected_dispatch_date?'<small>Expected dispatch: '+fmtDate(dates.expected_dispatch_date)+'</small>':'')+
+  (dates.expected_delivery_from?'<p>Expected delivery: '+fmtDate(dates.expected_delivery_from)+(dates.expected_delivery_to?' – '+fmtDate(dates.expected_delivery_to):'')+'</p>':'')+'</div>';
+}
+window.leogoShippingMoq={classify,canJoin,joinButtonHtml,detailsHtml};
 function ensureUI(){
  if($('#groupOrderMarketplace'))return;
  const host=$('#catalogue')||$('#marketplace')||$('main');
@@ -49,7 +73,7 @@ function renderMarket(){
  const grid=$('#groupOrderMarketGrid');if(!grid)return;
  if(!rows.length){grid.innerHTML='<div class="shipping-moq-empty">No active Group / Global Orders are available now.</div>';return;}
  grid.innerHTML=rows.map(p=>{const c=p.group_campaign,s=classify(p),pct=Math.min(100,Number(c.quantity_committed||0)/Number(c.minimum_quantity||1)*100),remain=Math.max(0,Number(c.minimum_quantity)-Number(c.quantity_committed||0));
- return '<article class="shipping-moq-card"><div class="shipping-moq-badges"><b>GROUP ORDER</b><span>'+esc(s.icon+' '+s.label)+'</span></div><h3>'+esc(p.product_name)+'</h3><strong>'+money(c.customer_unit_price_kes)+'</strong><small>Ships from '+esc(s.route||'Seller origin')+'</small><small>Estimated delivery: '+esc(s.estimate||'Seller estimate shown at checkout')+'</small><div class="shipping-moq-progress"><span style="width:'+pct+'%"></span></div><div class="shipping-moq-stats"><b>'+Number(c.quantity_committed||0)+'/'+Number(c.minimum_quantity||0)+' joined</b><span>'+remain+' remaining</span><span>'+Math.round(pct)+'%</span></div><small>Closes: '+fmtDate(c.closing_at)+'</small><button type="button" data-join-group="'+esc(c.id)+'">Join Group Order</button></article>';}).join('');
+ return '<article class="shipping-moq-card"><div class="shipping-moq-badges"><b>GROUP ORDER</b><span>'+esc(s.icon+' '+s.label)+'</span></div><h3>'+esc(p.product_name)+'</h3><strong>'+money(c.customer_unit_price_kes)+'</strong><small>Ships from '+esc(s.route||'Seller origin')+'</small><small>Estimated delivery: '+esc(s.estimate||'Contact LEOGO for an estimate')+'</small><div class="shipping-moq-progress"><span style="width:'+pct+'%"></span></div><div class="shipping-moq-stats"><b>'+Number(c.quantity_committed||0)+'/'+Number(c.minimum_quantity||0)+' joined</b><span>'+remain+' remaining</span><span>'+Math.round(pct)+'%</span></div><small>'+esc(String(c.status).replaceAll('_',' '))+' · Closes: '+fmtDate(c.closing_at)+'</small>'+joinButtonHtml(c)+'</article>';}).join('');
 }
 function renderCustomer(){
  const host=$('#customerGroupOrderList');if(!host)return;
@@ -57,11 +81,18 @@ function renderCustomer(){
  host.innerHTML=groups.map(x=>{const c=x.campaign||x,qty=x.quantity??x.participation_quantity??0,amount=x.amount_kes??x.participation_amount_kes??0,pct=Math.min(100,Number(c.quantity_committed||0)/Number(c.minimum_quantity||1)*100);
  return '<article class="shipping-moq-row"><header><div><b>GROUP ORDER / MOQ</b><h4>'+esc(x.product_name||c.product_name||'Group Order')+'</h4><small>'+esc(c.campaign_reference||x.campaign_reference||'')+'</small></div><span>'+esc(String(c.status||x.status||'').replaceAll('_',' '))+'</span></header><div class="shipping-moq-row-grid"><div><small>Your quantity</small><strong>'+qty+'</strong></div><div><small>Your amount</small><strong>'+money(amount)+'</strong></div><div><small>Campaign progress</small><strong>'+Number(c.quantity_committed||0)+'/'+Number(c.minimum_quantity||0)+' ('+Math.round(pct)+'%)</strong></div><div><small>Closing date</small><strong>'+fmtDate(c.closing_at)+'</strong></div><div><small>Expected delivery</small><strong>'+fmtDate(c.expected_delivery_from)+' – '+fmtDate(c.expected_delivery_to||c.expected_delivery_from)+'</strong></div><div><small>Refund state</small><strong>'+esc(x.refund_status||c.refund_status||'not required')+'</strong></div></div></article>';}).join('');
 }
-async function loadMarket(){const st=$('#groupOrderMarketStatus');if(st)st.textContent='Loading campaigns…';const {data,error}=await client.rpc('customer_marketplace_catalogue');if(error){if(st)st.textContent=error.message;return;}catalogue=Array.isArray(data)?data:[];if(st)st.textContent='';renderMarket();}
+function refreshEstimates(){
+ renderMarket();
+ document.querySelectorAll('[data-product-shipping-info]').forEach(element=>{
+  const product=catalogue.find(p=>p.id===element.dataset.productShippingInfo);
+  if(product)element.outerHTML=detailsHtml(product);
+ });
+}
+async function loadMarket(){const st=$('#groupOrderMarketStatus');if(st)st.textContent='Loading campaigns…';const {data,error}=await client.rpc('customer_marketplace_catalogue');if(error){if(st)st.textContent=error.message;return;}catalogue=Array.isArray(data)?data:[];if(st)st.textContent='';refreshEstimates();}
 async function loadCustomer(){const {data:{user}}=await client.auth.getUser();if(!user){groups=[];renderCustomer();return;}const {data,error}=await client.rpc('customer_list_group_orders');groups=error?[]:(Array.isArray(data)?data:[]);renderCustomer();}
-function openJoin(id){const p=catalogue.find(x=>x.group_campaign?.id===id);if(!p)return;const c=p.group_campaign;$('#groupJoinCampaignId').value=id;$('#groupJoinTitle').textContent=p.product_name;$('#groupJoinSummary').textContent='MOQ '+c.minimum_quantity+' · '+c.quantity_committed+' joined · closes '+fmtDate(c.closing_at);$('#groupJoinQuantity').max=c.maximum_quantity?Math.max(0,Number(c.maximum_quantity)-Number(c.quantity_committed||0)):'';$('#groupJoinModal').hidden=false;updateTotal();}
+async function openJoin(id){if(!catalogue.some(x=>x.group_campaign?.id===id))await loadMarket();const p=catalogue.find(x=>x.group_campaign?.id===id);if(!p||!canJoin(p.group_campaign))return;const c=p.group_campaign;$('#groupJoinQuantity').value='1';$('#groupJoinPaymentReference').value='';$('#groupJoinStatus').textContent='';$('#groupJoinCampaignId').value=id;$('#groupJoinTitle').textContent=p.product_name;$('#groupJoinSummary').textContent='MOQ '+c.minimum_quantity+' · '+c.quantity_committed+' joined · closes '+fmtDate(c.closing_at);$('#groupJoinQuantity').max=c.maximum_quantity?Math.max(0,Number(c.maximum_quantity)-Number(c.quantity_committed||0)):'';$('#groupJoinModal').hidden=false;updateTotal();}
 function updateTotal(){const id=$('#groupJoinCampaignId')?.value,p=catalogue.find(x=>x.group_campaign?.id===id),q=Number($('#groupJoinQuantity')?.value||0);$('#groupJoinTotal').textContent=p?'Total: '+money(q*Number(p.group_campaign.customer_unit_price_kes||0)):'';}
 async function submitJoin(e){e.preventDefault();const st=$('#groupJoinStatus');st.textContent='Submitting securely…';const {data:{user}}=await client.auth.getUser();if(!user){st.textContent='Please sign in before joining.';return;}const {error}=await client.rpc('customer_join_group_order',{p_campaign_id:$('#groupJoinCampaignId').value,p_quantity:Number($('#groupJoinQuantity').value),p_payment_method:$('#groupJoinPaymentMethod').value,p_payment_reference:$('#groupJoinPaymentReference').value.trim()});if(error){st.textContent=error.message;return;}st.textContent='Joined successfully. Payment is waiting for Admin verification.';await Promise.all([loadMarket(),loadCustomer()]);setTimeout(()=>{$('#groupJoinModal').hidden=true;},900);}
-const init=()=>{loadStyle();ensureUI();loadMarket();loadCustomer();$('#refreshGroupMarketplace')?.addEventListener('click',loadMarket);$('#refreshCustomerGroups')?.addEventListener('click',loadCustomer);$('#groupJoinQuantity')?.addEventListener('input',updateTotal);$('#groupJoinForm')?.addEventListener('submit',submitJoin);document.addEventListener('click',e=>{const join=e.target.closest('[data-join-group]');if(join)openJoin(join.dataset.joinGroup);if(e.target.closest('[data-close-group]'))$('#groupJoinModal').hidden=true;});};
+const init=()=>{loadStyle();ensureUI();loadMarket();loadCustomer();$('#refreshGroupMarketplace')?.addEventListener('click',loadMarket);$('#refreshCustomerGroups')?.addEventListener('click',loadCustomer);$('#groupJoinQuantity')?.addEventListener('input',updateTotal);$('#groupJoinForm')?.addEventListener('submit',submitJoin);document.addEventListener('change',e=>{if(['profileCounty','profileEstate','checkoutCounty','checkoutEstate'].includes(e.target.id))refreshEstimates();});document.addEventListener('click',e=>{const join=e.target.closest('[data-join-group]');if(join)openJoin(join.dataset.joinGroup);if(e.target.closest('[data-close-group]'))$('#groupJoinModal').hidden=true;});};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
