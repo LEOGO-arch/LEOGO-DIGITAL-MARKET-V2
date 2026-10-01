@@ -11,6 +11,7 @@
   <title>LEOGO Admin Control Center</title>
   <link rel="stylesheet" href="admin.css?v=sidebar-action-badges-1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
+  <link rel="stylesheet" href="flash-sales.css?v=flash-sales-1">
 <style>
 .service-operations-card{margin-top:18px}.service-fee-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.service-fee-form label{display:grid;gap:6px;font-weight:800}.service-fee-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px;width:180px}.service-fee-form button,.admin-service-request-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.service-fee-form small{width:100%;font-weight:800}.admin-service-request-list{display:grid;gap:14px}.admin-service-request-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.admin-service-request-card header{display:flex;justify-content:space-between;gap:12px}.admin-service-request-card header strong,.admin-service-request-card header small{display:block}.admin-service-request-card header b{font-size:11px;text-transform:capitalize;background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;height:max-content}.admin-service-request-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.admin-service-request-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.admin-service-request-grid small,.admin-service-request-grid strong{display:block}.admin-service-request-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-service-request-actions .verify{background:#157f3d}.admin-service-request-actions .reject,.admin-service-request-actions .cancel{background:#a42832}.admin-service-request-actions .dispatch{background:#ff7200}.admin-service-request-card p{margin:0;color:#526177}.service-request-summary-grid{margin:14px 0}@media(max-width:720px){.admin-service-request-grid{grid-template-columns:1fr}.admin-service-request-card header{display:grid}}
 </style></head>
@@ -47,6 +48,7 @@
         <button class="active" data-admin-view="dashboard"><i>▦</i><span>Dashboard</span></button>
         <button data-admin-view="approvals"><i>✓</i><span>Approval Center</span><em id="sidebarApprovalCount">0</em></button>
         <button data-admin-view="orders"><i>▤</i><span>Orders</span><em id="sidebarOrderCount">0</em></button>
+        <button data-admin-view="flashsales"><i>⚡</i><span>Flash Sales</span><em id="sidebarFlashSaleCount">0</em></button>
         <button data-admin-view="aftersales"><i>↺</i><span>Aftersales</span><em id="sidebarAftersalesCount">0</em></button>
         <button data-admin-view="customers"><i>♙</i><span>Customers</span></button>
         <button data-admin-view="chat"><i>💬</i><span>Customer Care Chats</span><em id="sidebarChatCount">0</em></button>
@@ -243,6 +245,25 @@
             <div id="adminOrderDeliveryDetail" class="admin-order-delivery-detail"><div class="loading-card">Loading delivery state…</div></div>
           </article>
         </section>
+      </section>
+
+      <section class="admin-panel" data-admin-panel="flashsales">
+        <div class="section-head">
+          <div><span>PARTNER PROMOTIONS</span><h2>Flash Sale Approval Center</h2><p>Review temporary discounted offers submitted by Sellers, Service Providers and Cyber partners before they appear to customers.</p></div>
+          <button id="refreshAdminFlashSales" class="primary-button" type="button">↻ Refresh Flash Sales</button>
+        </div>
+        <div class="flash-admin-summary">
+          <article><span>Pending Review</span><strong id="flashAdminPending">0</strong><small>Needs Admin decision</small></article>
+          <article><span>Active Now</span><strong id="flashAdminActive">0</strong><small>Approved and within time window</small></article>
+          <article><span>Seller Products</span><strong id="flashAdminSeller">0</strong><small>Product Flash Sales</small></article>
+          <article><span>Service Providers</span><strong id="flashAdminProvider">0</strong><small>Professional service offers</small></article>
+          <article><span>Cyber Services</span><strong id="flashAdminCyber">0</strong><small>Cyber service offers</small></article>
+        </div>
+        <div class="flash-admin-toolbar">
+          <label>Partner<select id="flashAdminPartnerFilter"><option value="all">All partners</option><option value="seller">Sellers</option><option value="service_provider">Service Providers</option><option value="cyber">Cyber Services</option></select></label>
+          <label>Status<select id="flashAdminStatusFilter"><option value="all">All statuses</option><option value="requested">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="expired">Expired</option></select></label>
+        </div>
+        <div id="adminFlashSaleList" class="flash-admin-list"><div class="loading-card">Loading partner Flash Sale requests…</div></div>
       </section>
 
       <section class="admin-panel" data-admin-panel="aftersales">
@@ -1192,6 +1213,7 @@
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
+<script src="flash-sales.js?v=flash-sales-1" defer></script>
   <script src="shipping-moq.js?v=group-orders-selector-fix-2" defer></script>
 <script src="loans.js?v=sidebar-action-badges-2" defer></script>
 </body>
