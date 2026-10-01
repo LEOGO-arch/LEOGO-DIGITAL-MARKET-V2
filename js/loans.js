@@ -58,8 +58,9 @@ function reason(e){
 function currentLoanType(){return $('#walletLoanType')?.value||'savings_history';}
 function canApply(){
  const e=overview?.eligibility||{},s=overview?.settings||{},type=currentLoanType();
- if(e.has_active_loan||e.has_open_application||!e.wallet_active)return false;
- return type==='asset_secured'?Boolean(s.asset_applications_enabled):Boolean(e.eligible);
+ if(e.has_active_loan||e.has_open_application)return false;
+ if(type==='asset_secured')return Boolean(s.asset_applications_enabled);
+ return Boolean(e.wallet_active&&e.eligible);
 }
 function ensureUI(){
  const form=$('#walletLoanPreviewForm');if(!form)return;
@@ -153,7 +154,7 @@ function render(){
  const terms=$('#walletLoanTermsPreview');
  if(terms){
    if(asset){
-     terms.innerHTML='<div><span>Asset Loan maximum</span><strong>'+money(s.asset_max_loan_amount_kes)+'</strong></div><div><span>Maximum LTV</span><strong>'+Number(s.asset_loan_to_value_percent||0).toLocaleString('en-KE')+'%</strong></div><div><span>Interest</span><strong>'+Number(s.asset_interest_percent||0).toLocaleString('en-KE')+'%</strong></div><div><span>Default term</span><strong>'+Number(s.asset_default_term_days||0)+' days</strong></div><p>'+esc(s.asset_applications_enabled?'Final approved amount cannot exceed the configured loan-to-value percentage of the Pickup Station inspected value.':'Asset Loan applications are currently closed by Admin.')+'</p>';
+     terms.innerHTML='<div><span>Asset Loan maximum</span><strong>'+money(s.asset_max_loan_amount_kes)+'</strong></div><div><span>Maximum LTV</span><strong>'+Number(s.asset_loan_to_value_percent||0).toLocaleString('en-KE')+'%</strong></div><div><span>Interest</span><strong>'+Number(s.asset_interest_percent||0).toLocaleString('en-KE')+'%</strong></div><div><span>Default term</span><strong>'+Number(s.asset_default_term_days||0)+' days</strong></div><div><span>Grace period</span><strong>'+Number(s.asset_grace_days||0)+' days</strong></div><div><span>Recovery review</span><strong>'+Number(s.asset_recovery_after_overdue_days||0)+' days after grace</strong></div><p>'+esc(s.asset_applications_enabled?'Final approved amount cannot exceed the configured loan-to-value percentage of the Pickup Station inspected value. The asset remains held until full settlement or a controlled recovery process is completed.':'Asset Loan applications are currently closed by Admin.')+'</p>';
    }else{
      terms.innerHTML='<div><span>Indicative maximum</span><strong>'+money(e.max_eligible_amount_kes)+'</strong></div><div><span>Interest</span><strong>'+Number(e.interest_percent||0).toLocaleString('en-KE')+'%</strong></div><div><span>Processing fee</span><strong>'+Number(e.processing_fee_percent||0).toLocaleString('en-KE')+'%</strong></div><div><span>Default term</span><strong>'+Number(e.default_term_days||0)+' days</strong></div><p>'+esc(e.eligible?'You currently meet the configured saving-history rules. Final approval is still required.':reason(e))+'</p>';
    }
