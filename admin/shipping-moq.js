@@ -19,8 +19,8 @@ function ensureUI(){
  $('#openGroupOrderAdmin')?.addEventListener('click',e=>{
   e.preventDefault();
   e.stopPropagation();
-  $('.admin-panel').forEach(x=>{x.classList.remove('active');x.hidden=true;});
-  $('.admin-nav button').forEach(x=>x.classList.remove('active'));
+  $$('.admin-panel').forEach(x=>{x.classList.remove('active');x.hidden=true;});
+  $$('.admin-nav button').forEach(x=>x.classList.remove('active'));
   const panel=$('#groupOrderAdminPanel');
   const button=$('#openGroupOrderAdmin');
   if(panel){panel.hidden=false;panel.classList.add('active');}
@@ -32,7 +32,7 @@ function ensureUI(){
   window.scrollTo({top:0,behavior:'smooth'});
   loadGroups();
  });
- $('.admin-nav [data-admin-view]').forEach(button=>button.addEventListener('click',()=>{
+ $$('.admin-nav [data-admin-view]').forEach(button=>button.addEventListener('click',()=>{
   $('#openGroupOrderAdmin')?.classList.remove('active');
   const panel=$('#groupOrderAdminPanel');
   if(panel){panel.classList.remove('active');panel.hidden=true;}
