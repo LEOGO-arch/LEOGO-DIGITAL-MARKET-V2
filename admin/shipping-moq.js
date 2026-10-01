@@ -22,8 +22,8 @@ function ensureUI(){
   // Group Orders is an additive Admin view. Do not set every existing
   // Admin panel to hidden=true: the core navigation controls them with
   // the active class and must be able to show them again immediately.
-  $('.admin-panel').forEach(x=>x.classList.remove('active'));
-  $('.admin-nav button').forEach(x=>x.classList.remove('active'));
+  $$('.admin-panel').forEach(x=>x.classList.remove('active'));
+  $$('.admin-nav button').forEach(x=>x.classList.remove('active'));
   const panel=$('#groupOrderAdminPanel');
   const button=$('#openGroupOrderAdmin');
   if(panel){panel.hidden=false;panel.classList.add('active');}
@@ -35,13 +35,13 @@ function ensureUI(){
   window.scrollTo({top:0,behavior:'smooth'});
   loadGroups();
  });
- $('.admin-nav [data-admin-view]').forEach(button=>button.addEventListener('click',()=>{
+ $$('.admin-nav [data-admin-view]').forEach(button=>button.addEventListener('click',()=>{
   $('#openGroupOrderAdmin')?.classList.remove('active');
   const panel=$('#groupOrderAdminPanel');
   if(panel){panel.classList.remove('active');panel.hidden=true;}
   // Repair any panels hidden by older cached Group Order code so the
   // requested core Admin view can display without requiring a refresh.
-  $('.admin-panel').forEach(corePanel=>{
+  $$('.admin-panel').forEach(corePanel=>{
     if(corePanel.id!=='groupOrderAdminPanel')corePanel.hidden=false;
   });
  }));
