@@ -272,6 +272,3 @@ client.auth.getSession().then(async({data})=>{
   if(allowed)loadAll().catch(()=>{});
 });
 })();
-
-/* LEOGO shipping profiles + Group/Global Orders (isolated extension). */
-(()=>{if(document.querySelector('script[data-leogo-shipping-moq]'))return;const s=document.createElement('script');s.src='shipping-moq.js?v=1';s.defer=true;s.dataset.leogoShippingMoq='1';document.head.appendChild(s);})();
