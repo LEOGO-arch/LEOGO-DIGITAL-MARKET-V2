@@ -74,7 +74,53 @@ function ensureManagement(){
  $('#saveShippingProduct').addEventListener('click',async()=>{const id=$('#shippingProductSelector').value;if(!id)return;try{await saveForProduct(id,shippingPayload(),campaignPayload());}catch{}});
 }
 function setv(id,v){const el=$('#'+id);if(el)el.value=v??'';}
-function loadSelected(){const p=products.find(x=>x.id===$('#shippingProductSelector').value);if(!p)return;const s=p.shipping_profile||{},g=p.group_campaign||{};setv('productFulfilmentType',p.fulfilment_type||'normal');setv('shippingOriginType',s.origin_type||'domestic');setv('shippingOriginCountry',s.origin_country||'Kenya');setv('shippingOriginCounty',s.origin_county_region);setv('shippingOriginTown',s.origin_town_city);setv('shippingDispatchDetails',s.dispatch_details);[['sameTown','same_town'],['sameCounty','same_county'],['interCounty','inter_county'],['international','international']].forEach(([a,b])=>{setv(a+'Min',s[b+'_min']);setv(a+'Max',s[b+'_max']);setv(a+'Unit',s[b+'_unit']);});setv('shippingDispatchDate',s.expected_dispatch_date);setv('shippingDeliveryFrom',s.expected_delivery_from);setv('shippingDeliveryTo',s.expected_delivery_to);setv('groupMinimum',g.minimum_quantity);setv('groupMaximum',g.maximum_quantity);setv('groupOpening',g.opening_at?g.opening_at.slice(0,16):'');setv('groupClosing',g.closing_at?g.closing_at.slice(0,16):'');setv('groupUnitPrice',g.customer_unit_price_kes);setv('groupClosePolicy',g.close_policy||'deadline');toggleCampaign();$('#productShippingStatus').textContent='Loaded '+p.product_name+'.';}
+function applyProductExtension(p){
+ if(!p)return;
+ const s=p.shipping_profile||{},g=p.group_campaign||{};
+ setv('productFulfilmentType',p.fulfilment_type||'normal');
+ setv('shippingOriginType',s.origin_type||'domestic');
+ setv('shippingOriginCountry',s.origin_country||'Kenya');
+ setv('shippingOriginCounty',s.origin_county_region);
+ setv('shippingOriginTown',s.origin_town_city);
+ setv('shippingDispatchDetails',s.dispatch_details);
+ [['sameTown','same_town'],['sameCounty','same_county'],['interCounty','inter_county'],['international','international']].forEach(([a,b])=>{
+  setv(a+'Min',s[b+'_min']??(a==='sameTown'?30:a==='international'?20:a==='interCounty'?2:1));
+  setv(a+'Max',s[b+'_max']??(a==='sameTown'?60:a==='international'?25:a==='interCounty'?3:2));
+  setv(a+'Unit',s[b+'_unit']||(a==='sameTown'?'minutes':'days'));
+ });
+ setv('shippingDispatchDate',s.expected_dispatch_date);
+ setv('shippingDeliveryFrom',s.expected_delivery_from);
+ setv('shippingDeliveryTo',s.expected_delivery_to);
+ setv('groupMinimum',g.minimum_quantity);
+ setv('groupMaximum',g.maximum_quantity);
+ setv('groupOpening',g.opening_at?g.opening_at.slice(0,16):'');
+ setv('groupClosing',g.closing_at?g.closing_at.slice(0,16):'');
+ setv('groupUnitPrice',g.customer_unit_price_kes);
+ setv('groupClosePolicy',g.close_policy||'deadline');
+ toggleCampaign();
+ const st=$('#productShippingStatus');
+ if(st)st.textContent='Loaded Shipping / MOQ settings for '+(p.product_name||'this product')+'.';
+}
+function resetProductExtension(){
+ setv('productFulfilmentType','normal');
+ setv('shippingOriginType','domestic');
+ setv('shippingOriginCountry','Kenya');
+ setv('shippingOriginCounty','');
+ setv('shippingOriginTown','');
+ setv('shippingDispatchDetails','');
+ setv('sameTownMin',30);setv('sameTownMax',60);setv('sameTownUnit','minutes');
+ setv('sameCountyMin',1);setv('sameCountyMax',2);setv('sameCountyUnit','days');
+ setv('interCountyMin',2);setv('interCountyMax',3);setv('interCountyUnit','days');
+ setv('internationalMin',20);setv('internationalMax',25);setv('internationalUnit','days');
+ ['shippingDispatchDate','shippingDeliveryFrom','shippingDeliveryTo','groupMinimum','groupMaximum','groupOpening','groupClosing','groupUnitPrice'].forEach(id=>setv(id,''));
+ setv('groupClosePolicy','deadline');
+ toggleCampaign();
+ const st=$('#productShippingStatus');if(st)st.textContent='';
+}
+function loadSelected(){
+ const p=products.find(x=>x.id===$('#shippingProductSelector').value);
+ applyProductExtension(p);
+}
 function ensureDashboard(){
  const shell=$('#sellerShell');if(!shell||$('#sellerGroupOrdersPanel'))return;
  const nav=$('.seller-sidebar',shell)||$('nav',shell);
@@ -110,6 +156,38 @@ function ensureDashboard(){
 async function loadCampaigns(){const {data,error}=await client.rpc('seller_list_group_orders');campaigns=error?[]:(Array.isArray(data)?data:[]);renderCampaigns(error);}
 function renderCampaigns(error){const host=$('#sellerGroupOrderList');if(!host)return;if(error){host.innerHTML='<div class="shipping-moq-empty">'+esc(error.message)+'</div>';return;}if(!campaigns.length){host.innerHTML='<div class="shipping-moq-empty">No MOQ campaigns yet.</div>';return;}host.innerHTML=campaigns.map(c=>{const pct=Math.min(100,Number(c.quantity_committed||0)/Number(c.minimum_quantity||1)*100);return '<article class="shipping-moq-row"><header><div><b>'+esc(c.campaign_reference)+'</b><h3>'+esc(c.product_name||'Group Order')+'</h3><small>Closes '+fmt(c.closing_at)+'</small></div><span>'+esc(String(c.status).replaceAll('_',' '))+'</span></header><div class="shipping-moq-progress"><span style="width:'+pct+'%"></span></div><div class="shipping-moq-row-grid"><div><small>MOQ</small><strong>'+c.minimum_quantity+'</strong></div><div><small>Committed</small><strong>'+c.quantity_committed+'</strong></div><div><small>Remaining</small><strong>'+Math.max(0,Number(c.minimum_quantity)-Number(c.quantity_committed||0))+'</strong></div><div><small>Customers</small><strong>'+c.participant_count+'</strong></div><div><small>Committed amount</small><strong>'+money(c.amount_committed_kes)+'</strong></div><div><small>Expected delivery</small><strong>'+fmt(c.expected_delivery_from)+' – '+fmt(c.expected_delivery_to||c.expected_delivery_from)+'</strong></div></div><div class="shipping-stage-actions">'+[['seller_preparing','Seller Preparing'],['dispatched_origin','Dispatched From Origin'],['in_transit','In Transit'],['arrived_destination','Arrived at Destination']].map(a=>'<button type="button" data-campaign="'+c.id+'" data-stage="'+a[0]+'">'+a[1]+'</button>').join('')+'</div></article>';}).join('');}
 async function updateStage(id,status){const note=prompt('Optional shipment update note:')||'';const {error}=await client.rpc('seller_update_group_order_status',{p_campaign_id:id,p_status:status,p_note:note});if(error)alert(error.message);await loadCampaigns();}
-const init=async()=>{loadStyle();ensureProductFields();ensureManagement();ensureDashboard();toggleCampaign();afterProductSubmit();try{await Promise.all([loadProducts(),loadCampaigns()]);}catch(e){const st=$('#productShippingStatus');if(st)st.textContent=e.message;}document.addEventListener('click',e=>{const b=e.target.closest('[data-campaign][data-stage]');if(b)updateStage(b.dataset.campaign,b.dataset.stage);});};
+const init=async()=>{
+ loadStyle();
+ ensureProductFields();
+ ensureManagement();
+ ensureDashboard();
+ toggleCampaign();
+ afterProductSubmit();
+
+ document.addEventListener('leogo:seller-product-editing',async(event)=>{
+  const productId=event?.detail?.productId;
+  if(!productId)return;
+  try{
+   if(!products.some(p=>p.id===productId))await loadProducts();
+   const selector=$('#shippingProductSelector');
+   if(selector)selector.value=productId;
+   applyProductExtension(products.find(p=>p.id===productId));
+  }catch(error){
+   const st=$('#productShippingStatus');
+   if(st)st.textContent=error?.message||'Shipping / MOQ settings could not be loaded.';
+  }
+ });
+
+ $('#showSellerProductForm')?.addEventListener('click',()=>window.setTimeout(resetProductExtension,0));
+ $('#cancelProductEdit')?.addEventListener('click',()=>window.setTimeout(resetProductExtension,0));
+
+ try{await Promise.all([loadProducts(),loadCampaigns()]);}
+ catch(e){const st=$('#productShippingStatus');if(st)st.textContent=e.message;}
+
+ document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-campaign][data-stage]');
+  if(b)updateStage(b.dataset.campaign,b.dataset.stage);
+ });
+};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
