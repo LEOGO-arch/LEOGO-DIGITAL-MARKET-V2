@@ -1764,10 +1764,12 @@
   const showAllLiveProducts = document.getElementById('showAllLiveProducts');
   const viewAllProductCategories = document.getElementById('viewAllProductCategories');
   const personalSalesSeeMore = document.getElementById('personalSalesSeeMore');
+  const customerFlashSaleGrid = document.getElementById('customerFlashSaleGrid');
 
   let marketplaceProducts = [];
   let marketplaceCategories = [];
   let personalSaleListings = [];
+  let customerFlashSales = [];
   let selectedMarketplaceCategory = 'all';
 
   const categoryIcon = (code) => ({
@@ -1802,6 +1804,62 @@
     const client = window.leogoAuth?.client;
     if (!client || !path) return '';
     return client.storage.from('customer-sale-media').getPublicUrl(String(path)).data?.publicUrl || '';
+  };
+
+  const sellerFlashActive=(product)=>{
+    if(!product||product.fulfilment_type==='group_order')return false;
+    const now=Date.now();
+    const start=new Date(product.flash_sale_starts_at||0).getTime();
+    const end=new Date(product.flash_sale_ends_at||0).getTime();
+    return product.flash_sale_requested===true
+      && product.flash_sale_status==='approved'
+      && Number(product.flash_sale_price_kes||0)>0
+      && Number(product.flash_sale_quantity||0)>0
+      && Number.isFinite(start)&&Number.isFinite(end)&&start<=now&&end>now;
+  };
+  const sellerEffectivePrice=(product,normalPrice)=>{
+    const normal=Number(normalPrice??product?.price_kes??0);
+    return sellerFlashActive(product)?Math.min(normal,Number(product.flash_sale_price_kes||normal)):normal;
+  };
+  const sellerEffectiveStock=(product,normalStock)=>{
+    const stock=Math.max(0,Number(normalStock||0));
+    return sellerFlashActive(product)?Math.min(stock,Math.max(0,Number(product.flash_sale_quantity||0))):stock;
+  };
+  const flashSaleMediaUrl=(item)=>{
+    const client=window.leogoAuth?.client;
+    if(!client||!item?.image_path||!item?.media_bucket)return '';
+    return client.storage.from(String(item.media_bucket)).getPublicUrl(String(item.image_path)).data?.publicUrl||'';
+  };
+  const flashSaleActionHtml=(item)=>{
+    if(item.partner_type==='seller')return '<button type="button" data-flash-product="'+receiptEscape(item.item_id)+'">Shop Deal</button>';
+    if(item.partner_type==='service_provider')return '<button type="button" data-request-service="'+receiptEscape(item.item_id)+'" data-request-type="direct">Request Service</button>';
+    return '<button type="button" data-flash-cyber-service="'+receiptEscape(item.item_id)+'">View Cyber Deal</button>';
+  };
+  const renderCustomerFlashSales=()=>{
+    if(!customerFlashSaleGrid)return;
+    if(!customerFlashSales.length){
+      customerFlashSaleGrid.innerHTML='<article class="flash-item flash-loading-item"><div class="flash-img">⚡</div><div class="flash-body"><h3>No live Flash Sales right now</h3><span class="flash-seller">New Admin-approved offers will appear here automatically.</span></div></article>';
+      return;
+    }
+    customerFlashSaleGrid.innerHTML=customerFlashSales.map((item)=>{
+      const normal=Number(item.normal_price_kes||0);
+      const flash=Number(item.flash_price_kes||0);
+      const save=Math.max(0,normal-flash);
+      const percent=normal>0?Math.round((save/normal)*100):0;
+      const image=flashSaleMediaUrl(item);
+      const icon=item.partner_type==='seller'?'🛍️':item.partner_type==='service_provider'?'🛠️':'🖥️';
+      return '<article class="flash-item" data-customer-flash-item="'+receiptEscape(item.item_id)+'">'+
+        '<span class="flash-badge">'+(percent?'-'+percent+'%':'FLASH')+'</span>'+
+        '<div class="flash-img">'+(image?'<img src="'+receiptEscape(image)+'" alt="'+receiptEscape(item.item_name)+'" loading="lazy">':icon)+'</div>'+
+        '<div class="flash-body"><h3>'+receiptEscape(item.item_name)+'</h3>'+
+          '<span class="flash-price">'+money(flash)+'</span><span class="flash-old">'+money(normal)+'</span>'+
+          '<span class="flash-save">Save '+money(save)+'</span>'+
+          '<span class="flash-seller">'+receiptEscape(item.partner_name||'LEOGO Partner')+' · '+receiptEscape(String(item.partner_type||'').replaceAll('_',' '))+'</span>'+
+          (item.remaining_quantity!=null?'<small class="flash-qty">'+Number(item.remaining_quantity||0)+' deal unit(s) left</small>':'')+
+          '<small class="flash-until">Ends '+receiptEscape(customerOrderFormatDate(item.ends_at,true))+'</small>'+
+          '<div class="flash-action">'+flashSaleActionHtml(item)+'</div>'+
+        '</div></article>';
+    }).join('');
   };
 
   const filteredMarketplaceProducts = () => {
@@ -1856,8 +1914,12 @@
     const activeVariants = variants.filter((variant) => variant.is_active !== false);
     const hasVariants = Boolean(!isGroupOrder && product.has_variants && activeVariants.length);
     const variantStock = activeVariants.reduce((sum, variant) => sum + Number(variant.quantity_available || 0), 0);
+    const flashActive=sellerFlashActive(product);
+    const flashRemaining=flashActive?Number(product.flash_sale_quantity||0):null;
+    const effectiveVariantStock=flashActive?Math.min(variantStock,flashRemaining):variantStock;
+    const effectiveProductStock=sellerEffectiveStock(product,product.quantity_available);
     const available = product.availability_status === 'available'
-      && (hasVariants ? variantStock > 0 : Number(product.quantity_available || 0) > 0);
+      && (hasVariants ? effectiveVariantStock > 0 : effectiveProductStock > 0);
     const imageUrl = sellerProductMediaUrl(product.main_image_path);
     const galleryPaths=Array.isArray(product.gallery_image_paths)?product.gallery_image_paths.filter(Boolean):[];
     const galleryImages=[product.main_image_path,...galleryPaths]
@@ -1880,11 +1942,13 @@
 
     const variantMarkup = hasVariants
       ? '<div class="live-product-variant-picker"><small>Choose variant</small><div class="live-product-variants">'+activeVariants.map((variant) => {
-          const variantAvailable = Number(variant.quantity_available || 0) > 0;
+          const variantEffectiveStock=sellerEffectiveStock(product,variant.quantity_available);
+          const variantAvailable = variantEffectiveStock > 0;
           const variantImage = sellerProductMediaUrl(variant.image_path);
-          return '<button type="button" class="live-product-variant-option" data-product-variant="'+receiptEscape(variant.id)+'" data-product-id="'+receiptEscape(product.id)+'" data-variant-name="'+receiptEscape(variant.variant_name)+'" data-variant-price="'+Number(variant.price_kes || 0)+'" data-variant-stock="'+Number(variant.quantity_available || 0)+'" data-variant-image="'+receiptEscape(variantImage)+'" '+(variantAvailable?'':'disabled')+'>'+
+          const variantEffectivePrice=sellerEffectivePrice(product,variant.price_kes);
+          return '<button type="button" class="live-product-variant-option" data-product-variant="'+receiptEscape(variant.id)+'" data-product-id="'+receiptEscape(product.id)+'" data-variant-name="'+receiptEscape(variant.variant_name)+'" data-variant-price="'+Number(variantEffectivePrice || 0)+'" data-variant-stock="'+Number(variantEffectiveStock || 0)+'" data-variant-image="'+receiptEscape(variantImage)+'" '+(variantAvailable?'':'disabled')+'>'+
             (variantImage?'<img src="'+receiptEscape(variantImage)+'" alt="">':'')+
-            '<span><b>'+receiptEscape(variant.variant_name)+'</b><small>'+money(variant.price_kes)+' · Qty '+Number(variant.quantity_available || 0)+'</small></span>'+
+            '<span><b>'+receiptEscape(variant.variant_name)+'</b><small>'+money(variantEffectivePrice)+(flashActive?' <s>'+money(variant.price_kes)+'</s>':'')+' · Qty '+Number(variantEffectiveStock || 0)+'</small></span>'+
           '</button>';
         }).join('')+'</div><p class="live-variant-selection-note" data-variant-selection-note>Select one variant before adding to cart.</p></div>'
       : '';
@@ -1897,7 +1961,8 @@
       '</div>'+
       '<div class="live-product-body">'+
         '<h3>'+receiptEscape(product.product_name)+'</h3>'+
-        '<div class="live-product-compact-price"><strong data-live-product-price>'+money(isGroupOrder ? product.group_campaign?.customer_unit_price_kes ?? product.price_kes : product.price_kes)+'</strong></div>'+
+        (flashActive?'<span class="live-flash-sale-badge">⚡ FLASH SALE · '+Number(flashRemaining||0)+' left</span>':'')+
+        '<div class="live-product-compact-price"><strong data-live-product-price>'+money(isGroupOrder ? product.group_campaign?.customer_unit_price_kes ?? product.price_kes : sellerEffectivePrice(product,product.price_kes))+'</strong>'+(flashActive?'<del>'+money(product.price_kes)+'</del>':'')+'</div>'+
         '<div class="live-product-rating live-product-rating-compact"><strong>'+productRatingStars(rating)+'</strong><span>'+rating.toFixed(1)+(reviewCount?' · '+reviewCount+' review'+(reviewCount===1?'':'s'):'')+'</span></div>'+
         '<div class="live-product-primary-actions">'+
           (isGroupOrder
@@ -1917,7 +1982,7 @@
           '<div class="live-product-details-head"><span>'+receiptEscape(categoryDisplayName(product.category_name || product.category_code || 'Marketplace'))+
             (product.subcategory_name ? ' · '+receiptEscape(product.subcategory_name) : '')+'</span>'+
             '<small>Seller: '+receiptEscape(product.seller_name || 'LEOGO Seller')+'</small></div>'+
-          '<div class="live-product-detail-stock"><small>Availability</small><strong data-live-product-stock>Qty '+Number(hasVariants?variantStock:product.quantity_available || 0)+' '+receiptEscape(product.measurement_unit || 'item')+'</strong></div>'+
+          '<div class="live-product-detail-stock"><small>Availability</small><strong data-live-product-stock>Qty '+Number(hasVariants?effectiveVariantStock:effectiveProductStock)+' '+receiptEscape(product.measurement_unit || 'item')+(flashActive?' on Flash Sale':'')+'</strong></div>'+
           (window.leogoShippingMoq?.detailsHtml(product) || '')+
           galleryMarkup+
           (product.product_details?'<div class="live-product-detail-section"><div class="live-product-detail-label">Description</div><p class="live-product-description">'+receiptEscape(String(product.product_details || ''))+'</p></div>':'')+
@@ -2010,10 +2075,11 @@
 
     if (liveCatalogueStatus) liveCatalogueStatus.textContent = 'Loading approved marketplace listings…';
 
-    const [categoryResult,productResult,personalSaleResult] = await Promise.all([
+    const [categoryResult,productResult,personalSaleResult,flashSaleResult] = await Promise.all([
       client.rpc('customer_product_categories'),
       client.rpc('customer_marketplace_catalogue'),
-      client.rpc('customer_public_personal_sales')
+      client.rpc('customer_public_personal_sales'),
+      client.rpc('customer_public_partner_flash_sales')
     ]);
 
     if (categoryResult.error) {
@@ -2039,6 +2105,8 @@
       personalSaleListings = Array.isArray(personalSaleResult.data) ? personalSaleResult.data : [];
     }
 
+    customerFlashSales=!flashSaleResult.error&&Array.isArray(flashSaleResult.data)?flashSaleResult.data:[];
+    renderCustomerFlashSales();
     renderMarketplacePreview();
     renderLiveCatalogue();
   };
@@ -2062,7 +2130,12 @@
       return;
     }
 
-    const stock = Number(variant ? variant.quantity_available : product.quantity_available || 0);
+    const baseStock=Number(variant ? variant.quantity_available : product.quantity_available || 0);
+    const alreadyInCartForProduct=testCart
+      .filter((item)=>item.productId===product.id && item.id!==(variant ? product.id+':'+variant.id : product.id))
+      .reduce((sum,item)=>sum+Number(item.quantity||0),0);
+    const flashRemaining=sellerFlashActive(product)?Math.max(0,Number(product.flash_sale_quantity||0)-alreadyInCartForProduct):null;
+    const stock=sellerFlashActive(product)?Math.min(baseStock,flashRemaining):baseStock;
     if (stock <= 0) {
       button.textContent = 'Out of Stock';
       button.disabled = true;
@@ -2090,7 +2163,7 @@
         sellerName: product.seller_name,
         name: variant ? product.product_name+' — '+variant.variant_name : product.product_name,
         productName: product.product_name,
-        price: Number(variant ? variant.price_kes : product.price_kes),
+        price: Number(sellerEffectivePrice(product,variant ? variant.price_kes : product.price_kes)),
         stock,
         deposit: Number(product.lipa_pole_pole_first_deposit_kes || 0),
         lppDays: Number(product.lipa_pole_pole_max_days || 0),
@@ -2120,6 +2193,21 @@
       if (button.isConnected) button.textContent = original;
     }, 900);
   };
+
+  customerFlashSaleGrid?.addEventListener('click',(event)=>{
+    const productButton=event.target.closest('[data-flash-product]');
+    if(productButton){
+      selectedMarketplaceCategory='all';
+      renderLiveCatalogue();
+      const card=liveProductGrid?.querySelector('[data-live-product-card="'+CSS.escape(productButton.dataset.flashProduct)+'"]');
+      (card||liveProductGrid)?.scrollIntoView({behavior:'smooth',block:'center'});
+      return;
+    }
+    const cyberButton=event.target.closest('[data-flash-cyber-service]');
+    if(cyberButton){
+      document.getElementById('services')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+  });
 
   liveProductGrid?.addEventListener('click', (event) => {
     const galleryButton=event.target.closest('[data-product-gallery-image]');
