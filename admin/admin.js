@@ -1017,8 +1017,15 @@
   };
 
   const openApproval = async (kind, id) => {
-    const item = state.approvals.find((entry) => entry.kind === kind && String(entry.record_id) === String(id));
+    let item = state.approvals.find((entry) => entry.kind === kind && String(entry.record_id) === String(id));
     if (!item) return;
+    if (kind === 'wallet_loan') {
+      try {
+        const { data } = await db.rpc('admin_list_wallet_loan_applications_v2');
+        const detail = (Array.isArray(data) ? data : []).find((row) => String(row.id) === String(id));
+        if (detail) item = { ...item, payload: { ...(item.payload || {}), ...detail, ...(detail.collateral || {}) } };
+      } catch (_error) {}
+    }
     state.activeApproval = item;
     $('#reviewModalTitle').textContent = item.title;
     $('#reviewApplicant').innerHTML = `<strong>${escapeHtml(item.applicant_name || 'Customer')}</strong><p>${escapeHtml(item.applicant_email || '')}<br>${escapeHtml(item.subtitle || '')}${item.amount_kes == null ? '' : `<br><b>${formatMoney(item.amount_kes)}</b>`}</p>`;
