@@ -54,13 +54,18 @@ function ensureUI(){
    try{await navigator.clipboard.writeText(number);b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1400);}catch{}
  });
 }
+function eligibilityBadgeText(){
+ const e=overview?.eligibility||{};
+ return e.has_active_loan?'Active loan':e.has_open_application?'Under review':e.eligible?('Eligible up to '+money(e.max_eligible_amount_kes)):e.applications_enabled?'Building eligibility':'Applications closed';
+}
+function syncEligibilityBadge(){
+ const badge=$('#walletLoanEligibility');if(!badge||!overview)return;
+ const expected=eligibilityBadgeText();if(badge.textContent!==expected)badge.textContent=expected;
+}
 function render(){
  const e=overview?.eligibility||{};
  const form=$('#walletLoanPreviewForm'), button=form?.querySelector('button[type="submit"]'), amount=$('#walletLoanAmount'), term=$('#walletLoanTerm');
- const badge=$('#walletLoanEligibility');
- if(badge){
-   badge.textContent=e.has_active_loan?'Active loan':e.has_open_application?'Under review':e.eligible?('Eligible up to '+money(e.max_eligible_amount_kes)):e.applications_enabled?'Building eligibility':'Applications closed';
- }
+ syncEligibilityBadge();
  if(term){term.value=Number(e.default_term_days||30);term.max='3650';}
  if(amount){amount.max=String(Math.max(1,Number(e.max_eligible_amount_kes||1)));}
  if(button){button.disabled=!e.eligible;button.textContent=e.eligible?'Submit Loan Application':'Not Eligible to Apply Yet';}
@@ -133,6 +138,11 @@ async function submitRepayment(event){
 }
 function init(){
  loadStyle();ensureUI();load();
+ const badge=$('#walletLoanEligibility');
+ if(badge&&window.MutationObserver){
+   const observer=new MutationObserver(()=>syncEligibilityBadge());
+   observer.observe(badge,{childList:true,characterData:true,subtree:true});
+ }
  client.auth.onAuthStateChange((_event,session)=>{user=session?.user||null;load(user);});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
