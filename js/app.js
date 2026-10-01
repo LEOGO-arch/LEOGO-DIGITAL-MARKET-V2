@@ -2134,16 +2134,28 @@
   };
 
   const renderSellerProductCard = (product) => {
-    const isGroupOrder = product.fulfilment_type === 'group_order';
+    const shipping=product.shipping_profile||{};
+    const groupCampaign=product.group_campaign||null;
+    const hasGroupOrder=Boolean(groupCampaign);
+    const hasShippingProfile=Boolean(shipping.product_id||Object.keys(shipping).length);
+    const localAvailable=hasShippingProfile
+      ? shipping.local_available!==false
+      : product.fulfilment_type!=='group_order';
+    const internationalEnabled=hasShippingProfile
+      ? Boolean(shipping.international_order_enabled)
+      : ['preorder','group_order'].includes(product.fulfilment_type);
+    const ordinaryOrderAvailable=localAvailable||!hasGroupOrder;
+
     const variants = Array.isArray(product.variants) ? product.variants : [];
     const activeVariants = variants.filter((variant) => variant.is_active !== false);
-    const hasVariants = Boolean(!isGroupOrder && product.has_variants && activeVariants.length);
+    const hasVariants = Boolean(ordinaryOrderAvailable && product.has_variants && activeVariants.length);
     const variantStock = activeVariants.reduce((sum, variant) => sum + Number(variant.quantity_available || 0), 0);
     const flashActive=sellerFlashActive(product);
     const flashRemaining=flashActive?Number(product.flash_sale_quantity||0):null;
     const effectiveVariantStock=flashActive?Math.min(variantStock,flashRemaining):variantStock;
     const effectiveProductStock=sellerEffectiveStock(product,product.quantity_available);
-    const available = product.availability_status === 'available'
+    const available = ordinaryOrderAvailable
+      && product.availability_status === 'available'
       && (hasVariants ? effectiveVariantStock > 0 : effectiveProductStock > 0);
     const imageUrl = sellerProductMediaUrl(product.main_image_path);
     const galleryPaths=Array.isArray(product.gallery_image_paths)?product.gallery_image_paths.filter(Boolean):[];
@@ -2165,6 +2177,22 @@
     const reviewCount=Number(product.review_count||0);
     const rating=Number(product.rating_average||0);
 
+    const localPrice=Number(shipping.local_price_kes??product.price_kes??0);
+    const internationalLanded=Number(shipping.international_price_kes??product.price_kes??0)+Number(shipping.international_shipping_fee_to_center_kes||0);
+    const groupPrice=Number(groupCampaign?.customer_unit_price_kes??0);
+    const cardPrice=localAvailable
+      ? sellerEffectivePrice(product,localPrice)
+      : hasGroupOrder
+        ? groupPrice
+        : internationalLanded||Number(product.price_kes||0);
+
+    const modeBadges=[
+      localAvailable?'<span class="live-product-mode-badge local">📍 Local</span>':'',
+      internationalEnabled?'<span class="live-product-mode-badge international">🌍 International</span>':'',
+      shipping.moq_enabled?'<span class="live-product-mode-badge moq">📦 MOQ '+Number(shipping.moq_minimum_quantity||groupCampaign?.minimum_quantity||0)+'</span>':'',
+      hasGroupOrder?'<span class="live-product-mode-badge group">👥 Group Order</span>':''
+    ].filter(Boolean).join('');
+
     const variantMarkup = hasVariants
       ? '<div class="live-product-variant-picker"><small>Choose variant</small><div class="live-product-variants">'+activeVariants.map((variant) => {
           const variantEffectiveStock=sellerEffectiveStock(product,variant.quantity_available);
@@ -2178,6 +2206,18 @@
         }).join('')+'</div><p class="live-variant-selection-note" data-variant-selection-note>Select one variant before adding to cart.</p></div>'
       : '';
 
+    const ordinaryButton=ordinaryOrderAvailable
+      ? '<button type="button" class="live-product-cart-start" data-live-cart-start data-product-id="'+receiptEscape(product.id)+'" '+(available?'':'disabled')+'>'+
+          (available
+            ? (!localAvailable&&internationalEnabled?'Pre-Order':'Add to Cart')
+            : 'Out of Stock')+
+        '</button>'
+      : '';
+
+    const groupButton=hasGroupOrder
+      ? (window.leogoShippingMoq?.joinButtonHtml(groupCampaign) || '<button type="button" disabled>Group Order unavailable</button>')
+      : '';
+
     return '<article class="live-product-card live-product-card-compact" data-live-product-card="'+receiptEscape(product.id)+'" data-has-variants="'+(hasVariants?'true':'false')+'">'+
       '<div class="live-product-image" data-live-product-image>'+
         (imageUrl
@@ -2186,15 +2226,13 @@
       '</div>'+
       '<div class="live-product-body">'+
         '<h3>'+receiptEscape(product.product_name)+'</h3>'+
+        (modeBadges?'<div class="live-product-mode-badges">'+modeBadges+'</div>':'')+
         (flashActive?'<span class="live-flash-sale-badge">⚡ FLASH SALE · '+Number(flashRemaining||0)+' left</span>':'')+
-        '<div class="live-product-compact-price"><strong data-live-product-price>'+money(isGroupOrder ? product.group_campaign?.customer_unit_price_kes ?? product.price_kes : sellerEffectivePrice(product,product.price_kes))+'</strong>'+(flashActive?'<del>'+money(product.price_kes)+'</del>':'')+'</div>'+
+        '<div class="live-product-compact-price"><strong data-live-product-price>'+money(cardPrice)+'</strong>'+(flashActive?'<del>'+money(localPrice)+'</del>':'')+'</div>'+
         '<div class="live-product-rating live-product-rating-compact"><strong>'+productRatingStars(rating)+'</strong><span>'+rating.toFixed(1)+(reviewCount?' · '+reviewCount+' review'+(reviewCount===1?'':'s'):'')+'</span></div>'+
         '<div class="live-product-primary-actions">'+
-          (isGroupOrder
-            ? window.leogoShippingMoq?.joinButtonHtml(product.group_campaign) || '<button type="button" disabled>Group Order unavailable</button>'
-            : '<button type="button" class="live-product-cart-start" data-live-cart-start data-product-id="'+receiptEscape(product.id)+'" '+(available?'':'disabled')+'>'+
-            (available?'Add to Cart':'Out of Stock')+
-          '</button>')+
+          ordinaryButton+
+          groupButton+
           '<button type="button" class="live-product-details-toggle" data-product-details-toggle aria-expanded="false">View Details</button>'+
         '</div>'+
         (hasVariants
@@ -2207,7 +2245,9 @@
           '<div class="live-product-details-head"><span>'+receiptEscape(categoryDisplayName(product.category_name || product.category_code || 'Marketplace'))+
             (product.subcategory_name ? ' · '+receiptEscape(product.subcategory_name) : '')+'</span>'+
             '<small>Seller: '+receiptEscape(product.seller_name || 'LEOGO Seller')+'</small></div>'+
-          '<div class="live-product-detail-stock"><small>Availability</small><strong data-live-product-stock>Qty '+Number(hasVariants?effectiveVariantStock:effectiveProductStock)+' '+receiptEscape(product.measurement_unit || 'item')+(flashActive?' on Flash Sale':'')+'</strong></div>'+
+          (ordinaryOrderAvailable
+            ? '<div class="live-product-detail-stock"><small>'+(localAvailable?'Local availability':'Pre-order availability')+'</small><strong data-live-product-stock>Qty '+Number(hasVariants?effectiveVariantStock:effectiveProductStock)+' '+receiptEscape(product.measurement_unit || 'item')+(flashActive?' on Flash Sale':'')+'</strong></div>'
+            : '')+
           (window.leogoShippingMoq?.detailsHtml(product) || '')+
           galleryMarkup+
           (product.product_details?'<div class="live-product-detail-section"><div class="live-product-detail-label">Description</div><p class="live-product-description">'+receiptEscape(String(product.product_details || ''))+'</p></div>':'')+
@@ -2346,7 +2386,10 @@
     if (!button || button.disabled) return;
     const product = marketplaceProducts.find((item) => item.id === button.dataset.productId);
     if (!product) return;
-    if (product.fulfilment_type === 'group_order') return;
+    const shipping=product.shipping_profile||{};
+    const hasShippingProfile=Boolean(shipping.product_id||Object.keys(shipping).length);
+    const localAvailable=hasShippingProfile ? shipping.local_available!==false : product.fulfilment_type!=='group_order';
+    if (product.fulfilment_type === 'group_order' && !localAvailable) return;
 
     const card = button.closest('[data-live-product-card]');
     const hasVariants = card?.dataset.hasVariants === 'true';
