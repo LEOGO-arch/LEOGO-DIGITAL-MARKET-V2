@@ -77,9 +77,34 @@ function setv(id,v){const el=$('#'+id);if(el)el.value=v??'';}
 function loadSelected(){const p=products.find(x=>x.id===$('#shippingProductSelector').value);if(!p)return;const s=p.shipping_profile||{},g=p.group_campaign||{};setv('productFulfilmentType',p.fulfilment_type||'normal');setv('shippingOriginType',s.origin_type||'domestic');setv('shippingOriginCountry',s.origin_country||'Kenya');setv('shippingOriginCounty',s.origin_county_region);setv('shippingOriginTown',s.origin_town_city);setv('shippingDispatchDetails',s.dispatch_details);[['sameTown','same_town'],['sameCounty','same_county'],['interCounty','inter_county'],['international','international']].forEach(([a,b])=>{setv(a+'Min',s[b+'_min']);setv(a+'Max',s[b+'_max']);setv(a+'Unit',s[b+'_unit']);});setv('shippingDispatchDate',s.expected_dispatch_date);setv('shippingDeliveryFrom',s.expected_delivery_from);setv('shippingDeliveryTo',s.expected_delivery_to);setv('groupMinimum',g.minimum_quantity);setv('groupMaximum',g.maximum_quantity);setv('groupOpening',g.opening_at?g.opening_at.slice(0,16):'');setv('groupClosing',g.closing_at?g.closing_at.slice(0,16):'');setv('groupUnitPrice',g.customer_unit_price_kes);setv('groupClosePolicy',g.close_policy||'deadline');toggleCampaign();$('#productShippingStatus').textContent='Loaded '+p.product_name+'.';}
 function ensureDashboard(){
  const shell=$('#sellerShell');if(!shell||$('#sellerGroupOrdersPanel'))return;
- const nav=$('.seller-sidebar',shell)||$('nav',shell);const btn=document.createElement('button');btn.type='button';btn.id='openSellerGroupOrders';btn.innerHTML='<span>🌍</span> Group Orders';nav?.appendChild(btn);
- const container=$('.seller-content',shell)||shell;const panel=document.createElement('section');panel.id='sellerGroupOrdersPanel';panel.className='seller-view shipping-moq-dashboard';panel.hidden=true;panel.innerHTML='<div class="seller-view-heading"><div><span>GROUP / GLOBAL ORDERS</span><h2>MOQ Campaigns</h2><p>Track quantities, customers, deadlines and shipment stages. Confirmed customer quantities cannot be edited.</p></div><button id="refreshSellerGroups" type="button">↻ Refresh</button></div><div id="sellerGroupOrderList" class="shipping-moq-list"></div>';container.appendChild(panel);
- btn.addEventListener('click',e=>{e.stopPropagation();$$('.seller-view',shell).forEach(x=>x.hidden=true);panel.hidden=false;loadCampaigns();});
+ const nav=$('.seller-sidebar',shell)||$('nav',shell);
+ const btn=document.createElement('button');
+ btn.type='button';
+ btn.id='openSellerGroupOrders';
+ btn.dataset.sellerView='group_orders';
+ btn.innerHTML='<span>🌍</span> Group Orders';
+ nav?.appendChild(btn);
+
+ const container=$('.seller-content',shell)||shell;
+ const panel=document.createElement('section');
+ panel.id='sellerGroupOrdersPanel';
+ panel.className='seller-view shipping-moq-dashboard';
+ panel.dataset.sellerContent='group_orders';
+ panel.innerHTML='<div class="seller-view-heading"><div><span>GROUP / GLOBAL ORDERS</span><h2>MOQ Campaigns</h2><p>Track quantities, customers, deadlines and shipment stages. Confirmed customer quantities cannot be edited.</p></div><button id="refreshSellerGroups" type="button">↻ Refresh</button></div><div id="sellerGroupOrderList" class="shipping-moq-list"></div>';
+ container.appendChild(panel);
+
+ btn.addEventListener('click',e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  $('[data-seller-content]',shell).forEach(x=>x.classList.toggle('active',x===panel));
+  $('[data-seller-view]',shell).forEach(x=>x.classList.toggle('active',x===btn));
+  const desc=$('#sellerViewDescription');
+  if(desc)desc.textContent='Track Group / Global Order MOQ campaigns, customer commitments and shipment progress.';
+  $('#sellerSidebar')?.classList.remove('open');
+  $('#sellerSidebarScrim')?.classList.remove('open');
+  window.scrollTo({top:0,behavior:'smooth'});
+  loadCampaigns();
+ });
  $('#refreshSellerGroups').addEventListener('click',loadCampaigns);
 }
 async function loadCampaigns(){const {data,error}=await client.rpc('seller_list_group_orders');campaigns=error?[]:(Array.isArray(data)?data:[]);renderCampaigns(error);}
