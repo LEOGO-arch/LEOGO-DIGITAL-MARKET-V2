@@ -908,3 +908,8 @@
   .active-settings-grid button>small{font-size:.77rem}
   .system-setting-preview{margin:0 16px 16px}
 }
+
+
+/* Customer Feedback & Testimonies admin moderation */
+.customer-feedback-admin-card{margin-top:14px}
+.customer-feedback-admin-card .seller-admin-summary{margin:12px 0 4px}
