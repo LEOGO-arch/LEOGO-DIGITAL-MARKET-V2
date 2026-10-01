@@ -849,6 +849,13 @@
     variant_image_paths: { label: 'Variant Image', bucket: 'seller-product-media', multiple: true },
     item_image_path: { label: 'Item Picture', bucket: 'customer-sale-media' },
     ownership_proof_path: { label: 'Ownership Proof', bucket: 'customer-sale-verification' },
+    identity_front_path: { label: 'ID / Passport Front', bucket: 'loan-private-documents' },
+    identity_back_path: { label: 'ID / Passport Back', bucket: 'loan-private-documents' },
+    applicant_passport_photo_path: { label: 'Applicant Passport-size Photo', bucket: 'loan-private-documents' },
+    asset_photo_paths: { label: 'Asset Photo', bucket: 'loan-asset-media', multiple: true },
+    received_photo_paths: { label: 'Pickup Station Receiving Photo', bucket: 'loan-asset-media', multiple: true },
+    inspection_photo_paths: { label: 'Asset Inspection Photo', bucket: 'loan-asset-media', multiple: true },
+    release_photo_path: { label: 'Asset Release Photo', bucket: 'loan-asset-media' },
     cyber_product_image_path: { label: 'Cyber Product Picture', bucket: 'cyber-public-media', publicBucket: true },
 
     cover_image_url: { label: 'Property Cover Image', directUrl: true },
@@ -894,6 +901,10 @@
         resolvedConfig = { ...config, bucket:'cyber-verification', publicBucket:false };
       } else if (kind === 'cyber_product' && key === 'cyber_product_image_path') {
         resolvedConfig = { ...config, bucket:'cyber-public-media', publicBucket:true, label:'Cyber Product Picture' };
+      } else if (kind === 'wallet_loan' && ['identity_front_path','identity_back_path','applicant_passport_photo_path','ownership_proof_path'].includes(key)) {
+        resolvedConfig = { ...config, bucket:'loan-private-documents', publicBucket:false };
+      } else if (kind === 'wallet_loan' && ['asset_photo_paths','received_photo_paths','inspection_photo_paths','release_photo_path'].includes(key)) {
+        resolvedConfig = { ...config, bucket:'loan-asset-media', publicBucket:false };
       } else if (kind === 'pickup_station_application' && pickupStationVerificationFields.has(key)) {
         resolvedConfig = { ...config, bucket:'pickup-station-verification', publicBucket:false };
       } else if (['service_provider_application','service_provider_profile_change'].includes(kind) && key === 'profile_picture_path') {
