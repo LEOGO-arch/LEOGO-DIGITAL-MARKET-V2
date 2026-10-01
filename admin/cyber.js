@@ -116,7 +116,7 @@ const render=()=>{
     orders.filter(o=>o.payment_status==='pending_verification').length+
     flashSales.filter(f=>f.flash_sale_status==='requested').length+
     profileChanges.length;
-  const badge=$('#sidebarCyberCount');if(badge){badge.textContent=pending;badge.hidden=pending<1;}
+  const badge=$('#sidebarCyberCount');if(badge){badge.textContent=pending;badge.hidden=false;badge.setAttribute('aria-label',pending+' item'+(pending===1?'':'s')+' requiring Admin attention');}
 
   $('#cyberAdminProvidersBody').innerHTML=providers.length?providers.map(p=>`
     <tr>
