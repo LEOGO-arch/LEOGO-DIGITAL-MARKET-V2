@@ -1584,6 +1584,14 @@ async function loadProducts(options={}){
 
   return products;
 }
+function sellerFlashBasePrice(product){
+  if(!product)return 0;
+  const variants=Array.isArray(product.seller_product_variants)
+    ? product.seller_product_variants.filter((item)=>item.is_active!==false&&Number(item.price_kes||0)>0)
+    : [];
+  if(product.has_variants&&variants.length)return Math.min(...variants.map((item)=>Number(item.price_kes||0)));
+  return Number(product.price_kes||0);
+}
 function renderFlashSaleProducts(){
   const select=$('#flashSaleProduct');
   if(!select)return;
@@ -1592,9 +1600,9 @@ function renderFlashSaleProducts(){
   select.innerHTML='<option value="">Choose product…</option>'+eligible.map(p=>'<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.product_name)+' — '+money(p.price_kes)+'</option>').join('');
   if(eligible.some(p=>p.id===current))select.value=current;
   const selected=products.find(p=>p.id===select.value);
-  $('#flashSaleNormalPrice').value=selected?money(selected.price_kes):'';
+  $('#flashSaleNormalPrice').value=selected?money(sellerFlashBasePrice(selected)):'';
   const flashItems=products.filter(p=>p.flash_sale_requested || ['requested','approved'].includes(p.flash_sale_status));
-  $('#sellerFlashSaleList').innerHTML=flashItems.length?flashItems.map(p=>'<article class="product-card"><img src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt=""><div><h4>'+escapeHtml(p.product_name)+'</h4><p>Normal '+money(p.price_kes)+' · Flash '+money(p.flash_sale_price_kes)+'</p><span class="badge flash">'+escapeHtml((p.flash_sale_status||'requested').replaceAll('_',' '))+'</span><small>Qty '+Number(p.flash_sale_quantity||0)+' · '+formatDate(p.flash_sale_starts_at)+' → '+formatDate(p.flash_sale_ends_at)+'</small></div></article>').join(''):'<div class="empty-card">No products have been sent to Flash Sale yet.</div>';
+  $('#sellerFlashSaleList').innerHTML=flashItems.length?flashItems.map(p=>'<article class="product-card"><img src="'+escapeHtml(publicUrl(p.main_image_path))+'" alt=""><div><h4>'+escapeHtml(p.product_name)+'</h4><p>Normal '+money(sellerFlashBasePrice(p))+' · Flash '+money(p.flash_sale_price_kes)+'</p><span class="badge flash">'+escapeHtml((p.flash_sale_status||'requested').replaceAll('_',' '))+'</span><small>Qty '+Number(p.flash_sale_quantity||0)+' · '+formatDate(p.flash_sale_starts_at)+' → '+formatDate(p.flash_sale_ends_at)+'</small>'+(p.flash_sale_admin_notes?'<div class="variant-warning">Admin note: '+escapeHtml(p.flash_sale_admin_notes)+'</div>':'')+'</div></article>').join(''):'<div class="empty-card">No products have been sent to Flash Sale yet.</div>';
 }
 function renderProducts(){
   const productCount=$('#sellerProductCount');
@@ -1672,7 +1680,7 @@ function renderProducts(){
 }
 $('#flashSaleProduct').addEventListener('change',()=>{
   const p=products.find(item=>item.id===$('#flashSaleProduct').value);
-  $('#flashSaleNormalPrice').value=p?money(p.price_kes):'';
+  $('#flashSaleNormalPrice').value=p?money(sellerFlashBasePrice(p)):'';
   if(p){
     $('#flashSalePrice').value=p.flash_sale_price_kes||'';
     $('#flashSaleQuantity').value=p.flash_sale_quantity||'';
@@ -1689,22 +1697,21 @@ $('#sellerFlashSaleForm').addEventListener('submit',async e=>{
   const startValue=$('#flashSaleStart').value;
   const endValue=$('#flashSaleEnd').value;
   if(!flashPrice||flashPrice<=0){status($('#flashSaleStatus'),'Enter a valid Flash Sale price.','error');return;}
-  if(flashPrice>=Number(product.price_kes)){status($('#flashSaleStatus'),'Flash Sale price should be lower than the normal selling price.','error');return;}
+  const normalFlashBase=sellerFlashBasePrice(product);
+  if(flashPrice>=normalFlashBase){status($('#flashSaleStatus'),'Flash Sale price must be lower than the normal selling price'+(product.has_variants?' of every active variant':'')+'.','error');return;}
   if(!quantity||quantity<=0||quantity>Number(product.quantity_available)){status($('#flashSaleStatus'),'Flash quantity must be greater than zero and cannot exceed available stock.','error');return;}
   if(!startValue||!endValue||new Date(endValue)<=new Date(startValue)){status($('#flashSaleStatus'),'Choose a valid Flash Sale start and end time.','error');return;}
   const button=e.submitter||$('#sellerFlashSaleForm button[type="submit"]');
   const original=button.textContent;button.disabled=true;button.textContent='Sending…';
   status($('#flashSaleStatus'),'Sending Flash Sale request…');
   try{
-    const {error}=await client.from('seller_products').update({
-      flash_sale_requested:true,
-      flash_sale_price_kes:flashPrice,
-      flash_sale_quantity:quantity,
-      flash_sale_starts_at:new Date(startValue).toISOString(),
-      flash_sale_ends_at:new Date(endValue).toISOString(),
-      flash_sale_status:'requested',
-      updated_at:new Date().toISOString()
-    }).eq('id',product.id).eq('seller_id',currentUser.id);
+    const {error}=await client.rpc('seller_request_product_flash_sale',{
+      p_product_id:product.id,
+      p_flash_price_kes:flashPrice,
+      p_flash_quantity:quantity,
+      p_starts_at:new Date(startValue).toISOString(),
+      p_ends_at:new Date(endValue).toISOString()
+    });
     if(error)throw error;
     status($('#flashSaleStatus'),'Flash Sale request sent successfully.','success');
     e.target.reset();$('#flashSaleNormalPrice').value='';
@@ -2015,6 +2022,7 @@ function providerViewDescription(view){
     overview:'Overview of your Service Provider account.',
     jobs:'Received customer jobs and quotation requests.',
     services:'Manage your service listings and approval status.',
+    flashsale:'Send approved fixed-price services to LEOGO Admin for a temporary Flash Sale.',
     earnings:'View completed-job earnings, LEOGO commission, cumulative earnings and your available balance.',
     settlements:'Add and manage your Admin-approved Service Provider payout account.',
     notifications:'New jobs, quotation decisions and LEOGO Admin updates.',
@@ -2026,7 +2034,7 @@ function closeProviderSidebar(){
   $('#providerSidebarScrim')?.classList.remove('open');
 }
 function openProviderView(view='overview'){
-  const allowed=['overview','jobs','services','earnings','settlements','notifications','profile'];
+  const allowed=['overview','jobs','services','flashsale','earnings','settlements','notifications','profile'];
   const resolved=allowed.includes(view)?view:'overview';
   $$('[data-provider-content]').forEach((panel)=>panel.classList.toggle('active',panel.dataset.providerContent===resolved));
   $$('[data-provider-view]').forEach((button)=>button.classList.toggle('active',button.dataset.providerView===resolved));
@@ -2041,6 +2049,7 @@ function openProviderView(view='overview'){
     }else providerPhotoManager.hidden=true;
   }
   if(resolved==='jobs')loadProviderJobs().catch((error)=>console.warn('Provider jobs refresh failed:',error));
+  if(resolved==='flashsale')renderProviderFlashSales();
   if(resolved==='earnings')loadProviderEarnings().catch((error)=>console.warn('Provider earnings refresh failed:',error));
   if(resolved==='settlements')loadProviderSettlementAccounts().catch((error)=>console.warn('Provider settlement accounts refresh failed:',error));
   if(resolved==='notifications')loadProviderNotifications().catch((error)=>console.warn('Provider notifications refresh failed:',error));
@@ -2458,6 +2467,70 @@ async function loadProviderServices(){
   providerServices=Array.isArray(data)?data:[];
   renderProviderServices();
 }
+function renderProviderFlashSales(){
+  const select=$('#providerFlashSaleService');
+  const list=$('#providerFlashSaleList');
+  if(!select||!list)return;
+  const eligible=providerServices.filter((item)=>
+    item.approval_status==='approved'&&item.is_available&&item.pricing_model==='fixed'&&Number(item.price_from_kes||0)>0
+  );
+  const current=select.value;
+  select.innerHTML='<option value="">Choose approved fixed-price service…</option>'+
+    eligible.map((item)=>'<option value="'+escapeHtml(item.id)+'">'+escapeHtml(item.service_name)+' — '+money(item.price_from_kes)+'</option>').join('');
+  if(eligible.some((item)=>String(item.id)===String(current)))select.value=current;
+  const selected=providerServices.find((item)=>String(item.id)===String(select.value));
+  if($('#providerFlashSaleNormalPrice'))$('#providerFlashSaleNormalPrice').value=selected?money(selected.price_from_kes):'';
+
+  const history=providerServices.filter((item)=>item.flash_sale_requested||String(item.flash_sale_status||'none')!=='none');
+  const attention=history.filter((item)=>['requested','approved'].includes(item.flash_sale_status)).length;
+  const badge=$('#providerFlashSaleBadge');
+  if(badge){badge.hidden=!attention;badge.textContent=attention>99?'99+':String(attention);}
+
+  list.innerHTML=history.length?history.map((item)=>
+    '<article class="provider-service-card">'+
+      '<div class="provider-service-card-main"><div><span class="status-chip">'+escapeHtml(String(item.flash_sale_status||'requested').replaceAll('_',' '))+'</span><h4>'+escapeHtml(item.service_name)+'</h4><p>'+formatDate(item.flash_sale_starts_at)+' → '+formatDate(item.flash_sale_ends_at)+'</p></div><strong>'+money(item.flash_sale_price_kes)+'</strong></div>'+
+      '<div class="provider-service-meta"><span>Normal '+money(item.price_from_kes)+'</span><span>'+escapeHtml(item.unit_label||'fixed service')+'</span></div>'+
+      (item.flash_sale_admin_notes?'<div class="restricted-notice">Admin note: '+escapeHtml(item.flash_sale_admin_notes)+'</div>':'')+
+    '</article>'
+  ).join(''):'<div class="empty-card">No Service Flash Sale requests yet.</div>';
+}
+$('#providerFlashSaleService')?.addEventListener('change',()=>{
+  const item=providerServices.find((row)=>String(row.id)===String($('#providerFlashSaleService').value));
+  $('#providerFlashSaleNormalPrice').value=item?money(item.price_from_kes):'';
+  if(item){
+    $('#providerFlashSalePrice').value=item.flash_sale_price_kes||'';
+    $('#providerFlashSaleStart').value=localInput(item.flash_sale_starts_at);
+    $('#providerFlashSaleEnd').value=localInput(item.flash_sale_ends_at);
+  }
+});
+$('#providerFlashSaleForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const item=providerServices.find((row)=>String(row.id)===String($('#providerFlashSaleService').value));
+  if(!item){status($('#providerFlashSaleStatus'),'Choose an approved fixed-price service.','error');return;}
+  const flashPrice=Number($('#providerFlashSalePrice').value||0);
+  const start=$('#providerFlashSaleStart').value;
+  const end=$('#providerFlashSaleEnd').value;
+  if(flashPrice<=0||flashPrice>=Number(item.price_from_kes||0)){
+    status($('#providerFlashSaleStatus'),'Flash Sale price must be greater than zero and below the approved fixed service price.','error');return;
+  }
+  if(!start||!end||new Date(end)<=new Date(start)||new Date(end)<=new Date()){
+    status($('#providerFlashSaleStatus'),'Choose a valid Flash Sale start and end time.','error');return;
+  }
+  const button=event.submitter||event.currentTarget.querySelector('button[type="submit"]');
+  const original=button.textContent;button.disabled=true;button.textContent='Sending…';
+  try{
+    const {error}=await client.rpc('service_provider_request_flash_sale',{
+      p_service_id:item.id,p_flash_price_kes:flashPrice,
+      p_starts_at:new Date(start).toISOString(),p_ends_at:new Date(end).toISOString()
+    });
+    if(error)throw error;
+    status($('#providerFlashSaleStatus'),'Flash Sale request sent to LEOGO Admin for approval.','success');
+    event.currentTarget.reset();
+    await loadProviderServices();
+  }catch(error){
+    status($('#providerFlashSaleStatus'),error?.message||'Flash Sale request could not be sent.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+});
 function providerPriceText(item){
   if(item.pricing_model==='quote')return 'Quote after request';
   const from=Number(item.price_from_kes||0);
@@ -2481,7 +2554,8 @@ function renderProviderServices(){
     '</article>'
   ).join(''):'<div class="empty-card">No services added yet. Use the form above to create your first service.</div>';
   $$('[data-provider-edit-service]').forEach((button)=>button.addEventListener('click',()=>editProviderService(button.dataset.providerEditService)));
-  $$('[data-provider-delete-service]').forEach((button)=>button.addEventListener('click',()=>deleteProviderService(button.dataset.providerDeleteService,button)));
+  $('[data-provider-delete-service]').forEach((button)=>button.addEventListener('click',()=>deleteProviderService(button.dataset.providerDeleteService,button)));
+  renderProviderFlashSales();
 }
 function resetProviderServiceForm(){
   editingProviderService=null;
@@ -2702,6 +2776,7 @@ function renderProviderNotifications(){
     const view=button.dataset.providerNotificationView;
     if(view==='provider-jobs')openProviderView('jobs');
     else if(view==='provider-services')openProviderView('services');
+    else if(view==='flashsale'||view==='provider-flashsale')openProviderView('flashsale');
     else if(view==='provider-earnings')openProviderView('earnings');
     else if(view==='provider-settlements')openProviderView('settlements');
     else if(view==='provider-profile')openProviderView('profile');
