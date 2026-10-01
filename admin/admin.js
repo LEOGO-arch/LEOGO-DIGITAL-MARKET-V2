@@ -111,7 +111,7 @@
   };
 
   const viewTitles = {
-    dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', aftersales: 'Aftersales', customers: 'Customers',
+    dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', flashsales: 'Flash Sales', aftersales: 'Aftersales', customers: 'Customers',
     chat: 'Customer Care Chats', products: 'Products & Categories', sellers: 'Sellers', settlements: 'Partner Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
     accommodation: 'Accommodation', advertisements: 'Advertisements', loyalty: 'Loyalty & Rewards', reports: 'Reports',
@@ -177,9 +177,10 @@
       (state.productReviews||[]).filter((item)=>item.moderation_status==='submitted').length +
       (state.orderReviews||[]).filter((item)=>item.moderation_status==='submitted').length;
 
+    const flashCounts=window.leogoFlashSaleActionCounts||{};
     const sellerAttention = countApprovalKinds([
       'seller_application','seller_profile_change'
-    ]);
+    ]) + Math.max(0,Number(flashCounts.seller||0));
 
     const providerAttention =
       countApprovalKinds([
@@ -187,7 +188,8 @@
       ]) +
       (state.serviceRequests||[]).filter((item)=>
         ['awaiting_payment_verification','submitted','payment_verified'].includes(item.request_status)
-      ).length;
+      ).length +
+      Math.max(0,Number(flashCounts.service_provider||0));
 
     const transportApprovalAttention = countApprovalKinds([
       'transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application'
@@ -230,6 +232,7 @@
   };
 
   document.addEventListener('leogo:loan-action-count',()=>updateSidebarActionCounts());
+  document.addEventListener('leogo:flash-sale-action-counts',()=>updateSidebarActionCounts());
 
   const adminNotificationSeenStorageKey = () => 'leogo_admin_notification_seen_'+String(state.user?.id||'anonymous');
   const adminNotificationSeenSet = () => {
@@ -507,6 +510,7 @@
       dashboard: () => adminHas('dashboard.read'),
       approvals: () => adminHas('approvals.read'),
       orders: () => adminHas('orders.read'),
+      flashsales: () => adminHas('approvals.read'),
       aftersales: () => adminHas('orders.read'),
       customers: () => adminHas('customers.read'),
       chat: () => adminHas('support.chat'),
