@@ -670,3 +670,6 @@
   .premium-profile-edit-actions{display:grid;grid-template-columns:1fr 1fr}
   .premium-profile-edit-actions button{width:100%}
 }
+
+/* Service Provider Flash Sale */
+.provider-flash-sale-panel{border-color:#ffd3a9;background:#fffaf4}.provider-flash-sale-panel .private-doc-note{background:#fff1df;color:#7c470e}.provider-service-card .badge.flash,.provider-service-card .status-chip.approved{font-weight:900}
