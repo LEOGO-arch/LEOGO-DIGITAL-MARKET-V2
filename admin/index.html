@@ -50,7 +50,7 @@
         <button data-admin-view="orders"><i>▤</i><span>Orders</span><em id="sidebarOrderCount">0</em></button>
         <button data-admin-view="flashsales"><i>⚡</i><span>Flash Sales</span><em id="sidebarFlashSaleCount">0</em></button>
         <button data-admin-view="aftersales"><i>↺</i><span>Aftersales</span><em id="sidebarAftersalesCount">0</em></button>
-        <button data-admin-view="customers"><i>♙</i><span>Customers</span></button>
+        <button data-admin-view="customers"><i>♙</i><span>Customers</span><em id="sidebarFeedbackCount">0</em></button>
         <button data-admin-view="chat"><i>💬</i><span>Customer Care Chats</span><em id="sidebarChatCount">0</em></button>
         <button data-admin-view="products"><i>□</i><span>Products &amp; Categories</span><em id="sidebarProductCount">0</em></button>
         <button data-admin-view="sellers"><i>▣</i><span>Sellers</span><em id="sidebarSellerCount">0</em></button>
@@ -334,6 +334,28 @@
         <div class="section-head"><div><span>CUSTOMER MANAGEMENT</span><h2>Customers</h2><p>Authenticated customer accounts and saved profile information.</p></div><input class="table-search" id="customerSearch" type="search" placeholder="Search customer…"></div>
         <div class="selection-toolbar" id="customerToolbar"><label><input id="selectAllCustomers" type="checkbox"> Select all on page</label><button id="selectFilteredCustomers" type="button">Select all matching filter</button><span id="customerSelectedCount">0 selected</span><button data-export-table="customers" data-export-scope="selected" type="button">Export Selected</button><button data-export-table="customers" data-export-scope="filtered" type="button">Export All Filtered</button><button id="clearCustomerSelection" type="button">Clear</button></div>
         <div class="table-card"><div class="responsive-table"><table><thead><tr><th aria-label="Select"></th><th>Customer</th><th>Phone</th><th>Location</th><th>Registered</th><th>Last sign in</th></tr></thead><tbody id="customerTableBody"><tr><td colspan="6">Loading customers…</td></tr></tbody></table></div></div>
+        <section class="content-card customer-feedback-admin-card">
+          <div class="card-head">
+            <div><span>CUSTOMER VOICES</span><h3>Feedback &amp; Testimonies</h3><p>Review customer submissions before they become visible on the Customer Front. Approval actions require Approval Management permission.</p></div>
+            <div class="admin-product-review-controls">
+              <select id="adminFeedbackStatusFilter">
+                <option value="submitted">Pending approval</option>
+                <option value="all">All submissions</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <button id="refreshCustomerFeedback" class="primary-button" type="button">↻ Refresh Feedback</button>
+            </div>
+          </div>
+          <div class="seller-admin-summary">
+            <article><span>Total</span><strong id="adminFeedbackTotal">0</strong><small>All submissions</small></article>
+            <article><span>Pending</span><strong id="adminFeedbackPending">0</strong><small>Needs Admin review</small></article>
+            <article><span>Approved</span><strong id="adminFeedbackApproved">0</strong><small>Visible to customers</small></article>
+            <article><span>Testimonies</span><strong id="adminTestimonialCount">0</strong><small>Customer testimonials</small></article>
+          </div>
+          <div id="adminFeedbackStatus" class="form-status" aria-live="polite"></div>
+          <div id="adminFeedbackList" class="admin-product-review-list"><div class="loading-card">Loading Feedback &amp; Testimonies…</div></div>
+        </section>
       </section>
 
       <section class="admin-panel" data-admin-panel="chat">
@@ -1210,7 +1232,7 @@
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  <script src="admin.js?v=looking-request-v1" defer></script>
+  <script src="admin.js?v=looking-request-v1" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
