@@ -210,7 +210,9 @@
       Number(wallet.pending_deposits||0) +
       Number(wallet.pending_withdrawals||0) +
       Number(wallet.loan_applications||0);
-    const walletAttention = Math.max(walletApprovalAttention, walletDashboardAttention);
+    const walletAttention =
+      Math.max(walletApprovalAttention, walletDashboardAttention) +
+      Math.max(0, Number(window.leogoLoanRepaymentActionCount||0));
 
     const premiumAttention = countApprovalPrefix('premium');
     const accommodationAttention =
@@ -226,6 +228,8 @@
     setSidebarActionCount('sidebarPremiumCount', premiumAttention);
     setSidebarActionCount('sidebarAccommodationCount', accommodationAttention);
   };
+
+  document.addEventListener('leogo:loan-action-count',()=>updateSidebarActionCounts());
 
   const adminNotificationSeenStorageKey = () => 'leogo_admin_notification_seen_'+String(state.user?.id||'anonymous');
   const adminNotificationSeenSet = () => {
