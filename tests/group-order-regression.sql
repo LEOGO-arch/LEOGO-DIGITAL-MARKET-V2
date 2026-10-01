@@ -26,7 +26,11 @@ begin
  perform public.seller_save_product_shipping(prod,s||'{"fulfilment_type":"preorder"}',null);
  insert into qa_results select 'Pre-Order type persists',case when exists(select 1 from public.seller_products where id=prod and fulfilment_type='preorder') then 'PASS' else 'FAIL' end;
  g:=jsonb_build_object('minimum_quantity',3,'maximum_quantity',4,'customer_unit_price_kes',100,'opening_at',now()-interval '1 day','closing_at',now()+interval '2 days','expected_dispatch_date',current_date+3,'expected_delivery_from',current_date+4,'expected_delivery_to',current_date+5,'close_policy','deadline');
- insert into qa_results values ('Required Group dispatch date',pg_temp.expect_error(format('select public.seller_save_product_shipping(%L::uuid,%L::jsonb,%L::jsonb)',prod,s||'{"fulfilment_type":"group_order"}',g-'expected_dispatch_date'),'null value'));
+ r:=public.seller_save_product_shipping(prod,s||'{"fulfilment_type":"group_order"}',g-'expected_dispatch_date');camp:=(r->>'campaign_id')::uuid;
+ insert into qa_results
+ select 'Optional Group dispatch date',
+        case when expected_dispatch_date is null then 'PASS' else 'FAIL: dispatch date unexpectedly required' end
+ from public.group_order_campaigns where id=camp;
  r:=public.seller_save_product_shipping(prod,s||'{"fulfilment_type":"group_order"}',g);camp:=(r->>'campaign_id')::uuid;
  perform set_config('request.jwt.claim.sub',cust::text,true);
  insert into qa_results values ('Reject zero quantity',pg_temp.expect_error(format('select public.customer_join_group_order(%L::uuid,0,''till'',''QA-REF'')',camp),'Quantity must be greater'));
@@ -39,7 +43,7 @@ begin
  insert into qa_results values ('Seller cannot bypass Admin confirmation',pg_temp.expect_error(format('select public.seller_update_group_order_status(%L::uuid,''seller_preparing'',null)',camp),'Admin must confirm'));
  insert into qa_results values ('Seller campaign terms locked after join',pg_temp.expect_error(format('select public.seller_save_product_shipping(%L::uuid,%L::jsonb,%L::jsonb)',prod,s||'{"fulfilment_type":"group_order"}',g||jsonb_build_object('closing_at',now()+interval '3 days')),'terms are locked'));
  insert into qa_results values ('Joined campaign price is immutable',pg_temp.expect_error(format('select public.seller_save_product_shipping(%L::uuid,%L::jsonb,%L::jsonb)',prod,s||'{"fulfilment_type":"group_order"}',g||'{"customer_unit_price_kes":999}'),'terms are locked'));
- insert into qa_results values ('Active Group cannot switch to Normal',pg_temp.expect_error(format('select public.seller_save_product_shipping(%L::uuid,%L::jsonb,null)',prod,s),'active Group Order'));
+ insert into qa_results values ('Joined Group cannot be removed by Seller',pg_temp.expect_error(format('select public.seller_save_product_shipping(%L::uuid,%L::jsonb,null)',prod,s),'already joined'));
  perform set_config('request.jwt.claim.sub',adm::text,true);
  insert into qa_results values ('Admin must review submitted payments',pg_temp.expect_error(format('select public.admin_manage_group_order(%L::uuid,''confirm'',null,null)',camp),'Review all submitted'));
  perform public.admin_review_group_order_payment(part,'verify',null);
