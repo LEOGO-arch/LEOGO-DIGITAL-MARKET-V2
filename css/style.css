@@ -2059,3 +2059,32 @@ body.advertisement-lightbox-open{overflow:hidden}
 .live-product-variant-option s{color:#8a93a3;font-size:9px;margin-left:3px}
 .service-flash-sale-badge{display:inline-flex;width:max-content;padding:4px 7px;border-radius:999px;background:#dc2626;color:#fff;font-size:8px;font-weight:950}
 .service-flash-old{display:block;color:#7d8797;text-decoration:none}.service-flash-old:before{content:' ';}.leogo-compact-service-card:has(.service-flash-sale-badge){border-color:#ffbf86;box-shadow:0 8px 25px rgba(255,114,0,.09)}
+
+
+/* LEOGO Wallet tabs — customer dashboard organisation */
+.wallet-tabs-shell{position:sticky;top:0;z-index:6;margin:14px 0 0;padding:8px;border:1px solid #dfe6ef;border-radius:14px;background:rgba(247,250,253,.96);box-shadow:0 8px 24px rgba(7,27,61,.06);backdrop-filter:blur(8px)}
+.wallet-tabs{display:flex;gap:7px;overflow-x:auto;padding:2px;scrollbar-width:thin}
+.wallet-tabs button{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:0 0 auto;min-height:42px;padding:10px 13px;border:1px solid transparent;border-radius:10px;background:#fff;color:#4d5d73;font:inherit;font-size:9px;font-weight:900;white-space:nowrap;cursor:pointer;transition:background .16s ease,color .16s ease,border-color .16s ease,transform .16s ease}
+.wallet-tabs button span{font-size:14px}
+.wallet-tabs button:hover{border-color:#cfd9e5;background:#f7f9fc}
+.wallet-tabs button.active,.wallet-tabs button[aria-selected="true"]{border-color:#ffb472;background:#ff7200;color:#fff;box-shadow:0 5px 13px rgba(255,114,0,.2)}
+.wallet-tabs button:focus-visible{outline:3px solid rgba(255,114,0,.22);outline-offset:2px}
+.wallet-tab-panels{margin-top:14px}
+.wallet-tab-panel[hidden]{display:none!important}
+.wallet-tab-panel{animation:walletTabFade .16s ease}
+.wallet-tab-panel>.wallet-card{width:100%;box-sizing:border-box}
+.wallet-tab-panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.wallet-overview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px;padding:15px 16px;border:1px solid #dce5ef;border-radius:14px;background:linear-gradient(135deg,#f7fbff,#fff)}
+.wallet-overview-head span{color:#ff7200;font-size:8px;font-weight:900;letter-spacing:.12em}
+.wallet-overview-head h4{margin:4px 0 3px;color:#07152f;font-size:17px}
+.wallet-overview-head p{margin:0;color:#69788d;font-size:9px;line-height:1.45}
+.wallet-overview-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.wallet-overview-actions button{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"icon title" "icon note";column-gap:10px;align-items:center;padding:13px;border:1px solid #dfe6ef;border-radius:12px;background:#fff;color:#07152f;text-align:left;cursor:pointer}
+.wallet-overview-actions button:hover{border-color:#f5bd83;background:#fffaf5}
+.wallet-overview-actions button>span{grid-area:icon;font-size:22px}
+.wallet-overview-actions button>strong{grid-area:title;font-size:10px}
+.wallet-overview-actions button>small{grid-area:note;margin-top:2px;color:#748196;font-size:8px;line-height:1.35}
+@keyframes walletTabFade{from{opacity:.45;transform:translateY(3px)}to{opacity:1;transform:none}}
+@media(max-width:900px){.wallet-overview-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.wallet-tab-panel-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.wallet-tabs-shell{margin-left:-2px;margin-right:-2px;padding:6px}.wallet-tabs{gap:5px}.wallet-tabs button{min-height:40px;padding:9px 11px;font-size:8px}.wallet-overview-actions{grid-template-columns:1fr 1fr}.wallet-overview-head{padding:13px}.wallet-summary-grid{grid-template-columns:1fr 1fr}.wallet-summary-grid article{padding:11px}}
+@media(max-width:390px){.wallet-overview-actions,.wallet-summary-grid{grid-template-columns:1fr}}
