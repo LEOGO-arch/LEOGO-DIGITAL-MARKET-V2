@@ -118,7 +118,7 @@
     staff: 'Staff Management', settings: 'System Settings', audit: 'Audit Log'
   };
   const kindLabels = {
-    seller_application: 'Seller Registration', seller_profile_change: 'Seller Profile Update', seller_product: 'Seller Product', customer_personal_sale: 'Customer Item Sale',
+    seller_application: 'Seller Registration', seller_profile_change: 'Seller Profile Update', seller_product: 'Seller Product', customer_personal_sale: 'Customer Item Sale', customer_looking_request: 'Customer Looking Request',
     seller_settlement_account: 'Seller Settlement Account',
     service_provider_application: 'Service Provider Registration', service_provider_profile_change: 'Service Provider Profile Update', service_listing: 'Service Listing',
     service_provider_settlement_account: 'Service Provider Settlement Account',
@@ -734,9 +734,10 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,serviceProviderResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,partnerBillingResult,customerMeetupBillingResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,lookingRequestResult,serviceProviderResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,partnerBillingResult,customerMeetupBillingResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
+      db.rpc('admin_list_looking_request_approvals'),
       db.rpc('admin_list_service_provider_approvals'),
       db.rpc('admin_list_transport_approvals'),
       db.rpc('admin_list_pickup_station_approvals'),
@@ -752,6 +753,7 @@
     ]);
     if (coreResult.error) throw coreResult.error;
     if (personalSaleResult.error) throw personalSaleResult.error;
+    if (lookingRequestResult.error) throw lookingRequestResult.error;
     if (serviceProviderResult.error) throw serviceProviderResult.error;
     if (transportResult.error) throw transportResult.error;
     if (pickupStationResult.error) throw pickupStationResult.error;
@@ -768,6 +770,7 @@
     state.approvals = [
       ...(Array.isArray(coreResult.data) ? coreResult.data : []),
       ...(Array.isArray(personalSaleResult.data) ? personalSaleResult.data : []),
+      ...(Array.isArray(lookingRequestResult.data) ? lookingRequestResult.data : []),
       ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : []),
       ...(Array.isArray(transportResult.data) ? transportResult.data : []),
       ...(Array.isArray(pickupStationResult.data) ? pickupStationResult.data : []),
@@ -831,7 +834,7 @@
     renderAdminNotifications();
   };
 
-  const approvalGroup = (kind) => ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle','transport_provider_settlement_account','pickup_station_application'].includes(kind) ? 'transport' : kind.startsWith('cyber_') ? 'cyber' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalGroup = (kind) => kind==='customer_looking_request' ? 'customer_requests' : ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle','transport_provider_settlement_account','pickup_station_application'].includes(kind) ? 'transport' : kind.startsWith('cyber_') ? 'cyber' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
   const approvalIsFinancial = (item) => ['premium_payment','partner_subscription_payment','premium_extra_acceptance_payment','premium_customer_meetup_payment'].includes(item.kind) || item.kind.startsWith('wallet') || item.kind.endsWith('_settlement_account');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
@@ -866,13 +869,14 @@
     const transport = state.approvals.filter((item) => approvalGroup(item.kind) === 'transport').length;
     const cyber = state.approvals.filter((item) => approvalGroup(item.kind) === 'cyber').length;
     const accommodation = state.approvals.filter((item) => approvalGroup(item.kind) === 'accommodation').length;
+    const customer_requests = state.approvals.filter((item) => approvalGroup(item.kind) === 'customer_requests').length;
     const oldest = [...state.approvals].filter((item) => item.submitted_at).sort((a,b) => new Date(a.submitted_at) - new Date(b.submitted_at))[0];
     $('#approvalTotalCount').textContent = state.approvals.length;
     $('#approvalFinancialCount').textContent = financial;
     $('#approvalPremiumCount').textContent = premium;
     $('#approvalAccommodationCount').textContent = accommodation;
     $('#approvalOldestWaiting').textContent = oldest ? waitingAge(oldest.submitted_at) : '—';
-    const counts = { all: state.approvals.length, financial, wallet, sellers, providers, transport, cyber, premium, accommodation };
+    const counts = { all: state.approvals.length, financial, wallet, sellers, customer_requests, providers, transport, cyber, premium, accommodation };
     Object.entries(counts).forEach(([key, count]) => {
       const target = $(`#approvalFilters [data-approval-filter="${key}"] b`);
       if (target) target.textContent = count;
@@ -1179,6 +1183,8 @@
                   ? 'admin_review_seller_product'
                   : item.kind === 'customer_personal_sale'
                     ? 'admin_review_personal_sale'
+                    : item.kind === 'customer_looking_request'
+                      ? 'admin_review_looking_request'
                     : item.kind === 'service_provider_application'
                       ? 'admin_review_service_provider_application'
                       : item.kind === 'service_listing'
@@ -1224,7 +1230,7 @@
                   ? { p_change_id: item.record_id, p_decision: decision, p_notes: notes || null }
                   : item.kind === 'accommodation_unit'
                     ? { p_unit_id: item.record_id, p_decision: decision, p_notes: notes || null }
-                    : ['seller_application','seller_product','customer_personal_sale','service_provider_application','service_listing','transport_provider_application','transport_vehicle','pickup_station_application'].includes(item.kind)
+                    : ['seller_application','seller_product','customer_personal_sale','customer_looking_request','service_provider_application','service_listing','transport_provider_application','transport_vehicle','pickup_station_application'].includes(item.kind)
                       ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
                       : { p_kind: item.kind, p_record_id: item.record_id, p_decision: decision, p_notes: notes || null };
       if(item.kind==='pickup_station_application'&&decision==='approve'){
