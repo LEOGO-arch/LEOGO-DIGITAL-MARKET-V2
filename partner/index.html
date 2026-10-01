@@ -162,6 +162,7 @@
           <button class="active" data-provider-view="overview" type="button"><span>▦</span>Dashboard / Overview</button>
           <button class="provider-job-priority-nav" data-provider-view="jobs" type="button"><span>🧰</span>Received Jobs <b id="providerJobBadge" hidden>0</b></button>
           <button data-provider-view="services" type="button"><span>🛠️</span>My Services</button>
+          <button data-provider-view="flashsale" type="button"><span>⚡</span>Flash Sale <b id="providerFlashSaleBadge" hidden>0</b></button>
           <button data-provider-view="earnings" type="button"><span>↗</span>Earnings</button>
           <button data-provider-view="settlements" type="button"><span>₿</span>Settlements <b id="providerSettlementBadge" hidden>0</b></button>
           <button data-provider-view="notifications" type="button"><span>🔔</span>Notifications <b id="providerNotificationBadge" hidden>0</b></button>
@@ -256,6 +257,30 @@
           <section class="panel">
             <div class="section-title"><span>MY SERVICES</span><h3>Your service listings</h3><p>Track approval status, edit details or remove a listing you no longer offer.</p></div>
             <div id="providerServiceList" class="product-list"><div class="empty-card">No services added yet.</div></div>
+          </section>
+        </section>
+
+        <section class="provider-view" data-provider-content="flashsale">
+          <div class="seller-view-heading">
+            <div><span>FLASH SALE</span><h3>Service Flash Sale</h3><p>Choose an approved fixed-price service, set a lower temporary price and send it to LEOGO Admin for approval.</p></div>
+          </div>
+          <section class="panel provider-flash-sale-panel">
+            <form id="providerFlashSaleForm">
+              <div class="form-grid">
+                <label class="wide">Approved fixed-price service<select id="providerFlashSaleService" required><option value="">Choose service…</option></select></label>
+                <label>Normal price<input id="providerFlashSaleNormalPrice" readonly placeholder="Select a service"></label>
+                <label>Flash Sale price (KSh)<input id="providerFlashSalePrice" type="number" min="0.01" step="0.01" required></label>
+                <label>Starts<input id="providerFlashSaleStart" type="datetime-local" required></label>
+                <label>Ends<input id="providerFlashSaleEnd" type="datetime-local" required></label>
+              </div>
+              <div class="private-doc-note">⚡ The discounted price is not shown to customers until LEOGO Admin approves it. Only fixed-price services can use Flash Sale so the customer price can be enforced correctly.</div>
+              <div class="product-actions"><button type="submit">Send Flash Sale for Approval</button></div>
+              <p id="providerFlashSaleStatus" class="status"></p>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="section-title compact"><span>FLASH SALE HISTORY</span><h4>Your service offers</h4><p>Requested, approved, rejected and expired offers remain visible here.</p></div>
+            <div id="providerFlashSaleList" class="product-list"><div class="empty-card">No Service Flash Sale requests yet.</div></div>
           </section>
         </section>
 
