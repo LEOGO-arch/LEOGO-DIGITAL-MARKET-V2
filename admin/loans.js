@@ -75,6 +75,8 @@ function renderApplications(){
  }).join('');
 }
 function render(){
+ window.leogoLoanRepaymentActionCount=Math.max(0,Number(summary.pending_repayments||0));
+ document.dispatchEvent(new CustomEvent('leogo:loan-action-count',{detail:{pendingRepayments:window.leogoLoanRepaymentActionCount}}));
  const sum=$('#adminLoanSummary');if(sum)sum.innerHTML=[
   ['Pending applications',summary.pending_applications],['Active loans',summary.active_loans],['Overdue loans',summary.overdue_loans],['Paid loans',summary.paid_loans],
   ['Principal disbursed',money(summary.principal_disbursed_kes)],['Outstanding',money(summary.outstanding_kes)],['Pending repayments',summary.pending_repayments],['Verified repayments',money(summary.verified_repayments_kes)]
