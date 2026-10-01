@@ -984,6 +984,53 @@
     if (!challengeStart.value) challengeStart.value = today;
   }
 
+  // Customer wallet navigation only. Existing wallet forms, IDs and Supabase operations stay unchanged.
+  const walletTabButtons = [...document.querySelectorAll('[data-wallet-tab]')];
+  const walletTabPanels = [...document.querySelectorAll('[data-wallet-tab-panel]')];
+
+  const selectWalletTab = (tabName, options = {}) => {
+    const target = String(tabName || 'overview');
+    const matchingButton = walletTabButtons.find((button) => button.dataset.walletTab === target);
+    const matchingPanel = walletTabPanels.find((panel) => panel.dataset.walletTabPanel === target);
+    if (!matchingButton || !matchingPanel) return;
+
+    walletTabButtons.forEach((button) => {
+      const selected = button === matchingButton;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-selected', selected ? 'true' : 'false');
+      button.tabIndex = selected ? 0 : -1;
+    });
+
+    walletTabPanels.forEach((panel) => {
+      const selected = panel === matchingPanel;
+      panel.classList.toggle('active', selected);
+      panel.hidden = !selected;
+    });
+
+    if (options.focus) matchingButton.focus({ preventScroll: true });
+    if (options.scroll) matchingPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  walletTabButtons.forEach((button, index) => {
+    button.addEventListener('click', () => selectWalletTab(button.dataset.walletTab));
+    button.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      let nextIndex = index;
+      if (event.key === 'ArrowLeft') nextIndex = (index - 1 + walletTabButtons.length) % walletTabButtons.length;
+      if (event.key === 'ArrowRight') nextIndex = (index + 1) % walletTabButtons.length;
+      if (event.key === 'Home') nextIndex = 0;
+      if (event.key === 'End') nextIndex = walletTabButtons.length - 1;
+      selectWalletTab(walletTabButtons[nextIndex]?.dataset.walletTab, { focus: true });
+    });
+  });
+
+  document.querySelectorAll('[data-wallet-tab-target]').forEach((button) => {
+    button.addEventListener('click', () => selectWalletTab(button.dataset.walletTabTarget, { scroll: true }));
+  });
+
+  selectWalletTab('overview');
+
   document.addEventListener('leogo:authchange', (event) => loadWallet(event.detail?.user || null));
   client.auth.getSession().then(({ data }) => loadWallet(data.session?.user || null));
   clearWallet();
