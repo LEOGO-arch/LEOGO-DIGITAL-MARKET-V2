@@ -24,6 +24,16 @@ function ensureUI(){
  $('#adminLoanSettings')?.addEventListener('submit',saveSettings);
  $('#adminLoanRepaymentList')?.addEventListener('click',reviewRepayment);
 }
+function patchDashboardLoanMetrics(){
+ const host=$('#walletSnapshot');if(!host)return;
+ const values={'Active Loans':summary.active_loans??0,'Overdue Loans':summary.overdue_loans??0};
+ [...host.querySelectorAll('div')].forEach(row=>{
+   const label=row.querySelector('span')?.textContent?.trim();
+   if(!(label in values))return;
+   const strong=row.querySelector('strong');if(strong)strong.textContent=Number(values[label]||0).toLocaleString('en-KE');
+   const small=row.querySelector('small');if(small)small.textContent='';
+ });
+}
 function render(){
  const sum=$('#adminLoanSummary');if(sum)sum.innerHTML=[
   ['Pending applications',summary.pending_applications],['Active loans',summary.active_loans],['Overdue loans',summary.overdue_loans],['Paid loans',summary.paid_loans],
@@ -34,6 +44,7 @@ function render(){
  }
  const loanHost=$('#adminLoanList');if(loanHost)loanHost.innerHTML=loans.length?loans.map(l=>'<article class="loan-v1-card '+(l.status==='overdue'?'is-overdue':'')+'"><header><div><b>'+esc(l.loan_reference)+'</b><h5>'+esc(l.customer_name||'Customer')+'</h5><small>'+esc(l.customer_phone||'')+'</small></div><strong>'+pretty(l.status)+'</strong></header><div class="loan-v1-grid"><div><small>Principal</small><b>'+money(l.principal_kes)+'</b></div><div><small>Total due</small><b>'+money(l.total_due_kes)+'</b></div><div><small>Repaid</small><b>'+money(l.amount_repaid_kes)+'</b></div><div><small>Outstanding</small><b>'+money(l.outstanding_kes)+'</b></div><div><small>Due</small><b>'+date(l.due_date)+'</b></div><div><small>Grace until</small><b>'+date(l.grace_until)+'</b></div></div></article>').join(''):'<div class="loan-v1-empty">No approved loans yet.</div>';
  const repayHost=$('#adminLoanRepaymentList');if(repayHost)repayHost.innerHTML=repayments.length?repayments.slice(0,50).map(r=>'<article class="loan-v1-card"><header><div><b>'+esc(r.repayment_reference)+'</b><h5>'+esc(r.customer_name||'Customer')+'</h5><small>'+esc(r.loan_reference||'')+'</small></div><strong>'+money(r.amount_kes)+'</strong></header><div class="loan-v1-grid"><div><small>Payment ref</small><b>'+esc(r.payment_reference)+'</b></div><div><small>Status</small><b>'+pretty(r.payment_status)+'</b></div><div><small>Loan outstanding</small><b>'+money(r.loan_outstanding_kes)+'</b></div></div>'+(r.payment_status==='pending'?'<div class="loan-v1-actions"><button type="button" data-repay-review="'+r.id+'" data-decision="verify">Verify</button><button type="button" class="secondary" data-repay-review="'+r.id+'" data-decision="reject">Reject</button></div>':'')+'</article>').join(''):'<div class="loan-v1-empty">No loan repayment submissions yet.</div>';
+ patchDashboardLoanMetrics();
 }
 async function loadAll(){
  if(busy)return;busy=true;
@@ -59,8 +70,13 @@ async function reviewRepayment(e){
  if(error){alert(error.message);b.disabled=false;return;}await loadAll();
 }
 function init(){
- loadStyle();ensureUI();loadAll();
- document.addEventListener('click',e=>{if(e.target.closest('[data-admin-view="wallet"]'))setTimeout(loadAll,80);});
+ loadStyle();ensureUI();
+ client.auth.getSession().then(({data})=>{if(data?.session?.user)loadAll();});
+ client.auth.onAuthStateChange((_event,session)=>{if(session?.user)setTimeout(loadAll,50);});
+ document.addEventListener('click',e=>{
+   if(e.target.closest('[data-admin-view="wallet"]'))setTimeout(loadAll,80);
+   if(e.target.closest('[data-admin-view="dashboard"]'))setTimeout(patchDashboardLoanMetrics,120);
+ });
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
