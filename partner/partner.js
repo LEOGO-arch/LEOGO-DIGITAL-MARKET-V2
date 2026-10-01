@@ -2411,7 +2411,8 @@ function renderProviderJobs(){
     if(item.request_status==='dispatched'&&item.request_type==='direct'){
       actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="accept" data-job-id="'+escapeHtml(item.id)+'">Accept Job</button><button class="danger" type="button" data-provider-job-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline</button></div>';
     }else if(item.request_status==='dispatched'&&item.request_type==='quotation'){
-      actions='<form class="provider-quote-form" data-provider-quote-form="'+escapeHtml(item.id)+'"><input name="amount" type="number" min="1" max="100000000" step="0.01" placeholder="Quote amount (KSh)" required><input name="valid_until" type="date" min="'+new Date().toISOString().slice(0,10)+'" aria-label="Quotation valid until"><textarea name="notes" maxlength="1000" rows="3" placeholder="Quotation scope, work included, materials, conditions or notes"></textarea><button type="submit">Send Quotation</button></form><div class="provider-job-actions"><button class="danger" type="button" data-provider-job-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline Request</button></div>';
+      const quoteMax=item.service_flash_sale_applied&&Number(item.service_price_snapshot_kes||0)>0?Number(item.service_price_snapshot_kes):100000000;
+      actions='<form class="provider-quote-form" data-provider-quote-form="'+escapeHtml(item.id)+'"><input name="amount" type="number" min="1" max="'+quoteMax+'" step="0.01" placeholder="'+(item.service_flash_sale_applied?'Max Flash Sale '+money(quoteMax):'Quote amount (KSh)')+'" required><input name="valid_until" type="date" min="'+new Date().toISOString().slice(0,10)+'" aria-label="Quotation valid until"><textarea name="notes" maxlength="1000" rows="3" placeholder="Quotation scope, work included, materials, conditions or notes"></textarea><button type="submit">Send Quotation</button></form><div class="provider-job-actions"><button class="danger" type="button" data-provider-job-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline Request</button></div>';
     }else if(['accepted','quote_accepted'].includes(item.request_status)){
       actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="start" data-job-id="'+escapeHtml(item.id)+'">Start Service</button></div>';
     }else if(item.request_status==='in_progress'){
@@ -2423,6 +2424,7 @@ function renderProviderJobs(){
       (item.nearest_landmark?'<p><strong>Nearest landmark:</strong> '+escapeHtml(item.nearest_landmark)+'</p>':'')+
       ((item.latitude!=null&&item.longitude!=null)?'<p><strong>Pinned coordinates:</strong> '+escapeHtml(String(item.latitude))+', '+escapeHtml(String(item.longitude))+' · <a href="https://www.google.com/maps?q='+encodeURIComponent(String(item.latitude)+','+String(item.longitude))+'" target="_blank" rel="noopener">Open in Google Maps ↗</a></p>':(item.map_link?'<p><a href="'+escapeHtml(item.map_link)+'" target="_blank" rel="noopener">Open customer location ↗</a></p>':''))+
       '<p><strong>Customer details:</strong> '+escapeHtml(item.request_details||'—')+'</p>'+
+      (item.service_flash_sale_applied?'<div class="restricted-notice">⚡ Flash Sale price locked at '+escapeHtml(money(item.service_price_snapshot_kes))+' for this customer request. Do not quote or complete this service above that amount.</div>':'')+
       (item.provider_quote_kes?'<p><strong>Your quotation:</strong> '+escapeHtml(money(item.provider_quote_kes))+(item.provider_quote_notes?' · '+escapeHtml(item.provider_quote_notes):'')+'</p>':'')+
       actions+'</article>';
   }).join(''):'<div class="empty-card">No service jobs match this filter.</div>';
@@ -2447,10 +2449,15 @@ $('#providerJobList')?.addEventListener('click',(event)=>{
   const item=providerJobs.find((row)=>row.id===button.dataset.jobId);
   let finalAmount=null;
   if(action==='complete'&&item?.request_type==='direct'){
-    const answer=window.prompt('Enter the final agreed labour amount for this completed direct service (KSh):','');
+    const flashCap=item.service_flash_sale_applied?Number(item.service_price_snapshot_kes||0):0;
+    const answer=window.prompt(
+      flashCap>0?'Enter the final labour amount. This Flash Sale request cannot exceed '+money(flashCap)+':':'Enter the final agreed labour amount for this completed direct service (KSh):',
+      flashCap>0?String(flashCap):''
+    );
     if(answer===null)return;
     finalAmount=Number(answer);
     if(!Number.isFinite(finalAmount)||finalAmount<=0){status($('#providerJobStatus'),'Enter a valid final labour amount before completing the service.','error');return;}
+    if(flashCap>0&&finalAmount>flashCap){status($('#providerJobStatus'),'This customer request locked the Flash Sale price at '+money(flashCap)+'.','error');return;}
   }
   updateProviderJob(button.dataset.jobId,action,null,null,button,null,finalAmount);
 });
