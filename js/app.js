@@ -3360,9 +3360,10 @@
   let serviceLocationCounties=[];
   let serviceLocationSubCounties=[];
 
+  const serviceFlashActive=(item)=>item?.pricing_model==='fixed'&&Number(item?.flash_sale_price_kes||0)>0;
   const servicePriceText=(item)=>{
     if(item.pricing_model==='quote')return 'Price after quotation';
-    const from=Number(item.price_from_kes||0);
+    const from=serviceFlashActive(item)?Number(item.flash_sale_price_kes):Number(item.price_from_kes||0);
     const to=Number(item.price_to_kes||0);
     if(item.pricing_model==='fixed')return money(from)+(item.unit_label?' · '+item.unit_label:'');
     if(item.pricing_model==='hourly')return money(from)+' / hour';
@@ -3471,7 +3472,9 @@
         '<b>'+receiptEscape(item.business_name||'Service Provider')+'</b>'+
         '<p class="leogo-compact-description">'+receiptEscape(item.description||'Approved professional service available through LEOGO.')+'</p>'+
         '<small class="leogo-compact-location">'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
+        (serviceFlashActive(item)?'<span class="service-flash-sale-badge">⚡ FLASH SALE</span>':'')+
         '<strong class="leogo-compact-price">'+receiptEscape(servicePriceText(item))+'</strong>'+
+        (serviceFlashActive(item)?'<small class="service-flash-old">Normal '+receiptEscape(money(item.normal_price_kes||item.price_from_kes))+' · Ends '+receiptEscape(customerOrderFormatDate(item.flash_sale_ends_at,true))+'</small>':'')+
         '<div class="leogo-compact-actions">'+
           '<button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="direct">Request Service · '+receiptEscape(money(directFee))+'</button>'+
           '<button class="reviews" type="button" data-view-public-reviews="service_provider" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-service-id="'+receiptEscape(item.service_id||'')+'" data-review-title="'+receiptEscape(item.business_name||'Service Provider')+'">Reviews</button>'+
@@ -3579,19 +3582,26 @@
         client.rpc('customer_public_services'),
         client.rpc('customer_service_marketplace_config'),
         client.rpc('public_list_transport_vehicles'),
-        client.rpc('customer_public_service_reviews',{p_partner_type:null,p_provider_id:null,p_service_id:null})
+        client.rpc('customer_public_service_reviews',{p_partner_type:null,p_provider_id:null,p_service_id:null}),
+        client.rpc('customer_public_service_flash_sales')
       ];
       if(signedIn)requests.push(client.rpc('customer_list_own_service_reviews'));
 
       const results=await Promise.all(requests);
-      const [servicesResult,configResult,transportResult,reviewsResult,ownReviewsResult]=results;
+      const servicesResult=results[0],configResult=results[1],transportResult=results[2],reviewsResult=results[3],flashResult=results[4];
+      const ownReviewsResult=signedIn?results[5]:null;
       if(servicesResult.error)throw servicesResult.error;
       if(configResult.error)throw configResult.error;
       if(transportResult.error)throw transportResult.error;
       if(reviewsResult.error)throw reviewsResult.error;
+      if(flashResult.error)throw flashResult.error;
       if(ownReviewsResult?.error)throw ownReviewsResult.error;
 
-      customerPublicServices=Array.isArray(servicesResult.data)?servicesResult.data:[];
+      const flashByService=new Map((Array.isArray(flashResult.data)?flashResult.data:[]).map((row)=>[String(row.service_id),row]));
+      customerPublicServices=(Array.isArray(servicesResult.data)?servicesResult.data:[]).map((service)=>{
+        const flash=flashByService.get(String(service.service_id));
+        return flash?{...service,normal_price_kes:flash.normal_price_kes,flash_sale_price_kes:flash.flash_sale_price_kes,flash_sale_starts_at:flash.flash_sale_starts_at,flash_sale_ends_at:flash.flash_sale_ends_at}:service;
+      });
       customerServiceConfig=configResult.data||customerServiceConfig;
       customerPublicTransportVehicles=Array.isArray(transportResult.data)?transportResult.data:[];
       customerPublicServiceReviews=Array.isArray(reviewsResult.data)?reviewsResult.data:[];
@@ -3777,16 +3787,20 @@
     document.getElementById('serviceRequestServiceId').value=serviceId;
     document.getElementById('serviceRequestType').value=requestType;
     document.getElementById('serviceRequestTitle').textContent=requestType==='quotation'?'Request a Quotation':'Request Service';
-    document.getElementById('serviceRequestProvider').textContent=(item.service_name||'Service')+' · '+(item.business_name||'Approved Provider');
+    document.getElementById('serviceRequestProvider').textContent=(item.service_name||'Service')+' · '+(item.business_name||'Approved Provider')+
+      (serviceFlashActive(item)?' · FLASH SALE '+money(item.flash_sale_price_kes):'');
     const payment=document.getElementById('serviceQuotationPayment');
     const fee=requestType==='direct'
       ? Number(customerServiceConfig.direct_request_fee_kes??50)
       : Number(customerServiceConfig.quotation_fee_kes??50);
-    document.getElementById('serviceRequestSummary').textContent=fee>0
+    const flashPriceNote=serviceFlashActive(item)
+      ? ' The approved Flash Sale service price of '+money(item.flash_sale_price_kes)+' is locked into this request while the offer is active.'
+      : '';
+    document.getElementById('serviceRequestSummary').textContent=(fee>0
       ? (requestType==='quotation'
         ? 'Pay the quotation fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.'
         : 'Pay the direct service request fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.')
-      : 'No request fee is currently required. LEOGO Admin will review and dispatch your request.';
+      : 'No request fee is currently required. LEOGO Admin will review and dispatch your request.')+flashPriceNote;
     payment.hidden=fee<=0;
     document.getElementById('serviceRequestFeeLabel').textContent=requestType==='direct'?'DIRECT REQUEST SERVICE FEE':'REQUEST QUOTATION FEE';
     document.getElementById('serviceRequestFeeAmount').textContent=money(fee);
