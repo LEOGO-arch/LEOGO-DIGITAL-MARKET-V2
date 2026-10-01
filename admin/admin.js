@@ -3792,6 +3792,7 @@
     const target=$('#adminTransportRequestList');
     const requests=Array.isArray(state.transportRequests)?state.transportRequests:[];
     if($('#adminTransportRequestCount'))$('#adminTransportRequestCount').textContent=requests.length;
+    updateSidebarActionCounts();
     if(!target)return;
     const approvedVehicles=(state.transportVehicles||[]).filter((v)=>v.approval_status==='approved'&&v.is_available!==false);
     target.innerHTML=requests.length?requests.map((item)=>{
@@ -4072,6 +4073,7 @@
   };
 
   const renderPickupStationWithdrawals=()=>{
+    updateSidebarActionCounts();
     const body=$('#pickupWithdrawalBody');if(!body)return;
     body.innerHTML=state.pickupStationWithdrawals.length?state.pickupStationWithdrawals.map(row=>{
       const actions=row.status==='pending'
@@ -4101,6 +4103,7 @@
   };
 
   const renderPickupStationReturns=()=>{
+    updateSidebarActionCounts();
     const body=$('#pickupReturnBody');if(!body)return;
     const statuses=['received_at_station','awaiting_dispatch','dispatched','completed','cancelled'];
     body.innerHTML=state.pickupStationReturns.length?state.pickupStationReturns.map(row=>
