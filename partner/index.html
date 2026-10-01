@@ -1303,6 +1303,7 @@
           <button data-seller-view="flashsale" type="button"><span>⚡</span>Flash Sale</button>
           <button data-seller-view="earnings" type="button"><span>↗</span>Earnings</button>
           <button data-seller-view="settlements" type="button"><span>₿</span>Settlements</button>
+          <button data-seller-view="subscription" type="button"><span>💳</span>Subscription &amp; Billing</button>
           <button data-seller-view="notifications" type="button"><span>🔔</span>Notifications <b id="sellerNotificationBadge" hidden>0</b></button>
           <button data-seller-view="profile" type="button"><span>♙</span>My Profile</button>
           <button data-seller-view="data" type="button"><span>⇩</span>Data &amp; Privacy</button>
@@ -1551,6 +1552,12 @@
               <div class="section-title compact"><span>SETTLEMENT HISTORY</span><h4>Money recorded as sent by LEOGO</h4></div>
               <div id="sellerSettlementHistory" class="settlement-history"></div>
             </section>
+          </section>
+
+          <section class="seller-view" data-seller-content="subscription">
+            <div data-partner-subscription-slot>
+              <div class="empty-card">Loading Seller subscription details…</div>
+            </div>
           </section>
 
           <section class="seller-view" data-seller-content="notifications">
