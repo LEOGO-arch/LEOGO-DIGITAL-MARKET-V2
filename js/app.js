@@ -2205,7 +2205,7 @@
     }
     const cyberButton=event.target.closest('[data-flash-cyber-service]');
     if(cyberButton){
-      document.getElementById('services')?.scrollIntoView({behavior:'smooth',block:'start'});
+      (document.getElementById('cyberMarketplace')||document.getElementById('services'))?.scrollIntoView({behavior:'smooth',block:'start'});
     }
   });
 
