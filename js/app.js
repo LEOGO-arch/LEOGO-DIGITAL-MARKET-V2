@@ -673,12 +673,16 @@
       customerCareAgentName.textContent=customerCareThread?.assigned_staff_name||'LEOGO Customer Care';
     }
     if(customerCareAgentStatus){
-      customerCareAgentStatus.textContent=customerCareThread?.assigned_staff_name
-        ? (customerCareThread.status==='closed'?'Conversation closed':'Assigned Customer Care Officer')
-        : 'Waiting for Customer Care assignment';
+      customerCareAgentStatus.textContent=!customerCareThread
+        ? 'Start a conversation'
+        : customerCareThread?.assigned_staff_name
+          ? (customerCareThread.status==='closed'?'Conversation closed':'Assigned Customer Care Officer')
+          : 'Waiting for Customer Care assignment';
     }
     if(customerCareAssignment){
-      if(customerCareThread?.assigned_staff_name){
+      if(!customerCareThread){
+        customerCareAssignment.innerHTML='💬 Send your first message to start a private conversation with <strong>LEOGO Customer Care</strong>.';
+      }else if(customerCareThread?.assigned_staff_name){
         customerCareAssignment.innerHTML='✓ <strong>'+receiptEscape(customerCareThread.assigned_staff_name)+'</strong> is assigned to this private conversation.';
       }else{
         customerCareAssignment.innerHTML='⏳ Your message is in the <strong>LEOGO Customer Care queue</strong>. An available Customer Support Officer will be assigned here.';
@@ -717,7 +721,7 @@
       ]);
       if(threadResult.error) throw threadResult.error;
       if(messageResult.error) throw messageResult.error;
-      customerCareThread=threadResult.data||null;
+      customerCareThread=threadResult.data?.exists===false?null:(threadResult.data||null);
       customerCareMessages=Array.isArray(messageResult.data)?messageResult.data:[];
       renderCustomerCareChat();
       if(markRead){
