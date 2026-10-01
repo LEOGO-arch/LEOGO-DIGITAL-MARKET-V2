@@ -84,13 +84,13 @@ async function mountPartnerSubscription(partnerType,shell){
   const head=workspace.querySelector(':scope > header');
   if(head)head.insertAdjacentElement('afterend',panel);else workspace.prepend(panel);
   panel.querySelector('[data-partner-subscription-form]')?.addEventListener('submit',async(event)=>{
-    event.preventDefault();const button=event.submitter;button.disabled=true;const original=button.textContent;button.textContent='Submitting…';const output=panel.querySelector('[data-partner-subscription-status]');
-    try{const form=new FormData(event.currentTarget),result=await client.rpc('partner_submit_subscription_payment',{p_partner_type:partnerType,p_billing_period:form.get('period'),p_payment_reference:String(form.get('reference')||'').trim()});if(result.error)throw result.error;status(output,'Payment submitted. Admin verification is required before activation.','success');event.currentTarget.reset();}
+    event.preventDefault();const formElement=event.currentTarget;const button=event.submitter;button.disabled=true;const original=button.textContent;button.textContent='Submitting…';const output=panel.querySelector('[data-partner-subscription-status]');
+    try{const form=new FormData(formElement),result=await client.rpc('partner_submit_subscription_payment',{p_partner_type:partnerType,p_billing_period:form.get('period'),p_payment_reference:String(form.get('reference')||'').trim()});if(result.error)throw result.error;formElement.reset();status(output,'Payment submitted. Admin verification is required before activation.','success');}
     catch(err){status(output,err?.message||'Payment could not be submitted.','error');}finally{button.disabled=false;button.textContent=original;}
   });
   panel.querySelector('[data-premium-credit-form]')?.addEventListener('submit',async(event)=>{
-    event.preventDefault();const button=event.submitter;button.disabled=true;const original=button.textContent;button.textContent='Submitting…';const output=panel.querySelector('[data-premium-credit-status]');
-    try{const form=new FormData(event.currentTarget),result=await client.rpc('premium_submit_extra_acceptance_payment',{p_quantity:Number(form.get('quantity')),p_payment_reference:String(form.get('reference')||'').trim()});if(result.error)throw result.error;status(output,'Extra acceptance payment submitted for Admin verification.','success');event.currentTarget.reset();}
+    event.preventDefault();const formElement=event.currentTarget;const button=event.submitter;button.disabled=true;const original=button.textContent;button.textContent='Submitting…';const output=panel.querySelector('[data-premium-credit-status]');
+    try{const form=new FormData(formElement),result=await client.rpc('premium_submit_extra_acceptance_payment',{p_quantity:Number(form.get('quantity')),p_payment_reference:String(form.get('reference')||'').trim()});if(result.error)throw result.error;formElement.reset();status(output,'Extra acceptance payment submitted for Admin verification.','success');}
     catch(err){status(output,err?.message||'Payment could not be submitted.','error');}finally{button.disabled=false;button.textContent=original;}
   });
 }
@@ -2530,7 +2530,8 @@ $('#providerFlashSaleForm')?.addEventListener('submit',async(event)=>{
   if(!start||!end||new Date(end)<=new Date(start)||new Date(end)<=new Date()){
     status($('#providerFlashSaleStatus'),'Choose a valid Flash Sale start and end time.','error');return;
   }
-  const button=event.submitter||event.currentTarget.querySelector('button[type="submit"]');
+  const form=event.currentTarget;
+  const button=event.submitter||form.querySelector('button[type="submit"]');
   const original=button.textContent;button.disabled=true;button.textContent='Sending…';
   try{
     const {error}=await client.rpc('service_provider_request_flash_sale',{
@@ -2538,8 +2539,8 @@ $('#providerFlashSaleForm')?.addEventListener('submit',async(event)=>{
       p_starts_at:new Date(start).toISOString(),p_ends_at:new Date(end).toISOString()
     });
     if(error)throw error;
+    form.reset();
     status($('#providerFlashSaleStatus'),'Flash Sale request sent to LEOGO Admin for approval.','success');
-    event.currentTarget.reset();
     await loadProviderServices();
   }catch(error){
     status($('#providerFlashSaleStatus'),error?.message||'Flash Sale request could not be sent.','error');
@@ -5529,7 +5530,7 @@ $('#transportSettlementAccountForm')?.addEventListener('submit',async(event)=>{
   finally{button.disabled=false;button.textContent=original;}
 });
 $('#transportSettlementRequestForm')?.addEventListener('submit',async(event)=>{
-  event.preventDefault();if(!event.currentTarget.reportValidity())return;
+  event.preventDefault();const form=event.currentTarget;if(!form.reportValidity())return;
   const accountId=$('#transportSettlementRequestAccount').value;
   const amount=Number($('#transportSettlementRequestAmount').value);
   const available=Number(transportEarningsReport?.available_balance_kes||0);
@@ -5543,7 +5544,7 @@ $('#transportSettlementRequestForm')?.addEventListener('submit',async(event)=>{
       p_account_id:accountId,p_amount_kes:amount,p_note:$('#transportSettlementRequestNote').value.trim()||null
     });
     if(error)throw error;
-    event.currentTarget.reset();
+    form.reset();
     status($('#transportSettlementRequestStatus'),'Payout request sent to LEOGO Admin.','success');
     await Promise.all([loadTransportSettlementData(),loadTransportNotifications()]);
   }catch(error){status($('#transportSettlementRequestStatus'),error?.message||'Payout request could not be submitted.','error');}
