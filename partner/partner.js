@@ -1595,7 +1595,13 @@ function sellerFlashBasePrice(product){
 function renderFlashSaleProducts(){
   const select=$('#flashSaleProduct');
   if(!select)return;
-  const eligible=products.filter(p=>p.listing_status!=='suspended');
+  const eligible=products.filter(p=>
+    p.product_approval_status==='approved'&&
+    p.listing_status==='active'&&
+    p.availability_status==='available'&&
+    p.fulfilment_type!=='group_order'&&
+    Number(p.quantity_available||0)>0
+  );
   const current=select.value;
   select.innerHTML='<option value="">Choose product…</option>'+eligible.map(p=>'<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.product_name)+' — '+money(p.price_kes)+'</option>').join('');
   if(eligible.some(p=>p.id===current))select.value=current;
@@ -1681,6 +1687,7 @@ function renderProducts(){
 $('#flashSaleProduct').addEventListener('change',()=>{
   const p=products.find(item=>item.id===$('#flashSaleProduct').value);
   $('#flashSaleNormalPrice').value=p?money(sellerFlashBasePrice(p)):'';
+  if($('#flashSaleQuantity'))$('#flashSaleQuantity').max=p?String(Number(p.quantity_available||0)):'';
   if(p){
     $('#flashSalePrice').value=p.flash_sale_price_kes||'';
     $('#flashSaleQuantity').value=p.flash_sale_quantity||'';
