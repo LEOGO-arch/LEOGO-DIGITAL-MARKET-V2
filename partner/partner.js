@@ -1799,6 +1799,10 @@ async function editProduct(id){
     $('#productLppDeposit').value=p.lipa_pole_pole_first_deposit_kes??'';
     $('#productLppDays').value=p.lipa_pole_pole_max_days??'';
 
+    document.dispatchEvent(new CustomEvent('leogo:seller-product-editing',{
+      detail:{productId:p.id}
+    }));
+
     $('#cancelProductEdit').hidden=false;
     $('#sellerProductForm').hidden=false;
     openSellerView('products');
