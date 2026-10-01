@@ -569,7 +569,60 @@
   </article>
   <p class="advertisement-control-note">Only authorized LEOGO administrators can upload, publish, edit or remove advertisements shown here.</p>
 </section>
-<section class="section quick-links"><a href="#verifiedTransportProviders"><span>🚚</span><div><strong>Transport &amp; Parcel Delivery</strong><small>Move goods safely.</small></div></a><a href="#looking-for"><span>🔎</span><div><strong>What Are You Looking For?</strong><small>Post a request.</small></div></a><a href="#selling"><span>🏷️</span><div><strong>What Are You Selling?</strong><small>List an item.</small></div></a><a href="#premium"><span>🔞</span><div><strong>Premium 18+</strong><small>Verified adult connections.</small></div></a><a href="#advertisement"><span>📢</span><div><strong>Advertisement</strong><small>View featured promotions.</small></div></a><a href="#services"><span>💬</span><div><strong>Feedback &amp; Testimonies</strong><small>Share your experience.</small></div></a></section>
+<section class="section quick-links"><a href="#verifiedTransportProviders"><span>🚚</span><div><strong>Transport &amp; Parcel Delivery</strong><small>Move goods safely.</small></div></a><a href="#looking-for"><span>🔎</span><div><strong>What Are You Looking For?</strong><small>Post a request.</small></div></a><a href="#selling"><span>🏷️</span><div><strong>What Are You Selling?</strong><small>List an item.</small></div></a><a href="#premium"><span>🔞</span><div><strong>Premium 18+</strong><small>Verified adult connections.</small></div></a><a href="#advertisement"><span>📢</span><div><strong>Advertisement</strong><small>View featured promotions.</small></div></a><a href="#feedback-testimonies" id="openFeedbackTestimonials" aria-haspopup="dialog" aria-controls="feedbackTestimonialsModal"><span>💬</span><div><strong>Feedback &amp; Testimonies</strong><small>Read experiences or share yours.</small></div></a></section>
+<div class="service-review-modal feedback-testimonials-modal" id="feedbackTestimonialsModal" role="dialog" aria-modal="true" aria-labelledby="feedbackTestimonialsTitle" aria-hidden="true">
+  <div class="service-review-modal-backdrop" data-close-feedback-testimonials></div>
+  <section class="service-review-modal-card feedback-testimonials-card">
+    <div class="service-review-modal-head">
+      <div><span>LEOGO CUSTOMER VOICES</span><h2 id="feedbackTestimonialsTitle">Feedback &amp; Testimonies</h2><p>Read Admin-approved experiences or share your own. New submissions remain private until LEOGO Admin approves them.</p></div>
+      <button type="button" aria-label="Close Feedback and Testimonies" data-close-feedback-testimonials>×</button>
+    </div>
+    <div class="feedback-testimonials-tabs" role="tablist" aria-label="Feedback and Testimonies">
+      <button class="active" type="button" role="tab" aria-selected="true" data-feedback-panel-target="public">Customer Experiences</button>
+      <button type="button" role="tab" aria-selected="false" data-feedback-panel-target="share">Share Your Experience</button>
+    </div>
+    <section class="feedback-testimonials-panel active" data-feedback-panel="public">
+      <div class="feedback-public-toolbar">
+        <div><strong>Approved Feedback &amp; Testimonies</strong><small>Only entries approved by LEOGO Admin appear here.</small></div>
+        <select id="publicFeedbackTypeFilter" aria-label="Filter feedback and testimonies">
+          <option value="all">All</option>
+          <option value="testimonial">Testimonies</option>
+          <option value="feedback">Feedback</option>
+        </select>
+      </div>
+      <div id="publicFeedbackTestimonialsList" class="feedback-public-list"><div class="customer-empty-state compact"><span>💬</span><h4>Loading customer experiences…</h4></div></div>
+    </section>
+    <section class="feedback-testimonials-panel" data-feedback-panel="share" hidden>
+      <form id="customerFeedbackTestimonialForm" class="feedback-submit-form">
+        <div class="feedback-login-note" id="feedbackLoginNote">Sign in to your LEOGO customer account before submitting.</div>
+        <div class="feedback-form-grid">
+          <label><span>Type</span><select id="feedbackEntryType" required><option value="testimonial">Testimonial</option><option value="feedback">Feedback</option></select></label>
+          <label><span>Public display name</span><input id="feedbackDisplayName" type="text" minlength="2" maxlength="80" placeholder="Name customers will see" required></label>
+          <label class="wide"><span>Headline <small>(optional)</small></span><input id="feedbackHeadline" type="text" maxlength="120" placeholder="e.g. Fast delivery and great service"></label>
+        </div>
+        <div class="feedback-rating-field">
+          <span>Your rating</span>
+          <input id="feedbackRating" type="hidden" required>
+          <div class="feedback-rating-stars" id="feedbackRatingStars" role="radiogroup" aria-label="Rating out of 5">
+            <button type="button" data-feedback-rating="1" aria-label="1 star">★</button>
+            <button type="button" data-feedback-rating="2" aria-label="2 stars">★</button>
+            <button type="button" data-feedback-rating="3" aria-label="3 stars">★</button>
+            <button type="button" data-feedback-rating="4" aria-label="4 stars">★</button>
+            <button type="button" data-feedback-rating="5" aria-label="5 stars">★</button>
+          </div>
+        </div>
+        <label class="feedback-message-field"><span>Your experience</span><textarea id="feedbackMessage" rows="5" minlength="10" maxlength="1500" placeholder="Tell LEOGO and other customers about your experience…" required></textarea></label>
+        <div class="feedback-submit-note">Your submission is sent to LEOGO Admin for review. It is not public until approved.</div>
+        <div id="customerFeedbackStatus" class="service-review-status" aria-live="polite"></div>
+        <div class="service-review-actions"><button class="secondary" type="button" data-feedback-panel-target="public">View Approved Entries</button><button id="submitCustomerFeedback" type="submit">Send for Admin Approval</button></div>
+      </form>
+      <section class="feedback-own-section">
+        <div class="feedback-own-head"><strong>Your recent submissions</strong><small>Track Admin review status.</small></div>
+        <div id="customerOwnFeedbackList" class="feedback-own-list"><div class="feedback-own-empty">Sign in to view your submissions.</div></div>
+      </section>
+    </section>
+  </section>
+</div>
 <div class="service-review-modal" id="serviceReviewModal" role="dialog" aria-modal="true" aria-labelledby="serviceReviewModalTitle" aria-hidden="true">
   <div class="service-review-modal-backdrop" data-close-service-review></div>
   <section class="service-review-modal-card">
@@ -1407,5 +1460,5 @@
   </div>
 </section>
 <footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From Siaya to Everywhere.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=looking-request-v1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=stay-card-v3" defer></script><script src="js/cyber.js?v=delivery-rates-1" defer></script><script src="js/shipping-moq.js?v=shipping-moq-fixes-1" defer></script><script src="js/wallet.js?v=payment-routing-2" defer></script>
-<script src="js/loans.js?v=loan-v2-3" defer></script><script src="js/premium.js?v=customer-meetup-limit-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
+<script src="js/loans.js?v=loan-v2-3" defer></script><script src="js/feedback-testimonials.js?v=feedback-testimonials-v1" defer></script><script src="js/premium.js?v=customer-meetup-limit-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
 
