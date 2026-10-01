@@ -16,7 +16,27 @@ function ensureUI(){
  const nav=$('.admin-nav');if(nav&&!$('#openGroupOrderAdmin')){const b=document.createElement('button');b.id='openGroupOrderAdmin';b.type='button';b.innerHTML='<i>🌍</i><span>Group / Global Orders</span><em id="sidebarGroupOrderCount">0</em>';const orders=nav.querySelector('[data-admin-view="orders"]');orders?.insertAdjacentElement('afterend',b);if(!orders)nav.appendChild(b);}
  const main=$('.admin-main');if(main&&!$('#groupOrderAdminPanel')){const p=document.createElement('section');p.id='groupOrderAdminPanel';p.className='admin-panel shipping-moq-admin';p.dataset.adminPanel='group_orders';p.hidden=true;p.innerHTML='<div class="section-head"><div><span>ORDERS</span><h2>Group / Global Orders</h2><p>MOQ progress, held payments, shipment stages and refund resolution remain separate from ordinary completed sales.</p></div><button id="refreshAdminGroups" class="primary-button" type="button">↻ Refresh</button></div><div id="groupOrderAdminSummary" class="shipping-admin-summary"></div><div id="adminGroupOrderList" class="shipping-moq-list"><div class="shipping-moq-status">Loading campaigns…</div></div>';main.appendChild(p);}
  const settings=$('[data-settings-content="delivery"]')||$('[data-settings-content="fees"]');if(settings&&!$('#shippingDefaultsForm')){const f=document.createElement('form');f.id='shippingDefaultsForm';f.className='settings-form shipping-defaults-form';f.innerHTML='<div class="form-section-head"><div><span>🚚</span><div><h3>Default Product Shipping Estimates</h3><p>Fallbacks only. Seller product estimates override these values.</p></div></div><button type="submit">Save Shipping Defaults</button></div><div id="shippingDefaultsGrid" class="shipping-defaults-grid"></div><div id="shippingDefaultsStatus" class="form-status"></div>';settings.prepend(f);}
- $('#openGroupOrderAdmin')?.addEventListener('click',e=>{e.stopPropagation();$$('.admin-panel').forEach(x=>x.hidden=true);$('#groupOrderAdminPanel').hidden=false;loadGroups();});
+ $('#openGroupOrderAdmin')?.addEventListener('click',e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  $('.admin-panel').forEach(x=>{x.classList.remove('active');x.hidden=true;});
+  $('.admin-nav button').forEach(x=>x.classList.remove('active'));
+  const panel=$('#groupOrderAdminPanel');
+  const button=$('#openGroupOrderAdmin');
+  if(panel){panel.hidden=false;panel.classList.add('active');}
+  button?.classList.add('active');
+  if($('#adminPageTitle'))$('#adminPageTitle').textContent='Group / Global Orders';
+  if($('#adminBreadcrumb'))$('#adminBreadcrumb').textContent='ORDERS / MOQ';
+  $('#adminSidebar')?.classList.remove('open');
+  $('#sidebarScrim')?.classList.remove('open');
+  window.scrollTo({top:0,behavior:'smooth'});
+  loadGroups();
+ });
+ $('.admin-nav [data-admin-view]').forEach(button=>button.addEventListener('click',()=>{
+  $('#openGroupOrderAdmin')?.classList.remove('active');
+  const panel=$('#groupOrderAdminPanel');
+  if(panel){panel.classList.remove('active');panel.hidden=true;}
+ }));
  $('#refreshAdminGroups')?.addEventListener('click',loadGroups);
  $('#shippingDefaultsForm')?.addEventListener('submit',saveDefaults);
 }
