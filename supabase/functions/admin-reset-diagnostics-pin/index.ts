@@ -77,6 +77,10 @@ Deno.serve(async(req:Request)=>{
     return json({ok:false,error:"Super Admin password is incorrect."},401);
   }
 
+  // The password check creates a short-lived Auth session. Revoke it immediately;
+  // it exists only to prove the password for this PIN reset.
+  await verifier.auth.signOut({scope:"local"}).catch(()=>{});
+
   const {data:reset,error:resetError}=await admin.rpc(
     "service_reset_system_diagnostics_pin",
     {p_user_id:caller.id,p_new_pin:newPin}
