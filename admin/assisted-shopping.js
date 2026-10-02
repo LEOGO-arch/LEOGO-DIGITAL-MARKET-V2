@@ -25,6 +25,8 @@
   let rows=[];
   let active=null;
   let riders=[];
+  let assignableStaff=[];
+  let assignments=[];
   let assistedSettings={service_fee_percent:5};
 
   const statusBox=$('#assistedShoppingAdminStatus');
@@ -58,6 +60,8 @@
   }[status]||String(status||'').replaceAll('_',' '));
 
   const attentionStatuses=new Set(['submitted','changes_requested','payment_submitted','preparing','ready_for_dispatch']);
+  const assignmentFor=(requestId)=>assignments.find((item)=>String(item.request_id)===String(requestId))||null;
+  const staffFor=(userId)=>assignableStaff.find((item)=>String(item.user_id)===String(userId))||null;
 
   const updateCounts=()=>{
     const newCount=rows.filter((row)=>['submitted','changes_requested'].includes(row.status)).length;
@@ -123,16 +127,19 @@
           '<span><small>Payment</small><strong>'+escapeHtml(String(row.payment_status||'not required').replaceAll('_',' '))+'</strong></span>'+
         '</div>'+
         '<p>'+escapeHtml(itemSummary||'Shopping List')+'</p>'+
-        '<footer><button type="button" data-open-assisted-admin="'+escapeHtml(row.id)+'">'+(row.status==='submitted'||row.status==='changes_requested'?'Prepare Shopping List':'Open / Manage')+'</button></footer>'+
+        '<div class="assisted-admin-card-assignment"><small>Assigned Staff</small><strong>'+escapeHtml(assignmentFor(row.id)?.staff_name||'Not assigned')+'</strong></div>'+
+        '<footer><button type="button" class="secondary" data-download-assisted-admin="'+escapeHtml(row.id)+'">⬇ Download PDF</button><button type="button" data-open-assisted-admin="'+escapeHtml(row.id)+'">'+(row.status==='submitted'||row.status==='changes_requested'?'Prepare Shopping List':'Open / Manage')+'</button></footer>'+
       '</article>';
     }).join('');
   };
 
   const load=async({silent=false}={})=>{
     if(!silent)setStatus(statusBox,'Loading Assisted Shopping requests…');
-    const [requestsResult,ridersResult]=await Promise.all([
+    const [requestsResult,ridersResult,staffResult,assignmentsResult]=await Promise.all([
       db.rpc('admin_list_assisted_shopping_requests'),
-      db.rpc('admin_list_riders')
+      db.rpc('admin_list_riders'),
+      db.rpc('admin_list_assisted_shopping_staff'),
+      db.rpc('admin_list_assisted_shopping_assignments')
     ]);
     if(requestsResult.error){
       rows=[];
@@ -142,6 +149,8 @@
     }
     rows=Array.isArray(requestsResult.data)?requestsResult.data:[];
     riders=!ridersResult.error&&Array.isArray(ridersResult.data)?ridersResult.data:[];
+    assignableStaff=!staffResult.error&&Array.isArray(staffResult.data)?staffResult.data:[];
+    assignments=!assignmentsResult.error&&Array.isArray(assignmentsResult.data)?assignmentsResult.data:[];
     render();
     if(!silent)setStatus(statusBox,'Assisted Shopping requests are up to date.','success');
   };
@@ -226,6 +235,16 @@
       '<span><small>Budget</small><strong>'+(active.budget_kes!=null?money(active.budget_kes):'Not set')+'</strong><em>Substitution: '+escapeHtml(String(active.substitution_policy||'').replaceAll('_',' '))+'</em></span>'+
       '<span><small>Preferred</small><strong>'+escapeHtml(active.preferred_delivery_date?formatDate(active.preferred_delivery_date):'Flexible')+'</strong><em>'+escapeHtml(active.preferred_delivery_time||'')+'</em></span>';
 
+    const currentAssignment=assignmentFor(active.id);
+    const assignmentSelect=$('#assistedAdminAssignedStaffSelect');
+    assignmentSelect.innerHTML='<option value="">No staff assigned</option>'+assignableStaff.map((item)=>
+      '<option value="'+escapeHtml(item.user_id)+'">'+escapeHtml(item.display_name)+' · '+escapeHtml(String(item.staff_role||'staff').replaceAll('_',' '))+(item.phone?' · '+escapeHtml(item.phone):'')+'</option>'
+    ).join('');
+    assignmentSelect.value=currentAssignment?.staff_user_id||'';
+    setStatus($('#assistedAdminAssignmentStatus'),currentAssignment
+      ? 'Assigned to '+currentAssignment.staff_name+' · '+String(currentAssignment.staff_role||'staff').replaceAll('_',' ')
+      : 'No LEOGO staff member is currently assigned.');
+
     $('#assistedAdminOriginalList').innerHTML=active.written_list
       ? '<small>CUSTOMER SHOPPING LIST</small><pre>'+escapeHtml(active.written_list)+'</pre>'
       : '<small>CUSTOMER SHOPPING LIST</small><p>Customer submitted files without a written list.</p>';
@@ -296,6 +315,48 @@
     }finally{
       button.disabled=false;
       button.textContent=original;
+    }
+  };
+
+  const saveStaffAssignment=async()=>{
+    if(!active)return;
+    const button=$('#saveAssistedStaffAssignment');
+    const selected=$('#assistedAdminAssignedStaffSelect')?.value||'';
+    const original=button?.textContent||'Save Assignment';
+    if(button){button.disabled=true;button.textContent='Saving…';}
+    try{
+      const {data,error}=await db.rpc('admin_assign_assisted_shopping_staff',{
+        p_request_id:active.id,
+        p_staff_user_id:selected||null
+      });
+      if(error)throw error;
+      await load({silent:true});
+      const fresh=rowById(active.id);
+      if(fresh)active=fresh;
+      const assignment=assignmentFor(active.id);
+      setStatus($('#assistedAdminAssignmentStatus'),assignment
+        ? 'Assigned to '+assignment.staff_name+'. This staff member can now securely download the Shopping List and attachments.'
+        : 'Staff assignment removed. Only authorized Admin can access this Shopping List.','success');
+      $('#assistedAdminAssignedStaffSelect').value=assignment?.staff_user_id||'';
+      return data;
+    }catch(error){
+      setStatus($('#assistedAdminAssignmentStatus'),error?.message||'Staff assignment could not be saved.','error');
+      return null;
+    }finally{
+      if(button){button.disabled=false;button.textContent=original;}
+    }
+  };
+
+  const downloadPdf=(row)=>{
+    if(!row)return;
+    const assignment=assignmentFor(row.id);
+    try{
+      window.leogoAssistedShoppingPdf?.download(row,{
+        assignedStaffName:assignment?.staff_name||''
+      });
+      if(!window.leogoAssistedShoppingPdf)throw new Error('Shopping List PDF generator is not available yet.');
+    }catch(error){
+      setStatus(modalStatus,error?.message||'Shopping List PDF could not be created.','error');
     }
   };
 
@@ -400,6 +461,11 @@
   filter?.addEventListener('change',render);
 
   list.addEventListener('click',(event)=>{
+    const downloadButton=event.target.closest?.('[data-download-assisted-admin]');
+    if(downloadButton){
+      downloadPdf(rowById(downloadButton.dataset.downloadAssistedAdmin));
+      return;
+    }
     const button=event.target.closest?.('[data-open-assisted-admin]');
     if(button)openModal(button.dataset.openAssistedAdmin).catch(()=>{});
   });
@@ -414,6 +480,8 @@
     if(remove)remove.closest('.assisted-admin-quote-row')?.remove();
   });
   $('#saveAssistedQuote')?.addEventListener('click',(event)=>saveQuote(event.currentTarget));
+  $('#saveAssistedStaffAssignment')?.addEventListener('click',()=>saveStaffAssignment());
+  $('#downloadAssistedShoppingPdf')?.addEventListener('click',()=>downloadPdf(active));
 
   modal.addEventListener('click',(event)=>{
     if(event.target.closest?.('[data-close-assisted-admin]')){closeModal();return;}
