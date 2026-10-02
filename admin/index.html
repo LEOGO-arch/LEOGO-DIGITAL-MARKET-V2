@@ -1183,8 +1183,9 @@
                 </div>
                 <div class="staff-role-description" id="staffRoleDescription"></div>
                 <div class="staff-permission-section">
-                  <div class="staff-permission-head"><div><strong>Permissions</strong><small>Role defaults are selected automatically. Super Admin can customise them before account creation.</small></div><button id="resetStaffPermissions" type="button">Reset to Role Defaults</button></div>
+                  <div class="staff-permission-head"><div><strong>Admin Responsibilities &amp; Permissions</strong><small>Every assignable Admin responsibility is listed below. Role defaults are selected automatically, and Super Admin can customise them before account creation.</small></div><div class="staff-permission-actions"><button id="selectAllStaffPermissions" type="button">Select All Assignable</button><button id="clearStaffPermissions" type="button">Clear</button><button id="resetStaffPermissions" type="button">Reset to Role Defaults</button></div></div>
                   <div id="staffPermissionGrid" class="staff-permission-grid"></div>
+                  <div class="staff-owner-only-note"><span>🔒</span><div><strong>Owner-only controls</strong><small>Creating/managing Admin staff accounts, opening private staff ID/passport documents, changing the Super Admin account, and the full Audit Log remain Super Admin-only. These are intentionally not delegable from this permission checklist.</small></div></div>
                 </div>
               </div>
 
@@ -1261,8 +1262,9 @@
             </div>
 
             <div id="staffEditorPermissionSection" class="staff-permission-section">
-              <div class="staff-permission-head"><div><strong>Permissions</strong><small>Changes take effect the next time the staff member opens or refreshes Admin Center.</small></div><button id="resetEditorPermissions" type="button">Reset to Role Defaults</button></div>
+              <div class="staff-permission-head"><div><strong>Admin Responsibilities &amp; Permissions</strong><small>Assign only the responsibilities this staff member needs. Changes take effect on the next Admin Center refresh.</small></div><div class="staff-permission-actions"><button id="selectAllEditorPermissions" type="button">Select All Assignable</button><button id="clearEditorPermissions" type="button">Clear</button><button id="resetEditorPermissions" type="button">Reset to Role Defaults</button></div></div>
               <div id="staffEditorPermissionGrid" class="staff-permission-grid"></div>
+              <div class="staff-owner-only-note"><span>🔒</span><div><strong>Owner-only controls</strong><small>Staff Management, protected staff documents, Super Admin security and the full Audit Log remain restricted to the Super Admin account.</small></div></div>
             </div>
             <div id="staffAccessStatus" class="form-status" aria-live="polite"></div>
             <div class="staff-editor-actions"><button id="saveStaffAccess" class="primary-button" type="submit">Save Staff Access</button></div>
