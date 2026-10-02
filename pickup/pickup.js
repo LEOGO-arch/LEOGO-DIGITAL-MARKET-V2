@@ -151,7 +151,7 @@ const renderParcels=()=>{
   $('#parcelList').innerHTML=rows.length?rows.map(p=>`
     <article class="parcel-row">
       <header><div><strong>${esc(p.order_reference)}</strong><p>${esc(p.customer_name)} · ${esc(p.customer_phone)}</p></div><span class="pill ${esc(p.parcel_status)}">${esc(parcelStatusLabel(p.parcel_status))}</span></header>
-      <p><b>Items:</b> ${esc(p.item_summary)}<br><b>Seller:</b> ${esc(p.seller_names)}<br><b>Payment:</b> ${esc(paymentLabel(p.payment_status))} · <b>Total:</b> ${esc(money(p.grand_total_kes))}</p>
+      <p><b>Items:</b> ${esc(p.item_summary)}<br><b>Seller:</b> ${esc(p.seller_names)}<br><b>Payment:</b> ${esc(paymentLabel(p.payment_status))} · <b>Total:</b> ${esc(money(p.grand_total_kes))}${Number(p.reward_points_redeemed_kes||0)>0?' · <b>Points:</b> '+esc(money(p.reward_points_redeemed_kes))+' · <b>Other payment:</b> '+esc(money(p.external_amount_due_kes)):''}</p>
       <small>Booked ${esc(fmt(p.booked_at))}${p.arrived_at?' · Rider delivered '+esc(fmt(p.arrived_at)):''}${p.received_at?' · Station received '+esc(fmt(p.received_at)):''}${p.handed_over_at?' · Collected '+esc(fmt(p.handed_over_at)):''}</small>
       ${p.parcel_status==='arrived_pending_receipt'?'<div class="arrival-pending-note"><strong>⚠ Pending Arrival Receipt</strong><span>The Rider has delivered this parcel. Confirm physical receipt with a parcel photo before it becomes Ready for Collection.</span></div>':''}
       <div class="parcel-actions">
@@ -395,7 +395,7 @@ const loadDashboard=async()=>{
   }
   $('#assignmentGate').hidden=true;$('#portal').hidden=false;renderDashboard();return true;
 };
-const loadParcels=async()=>{const {data,error}=await client.rpc('pickup_partner_list_parcels');if(error)throw error;parcels=data||[];renderParcels();};
+const loadParcels=async()=>{const {data,error}=await client.rpc('pickup_partner_list_parcels_v2');if(error)throw error;parcels=data||[];renderParcels();};
 const loadReturns=async()=>{const {data,error}=await client.rpc('pickup_partner_list_returns');if(error)throw error;returns=data||[];renderReturns();};
 const loadWithdrawals=async()=>{const {data,error}=await client.rpc('pickup_partner_list_withdrawals');if(error)throw error;withdrawals=data||[];renderWithdrawals();};
 const loadHistory=async()=>{
@@ -419,7 +419,7 @@ const lookupParcel=async(code)=>{
   const items=Array.isArray(data?.items)?data.items:[];
   target.innerHTML=`<h3>${esc(data.order_reference)}</h3>
     <p><b>Status:</b> ${esc(parcelStatusLabel(data.parcel_status))}<br><b>Customer:</b> ${esc(data.customer_name)} · ${esc(data.customer_phone)}<br>
-    <b>Payment:</b> ${esc(paymentLabel(data.payment_status))} · <b>Total:</b> ${esc(money(data.grand_total_kes))}</p>
+    <b>Payment:</b> ${esc(paymentLabel(data.payment_status))} · <b>Total:</b> ${esc(money(data.grand_total_kes))}${Number(data.reward_points_redeemed_kes||0)>0?' · <b>Points used:</b> '+esc(money(data.reward_points_redeemed_kes))+' · <b>Other payment:</b> '+esc(money(data.external_amount_due_kes)):''}</p>
     <p><b>Items:</b> ${items.map(i=>esc(i.name)+(i.variant?' — '+esc(i.variant):'')+' ×'+Number(i.quantity||1)).join(', ')||'—'}</p>
     <small>Booked ${esc(fmt(data.booked_at))}${data.arrived_at?' · Rider delivered '+esc(fmt(data.arrived_at)):''}${data.received_at?' · Station received '+esc(fmt(data.received_at)):''}${data.handed_over_at?' · Handed over '+esc(fmt(data.handed_over_at)):''}</small>`;
   return data;
@@ -449,7 +449,7 @@ const runParcelAction=async(mode,code,notes='',photoFile=null,customerIdNumber='
   const cleanId=String(customerIdNumber||'').trim();
   if(mode==='handover'&&cleanId.length<4)throw new Error('Enter the customer ID number before handing over the parcel.');
 
-  const cod=p.payment_status==='cod_due'? '\n\nCOD ORDER: Collect '+money(p.grand_total_kes)+' before handing over.' : '';
+  const cod=p.payment_status==='cod_due'? '\n\nCOD ORDER: Collect '+money(p.external_amount_due_kes??p.grand_total_kes)+' before handing over.'+(Number(p.reward_points_redeemed_kes||0)>0?' LEOGO Points already covered '+money(p.reward_points_redeemed_kes)+'.':'') : '';
   const message=mode==='receive'
     ? 'Confirm receipt of '+p.order_reference+' for '+p.customer_name+' at this Pickup Station? The parcel photo will be saved as receiving evidence.'
     : 'Confirm you are handing '+p.order_reference+' to '+p.customer_name+'? The customer ID number and handover photo will be saved as collection evidence.'+cod;

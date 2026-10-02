@@ -1033,6 +1033,7 @@
   let deliveryRateSettings = { cbd_fee_kes:50, estate_fee_kes:80, outside_town_fee_kes:200, standard_max_weight_kg:50, standard_max_area_sqm:1, rate_note:'' };
   let orderSettings = { cod_limit_kes:10000, service_fee_threshold_kes:3000, service_fee_below_percent:2, service_fee_at_or_above_percent:1.5 };
   let lipaPolePoleSettings = { cancellation_deduction_percent:25, overdue_refund_deduction_percent:25, overdue_interest_percent:5, reminder_days_before_due:3 };
+  let checkoutRewardPointsBalance = 0;
   let updateCheckoutReadiness = () => {};
   const deliveryMoney=(value)=>'KSh '+Number(value||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 
@@ -1209,6 +1210,28 @@
   };
   checkoutCounty?.addEventListener('change', populateCheckoutSubCounties);
 
+  function updateCheckoutPointsTotals() {
+    const total=Number(checkoutShell?.dataset.checkoutGrandTotal||0);
+    const usePoints=Boolean(document.getElementById('checkoutUsePoints')?.checked);
+    const applied=usePoints?Math.min(Math.max(0,checkoutRewardPointsBalance),Math.max(0,total)):0;
+    const due=Math.max(0,total-applied);
+    if(checkoutShell){
+      checkoutShell.dataset.checkoutPointsApplied=String(applied);
+      checkoutShell.dataset.checkoutExternalAmountDue=String(due);
+    }
+    const appliedNode=document.getElementById('checkoutPointsApplied');
+    const dueNode=document.getElementById('checkoutAmountDue');
+    const paymentPoints=document.getElementById('paymentPointsUsed');
+    const paymentDue=document.getElementById('paymentAmountDue');
+    const panel=document.getElementById('checkoutPointsPanel');
+    if(appliedNode)appliedNode.textContent=deliveryMoney(applied);
+    if(dueNode)dueNode.textContent=deliveryMoney(due);
+    if(paymentPoints)paymentPoints.textContent=deliveryMoney(applied);
+    if(paymentDue)paymentDue.textContent=deliveryMoney(due);
+    panel?.classList.toggle('is-active',applied>0);
+    panel?.classList.toggle('is-covered',total>0&&due<=0&&applied>0);
+  }
+
   function updateCheckoutFees() {
     const subtotal = Number(checkoutShell?.dataset.checkoutSubtotal || 0);
     const serviceRate = checkoutServiceRateFor(subtotal);
@@ -1230,11 +1253,16 @@
     if (checkoutPickupFeeRate) checkoutPickupFeeRate.textContent = '(' + pickupRate.toLocaleString() + '%)';
     if (checkoutPickupFeeValue) checkoutPickupFeeValue.textContent = 'KSh ' + Math.round(pickupFee).toLocaleString();
     if (checkoutDeliveryFeeValue) checkoutDeliveryFeeValue.textContent = delivery?.label || 'Select zone';
+    const grandTotal=delivery?.amount===null
+      ? null
+      : Math.round((subtotal + serviceFee + pickupFee + (delivery?.amount || 0))*100)/100;
+    if(checkoutShell)checkoutShell.dataset.checkoutGrandTotal=grandTotal===null?'0':String(grandTotal);
     if (checkoutGrandTotalValue) {
-      checkoutGrandTotalValue.textContent = delivery?.amount === null
+      checkoutGrandTotalValue.textContent = grandTotal===null
         ? 'Pending quote'
-        : 'KSh ' + Math.round(subtotal + serviceFee + pickupFee + (delivery?.amount || 0)).toLocaleString();
+        : deliveryMoney(grandTotal);
     }
+    updateCheckoutPointsTotals();
   }
   checkoutDeliveryZone?.addEventListener('change', () => {
     const isPickup = checkoutDeliveryZone.value === 'pickup';
@@ -1303,6 +1331,8 @@
   const markPaymentPaidLabel = document.getElementById('markPaymentPaidLabel');
   const paymentStepStatus = document.getElementById('paymentStepStatus');
   const paymentOrderTotal = document.getElementById('paymentOrderTotal');
+  const checkoutUsePoints = document.getElementById('checkoutUsePoints');
+  const checkoutPointsAvailable = document.getElementById('checkoutPointsAvailable');
   const selectedPaymentLabel = document.getElementById('selectedPaymentLabel');
   const selectedPaymentStatus = document.getElementById('selectedPaymentStatus');
   const makeCheckoutOrder = document.getElementById('makeCheckoutOrder');
@@ -1326,6 +1356,107 @@
 
   const checkoutTotalText = () => checkoutGrandTotalValue?.textContent || 'KSh 0';
   const checkoutSubtotal = () => Number(checkoutShell?.dataset.checkoutSubtotal || 0);
+  const checkoutGrandTotalNumber = () => Number(checkoutShell?.dataset.checkoutGrandTotal || 0);
+  const checkoutPointsAppliedNumber = () => Number(checkoutShell?.dataset.checkoutPointsApplied || 0);
+  const checkoutExternalAmountDueNumber = () => Number(checkoutShell?.dataset.checkoutExternalAmountDue || checkoutGrandTotalNumber());
+
+  const loadCheckoutRewardPoints = async () => {
+    if (!window.leogoAuth?.isAuthenticated?.() || !window.leogoAuth?.client) {
+      checkoutRewardPointsBalance=0;
+      if(checkoutUsePoints){
+        checkoutUsePoints.checked=false;
+        checkoutUsePoints.disabled=true;
+      }
+      if(checkoutPointsAvailable)checkoutPointsAvailable.textContent='Sign in to load your LEOGO Points.';
+      updateCheckoutPointsTotals();
+      syncSelectedPaymentPresentation();
+      return 0;
+    }
+
+    if(checkoutPointsAvailable)checkoutPointsAvailable.textContent='Loading your LEOGO Points…';
+    const {data,error}=await window.leogoAuth.client.rpc('get_my_reward_points_balance');
+    if(error||!data?.success){
+      checkoutRewardPointsBalance=0;
+      if(checkoutUsePoints){
+        checkoutUsePoints.checked=false;
+        checkoutUsePoints.disabled=true;
+      }
+      if(checkoutPointsAvailable)checkoutPointsAvailable.textContent='Points could not be loaded. Refresh and try again.';
+      updateCheckoutPointsTotals();
+      syncSelectedPaymentPresentation();
+      return 0;
+    }
+
+    checkoutRewardPointsBalance=Math.max(0,Number(data.points_value_kes??data.points??0));
+    if(checkoutUsePoints)checkoutUsePoints.disabled=checkoutRewardPointsBalance<=0;
+    if(checkoutPointsAvailable){
+      checkoutPointsAvailable.textContent=checkoutRewardPointsBalance>0
+        ? Number(checkoutRewardPointsBalance).toLocaleString('en-KE',{maximumFractionDigits:2})+' points · worth '+deliveryMoney(checkoutRewardPointsBalance)
+        : 'You do not have usable LEOGO Points yet.';
+    }
+    updateCheckoutPointsTotals();
+    syncSelectedPaymentPresentation();
+    return checkoutRewardPointsBalance;
+  };
+
+  function syncSelectedPaymentPresentation() {
+    const due=checkoutExternalAmountDueNumber();
+    const fullyCovered=checkoutPointsAppliedNumber()>0 && checkoutGrandTotalNumber()>0 && due<=0;
+
+    if(fullyCovered){
+      if(lppDepositForm)lppDepositForm.hidden=true;
+      if(walletCheckoutPanel)walletCheckoutPanel.hidden=true;
+      if(standardPaymentProof)standardPaymentProof.hidden=true;
+      if(standardPaymentActions)standardPaymentActions.hidden=false;
+      if(selectedPaymentLabel)selectedPaymentLabel.textContent='LEOGO Points';
+      if(selectedPaymentStatus)selectedPaymentStatus.textContent='Fully covered by points';
+      if(paymentStepStatus)paymentStepStatus.textContent='Your LEOGO Points cover the full order. No additional payment is required.';
+      return;
+    }
+
+    if(!selectedCheckoutPayment){
+      if(lppDepositForm)lppDepositForm.hidden=true;
+      if(walletCheckoutPanel)walletCheckoutPanel.hidden=true;
+      if(standardPaymentProof)standardPaymentProof.hidden=false;
+      if(standardPaymentActions)standardPaymentActions.hidden=false;
+      if(selectedPaymentLabel)selectedPaymentLabel.textContent='Not selected';
+      if(selectedPaymentStatus)selectedPaymentStatus.textContent='Waiting';
+      return;
+    }
+
+    const labels={till:'M-Pesa Till',paybill:'M-Pesa Paybill',cod:'Cash on Delivery',lipapolepole:'Lipa Pole Pole',wallet:'LEOGO Savings Wallet'};
+    if(selectedPaymentLabel)selectedPaymentLabel.textContent=labels[selectedCheckoutPayment]||selectedCheckoutPayment;
+    if(selectedPaymentStatus)selectedPaymentStatus.textContent=checkoutPointsAppliedNumber()>0
+      ? 'Points applied · remaining payment pending'
+      : 'Waiting for confirmation';
+
+    const isLipaPolePole=selectedCheckoutPayment==='lipapolepole';
+    const isWallet=selectedCheckoutPayment==='wallet';
+    if(lppDepositForm)lppDepositForm.hidden=!isLipaPolePole;
+    if(walletCheckoutPanel)walletCheckoutPanel.hidden=!isWallet;
+    if(standardPaymentProof)standardPaymentProof.hidden=isLipaPolePole||isWallet;
+    if(standardPaymentActions)standardPaymentActions.hidden=isLipaPolePole||isWallet;
+
+    if(isLipaPolePole){
+      openLppDepositForm();
+    }else if(isWallet){
+      const walletOrderTotal=document.getElementById('walletCheckoutOrderTotal');
+      if(walletOrderTotal)walletOrderTotal.textContent=deliveryMoney(due);
+    }else if(selectedCheckoutPayment==='cod'){
+      paymentProofLabel.textContent='Paste M-Pesa message for the Transport & Parcel Delivery fee';
+      markPaymentPaidLabel.textContent=checkoutPointsAppliedNumber()>0
+        ? 'I confirm that I paid the required delivery fee first. LEOGO Points have been applied and I will pay the remaining COD amount on delivery.'
+        : 'I confirm that I paid the Transport & Parcel Delivery fee first. I will pay the order balance in cash on delivery.';
+    }else{
+      const destinationNumber=window.leogoPayments?.paymentNumber(marketplacePaymentDestination)||'';
+      paymentProofLabel.textContent=destinationNumber
+        ? 'Paste M-Pesa payment message after paying '+destinationNumber
+        : 'Paste M-Pesa payment message';
+      markPaymentPaidLabel.textContent=checkoutPointsAppliedNumber()>0
+        ? 'I confirm that I paid the remaining '+deliveryMoney(due)+' after my LEOGO Points were applied.'
+        : 'I confirm that I prepaid this order to the Admin-assigned payment account and want to mark the payment as paid.';
+    }
+  }
 
   const clearUnavailableMarketplaceSelection = () => {
     if (!['till','paybill'].includes(selectedCheckoutPayment)) return;
@@ -1424,6 +1555,8 @@
     checkoutPaymentStep.classList.toggle('active', payment);
     if (payment) {
       paymentOrderTotal.textContent = checkoutTotalText();
+      updateCheckoutPointsTotals();
+      syncSelectedPaymentPresentation();
       updateCashOnDeliveryAvailability();
     }
   };
@@ -1478,7 +1611,10 @@
       return;
     }
     showCheckoutStep('payment');
-    await loadMarketplacePaymentDestination(true);
+    await Promise.all([
+      loadMarketplacePaymentDestination(true),
+      loadCheckoutRewardPoints()
+    ]);
   });
   backToCheckoutDetails?.addEventListener('click', () => showCheckoutStep('details'));
 
@@ -1490,32 +1626,14 @@
       }
       selectedCheckoutPayment = button.dataset.paymentMethod;
       paymentMethodButtons.forEach((item) => item.classList.toggle('active', item === button));
-      const labels = { till: 'M-Pesa Till', paybill: 'M-Pesa Paybill', cod: 'Cash on Delivery', lipapolepole: 'Lipa Pole Pole', wallet: 'LEOGO Savings Wallet' };
-      selectedPaymentLabel.textContent = labels[selectedCheckoutPayment];
-      selectedPaymentStatus.textContent = 'Waiting for confirmation';
       paymentStepStatus.textContent = '';
-      const isLipaPolePole = selectedCheckoutPayment === 'lipapolepole';
-      const isWallet = selectedCheckoutPayment === 'wallet';
-      if (lppDepositForm) lppDepositForm.hidden = !isLipaPolePole;
-      if (walletCheckoutPanel) walletCheckoutPanel.hidden = !isWallet;
-      if (standardPaymentProof) standardPaymentProof.hidden = isLipaPolePole || isWallet;
-      if (standardPaymentActions) standardPaymentActions.hidden = isLipaPolePole || isWallet;
-      if (isLipaPolePole) {
-        openLppDepositForm();
-      } else if (isWallet) {
-        const walletOrderTotal = document.getElementById('walletCheckoutOrderTotal');
-        if (walletOrderTotal) walletOrderTotal.textContent = checkoutTotalText();
-      } else if (selectedCheckoutPayment === 'cod') {
-        paymentProofLabel.textContent = 'Paste M-Pesa message for the Transport & Parcel Delivery fee';
-        markPaymentPaidLabel.textContent = 'I confirm that I paid the Transport & Parcel Delivery fee first. I will pay the order balance in cash on delivery.';
-      } else {
-        const destinationNumber = window.leogoPayments?.paymentNumber(marketplacePaymentDestination) || '';
-        paymentProofLabel.textContent = destinationNumber
-          ? `Paste M-Pesa payment message after paying ${destinationNumber}`
-          : 'Paste M-Pesa payment message';
-        markPaymentPaidLabel.textContent = 'I confirm that I prepaid this order to the Admin-assigned payment account and want to mark the payment as paid.';
-      }
+      syncSelectedPaymentPresentation();
     });
+  });
+
+  checkoutUsePoints?.addEventListener('change',()=>{
+    updateCheckoutPointsTotals();
+    syncSelectedPaymentPresentation();
   });
 
   copyCheckoutPaymentDestination?.addEventListener('click', async () => {
@@ -1532,6 +1650,8 @@
 
   makeCheckoutOrder?.addEventListener('click', async () => {
     paymentStepStatus.textContent = '';
+    updateCheckoutPointsTotals();
+
     if (!testCart.length) {
       paymentStepStatus.textContent = 'Your cart is empty. Add a Seller product before making an order.';
       return;
@@ -1540,26 +1660,32 @@
       window.leogoAuth?.requireLogin?.('Please sign in before placing your order.');
       return;
     }
-    if (!selectedCheckoutPayment) {
-      paymentStepStatus.textContent = 'Select a payment method before making the order.';
+
+    const usePoints=Boolean(checkoutUsePoints?.checked);
+    const previewDue=checkoutExternalAmountDueNumber();
+    const fullyCoveredByPoints=usePoints && checkoutPointsAppliedNumber()>0 && checkoutGrandTotalNumber()>0 && previewDue<=0;
+
+    if (!fullyCoveredByPoints && !selectedCheckoutPayment) {
+      paymentStepStatus.textContent = 'Select a payment method for the remaining amount.';
       return;
     }
-    if (!['till','paybill','cod'].includes(selectedCheckoutPayment)) {
-      paymentStepStatus.textContent = 'This payment method is not yet connected to Seller marketplace order creation. Use Till, Paybill or Cash on Delivery.';
+    if (!fullyCoveredByPoints && !['till','paybill','cod'].includes(selectedCheckoutPayment)) {
+      paymentStepStatus.textContent = 'For the remaining amount, use Till, Paybill or Cash on Delivery.';
       return;
     }
-    if (!mpesaPaymentMessage.value.trim()) {
+    if (!fullyCoveredByPoints && !mpesaPaymentMessage.value.trim()) {
       paymentStepStatus.textContent = selectedCheckoutPayment === 'cod'
         ? 'Paste the M-Pesa confirmation for the Transport & Parcel Delivery fee.'
-        : 'Paste the complete M-Pesa payment confirmation message.';
+        : 'Paste the complete M-Pesa payment confirmation message for the remaining amount.';
       mpesaPaymentMessage.focus();
       return;
     }
-    if (!markPaymentPaid.checked) {
+    if (!fullyCoveredByPoints && !markPaymentPaid.checked) {
       paymentStepStatus.textContent = 'Tick the payment confirmation box before making the order.';
       markPaymentPaid.focus();
       return;
     }
+
     const unsupported = testCart.find(item => !item.productId || !item.sellerId);
     if (unsupported) {
       paymentStepStatus.textContent = 'Your cart contains an old preview item. Remove it and add the current Seller product again.';
@@ -1570,10 +1696,13 @@
     const original = button.textContent;
     button.disabled = true;
     button.textContent = 'Creating Order…';
-    paymentStepStatus.textContent = 'Creating your order and sending it to the Seller…';
+    paymentStepStatus.textContent = usePoints
+      ? 'Securing your LEOGO Points and creating the order…'
+      : 'Creating your order and sending it to the Seller…';
+
     try {
       const pickupStation = checkoutDeliveryZone?.value === 'pickup' ? selectedPickupStation() : null;
-      const { data, error } = await window.leogoAuth.client.rpc('customer_create_marketplace_order', {
+      const { data, error } = await window.leogoAuth.client.rpc('customer_create_marketplace_order_v2', {
         p_items: testCart.map(item => ({ product_id: item.productId, variant_id: item.variantId || null, quantity: item.quantity })),
         p_receiver_name: document.getElementById('checkoutReceiverName')?.value.trim(),
         p_contact_number: document.getElementById('checkoutContactNumber')?.value.trim(),
@@ -1584,22 +1713,44 @@
         p_landmark: document.getElementById('checkoutLandmark')?.value.trim() || null,
         p_location_link: document.getElementById('checkoutLocationLink')?.value.trim() || null,
         p_pickup_station_id: pickupStation?.id || null,
-        p_payment_method: selectedCheckoutPayment,
-        p_payment_message: mpesaPaymentMessage.value.trim()
+        p_payment_method: fullyCoveredByPoints ? null : selectedCheckoutPayment,
+        p_payment_message: fullyCoveredByPoints ? null : mpesaPaymentMessage.value.trim(),
+        p_use_reward_points: usePoints
       });
       if (error) throw error;
+
       previewOrderReference = data?.order_reference || '';
       createdOrderReference.textContent = previewOrderReference;
-      selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod' ? 'COD — payment due on delivery' : 'Payment submitted — awaiting Admin verification';
+
+      const actualPoints=Number(data?.reward_points_redeemed_kes||0);
+      const actualDue=Number(data?.external_amount_due_kes??data?.grand_total_kes??0);
+      if(actualDue<=0&&actualPoints>0){
+        selectedPaymentLabel.textContent='LEOGO Points';
+        selectedPaymentStatus.textContent='Paid fully with LEOGO Points';
+        paymentStepStatus.textContent='Order created successfully. '+deliveryMoney(actualPoints)+' in LEOGO Points covered the full order.';
+      }else{
+        selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod'
+          ? 'COD — '+deliveryMoney(actualDue)+' remaining'
+          : 'Payment submitted — '+deliveryMoney(actualDue)+' awaiting Admin verification';
+        paymentStepStatus.textContent = actualPoints>0
+          ? 'Order created successfully. '+deliveryMoney(actualPoints)+' in LEOGO Points was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
+          : 'Order created successfully and sent to the Seller.';
+      }
+
       orderCreatedPanel.hidden = false;
-      paymentStepStatus.textContent = 'Order created successfully and sent to the Seller.';
       testCart = [];
       saveTestCart();
+      if(checkoutUsePoints)checkoutUsePoints.checked=false;
       renderTestCart();
-      await loadCustomerMarketplaceOrders();
+      await Promise.all([
+        loadCustomerMarketplaceOrders(),
+        loadCheckoutRewardPoints()
+      ]);
+      window.dispatchEvent(new CustomEvent('leogo:walletrefresh'));
       orderCreatedPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (error) {
       paymentStepStatus.textContent = error?.message || 'Order could not be created. Please try again.';
+      await loadCheckoutRewardPoints().catch(()=>{});
     } finally {
       button.disabled = false;
       button.textContent = original;
@@ -3107,10 +3258,21 @@
     cancelled:'Cancelled'
   }[status] || String(status || '').replaceAll('_',' '));
 
+  const customerPointsOrderSummaryHtml=(order)=>{
+    const points=Number(order?.reward_points_redeemed_kes||0);
+    if(points<=0)return '';
+    const due=Number(order?.external_amount_due_kes??Math.max(0,Number(order?.grand_total_kes||0)-points));
+    return '<div class="customer-order-points-summary"><span><small>LEOGO Points used</small><strong>'+money(points)+'</strong></span><span><small>Other payment amount</small><strong>'+money(due)+'</strong></span></div>';
+  };
+
   const customerOrderHistory = (order) => {
     const events = [];
     const add=(label,at,detail='')=>{ if(at) events.push({label,at,detail}); };
     add('Order placed',order.created_at,'Order '+order.order_reference+' was created.');
+    if(Number(order.reward_points_redeemed_kes||0)>0){
+      add('LEOGO Points applied',order.created_at,
+        money(order.reward_points_redeemed_kes)+' in points reduced the other payment amount to '+money(order.external_amount_due_kes||0)+'.');
+    }
     if(order.payment_verified_at){
       add('Payment verified',order.payment_verified_at,customerPaymentText(order.payment_status));
     }else if(order.payment_status==='submitted'){
@@ -3304,11 +3466,11 @@
 
       return '<article class="customer-order-card customer-order-card-compact" data-customer-order-id="'+receiptEscape(order.id)+'">'+
         '<header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+customerOrderFormatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header>'+
-        '<div class="customer-order-compact-body"><div><small>ITEM</small><strong>'+itemSummary+'</strong></div><div><small>TOTAL</small><strong>'+money(order.grand_total_kes)+'</strong></div></div>'+
+        '<div class="customer-order-compact-body"><div><small>ITEM</small><strong>'+itemSummary+'</strong></div><div><small>TOTAL</small><strong>'+money(order.grand_total_kes)+'</strong>'+(Number(order.reward_points_redeemed_kes||0)>0?'<span>'+money(order.reward_points_redeemed_kes)+' points · '+money(order.external_amount_due_kes)+' other payment</span>':'')+'</div></div>'+
         '<div class="customer-order-compact-actions">'+actionButtons+'</div>'+
         '<div class="customer-order-expanded" data-order-expanded hidden>'+
           '<div class="customer-order-expanded-head"><span>ORDER DETAILS & UPDATES</span><small>'+customerOrderHistory(order).length+' updates</small></div>'+
-          '<ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+
+          '<ul>'+items+'</ul>'+customerPointsOrderSummaryHtml(order)+'<div class="customer-order-sellers">'+sellers+'</div>'+rider+
           '<div class="customer-order-history-wrap"><div class="customer-order-history-title"><span>ORDER HISTORY</span><strong>'+customerOrderHistory(order).length+' updates</strong></div>'+customerOrderTimelineHtml(order,false)+'</div>'+
           (completed ? customerReviewBoxHtml(order) : '')+
         '</div>'+
@@ -3336,7 +3498,7 @@
         return;
       }
 
-      const {data,error}=await client.rpc('customer_list_marketplace_orders_v2');
+      const {data,error}=await client.rpc('customer_list_marketplace_orders_v3');
       if(error){
         console.error('LEOGO customer orders could not load:',error.message||error);
         const empty=document.getElementById('customerActivityEmpty');

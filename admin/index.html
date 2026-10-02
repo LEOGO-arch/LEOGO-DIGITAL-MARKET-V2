@@ -884,7 +884,27 @@
         </div>
       </section>
 
-      <section class="admin-panel" data-admin-panel="loyalty"><div class="section-head"><div><span>CUSTOMER RETENTION</span><h2>Loyalty &amp; Rewards</h2><p>Shopping rewards are connected to the existing wallet reward rules.</p></div><button data-admin-view="settings" data-settings-tab="fees" class="primary-button">Edit Reward Rules</button></div><div class="reserved-module slim"><span>★</span><h3>Wallet reward engine connected</h3><p>Eligible spend, rate and credited rewards remain auditable in the Wallet system.</p></div></section>
+      <section class="admin-panel" data-admin-panel="loyalty">
+        <div class="section-head"><div><span>CUSTOMER RETENTION</span><h2>Loyalty &amp; Rewards</h2><p>Delivered and paid eligible orders automatically earn LEOGO Points. Customers can redeem points at checkout before paying the remaining amount.</p></div><div class="loyalty-head-actions"><button id="refreshLoyaltyRewards" class="secondary-button" type="button">↻ Refresh</button><button data-admin-view="settings" data-settings-tab="fees" class="primary-button">Edit Reward Rules</button></div></div>
+        <div class="loyalty-admin-summary">
+          <article><small>Current Reward Rule</small><strong id="loyaltyRuleRate">—</strong><span id="loyaltyRuleMinimum">Loading…</span></article>
+          <article><small>Rewards Issued</small><strong id="loyaltyRewardsIssued">KSh 0</strong><span id="loyaltyRewardCount">0 credits</span></article>
+          <article><small>Customers Rewarded</small><strong id="loyaltyCustomersRewarded">0</strong><span>Unique customers</span></article>
+          <article><small>Points Available</small><strong id="loyaltyPointsAvailable">KSh 0</strong><span>1 point = KSh 1</span></article>
+          <article><small>Points Used</small><strong id="loyaltyPointsUsed">KSh 0</strong><span>Checkout redemption history</span></article>
+        </div>
+        <div id="loyaltyRewardsStatus" class="form-status" aria-live="polite"></div>
+        <div class="loyalty-admin-columns">
+          <section class="content-card">
+            <div class="card-head"><div><span>RECENT EARNINGS</span><h3>Automatic Reward Credits</h3><p>Rewards are calculated from eligible product spend only after an order is paid and delivered.</p></div></div>
+            <div id="loyaltyRecentRewards" class="loyalty-activity-list"><div class="loading-card">Loading reward credits…</div></div>
+          </section>
+          <section class="content-card">
+            <div class="card-head"><div><span>CHECKOUT USE</span><h3>Recent Point Redemptions</h3><p>Points are applied first; any remaining amount stays on the customer's selected payment method.</p></div></div>
+            <div id="loyaltyRecentRedemptions" class="loyalty-activity-list"><div class="loading-card">Loading point use…</div></div>
+          </section>
+        </div>
+      </section>
       <section class="admin-panel" data-admin-panel="reports">
         <div class="section-head report-page-head"><div><span>BUSINESS INTELLIGENCE</span><h2>Reports</h2><p>Operational, financial, customer and partner reporting from live LEOGO records.</p></div><button id="refreshReport" class="secondary-button" type="button">Refresh Report</button></div>
         <div class="report-workspace">
@@ -1311,7 +1331,8 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
-  <script src="admin.js?v=looking-request-v1" defer></script><script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
+  <script src="admin.js?v=loyalty-points-v2" defer></script><script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
+  <script src="loyalty-rewards.js?v=loyalty-rewards-v2" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>

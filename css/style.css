@@ -2256,3 +2256,50 @@ body.advertisement-lightbox-open{overflow:hidden}
   .assisted-quote-item{grid-template-columns:1fr}
   .assisted-quote-item>div:last-child{text-align:left}
 }
+
+
+/* LEOGO Points checkout V2 */
+.checkout-points-panel{display:grid;gap:10px;padding:13px;border:1px solid #f0cfaa;border-radius:12px;background:#fffaf4}
+.checkout-points-toggle{display:flex!important;gap:10px!important;align-items:flex-start!important;cursor:pointer}
+.checkout-points-toggle input{width:20px!important;height:20px!important;margin-top:1px;accent-color:#ff7200;flex:0 0 auto}
+.checkout-points-toggle span{display:grid;gap:3px}
+.checkout-points-toggle strong{font-size:11px;color:#17243a}
+.checkout-points-toggle small{font-size:8px;color:#6d7989;line-height:1.4}
+.checkout-points-values{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.checkout-points-values span{display:grid;gap:3px;padding:9px;border-radius:9px;background:#fff;border:1px solid #eadfce}
+.checkout-points-values small{font-size:7px;color:#7e7467;text-transform:uppercase;font-weight:850}
+.checkout-points-values strong{font-size:12px;color:#07152f}
+.checkout-points-panel>p{margin:0;color:#776a5d;font-size:8px;line-height:1.45}
+.checkout-points-panel.is-active{border-color:#ffae68;background:#fff6ec}
+.checkout-points-panel.is-covered{border-color:#b8dfc6;background:#f2fbf5}
+.payment-order-summary .points-used{color:#b95900}
+.payment-order-summary .amount-due{color:#07152f}
+@media(max-width:560px){
+  .checkout-points-values{grid-template-columns:1fr}
+}
+
+
+/* Assisted Shopping LEOGO Points */
+.assisted-use-points{display:flex!important;align-items:flex-start!important;gap:9px!important;padding:9px 10px;border:1px solid #efd2ae;border-radius:9px;background:#fffaf5}
+.assisted-use-points input{width:18px!important;height:18px!important;accent-color:#ff7200;flex:0 0 auto}
+.assisted-use-points span{display:grid;gap:2px}
+.assisted-use-points b{font-size:9px;color:#27354b}
+.assisted-use-points small{font-size:8px;color:#7b6f62}
+.assisted-points-preview{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.assisted-points-preview span{display:grid;gap:3px;padding:8px;border:1px solid #e5e9ee;border-radius:8px;background:#fff}
+.assisted-points-preview small{font-size:7px;color:#7a8795;text-transform:uppercase}
+.assisted-points-preview b{font-size:10px;color:#17273f}
+.assisted-payment-form.points-active{border-color:#f1bb83;background:#fffaf4}
+.assisted-payment-form.points-covered{border-color:#b6dcc4;background:#f3fbf5}
+@media(max-width:560px){
+  .assisted-points-preview{grid-template-columns:1fr}
+}
+
+
+/* Customer order points split */
+.customer-order-points-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:9px 0;padding:9px;border-radius:10px;background:#fff8ef;border:1px solid #efd3b3}
+.customer-order-points-summary span{display:grid;gap:3px}
+.customer-order-points-summary small{font-size:7px;color:#7b6d60;text-transform:uppercase}
+.customer-order-points-summary strong{font-size:10px;color:#17263c}
+.customer-order-compact-body>div>span{display:block;margin-top:3px;font-size:7px;color:#a35a1d}
+@media(max-width:560px){.customer-order-points-summary{grid-template-columns:1fr}}

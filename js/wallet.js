@@ -194,7 +194,7 @@
     if (elements.withdrawable) elements.withdrawable.textContent = money(totals.withdrawable);
     if (elements.withdrawalCardBalance) elements.withdrawalCardBalance.textContent = money(totals.withdrawable);
     if (elements.reservedWithdrawals) elements.reservedWithdrawals.textContent = money(totals.reserved);
-    if (elements.pointsEarned) elements.pointsEarned.textContent = `${numberFormat(totals.points)} points`;
+    if (elements.pointsEarned) elements.pointsEarned.textContent = `${numberFormat(totals.points)} points · worth ${money(totals.points)}`;
     if (elements.maintenanceFee) elements.maintenanceFee.textContent = `${money(walletSettings.maintenance_fee_kes)} / month`;
     if (elements.streak) elements.streak.textContent = `${totals.streak} ${totals.streak === 1 ? 'day' : 'days'}`;
     const openLoan = loanApplications.find((loan) => ['pending', 'under_review'].includes(loan.application_status));
@@ -1032,6 +1032,9 @@
   selectWalletTab('overview');
 
   document.addEventListener('leogo:authchange', (event) => loadWallet(event.detail?.user || null));
+  window.addEventListener('leogo:walletrefresh', () => {
+    if(currentUser)loadWallet(currentUser);
+  });
   client.auth.getSession().then(({ data }) => loadWallet(data.session?.user || null));
   clearWallet();
 })();

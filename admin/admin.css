@@ -1000,3 +1000,30 @@
 @media(max-width:760px){
   .assisted-admin-assignment-actions{grid-template-columns:1fr}
 }
+
+
+/* Loyalty & Rewards live dashboard V2 */
+.loyalty-head-actions{display:flex;gap:8px;flex-wrap:wrap}
+.loyalty-admin-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.loyalty-admin-summary article{display:grid;gap:4px;padding:13px;border:1px solid #dfe6ee;border-radius:13px;background:#fff}
+.loyalty-admin-summary small{font-size:7px;color:#778597;text-transform:uppercase;font-weight:900}
+.loyalty-admin-summary strong{font-size:17px;color:#071a3a}
+.loyalty-admin-summary span{font-size:8px;color:#7d8998;line-height:1.4}
+.loyalty-admin-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.loyalty-activity-list{display:grid;gap:8px}
+.loyalty-activity-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px;border:1px solid #e2e8ef;border-radius:10px;background:#fbfcfe}
+.loyalty-activity-row>div{display:grid;gap:3px}
+.loyalty-activity-row>div:first-child span{font-size:7px;color:#ff7200;font-weight:950;letter-spacing:.07em}
+.loyalty-activity-row strong{font-size:9px;color:#172840}
+.loyalty-activity-row small{font-size:7px;color:#7a8797}
+.loyalty-activity-row>div:last-child{text-align:right}
+.loyalty-activity-row>div:last-child strong{font-size:11px}
+@media(max-width:1000px){
+  .loyalty-admin-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .loyalty-admin-columns{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .loyalty-admin-summary{grid-template-columns:1fr}
+  .loyalty-activity-row{align-items:flex-start;flex-direction:column}
+  .loyalty-activity-row>div:last-child{text-align:left}
+}
