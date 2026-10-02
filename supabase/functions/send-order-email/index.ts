@@ -34,6 +34,8 @@ const renderEmail = (subject: string, data: Record<string, unknown>) => {
 
   let message = "";
   let action = "";
+  let heading = "Order Update";
+  let footer = "This is an automatic LEOGO order notification. If you did not place this order, contact LEOGO customer support.";
   if (kind === "pickup_station_arrived") {
     message =
       `Your order <strong>${order}</strong> has been delivered by the LEOGO Rider to <strong>${station}</strong>.`;
@@ -44,6 +46,11 @@ const renderEmail = (subject: string, data: Record<string, unknown>) => {
       `Your order <strong>${order}</strong> has been received and confirmed by <strong>${station}</strong>.`;
     action =
       "Your parcel is now ready for collection. Please carry your identification when collecting it.";
+  } else if (kind === "admin_security") {
+    heading = "Admin Security Alert";
+    message = escapeHtml(safeText(data.security_message, "A LEOGO Super Admin security action was completed."));
+    action = "If you did not perform this security action, use the Admin recovery option immediately and revoke all Admin sessions.";
+    footer = "This is an automatic LEOGO Super Admin security notification. Never share your password or recovery link.";
   } else {
     message =
       "This is a test message confirming that LEOGO customer email notifications are configured correctly.";
@@ -68,14 +75,14 @@ const renderEmail = (subject: string, data: Record<string, unknown>) => {
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e3e8ef;">
         <tr><td style="background:#07152f;padding:24px 28px;border-bottom:5px solid #ff7800;">
           <div style="font-size:12px;letter-spacing:.12em;color:#ff9a3f;font-weight:700;">LEOGO DIGITAL MARKET</div>
-          <div style="font-size:22px;color:#ffffff;font-weight:800;margin-top:5px;">Order Update</div>
+          <div style="font-size:22px;color:#ffffff;font-weight:800;margin-top:5px;">${heading}</div>
         </td></tr>
         <tr><td style="padding:28px;">
           <p style="margin:0 0 16px;font-size:16px;">Hello <strong>${name}</strong>,</p>
           <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">${message}</p>
           <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px 16px;margin:18px 0;font-size:14px;line-height:1.55;">${escapeHtml(action)}</div>
           ${stationRows ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:18px;border-top:1px solid #eef1f5;padding-top:10px;">${stationRows}</table>` : ""}
-          <p style="font-size:12px;color:#6b7280;line-height:1.5;margin:24px 0 0;">This is an automatic LEOGO order notification. If you did not place this order, contact LEOGO customer support.</p>
+          <p style="font-size:12px;color:#6b7280;line-height:1.5;margin:24px 0 0;">${escapeHtml(footer)}</p>
         </td></tr>
       </table>
     </td></tr>
@@ -126,10 +133,14 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, configuration_required: true }, 200);
   }
 
-  if (!config?.enabled || !config?.sender_email || !config?.app_password) {
+  const emailKind = safeText(job.template_data?.kind);
+  const securityEmail = emailKind === "admin_security";
+  if ((!securityEmail && !config?.enabled) || !config?.sender_email || !config?.app_password) {
     await supabase.from("order_email_outbox").update({
       status: "configuration_required",
-      last_error: "Customer email notifications are not fully configured.",
+      last_error: securityEmail
+        ? "LEOGO security email sender is not fully configured."
+        : "Customer email notifications are not fully configured.",
       updated_at: new Date().toISOString(),
     }).eq("id", job.id);
     return json({ ok: false, configuration_required: true }, 200);
@@ -163,8 +174,9 @@ Deno.serve(async (req: Request) => {
       to: String(job.recipient_email),
       subject: String(job.subject),
       html: renderEmail(String(job.subject), (job.template_data || {}) as Record<string, unknown>),
-      text:
-        `LEOGO DIGITAL MARKET\n\n${String(job.subject)}\n\nOrder: ${safeText(job.template_data?.order_reference, "LEOGO order")}\n`,
+      text: securityEmail
+        ? `LEOGO DIGITAL MARKET\n\n${String(job.subject)}\n\n${safeText(job.template_data?.security_message, "A Super Admin security action was completed.")}\n\nIf this was not you, use Admin recovery immediately and revoke all sessions.\n`
+        : `LEOGO DIGITAL MARKET\n\n${String(job.subject)}\n\nOrder: ${safeText(job.template_data?.order_reference, "LEOGO order")}\n`,
     });
 
     await supabase.from("order_email_outbox").update({

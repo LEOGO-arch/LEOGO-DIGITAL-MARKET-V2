@@ -1040,3 +1040,25 @@
   .loyalty-activity-row{align-items:flex-start;flex-direction:column}
   .loyalty-activity-row>div:last-child{text-align:left}
 }
+
+
+/* Admin Security — Super Admin only */
+.auth-link-button{border:0;background:transparent;color:#0d58a6;padding:3px 0;font-weight:800;cursor:pointer;text-align:left;width:max-content}
+.auth-link-button:hover{text-decoration:underline}
+.admin-security-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px;padding:16px 18px;border:1px solid #dce4ee;border-radius:16px;background:#f8fbff}
+.admin-security-heading>div{display:flex;gap:12px;align-items:flex-start}
+.admin-security-heading>div>span{font-size:28px}
+.admin-security-heading h3,.admin-security-heading p{margin:0}
+.admin-security-heading p{margin-top:4px;color:#67768b;font-size:11px;line-height:1.5}
+.admin-security-heading>b{font-size:9px;letter-spacing:.08em;color:#8d3d00;background:#fff0e4;border:1px solid #f3c79d;padding:7px 9px;border-radius:999px;white-space:nowrap}
+.admin-security-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;align-items:start}
+.admin-security-card{margin:0}
+.admin-security-card:first-child{grid-row:span 2}
+.admin-security-actions{display:flex;gap:9px;flex-wrap:wrap}
+.admin-security-actions button{border-radius:10px;padding:10px 13px;font-weight:800;cursor:pointer}
+.danger-button{border:1px solid #b5212d;background:#b5212d;color:#fff}
+.admin-password-rule{font-size:9px;color:#667489;padding:9px 11px;border-radius:9px;background:#f5f7fa;border:1px solid #e2e7ee}
+.admin-security-email{display:grid;gap:3px;padding:11px;border:1px solid #e0e6ee;border-radius:10px;background:#fafbfd}
+.admin-security-email small{font-size:8px;color:#718095;text-transform:uppercase;letter-spacing:.05em}
+.admin-security-email strong{font-size:11px;color:#17243a;overflow-wrap:anywhere}
+@media(max-width:900px){.admin-security-grid{grid-template-columns:1fr}.admin-security-card:first-child{grid-row:auto}.admin-security-heading{align-items:flex-start}.admin-security-heading>b{white-space:normal}}

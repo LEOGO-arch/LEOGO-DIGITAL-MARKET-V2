@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=staff-responsibilities-v2">
+  <link rel="stylesheet" href="admin.css?v=admin-security-v1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
   <link rel="stylesheet" href="flash-sales.css?v=flash-sale-v1">
 <style>
@@ -31,6 +31,7 @@
       <label><span>Email address</span><input id="adminEmail" type="email" autocomplete="username" required></label>
       <label><span>Password</span><input id="adminPassword" type="password" autocomplete="current-password" minlength="8" required></label>
       <button type="submit" id="adminLoginButton">Sign in securely</button>
+      <button class="auth-link-button" id="adminRecoveryRequest" type="button">Forgot or compromised password?</button>
       <div class="form-status" id="adminLoginStatus" role="status" aria-live="polite"></div>
       <a href="../">← Return to Customer Front</a>
     </form>
@@ -936,7 +937,7 @@
 
       <section class="admin-panel" data-admin-panel="settings">
         <div class="section-head"><div><span>ADMINISTRATION</span><h2>System Settings</h2><p>Official business information, payment destinations, fees and reserved system modules.</p></div></div>
-        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button data-settings-panel="email">Email Notifications</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="orders">Order Rules</button><button data-settings-panel="lipa">Lipa Pole Pole</button><button data-settings-panel="data">Data Management</button><button data-settings-panel="reserved">More Settings</button></div>
+        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button id="adminSecuritySettingsTab" data-settings-panel="security" hidden>Admin Security</button><button data-settings-panel="email">Email Notifications</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="orders">Order Rules</button><button data-settings-panel="lipa">Lipa Pole Pole</button><button data-settings-panel="data">Data Management</button><button data-settings-panel="reserved">More Settings</button></div>
 
         <div class="settings-panel active" data-settings-content="business">
           <form class="settings-form" id="businessSettingsForm">
@@ -957,6 +958,45 @@
             </div><div class="form-status" id="businessSettingsStatus"></div>
             <div class="locked-front-note">Customer Front is locked. These settings are now the official Admin source and will be connected to customer pages only through an approved integration change.</div>
           </form>
+        </div>
+
+
+        <div class="settings-panel" data-settings-content="security" id="adminSecuritySettingsPanel">
+          <div class="admin-security-heading">
+            <div><span>🔐</span><div><h3>Super Admin Security</h3><p>Owner-only controls for password changes, session revocation and emergency account recovery.</p></div></div>
+            <b>SUPER ADMIN ONLY</b>
+          </div>
+
+          <div class="admin-security-grid">
+            <form class="settings-form admin-security-card" id="adminChangePasswordForm">
+              <div class="form-section-head"><div><span>1</span><div><h3>Change Password</h3><p>Verify your current password before replacing it. Other signed-in devices are revoked automatically after a successful change.</p></div></div><button type="submit">Change Password</button></div>
+              <div class="form-grid">
+                <label class="wide"><span>Super Admin email</span><input id="adminSecurityEmail" type="email" readonly></label>
+                <label class="wide"><span>Current password</span><input id="adminCurrentPassword" type="password" autocomplete="current-password" minlength="8" required></label>
+                <label><span>New password</span><input id="adminNewPassword" type="password" autocomplete="new-password" minlength="12" required></label>
+                <label><span>Confirm new password</span><input id="adminConfirmPassword" type="password" autocomplete="new-password" minlength="12" required></label>
+              </div>
+              <div class="admin-password-rule">Use at least 12 characters with uppercase, lowercase, a number and a symbol.</div>
+              <div class="form-status" id="adminChangePasswordStatus" role="status" aria-live="polite"></div>
+            </form>
+
+            <section class="settings-form admin-security-card">
+              <div class="form-section-head"><div><span>2</span><div><h3>Active Sessions</h3><p>Remove access from browsers or devices that should no longer remain signed in.</p></div></div></div>
+              <div class="admin-security-actions">
+                <button class="secondary-button" id="adminSignOutOtherSessions" type="button">Sign Out Other Devices</button>
+                <button class="danger-button" id="adminSignOutAllSessions" type="button">Sign Out All Devices</button>
+              </div>
+              <div class="form-status" id="adminSessionSecurityStatus" role="status" aria-live="polite"></div>
+              <div class="locked-front-note">Signing out all devices also ends this browser session. Supabase access tokens already issued can remain valid until their short expiry, so sensitive Admin operations continue to require server-side authorization.</div>
+            </section>
+
+            <section class="settings-form admin-security-card">
+              <div class="form-section-head"><div><span>3</span><div><h3>Emergency Recovery</h3><p>Send a secure recovery link to the Super Admin email if you suspect the password is compromised or cannot safely use the current password.</p></div></div><button id="adminSendRecoveryEmail" type="button">Send Recovery Email</button></div>
+              <div class="admin-security-email"><small>Recovery destination</small><strong id="adminRecoveryDestination">—</strong></div>
+              <div class="form-status" id="adminRecoveryStatus" role="status" aria-live="polite"></div>
+              <div class="locked-front-note">The recovery page verifies that the recovered account is an active LEOGO Super Admin before allowing a password replacement, then signs out all sessions.</div>
+            </section>
+          </div>
         </div>
 
         <div class="settings-panel" data-settings-content="email">
@@ -1333,7 +1373,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
-  <script src="admin.js?v=staff-responsibilities-v2" defer></script><script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
+  <script src="admin.js?v=admin-security-v1" defer></script><script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
   <script src="loyalty-rewards.js?v=loyalty-rewards-v2" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>

@@ -5,6 +5,7 @@
   const PROJECT_URL = 'https://dzdciuqkqixwutvtfotj.supabase.co';
   const PUBLISHABLE_KEY = 'sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
   const STAFF_PORTAL_URL = 'https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/staff/';
+  const ADMIN_RECOVERY_URL = 'https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/admin/recover.html';
   const supabaseFactory = window.supabase?.createClient;
   const STAFF_AUTH_STORAGE_KEY = 'leogo-staff-auth-v2';
   const db = supabaseFactory ? supabaseFactory(PROJECT_URL, PUBLISHABLE_KEY, {
@@ -548,6 +549,11 @@
       const parent = document.querySelector('[data-nav-group="'+group.dataset.navChildren+'"]');
       if (parent && !visibleChild) parent.hidden = true;
     });
+
+    const securityTab=$('#adminSecuritySettingsTab');
+    if(securityTab) securityTab.hidden=!isSuperAdmin();
+    const securityPanel=$('#adminSecuritySettingsPanel');
+    if(securityPanel && !isSuperAdmin()) securityPanel.classList.remove('active');
   };
 
   const showGate = (name) => {
@@ -577,6 +583,8 @@
       $('#adminRole').textContent = admin.role.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       $('#adminInitials').textContent = name.split(/\s+/).slice(0, 2).map((word) => word[0]).join('').toUpperCase();
       $('#dashboardGreeting').textContent = `Good day, ${name.split(/\s+/)[0]}`;
+      if($('#adminSecurityEmail')) $('#adminSecurityEmail').value=user.email||'';
+      if($('#adminRecoveryDestination')) $('#adminRecoveryDestination').textContent=user.email||'No email on account';
       applyAdminNavigationPermissions();
       await loadAll();
     } catch (error) {
@@ -5788,6 +5796,10 @@
   };
 
   const changeSettingsTab = (tab) => {
+    if(tab==='security'&&!isSuperAdmin()){
+      globalStatus('Super Admin access is required for Admin Security.','error');
+      return;
+    }
     $$('#settingsTabs [data-settings-panel]').forEach((button) => button.classList.toggle('active', button.dataset.settingsPanel === tab));
     $$('[data-settings-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.settingsContent === tab));
     if (tab === 'data') renderDataManagement();
@@ -5809,11 +5821,117 @@
     if(target==='premium'){changeSettingsTab('fees');scrollTo('#partnerSubscriptionSettingsForm');return;}
     if(target==='accommodation'){changeSettingsTab('fees');scrollTo('#accommodationFinanceSettingsForm');return;}
     if(target==='notifications'){changeSettingsTab('email');scrollTo('#emailNotificationSettingsForm');return;}
-    if(target==='security'){changeView('staff');scrollTo('#createStaffForm');return;}
+    if(target==='security'){changeView('settings','security');scrollTo('#adminSecuritySettingsPanel');return;}
     if(target==='preferences'){changeSettingsTab('business');scrollTo('#businessSettingsForm');return;}
   };
   const closeSidebar = () => { $('#adminSidebar').classList.remove('open'); $('#sidebarScrim').classList.remove('open'); };
   const closeModals = () => { $$('.modal').forEach((modal) => { modal.hidden = true; }); state.activeApproval = null; };
+
+
+  const validateSuperAdminPassword = (password) => {
+    if(String(password||'').length<12) return 'Use at least 12 characters.';
+    if(!/[a-z]/.test(password)) return 'Add at least one lowercase letter.';
+    if(!/[A-Z]/.test(password)) return 'Add at least one uppercase letter.';
+    if(!/[0-9]/.test(password)) return 'Add at least one number.';
+    if(!/[^A-Za-z0-9]/.test(password)) return 'Add at least one symbol.';
+    return '';
+  };
+
+  const recordAdminSecurityEvent = async (action,metadata={}) => {
+    try{
+      const {error}=await db.rpc('admin_record_security_event',{
+        p_action:action,
+        p_metadata:metadata
+      });
+      if(error) throw error;
+      if(isSuperAdmin()) loadAuditLog().catch(()=>{});
+      return true;
+    }catch(error){
+      console.error('LEOGO Admin security audit failed:',error);
+      return false;
+    }
+  };
+
+  const requestAdminRecoveryEmail = async (email,statusNode) => {
+    const normalized=String(email||'').trim();
+    if(!normalized){
+      setFormStatus(statusNode,'Enter the Super Admin email address first.','error');
+      return false;
+    }
+    const {error}=await db.auth.resetPasswordForEmail(normalized,{redirectTo:ADMIN_RECOVERY_URL});
+    if(error) throw error;
+    setFormStatus(statusNode,'If this address belongs to the LEOGO Super Admin, a secure recovery link has been sent.','success');
+    return true;
+  };
+
+  const changeSuperAdminPassword = async () => {
+    if(!isSuperAdmin()) throw new Error('Super Admin access required.');
+    const status=$('#adminChangePasswordStatus');
+    const current=$('#adminCurrentPassword')?.value||'';
+    const next=$('#adminNewPassword')?.value||'';
+    const confirm=$('#adminConfirmPassword')?.value||'';
+    if(!current) throw new Error('Enter your current password.');
+    const passwordIssue=validateSuperAdminPassword(next);
+    if(passwordIssue) throw new Error(passwordIssue);
+    if(next!==confirm) throw new Error('The new passwords do not match.');
+    if(current===next) throw new Error('Choose a new password that is different from the current password.');
+    const email=state.user?.email||'';
+    if(!email) throw new Error('The Super Admin account does not have an email address.');
+
+    setFormStatus(status,'Verifying current password…');
+    const verification=await db.auth.signInWithPassword({email,password:current});
+    if(verification.error) throw new Error('Current password is incorrect.');
+    if(verification.data?.user?.id!==state.user?.id) throw new Error('Current password verification did not match this Super Admin account.');
+
+    setFormStatus(status,'Updating password and revoking other sessions…');
+    const update=await db.auth.updateUser({password:next});
+    if(update.error) throw update.error;
+
+    const auditOk=await recordAdminSecurityEvent('admin.security.password_changed',{
+      method:'authenticated_change',
+      other_sessions_revoked:true
+    });
+
+    const revoke=await db.auth.signOut({scope:'others'});
+    if(revoke.error) throw revoke.error;
+
+    $('#adminCurrentPassword').value='';
+    $('#adminNewPassword').value='';
+    $('#adminConfirmPassword').value='';
+    setFormStatus(
+      status,
+      auditOk
+        ? 'Password changed successfully. Other signed-in devices have been revoked.'
+        : 'Password changed and other devices were revoked, but the audit entry could not be refreshed. Check Audit Log.',
+      auditOk?'success':'error'
+    );
+  };
+
+  const signOutOtherAdminSessions = async () => {
+    if(!isSuperAdmin()) throw new Error('Super Admin access required.');
+    const status=$('#adminSessionSecurityStatus');
+    setFormStatus(status,'Revoking other signed-in devices…');
+    await recordAdminSecurityEvent('admin.security.other_sessions_revoked',{method:'manual'});
+    const {error}=await db.auth.signOut({scope:'others'});
+    if(error) throw error;
+    setFormStatus(status,'Other Admin sessions have been signed out. This browser remains signed in.','success');
+  };
+
+  const signOutAllAdminSessions = async () => {
+    if(!isSuperAdmin()) throw new Error('Super Admin access required.');
+    const accepted=window.confirm('Sign out the Super Admin account from every device, including this browser?');
+    if(!accepted) return;
+    const status=$('#adminSessionSecurityStatus');
+    setFormStatus(status,'Signing out all Admin sessions…');
+    await recordAdminSecurityEvent('admin.security.all_sessions_revoked',{method:'manual'});
+    const {error}=await db.auth.signOut({scope:'global'});
+    if(error) throw error;
+    state.admin=null;
+    state.user=null;
+    showGate('login');
+    if($('#adminPassword')) $('#adminPassword').value='';
+    setFormStatus($('#adminLoginStatus'),'All Admin sessions were revoked. Sign in again with the current password.','success');
+  };
 
   const bindEvents = () => {
     $('#adminLoginForm').addEventListener('submit', async (event) => {
@@ -5843,6 +5961,16 @@
         }
         setFormStatus($('#adminLoginStatus'),'Admin account verified. Opening Control Center…','success');
         await enterAdmin(data.session.user);
+      });
+    });
+    $('#adminRecoveryRequest')?.addEventListener('click',async()=>{
+      const button=$('#adminRecoveryRequest');
+      await withButtonLock(button,'Sending recovery link…',async()=>{
+        try{
+          await requestAdminRecoveryEmail($('#adminEmail')?.value,$('#adminLoginStatus'));
+        }catch(error){
+          setFormStatus($('#adminLoginStatus'),friendlyError(error),'error');
+        }
       });
     });
     const signOut = async () => {
@@ -5875,6 +6003,37 @@
       }
     }));
     $$('#settingsTabs [data-settings-panel]').forEach((button) => button.addEventListener('click', () => changeSettingsTab(button.dataset.settingsPanel)));
+    $('#adminChangePasswordForm')?.addEventListener('submit',async(event)=>{
+      event.preventDefault();
+      const button=event.currentTarget.querySelector('button[type="submit"]');
+      await withButtonLock(button,'Changing…',async()=>{
+        try{await changeSuperAdminPassword();}
+        catch(error){setFormStatus($('#adminChangePasswordStatus'),friendlyError(error),'error');}
+      });
+    });
+    $('#adminSignOutOtherSessions')?.addEventListener('click',async()=>{
+      const button=$('#adminSignOutOtherSessions');
+      await withButtonLock(button,'Signing out…',async()=>{
+        try{await signOutOtherAdminSessions();}
+        catch(error){setFormStatus($('#adminSessionSecurityStatus'),friendlyError(error),'error');}
+      });
+    });
+    $('#adminSignOutAllSessions')?.addEventListener('click',async()=>{
+      const button=$('#adminSignOutAllSessions');
+      await withButtonLock(button,'Signing out…',async()=>{
+        try{await signOutAllAdminSessions();}
+        catch(error){setFormStatus($('#adminSessionSecurityStatus'),friendlyError(error),'error');}
+      });
+    });
+    $('#adminSendRecoveryEmail')?.addEventListener('click',async()=>{
+      const button=$('#adminSendRecoveryEmail');
+      await withButtonLock(button,'Sending…',async()=>{
+        try{
+          const sent=await requestAdminRecoveryEmail(state.user?.email,$('#adminRecoveryStatus'));
+          if(sent) await recordAdminSecurityEvent('admin.security.recovery_requested',{method:'signed_in'});
+        }catch(error){setFormStatus($('#adminRecoveryStatus'),friendlyError(error),'error');}
+      });
+    });
     $$('[data-settings-card]').forEach((button)=>button.addEventListener('click',()=>openSystemSettingsCard(button.dataset.settingsCard)));
     $$('#approvalFilters [data-approval-filter]').forEach((button) => button.addEventListener('click', () => {
       state.approvalFilter = button.dataset.approvalFilter;
