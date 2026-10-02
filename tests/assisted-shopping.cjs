@@ -56,4 +56,9 @@ for(const marker of adminRpcMarkers){
 if(!coreAdminJs.includes("assisted: 'Assisted Shopping'"))throw new Error('Assisted Shopping Admin view title missing');
 if(!coreAdminJs.includes("assisted: () => adminHas('orders.read')"))throw new Error('Assisted Shopping Admin permission gate missing');
 
+const quoteLockSql=fs.readFileSync('supabase/migrations/20261002102500_assisted_shopping_quote_lock.sql','utf8');
+const riderNoteSql=fs.readFileSync('supabase/migrations/20261002103000_assisted_shopping_rider_handoff_note.sql','utf8');
+if(!quoteLockSql.includes('Customer already accepted this Shopping List quotation'))throw new Error('Accepted quotation lock regression');
+if(!riderNoteSql.includes('No Seller pickup is required'))throw new Error('Assisted Shopping Rider handoff note regression');
+
 console.log('assisted shopping regression checks passed');
