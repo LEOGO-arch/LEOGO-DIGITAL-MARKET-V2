@@ -1650,6 +1650,8 @@
 
   makeCheckoutOrder?.addEventListener('click', async () => {
     paymentStepStatus.textContent = '';
+    updateCheckoutPointsTotals();
+
     if (!testCart.length) {
       paymentStepStatus.textContent = 'Your cart is empty. Add a Seller product before making an order.';
       return;
@@ -1658,26 +1660,32 @@
       window.leogoAuth?.requireLogin?.('Please sign in before placing your order.');
       return;
     }
-    if (!selectedCheckoutPayment) {
-      paymentStepStatus.textContent = 'Select a payment method before making the order.';
+
+    const usePoints=Boolean(checkoutUsePoints?.checked);
+    const previewDue=checkoutExternalAmountDueNumber();
+    const fullyCoveredByPoints=usePoints && checkoutPointsAppliedNumber()>0 && checkoutGrandTotalNumber()>0 && previewDue<=0;
+
+    if (!fullyCoveredByPoints && !selectedCheckoutPayment) {
+      paymentStepStatus.textContent = 'Select a payment method for the remaining amount.';
       return;
     }
-    if (!['till','paybill','cod'].includes(selectedCheckoutPayment)) {
-      paymentStepStatus.textContent = 'This payment method is not yet connected to Seller marketplace order creation. Use Till, Paybill or Cash on Delivery.';
+    if (!fullyCoveredByPoints && !['till','paybill','cod'].includes(selectedCheckoutPayment)) {
+      paymentStepStatus.textContent = 'For the remaining amount, use Till, Paybill or Cash on Delivery.';
       return;
     }
-    if (!mpesaPaymentMessage.value.trim()) {
+    if (!fullyCoveredByPoints && !mpesaPaymentMessage.value.trim()) {
       paymentStepStatus.textContent = selectedCheckoutPayment === 'cod'
         ? 'Paste the M-Pesa confirmation for the Transport & Parcel Delivery fee.'
-        : 'Paste the complete M-Pesa payment confirmation message.';
+        : 'Paste the complete M-Pesa payment confirmation message for the remaining amount.';
       mpesaPaymentMessage.focus();
       return;
     }
-    if (!markPaymentPaid.checked) {
+    if (!fullyCoveredByPoints && !markPaymentPaid.checked) {
       paymentStepStatus.textContent = 'Tick the payment confirmation box before making the order.';
       markPaymentPaid.focus();
       return;
     }
+
     const unsupported = testCart.find(item => !item.productId || !item.sellerId);
     if (unsupported) {
       paymentStepStatus.textContent = 'Your cart contains an old preview item. Remove it and add the current Seller product again.';
@@ -1688,10 +1696,13 @@
     const original = button.textContent;
     button.disabled = true;
     button.textContent = 'Creating Order…';
-    paymentStepStatus.textContent = 'Creating your order and sending it to the Seller…';
+    paymentStepStatus.textContent = usePoints
+      ? 'Securing your LEOGO Points and creating the order…'
+      : 'Creating your order and sending it to the Seller…';
+
     try {
       const pickupStation = checkoutDeliveryZone?.value === 'pickup' ? selectedPickupStation() : null;
-      const { data, error } = await window.leogoAuth.client.rpc('customer_create_marketplace_order', {
+      const { data, error } = await window.leogoAuth.client.rpc('customer_create_marketplace_order_v2', {
         p_items: testCart.map(item => ({ product_id: item.productId, variant_id: item.variantId || null, quantity: item.quantity })),
         p_receiver_name: document.getElementById('checkoutReceiverName')?.value.trim(),
         p_contact_number: document.getElementById('checkoutContactNumber')?.value.trim(),
@@ -1702,22 +1713,44 @@
         p_landmark: document.getElementById('checkoutLandmark')?.value.trim() || null,
         p_location_link: document.getElementById('checkoutLocationLink')?.value.trim() || null,
         p_pickup_station_id: pickupStation?.id || null,
-        p_payment_method: selectedCheckoutPayment,
-        p_payment_message: mpesaPaymentMessage.value.trim()
+        p_payment_method: fullyCoveredByPoints ? null : selectedCheckoutPayment,
+        p_payment_message: fullyCoveredByPoints ? null : mpesaPaymentMessage.value.trim(),
+        p_use_reward_points: usePoints
       });
       if (error) throw error;
+
       previewOrderReference = data?.order_reference || '';
       createdOrderReference.textContent = previewOrderReference;
-      selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod' ? 'COD — payment due on delivery' : 'Payment submitted — awaiting Admin verification';
+
+      const actualPoints=Number(data?.reward_points_redeemed_kes||0);
+      const actualDue=Number(data?.external_amount_due_kes??data?.grand_total_kes??0);
+      if(actualDue<=0&&actualPoints>0){
+        selectedPaymentLabel.textContent='LEOGO Points';
+        selectedPaymentStatus.textContent='Paid fully with LEOGO Points';
+        paymentStepStatus.textContent='Order created successfully. '+deliveryMoney(actualPoints)+' in LEOGO Points covered the full order.';
+      }else{
+        selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod'
+          ? 'COD — '+deliveryMoney(actualDue)+' remaining'
+          : 'Payment submitted — '+deliveryMoney(actualDue)+' awaiting Admin verification';
+        paymentStepStatus.textContent = actualPoints>0
+          ? 'Order created successfully. '+deliveryMoney(actualPoints)+' in LEOGO Points was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
+          : 'Order created successfully and sent to the Seller.';
+      }
+
       orderCreatedPanel.hidden = false;
-      paymentStepStatus.textContent = 'Order created successfully and sent to the Seller.';
       testCart = [];
       saveTestCart();
+      if(checkoutUsePoints)checkoutUsePoints.checked=false;
       renderTestCart();
-      await loadCustomerMarketplaceOrders();
+      await Promise.all([
+        loadCustomerMarketplaceOrders(),
+        loadCheckoutRewardPoints()
+      ]);
+      window.dispatchEvent(new CustomEvent('leogo:walletrefresh'));
       orderCreatedPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (error) {
       paymentStepStatus.textContent = error?.message || 'Order could not be created. Please try again.';
+      await loadCheckoutRewardPoints().catch(()=>{});
     } finally {
       button.disabled = false;
       button.textContent = original;
