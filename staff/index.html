@@ -64,6 +64,19 @@
     <button id="deniedSignOut" type="button">Sign Out</button>
   </section>
 
+  <section id="assistedStaffApp" class="assisted-staff-app" hidden>
+    <header class="rider-welcome">
+      <div><span>ASSISTED SHOPPING</span><h1 id="assistedStaffName">Assigned Shopping Lists</h1><p>Only Shopping Lists specifically assigned to your LEOGO staff account are shown here.</p></div>
+      <button id="refreshAssistedStaffLists" type="button">↻ Refresh</button>
+    </header>
+    <div class="assisted-staff-summary">
+      <article><span>Assigned Lists</span><strong id="assistedStaffCount">0</strong><small>Secure staff assignments</small></article>
+      <article><span>Ready / Preparing</span><strong id="assistedStaffActiveCount">0</strong><small>Needs LEOGO attention</small></article>
+    </div>
+    <div id="assistedStaffList" class="assisted-staff-list"><div class="empty">No Shopping Lists assigned to you.</div></div>
+    <p id="assistedStaffStatus" class="status"></p>
+  </section>
+
   <section id="riderApp" class="rider-app" hidden>
     <header class="rider-welcome">
       <div><span>DELIVERY OPERATIONS</span><h1 id="riderName">Rider Dashboard</h1><p>Only orders assigned to you are shown here.</p></div>
@@ -86,6 +99,8 @@
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
-<script src="staff.js?v=pickup-station-arrival-1" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
+<script src="staff.js?v=assisted-shopping-download-v1" defer></script>
 </body>
 </html>
