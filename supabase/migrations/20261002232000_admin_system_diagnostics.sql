@@ -410,7 +410,7 @@ begin
   ));
 
   v_functions:=array[
-    'admin_production_dashboard','admin_list_approvals','admin_list_staff_directory',
+    'admin_production_dashboard','admin_list_approval_queue','admin_list_staff_directory',
     'admin_staff_role_presets','admin_update_staff_access','admin_record_security_event',
     'admin_get_email_notification_settings','admin_list_marketplace_orders'
   ];
