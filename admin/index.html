@@ -10,6 +10,7 @@
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
   <link rel="stylesheet" href="admin.css?v=admin-security-v1">
+  <link rel="stylesheet" href="system-diagnostics.css?v=system-diagnostics-v1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
   <link rel="stylesheet" href="flash-sales.css?v=flash-sale-v1">
 <style>
@@ -68,6 +69,7 @@
         <span class="nav-label">ADMINISTRATION</span>
         <button data-admin-view="staff" id="staffManagementNav"><i>♟</i><span>Staff Management</span></button>
         <button data-admin-view="settings" data-settings-tab="business"><i>⚙</i><span>System Settings</span></button>
+        <button data-admin-view="diagnostics" id="systemDiagnosticsNav"><i>🛡</i><span>System Diagnosis</span></button>
         <button data-admin-view="audit"><i>◴</i><span>Audit Log</span></button>
       </nav>
       <div class="sidebar-footer"><span>Version 1</span><small>Stage 1 + Approval Center</small></div>
@@ -1312,6 +1314,94 @@
         </section>
       </section>
 
+
+      <section class="admin-panel" data-admin-panel="diagnostics">
+        <div class="section-head">
+          <div><span>ADMINISTRATION</span><h2>System Diagnosis</h2><p>PIN-protected, read-only health checks across LEOGO modules. Diagnosis suggests repairs but never applies them automatically.</p></div>
+          <div class="diagnostics-actions"><span id="diagnosticsPinState" class="diagnostics-state warning">Checking…</span><span id="diagnosticsLockState" class="diagnostics-state healthy">Ready</span></div>
+        </div>
+
+        <div class="diagnostics-intro">
+          <div><span>🛡️</span><div><h3>LEOGO Diagnostic Engine</h3><p>Checks live database structure, privileged functions, storage privacy, Admin/Staff authentication links, payments, email queues, Orders, Rider links, products, Service Providers, Transport, Wallet, Premium, Accommodation and Cyber dependencies.</p></div></div>
+          <span class="diagnostics-state healthy">READ ONLY</span>
+        </div>
+
+        <div class="diagnostics-security-grid">
+          <section class="diagnostics-card" id="diagnosticsPinSetupCard">
+            <header><div><h3>Create System Diagnosis PIN</h3><p>This separate 6-digit PIN protects diagnostic runs. The readable PIN is never stored.</p></div></header>
+            <form id="diagnosticsSetupPinForm">
+              <div class="diagnostics-form-grid">
+                <label><span>New 6-digit PIN</span><input id="diagnosticsSetupPin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="new-password" required></label>
+                <label><span>Confirm PIN</span><input id="diagnosticsSetupPinConfirm" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="new-password" required></label>
+              </div>
+              <div class="diagnostics-actions"><button type="submit">Create Diagnostic PIN</button></div>
+              <div class="form-status" id="diagnosticsSetupStatus" aria-live="polite"></div>
+            </form>
+          </section>
+
+          <section class="diagnostics-card" id="diagnosticsRunCard" hidden>
+            <header><div><h3>Run System Diagnosis</h3><p>Choose the scope and enter the protected PIN.</p></div></header>
+            <form id="diagnosticsRunForm">
+              <div class="diagnostics-form-grid">
+                <label><span>Scan type</span><select id="diagnosticsMode"><option value="quick">Quick Scan</option><option value="full" selected>Full Diagnosis</option><option value="module">Module Diagnosis</option></select></label>
+                <label id="diagnosticsModuleWrap" hidden><span>Module</span><select id="diagnosticsModule"><option value="core">Core</option><option value="security">Security</option><option value="auth_staff">Admin &amp; Staff</option><option value="database">Database</option><option value="storage">Storage</option><option value="orders">Orders</option><option value="products">Products</option><option value="payments">Payments</option><option value="notifications">Notifications &amp; Email</option><option value="services">Service Providers</option><option value="transport">Transport &amp; Rider</option><option value="wallet">Wallet</option><option value="premium">Premium</option><option value="accommodation">Accommodation</option><option value="cyber">Cyber</option></select></label>
+                <label class="wide"><span>System Diagnosis PIN</span><input id="diagnosticsRunPin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required></label>
+              </div>
+              <div class="diagnostics-actions"><button type="submit">Run Diagnosis</button></div>
+              <div class="form-status" id="diagnosticsRunStatus" aria-live="polite"></div>
+            </form>
+            <div class="diagnostics-safety-note">Diagnosis is advisory-only. No order, payment, Wallet balance, staff permission, product, delivery, or database record is changed by a scan.</div>
+          </section>
+
+          <section class="diagnostics-card" id="diagnosticsPinManagement" hidden>
+            <header><div><h3>Diagnostic PIN Security</h3><p>Change a known PIN, or reset a forgotten PIN by proving the Super Admin password.</p></div></header>
+            <div class="diagnostics-pin-tools">
+              <details>
+                <summary>Change PIN</summary>
+                <form id="diagnosticsChangePinForm">
+                  <div class="diagnostics-form-grid">
+                    <label class="wide"><span>Current PIN</span><input id="diagnosticsCurrentPin" type="password" inputmode="numeric" maxlength="6" required></label>
+                    <label><span>New PIN</span><input id="diagnosticsNewPin" type="password" inputmode="numeric" maxlength="6" required></label>
+                    <label><span>Confirm new PIN</span><input id="diagnosticsNewPinConfirm" type="password" inputmode="numeric" maxlength="6" required></label>
+                  </div>
+                  <div class="diagnostics-actions"><button type="submit">Change PIN</button></div>
+                  <div class="form-status" id="diagnosticsChangePinStatus" aria-live="polite"></div>
+                </form>
+              </details>
+              <details>
+                <summary>Reset forgotten PIN</summary>
+                <form id="diagnosticsResetPinForm">
+                  <div class="diagnostics-form-grid">
+                    <label class="wide"><span>Super Admin account password</span><input id="diagnosticsResetPassword" type="password" autocomplete="current-password" required></label>
+                    <label><span>New 6-digit PIN</span><input id="diagnosticsResetPin" type="password" inputmode="numeric" maxlength="6" required></label>
+                    <label><span>Confirm new PIN</span><input id="diagnosticsResetPinConfirm" type="password" inputmode="numeric" maxlength="6" required></label>
+                  </div>
+                  <div class="diagnostics-actions"><button type="submit">Verify Password &amp; Reset PIN</button></div>
+                  <div class="form-status" id="diagnosticsResetPinStatus" aria-live="polite"></div>
+                </form>
+              </details>
+            </div>
+          </section>
+        </div>
+
+        <section class="diagnostics-summary" id="diagnosticsSummary" hidden>
+          <div><small>System Health</small><strong id="diagnosticsScore" class="diagnostics-big-score">—</strong><span id="diagnosticsHealthLabel">—</span></div>
+          <div><small>Critical</small><strong id="diagnosticsCriticalCount">0</strong></div>
+          <div><small>Warnings</small><strong id="diagnosticsWarningCount">0</strong></div>
+          <div><small>Scope</small><strong id="diagnosticsRunScope">—</strong></div>
+        </section>
+
+        <section class="diagnostics-card" id="diagnosticsResultsSection" hidden>
+          <header><div><h3>Diagnostic Findings</h3><p>Evidence and the smallest suggested repair for each check.</p></div></header>
+          <div id="diagnosticsResults" class="diagnostics-results"></div>
+        </section>
+
+        <section class="diagnostics-card">
+          <header><div><h3>Recent Diagnostic Runs</h3><p>Latest read-only runs recorded for accountability.</p></div><button id="refreshDiagnosticsHistory" class="secondary-button" type="button">↻ Refresh</button></header>
+          <div id="diagnosticsHistory" class="diagnostics-history"><div class="empty-mini">No diagnostic runs yet.</div></div>
+        </section>
+      </section>
+
       <section class="admin-panel" data-admin-panel="audit">
         <div class="section-head"><div><span>ACCOUNTABILITY</span><h2>Audit Log</h2><p>Immutable history of sensitive Admin actions and setting changes.</p></div><button class="primary-button" id="refreshAudit" type="button">↻ Refresh</button></div>
         <div class="table-card"><div class="responsive-table"><table><thead><tr><th>Date &amp; Time</th><th>Admin</th><th>Action</th><th>Entity</th><th>Reference</th></tr></thead><tbody id="auditTableBody"><tr><td colspan="5">Loading audit history…</td></tr></tbody></table></div></div>
@@ -1373,7 +1463,9 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
-  <script src="admin.js?v=admin-security-v1" defer></script><script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
+  <script src="admin.js?v=system-diagnostics-v1" defer></script>
+  <script src="system-diagnostics.js?v=system-diagnostics-v1" defer></script>
+  <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
   <script src="loyalty-rewards.js?v=loyalty-rewards-v2" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>

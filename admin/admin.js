@@ -116,7 +116,7 @@
     chat: 'Customer Care Chats', products: 'Products & Categories', sellers: 'Sellers', settlements: 'Partner Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
     accommodation: 'Accommodation', advertisements: 'Advertisements', loyalty: 'Loyalty & Rewards', reports: 'Reports',
-    staff: 'Staff Management', settings: 'System Settings', audit: 'Audit Log'
+    staff: 'Staff Management', settings: 'System Settings', diagnostics: 'System Diagnosis', audit: 'Audit Log'
   };
   const kindLabels = {
     seller_application: 'Seller Registration', seller_profile_change: 'Seller Profile Update', seller_product: 'Seller Product', customer_personal_sale: 'Customer Item Sale', customer_looking_request: 'Customer Looking Request',
@@ -528,6 +528,7 @@
       loyalty: () => adminHas('settings.manage') || adminHas('fees.manage') || adminHas('reports.export'),
       reports: () => adminHas('reports.export'),
       staff: () => false,
+      diagnostics: () => false,
       audit: () => false,
       settings: () => settingsTab === 'payments'
         ? adminHas('payments.manage')
@@ -5747,7 +5748,7 @@
       button.classList.toggle('active', button.dataset.adminView === view && (!button.dataset.settingsTab || button.dataset.settingsTab === settingsTab));
     });
     $('#adminPageTitle').textContent = viewTitles[view] || 'Admin Control Center';
-    $('#adminBreadcrumb').textContent = view === 'settings' ? 'ADMINISTRATION' : 'CONTROL CENTER';
+    $('#adminBreadcrumb').textContent = ['settings','diagnostics'].includes(view) ? 'ADMINISTRATION' : 'CONTROL CENTER';
 
     if(view==='dashboard'){
       Promise.all([loadDashboard(),loadApprovals()])
@@ -5771,6 +5772,9 @@
     }
     if (view === 'reports') {
       initializeReports().catch((error)=>globalStatus('Reports could not load: '+friendlyError(error),'error'));
+    }
+    if (view === 'diagnostics') {
+      window.leogoDiagnostics?.activate?.();
     }
     if (view === 'providers') {
       Promise.all([loadServiceProviders(),loadServiceListings(),loadServiceOperations()]).catch((error) => globalStatus('Service operations could not load: '+friendlyError(error), 'error'));
