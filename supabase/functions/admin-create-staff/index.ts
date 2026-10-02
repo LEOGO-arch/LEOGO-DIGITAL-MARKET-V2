@@ -44,7 +44,7 @@ const errorPayload = (stage: string, error: unknown, status = 400) =>
 
 const ROLE_DEFAULTS: Record<string, string[]> = {
   operations: [
-    "dashboard.read","orders.read","orders.manage","customers.read",
+    "dashboard.read","orders.read","orders.write","orders.manage","customers.read",
     "delivery.manage","sellers.read","products.read"
   ],
   reviewer: [
@@ -56,21 +56,57 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
     "settlements.manage","sellers.read","reports.export"
   ],
   support: [
-    "dashboard.read","orders.read","customers.read","sellers.read","products.read"
+    "dashboard.read","orders.read","customers.read","support.chat",
+    "sellers.read","products.read"
   ],
   read_only: [
     "dashboard.read","orders.read","customers.read","sellers.read",
-    "products.read","approvals.read"
+    "products.read","approvals.read","settings.read"
   ],
 };
 
 const ALLOWED_PERMISSIONS = new Set([
-  "dashboard.read","approvals.read","approvals.manage","customers.read",
-  "orders.read","orders.manage","orders.payment_verify","delivery.manage",
-  "sellers.read","settlements.read","settlements.manage",
-  "products.read","products.manage","payments.manage","premium.read",
-  "premium.manage","reports.export","fees.manage","settings.manage",
+  "dashboard.read",
+  "approvals.read","approvals.manage",
+  "orders.read","orders.write","orders.manage","orders.payment_verify",
+  "delivery.manage",
+  "customers.read","support.chat",
+  "sellers.read",
+  "settlements.read","settlements.manage",
+  "products.read","products.manage",
+  "premium.read","premium.manage",
+  "reports.export","data.read",
+  "payments.manage",
+  "settings.read","fees.manage","settings.manage",
 ]);
+
+const PERMISSION_DEPENDENCIES: Record<string, string[]> = {
+  "approvals.manage": ["approvals.read"],
+  "orders.write": ["orders.read"],
+  "orders.manage": ["orders.read"],
+  "orders.payment_verify": ["orders.read"],
+  "settlements.manage": ["settlements.read"],
+  "products.manage": ["products.read"],
+  "premium.manage": ["premium.read"],
+  "settings.manage": ["settings.read"],
+};
+
+const normalizePermissions = (permissions: string[]) => {
+  const chosen = new Set(permissions);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const permission of [...chosen]) {
+      for (const dependency of PERMISSION_DEPENDENCIES[permission] ?? []) {
+        if (!chosen.has(dependency)) {
+          chosen.add(dependency);
+          changed = true;
+        }
+      }
+    }
+  }
+  return [...chosen];
+};
 
 const readSecretKey = () => {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -164,7 +200,7 @@ Deno.serve(async (req: Request) => {
       const submitted = Array.isArray(body.permissions)
         ? body.permissions.map(String)
         : ROLE_DEFAULTS[roleCode];
-      permissions = [...new Set(submitted)];
+      permissions = normalizePermissions([...new Set(submitted)]);
       const invalid = permissions.find((permission) => !ALLOWED_PERMISSIONS.has(permission));
       if (invalid) {
         return json({ ok:false, stage:"validation", error:`Unsupported permission: ${invalid}` }, 400);
