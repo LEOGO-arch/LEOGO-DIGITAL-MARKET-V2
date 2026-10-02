@@ -41,6 +41,7 @@
   let orderSettings={};
   let paymentAccount=null;
   let pickupStations=[];
+  let rewardPointsBalance=0;
 
   const setStatus=(message='',type='')=>{
     statusBox.textContent=message;
@@ -93,15 +94,20 @@
 
   const loadSettings=async()=>{
     if(!client())return;
-    const [settingRes,orderRes,accountRes]=await Promise.all([
+    const [settingRes,orderRes,accountRes,pointsRes]=await Promise.all([
       client().rpc('public_get_assisted_shopping_settings'),
       client().rpc('public_get_order_settings'),
-      client().rpc('public_get_assisted_shopping_payment_account')
+      client().rpc('public_get_assisted_shopping_payment_account'),
+      client().rpc('get_my_reward_points_balance')
     ]);
     if(!settingRes.error&&settingRes.data)settings=settingRes.data;
     if(!orderRes.error&&orderRes.data)orderSettings=orderRes.data;
     if(!accountRes.error)paymentAccount=accountRes.data||null;
+    rewardPointsBalance=!pointsRes.error&&pointsRes.data?.success
+      ? Math.max(0,Number(pointsRes.data.points_value_kes??pointsRes.data.points??0))
+      : 0;
     feeNote.textContent='Current Assisted Shopping service fee: '+Number(settings.service_fee_percent||0).toLocaleString('en-KE',{maximumFractionDigits:2})+'%. LEOGO applies it to the prepared item subtotal and shows the full total before you approve.';
+    if(requests.length)renderRequests();
   };
 
   const loadPickupStations=async()=>{
@@ -209,18 +215,41 @@
 
   const quoteActionsHtml=(row)=>{
     if(!['quotation_ready','payment_rejected'].includes(row.status))return '';
+    const pointsText=rewardPointsBalance>0
+      ? Number(rewardPointsBalance).toLocaleString('en-KE',{maximumFractionDigits:2})+' points · worth '+money(rewardPointsBalance)
+      : 'No usable LEOGO Points available';
     return '<div class="assisted-customer-actions">'+
       '<form class="assisted-payment-form" data-assisted-payment-form="'+escapeHtml(row.id)+'">'+
         '<div class="assisted-payment-account">'+escapeHtml(paymentAccountText())+'</div>'+
+        '<label class="assisted-use-points"><input name="use_reward_points" type="checkbox" '+(rewardPointsBalance>0?'':'disabled')+'><span><b>⭐ Use my LEOGO Points</b><small>'+escapeHtml(pointsText)+'</small></span></label>'+
+        '<div class="assisted-points-preview"><span><small>Points applied</small><b data-assisted-points-applied>'+money(0)+'</b></span><span><small>Remaining to pay</small><b data-assisted-amount-due>'+money(row.grand_total_kes)+'</b></span></div>'+
         '<div class="assisted-payment-fields">'+
           '<label><span>Payment method</span><select name="payment_method" required>'+paymentOptions()+'</select></label>'+
-          '<label><span>Payment reference</span><input name="payment_reference" maxlength="100" placeholder="Not required for COD"></label>'+
+          '<label><span>Payment reference</span><input name="payment_reference" maxlength="100" placeholder="Not required for COD or when points cover the full total"></label>'+
         '</div>'+
-        '<small>COD applies only within the current LEOGO COD limit'+(orderSettings.cod_limit_kes!=null?' (below '+money(orderSettings.cod_limit_kes)+')':'')+'.</small>'+
+        '<small>1 LEOGO Point = KSh 1. COD applies only within the current LEOGO COD limit'+(orderSettings.cod_limit_kes!=null?' (below '+money(orderSettings.cod_limit_kes)+')':'')+'.</small>'+
         '<button type="submit">Accept & Continue</button>'+
       '</form>'+
       '<button class="assisted-change-button" type="button" data-assisted-changes="'+escapeHtml(row.id)+'">Request Changes</button>'+
     '</div>';
+  };
+
+  const updateAssistedPointsPreview=(paymentForm)=>{
+    if(!paymentForm)return {applied:0,due:0};
+    const row=requests.find((item)=>String(item.id)===String(paymentForm.dataset.assistedPaymentForm));
+    const total=Math.max(0,Number(row?.grand_total_kes||0));
+    const usePoints=Boolean(paymentForm.elements.use_reward_points?.checked);
+    const applied=usePoints?Math.min(rewardPointsBalance,total):0;
+    const due=Math.max(0,total-applied);
+    paymentForm.dataset.pointsApplied=String(applied);
+    paymentForm.dataset.amountDue=String(due);
+    const appliedNode=paymentForm.querySelector('[data-assisted-points-applied]');
+    const dueNode=paymentForm.querySelector('[data-assisted-amount-due]');
+    if(appliedNode)appliedNode.textContent=money(applied);
+    if(dueNode)dueNode.textContent=money(due);
+    paymentForm.classList.toggle('points-active',applied>0);
+    paymentForm.classList.toggle('points-covered',total>0&&due<=0&&applied>0);
+    return {applied,due};
   };
 
   const renderRequests=()=>{
@@ -395,26 +424,41 @@
     const button=paymentForm.querySelector('button[type="submit"]');
     const method=paymentForm.elements.payment_method.value;
     const reference=paymentForm.elements.payment_reference.value.trim();
-    if(method!=='cod'&&reference.length<3){
-      window.alert('Enter the M-Pesa payment reference before submitting.');
+    const usePoints=Boolean(paymentForm.elements.use_reward_points?.checked);
+    const {applied,due}=updateAssistedPointsPreview(paymentForm);
+
+    if(due>0&&method!=='cod'&&reference.length<3){
+      window.alert('Enter the M-Pesa payment reference for the remaining '+money(due)+'.');
       return;
     }
+
     const original=button.textContent;
     button.disabled=true;
-    button.textContent='Submitting…';
+    button.textContent=usePoints?'Applying Points…':'Submitting…';
     try{
-      const {error}=await client().rpc('customer_accept_assisted_shopping_quote',{
+      const {data,error}=await client().rpc('customer_accept_assisted_shopping_quote_v2',{
         p_request_id:id,
         p_payment_method:method,
-        p_payment_reference:method==='cod'?null:reference
+        p_payment_reference:method==='cod'?null:(reference||null),
+        p_use_reward_points:usePoints
       });
       if(error)throw error;
-      await loadRequests();
+      if(Number(data?.reward_points_redeemed_kes||0)>0){
+        window.dispatchEvent(new CustomEvent('leogo:walletrefresh'));
+      }
+      await Promise.all([loadSettings(),loadRequests()]);
     }catch(error){
       window.alert(error?.message||'The Shopping List quotation could not be accepted.');
     }finally{
       button.disabled=false;
       button.textContent=original;
+    }
+  });
+
+  listBox.addEventListener('change',(event)=>{
+    const paymentForm=event.target.closest?.('[data-assisted-payment-form]');
+    if(paymentForm&&(event.target.name==='use_reward_points'||event.target.name==='payment_method')){
+      updateAssistedPointsPreview(paymentForm);
     }
   });
 
