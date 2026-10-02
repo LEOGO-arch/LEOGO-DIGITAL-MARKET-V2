@@ -39,6 +39,7 @@ for(const required of [
   "interval '15 minutes'",
   "'repair_mode','advisory_only'",
   "private.is_leogo_super_admin()",
+  "admin_list_approval_queue",
   "revoke execute on function public.service_reset_system_diagnostics_pin(uuid,text)",
   "to service_role"
 ]){
@@ -48,7 +49,8 @@ for(const required of [
 for(const required of [
   'signInWithPassword',
   'role!=="super_admin"',
-  'service_reset_system_diagnostics_pin'
+  'service_reset_system_diagnostics_pin',
+  'signOut({scope:"local"})'
 ]){
   if(!resetEdge.includes(required))throw new Error('Missing diagnostics reset safeguard: '+required);
 }
