@@ -196,7 +196,7 @@ function renderAssistedLists(){
 
 async function loadJobs(){
   setStatus('#riderStatus');
-  const {data,error}=await client.rpc('rider_list_delivery_jobs_v3');
+  const {data,error}=await client.rpc('rider_list_delivery_jobs_v4');
   if(error){setStatus('#riderStatus',error.message,'error');return;}
   jobs=data||[];
   render();
@@ -261,14 +261,14 @@ function render(){
             :'';
 
     const codWarning=job.cod_payment_required
-      ? '<div class="rider-cod-warning"><strong>💵 CASH ON DELIVERY</strong><span>Collect and confirm the full '+esc(money(job.grand_total_kes))+' before handing the order to the customer.</span></div>'
+      ? '<div class="rider-cod-warning"><strong>💵 CASH ON DELIVERY</strong><span>Collect and confirm the full '+esc(money(job.external_amount_due_kes??job.grand_total_kes))+' before handing the order to the customer.</span></div>'
       : '';
 
     const adminInstructions='<div class="rider-instructions"><small>ADMIN / STAFF INSTRUCTIONS</small><p>'+
       esc(job.admin_notes||'No extra delivery instructions have been added.')+'</p></div>';
 
     const codConfirm=next&&next[0]==='delivered'&&job.cod_payment_required
-      ? '<label class="rider-cod-confirm"><input type="checkbox" data-cod-payment-confirmed><span>I confirm the full '+esc(money(job.grand_total_kes))+' COD payment has been collected from the customer.</span></label>'
+      ? '<label class="rider-cod-confirm"><input type="checkbox" data-cod-payment-confirmed><span>I confirm the full '+esc(money(job.external_amount_due_kes??job.grand_total_kes))+' COD payment has been collected from the customer.</span></label>'
       : '';
 
     return '<article class="rider-job'+(qrOrder&&job.order_id===qrOrder?' qr-target':'')+'" data-order-id="'+esc(job.order_id)+'"><header><div><strong>'+esc(job.order_reference)+'</strong>'+(qrOrder&&job.order_id===qrOrder?'<b class="qr-order-chip">QR ORDER</b>':'')+'<small>Assigned '+
@@ -278,7 +278,7 @@ function render(){
       esc([job.estate,job.landmark,job.sub_county,job.county].filter(Boolean).join(', ')||job.delivery_zone)+'</strong>'+
       (job.location_link?'<a href="'+esc(job.location_link)+'" target="_blank" rel="noopener">Open location ↗</a>':'')+
       '</div><div><small>PAYMENT</small><strong>'+esc(String(job.payment_status).replaceAll('_',' ').toUpperCase())+
-      '</strong><span>'+esc(String(job.payment_method).toUpperCase())+(job.cod_payment_required?' · '+esc(money(job.grand_total_kes))+' due':'')+'</span></div><div><small>ORDER</small><strong>'+
+      '</strong><span>'+esc(String(job.payment_method).toUpperCase())+(job.cod_payment_required?' · '+esc(money(job.external_amount_due_kes??job.grand_total_kes))+' due':'')+'</span></div><div><small>ORDER</small><strong>'+
       esc(deliveryStatusLabel(job.status).toUpperCase())+'</strong></div></div>'+adminInstructions+
       '<div class="pickup-list">'+pickups+'</div>'+
       '<div class="rider-note-box"><label><small>RIDER NOTES / DELIVERY UPDATE</small><textarea maxlength="2000" rows="3" data-rider-note placeholder="Add customer response, payment detail, access issue, delay or other delivery update…">'+esc(job.rider_notes||'')+'</textarea></label><button type="button" data-save-rider-note data-job-id="'+esc(job.delivery_job_id)+'">Save Rider Note</button></div>'+
@@ -328,7 +328,7 @@ function render(){
 
     const confirmText=next==='delivered'
       ?(job?.cod_payment_required
-        ?'Confirm full '+money(job.grand_total_kes)+' COD payment has been collected and the order has been physically delivered?'
+        ?'Confirm full '+money(job.external_amount_due_kes??job.grand_total_kes)+' COD payment has been collected and the order has been physically delivered?'
         :'Confirm that this order has been physically delivered to the customer?')
       :next==='arrived_sorting_center'
         ?'Confirm that you and this order have arrived at the LEOGO Sorting Center?'
