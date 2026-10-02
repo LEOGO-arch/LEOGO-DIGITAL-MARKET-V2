@@ -153,6 +153,7 @@
 
   const setupPin=async(event)=>{
     event.preventDefault();
+    const form=event.currentTarget;
     const pin=$('#diagnosticsSetupPin').value.trim();
     const confirm=$('#diagnosticsSetupPinConfirm').value.trim();
     if(!validatePin(pin)){setStatus($('#diagnosticsSetupStatus'),'Use exactly 6 digits.','error');return;}
@@ -160,13 +161,15 @@
     const {data,error}=await db.rpc('admin_system_diagnostics_setup_pin',{p_new_pin:pin});
     if(error){setStatus($('#diagnosticsSetupStatus'),friendly(error),'error');return;}
     if(!data?.ok){setStatus($('#diagnosticsSetupStatus'),data?.message||'PIN setup failed.','error');return;}
-    event.currentTarget.reset();
+    form.reset();
+    setConfiguredUi(true);
     setStatus($('#diagnosticsSetupStatus'),data.message,'success');
     await loadStatus();
   };
 
   const changePin=async(event)=>{
     event.preventDefault();
+    const form=event.currentTarget;
     const current=$('#diagnosticsCurrentPin').value.trim();
     const next=$('#diagnosticsNewPin').value.trim();
     const confirm=$('#diagnosticsNewPinConfirm').value.trim();
@@ -175,13 +178,14 @@
     const {data,error}=await db.rpc('admin_system_diagnostics_change_pin',{p_current_pin:current,p_new_pin:next});
     if(error){setStatus($('#diagnosticsChangePinStatus'),friendly(error),'error');return;}
     if(!data?.ok){setStatus($('#diagnosticsChangePinStatus'),parseAuthFailure(data),'error');await loadStatus().catch(()=>{});return;}
-    event.currentTarget.reset();
+    form.reset();
     setStatus($('#diagnosticsChangePinStatus'),data.message||'PIN changed.','success');
     await loadStatus();
   };
 
   const resetPin=async(event)=>{
     event.preventDefault();
+    const form=event.currentTarget;
     const password=$('#diagnosticsResetPassword').value;
     const next=$('#diagnosticsResetPin').value.trim();
     const confirm=$('#diagnosticsResetPinConfirm').value.trim();
@@ -189,7 +193,7 @@
     if(!validatePin(next)){setStatus($('#diagnosticsResetPinStatus'),'Use exactly 6 digits for the new PIN.','error');return;}
     if(next!==confirm){setStatus($('#diagnosticsResetPinStatus'),'New PIN confirmation does not match.','error');return;}
 
-    const button=event.currentTarget.querySelector('button[type="submit"]');
+    const button=form.querySelector('button[type="submit"]');
     const original=button.textContent;
     button.disabled=true;
     button.textContent='Verifying…';
@@ -199,7 +203,8 @@
       });
       if(error)throw error;
       if(!data?.ok)throw new Error(data?.error||'PIN reset failed.');
-      event.currentTarget.reset();
+      form.reset();
+      setConfiguredUi(true);
       setStatus($('#diagnosticsResetPinStatus'),data.message||'PIN reset successfully.','success');
       await loadStatus();
     }catch(error){
