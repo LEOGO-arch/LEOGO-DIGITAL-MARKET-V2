@@ -57,4 +57,16 @@ for(const required of [
 
 if(!diagnosticsCss.includes('.diagnostic-check.critical'))throw new Error('Diagnostics severity styling missing');
 
+const asyncFormHandlers=['setupPin','changePin','resetPin'];
+for(const name of asyncFormHandlers){
+  const start=diagnosticsJs.indexOf('const '+name+'=async(event)=>');
+  if(start<0)throw new Error('Missing async form handler: '+name);
+  const end=diagnosticsJs.indexOf('\n  };',start);
+  const block=diagnosticsJs.slice(start,end);
+  if(!block.includes('const form=event.currentTarget'))throw new Error('Async handler does not preserve form reference: '+name);
+  const afterAwait=block.slice(block.indexOf('await '));
+  if(afterAwait.includes('event.currentTarget'))throw new Error('Async handler reuses event.currentTarget after await: '+name);
+}
+if(!diagnosticsJs.includes('setConfiguredUi(true)'))throw new Error('Successful PIN setup/reset does not reveal diagnostics controls immediately');
+
 console.log('admin system diagnostics regression checks passed');
