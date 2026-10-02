@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071b3d">
+  <meta name="description" content="LEOGO Super Admin secure password recovery">
+  <title>LEOGO Admin Password Recovery</title>
+  <link rel="stylesheet" href="admin.css?v=admin-security-v1">
+  <style>
+    body{min-height:100vh;background:#f4f7fb}
+    .admin-recovery-shell{min-height:100vh;display:grid;place-items:center;padding:24px}
+    .admin-recovery-card{width:min(560px,100%);background:#fff;border:1px solid #dce4ee;border-radius:22px;padding:26px;box-shadow:0 18px 60px rgba(7,27,61,.12);display:grid;gap:18px}
+    .admin-recovery-brand{display:flex;align-items:center;gap:12px}
+    .admin-recovery-brand img{width:54px;height:54px;object-fit:cover;border-radius:12px}
+    .admin-recovery-brand span,.admin-recovery-brand strong{display:block}
+    .admin-recovery-brand span{font-size:9px;letter-spacing:.12em;color:#6e7c90;font-weight:900}
+    .admin-recovery-brand strong{font-size:16px;color:#071b3d}
+    .admin-recovery-card h1,.admin-recovery-card p{margin:0}
+    .admin-recovery-card p{color:#65748a;font-size:12px;line-height:1.55}
+    .admin-recovery-form{display:grid;gap:12px}
+    .admin-recovery-form label{display:grid;gap:6px}
+    .admin-recovery-form label span{font-size:10px;font-weight:800;color:#27364d}
+    .admin-recovery-form input{width:100%;box-sizing:border-box;border:1px solid #d8e0ea;border-radius:10px;padding:12px;font:inherit}
+    .admin-recovery-form button,.admin-recovery-login{border:0;border-radius:10px;background:#071b3d;color:#fff;padding:12px 14px;font-weight:900;cursor:pointer;text-decoration:none;text-align:center}
+    .admin-recovery-note{padding:11px 12px;border:1px solid #f1d0af;background:#fff8f1;border-radius:10px;color:#7f4d20;font-size:10px;line-height:1.5}
+  </style>
+</head>
+<body>
+  <main class="admin-recovery-shell">
+    <section class="admin-recovery-card">
+      <div class="admin-recovery-brand">
+        <img src="../assets/images/leogo-official-logo.jpg" alt="LEOGO">
+        <div><span>SECURE ADMINISTRATION</span><strong>LEOGO Super Admin Recovery</strong></div>
+      </div>
+      <div>
+        <h1>Replace the compromised password</h1>
+        <p>This page accepts a valid Supabase recovery session only for the active LEOGO Super Admin account.</p>
+      </div>
+      <div class="admin-recovery-note">After a successful recovery, LEOGO signs the Super Admin out of all devices so every device must authenticate again using the new password.</div>
+
+      <div class="form-status" id="adminRecoveryPageStatus" role="status" aria-live="polite">Checking the secure recovery link…</div>
+
+      <form class="admin-recovery-form" id="adminRecoveryForm" hidden>
+        <label><span>New password</span><input id="recoveryNewPassword" type="password" autocomplete="new-password" minlength="12" required></label>
+        <label><span>Confirm new password</span><input id="recoveryConfirmPassword" type="password" autocomplete="new-password" minlength="12" required></label>
+        <div class="admin-password-rule">Use at least 12 characters with uppercase, lowercase, a number and a symbol.</div>
+        <button id="adminRecoverySubmit" type="submit">Set New Password &amp; Sign Out All Devices</button>
+      </form>
+
+      <a class="admin-recovery-login" href="./">Return to Admin Sign In</a>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="recover.js?v=admin-security-v1" defer></script>
+</body>
+</html>
