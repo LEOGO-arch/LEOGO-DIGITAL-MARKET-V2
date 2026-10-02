@@ -115,8 +115,12 @@ set search_path=''
 as $function$
 begin
   new.reward_points_redeemed_kes:=greatest(0,coalesce(new.reward_points_redeemed_kes,0));
-  if tg_op='INSERT'
-     or new.grand_total_kes is distinct from old.grand_total_kes
+  if tg_op='INSERT' then
+    new.external_amount_due_kes:=greatest(
+      0,
+      round(coalesce(new.grand_total_kes,0)-coalesce(new.reward_points_redeemed_kes,0),2)
+    );
+  elsif new.grand_total_kes is distinct from old.grand_total_kes
      or new.reward_points_redeemed_kes is distinct from old.reward_points_redeemed_kes
      or new.external_amount_due_kes is null then
     new.external_amount_due_kes:=greatest(
