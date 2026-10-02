@@ -2256,3 +2256,24 @@ body.advertisement-lightbox-open{overflow:hidden}
   .assisted-quote-item{grid-template-columns:1fr}
   .assisted-quote-item>div:last-child{text-align:left}
 }
+
+
+/* LEOGO Points checkout V2 */
+.checkout-points-panel{display:grid;gap:10px;padding:13px;border:1px solid #f0cfaa;border-radius:12px;background:#fffaf4}
+.checkout-points-toggle{display:flex!important;gap:10px!important;align-items:flex-start!important;cursor:pointer}
+.checkout-points-toggle input{width:20px!important;height:20px!important;margin-top:1px;accent-color:#ff7200;flex:0 0 auto}
+.checkout-points-toggle span{display:grid;gap:3px}
+.checkout-points-toggle strong{font-size:11px;color:#17243a}
+.checkout-points-toggle small{font-size:8px;color:#6d7989;line-height:1.4}
+.checkout-points-values{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.checkout-points-values span{display:grid;gap:3px;padding:9px;border-radius:9px;background:#fff;border:1px solid #eadfce}
+.checkout-points-values small{font-size:7px;color:#7e7467;text-transform:uppercase;font-weight:850}
+.checkout-points-values strong{font-size:12px;color:#07152f}
+.checkout-points-panel>p{margin:0;color:#776a5d;font-size:8px;line-height:1.45}
+.checkout-points-panel.is-active{border-color:#ffae68;background:#fff6ec}
+.checkout-points-panel.is-covered{border-color:#b8dfc6;background:#f2fbf5}
+.payment-order-summary .points-used{color:#b95900}
+.payment-order-summary .amount-due{color:#07152f}
+@media(max-width:560px){
+  .checkout-points-values{grid-template-columns:1fr}
+}
