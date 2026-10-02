@@ -87,4 +87,7 @@ if(!staffAccessSql.includes('staff_list_assigned_assisted_shopping_requests'))th
 if(!staffAccessSql.includes('private.can_access_assisted_shopping_request'))throw new Error('Private attachment access guard regression');
 if(!adminStaffSql.includes('admin_list_assisted_shopping_staff'))throw new Error('Admin staff assignment expansion regression');
 
+const fileGuardSql=fs.readFileSync('supabase/migrations/20261002120500_assisted_shopping_file_access_guard.sql','utf8');
+if(!fileGuardSql.includes('private.can_access_assisted_shopping_file'))throw new Error('Assigned staff attachment guard regression');
+
 console.log('assisted shopping regression checks passed');
