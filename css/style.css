@@ -2277,3 +2277,20 @@ body.advertisement-lightbox-open{overflow:hidden}
 @media(max-width:560px){
   .checkout-points-values{grid-template-columns:1fr}
 }
+
+
+/* Assisted Shopping LEOGO Points */
+.assisted-use-points{display:flex!important;align-items:flex-start!important;gap:9px!important;padding:9px 10px;border:1px solid #efd2ae;border-radius:9px;background:#fffaf5}
+.assisted-use-points input{width:18px!important;height:18px!important;accent-color:#ff7200;flex:0 0 auto}
+.assisted-use-points span{display:grid;gap:2px}
+.assisted-use-points b{font-size:9px;color:#27354b}
+.assisted-use-points small{font-size:8px;color:#7b6f62}
+.assisted-points-preview{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.assisted-points-preview span{display:grid;gap:3px;padding:8px;border:1px solid #e5e9ee;border-radius:8px;background:#fff}
+.assisted-points-preview small{font-size:7px;color:#7a8795;text-transform:uppercase}
+.assisted-points-preview b{font-size:10px;color:#17273f}
+.assisted-payment-form.points-active{border-color:#f1bb83;background:#fffaf4}
+.assisted-payment-form.points-covered{border-color:#b6dcc4;background:#f3fbf5}
+@media(max-width:560px){
+  .assisted-points-preview{grid-template-columns:1fr}
+}
