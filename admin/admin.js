@@ -524,7 +524,7 @@
       premium: () => adminHas('premium.read'),
       accommodation: () => adminHas('approvals.read'),
       advertisements: () => adminHas('settings.manage'),
-      loyalty: () => adminHas('settings.manage'),
+      loyalty: () => adminHas('settings.manage') || adminHas('fees.manage') || adminHas('reports.export'),
       reports: () => adminHas('reports.export'),
       staff: () => false,
       audit: () => false,
@@ -1262,42 +1262,121 @@
   };
 
   const STAFF_PERMISSION_DEFS = [
-    ['dashboard.read','Dashboard','View operational dashboard'],
-    ['approvals.read','Approvals','View Approval Center'],
-    ['approvals.manage','Approvals','Approve, reject and return applications'],
-    ['orders.read','Orders','View customer orders'],
-    ['orders.manage','Orders','Manage order fulfilment and operational controls'],
-    ['orders.payment_verify','Finance','Verify or reject customer order payments'],
-    ['delivery.manage','Delivery','Assign Riders and manage delivery operations'],
-    ['customers.read','Customers','View customer accounts'],
-    ['support.chat','Customer Support','Handle assigned private Customer Care chats'],
-    ['sellers.read','Sellers','View Seller accounts'],
-    ['settlements.read','Finance','View Seller settlement accounts, requests and payout history'],
-    ['settlements.manage','Finance','Approve settlement accounts and process Seller payouts'],
-    ['products.read','Marketplace','View products and categories'],
-    ['products.manage','Marketplace','Manage product listings and catalogue'],
-    ['premium.read','Premium','View Premium records'],
-    ['premium.manage','Premium','Manage Premium records'],
-    ['reports.export','Reports','Export operational / financial reports'],
-    ['payments.manage','Payments','Manage LEOGO payment accounts — highly sensitive'],
-    ['fees.manage','Settings','Manage supported fee rules'],
-    ['settings.manage','Settings','Manage system and business settings — highly sensitive']
+    ['dashboard.read','Dashboard & Monitoring','View operational dashboard, live metrics and Wallet loan overview','Dashboard · network summaries · action counts · Wallet loan overview'],
+    ['approvals.read','Approvals & Partner Onboarding','View Approval Center and approval-backed partner/customer queues','Seller / product approvals · Service Providers · Transport · Cyber · Premium applications · Accommodation · Wallet approvals · Flash Sales'],
+    ['approvals.manage','Approvals & Partner Onboarding','Approve, reject, return and moderate approval-backed requests','Partner applications · products/listings · Flash Sales · service operations · feedback · loan reviews'],
+    ['orders.read','Orders & Fulfilment','View marketplace orders and order-linked operational records','Orders · Assisted Shopping · Aftersales · Group Orders · Delivery Jobs · Rider records'],
+    ['orders.write','Orders & Fulfilment','Perform limited operational order updates','Pickup Station return status and other supported operational write actions'],
+    ['orders.manage','Orders & Fulfilment','Manage fulfilment, Assisted Shopping, Aftersales, Group Orders and sorting controls','Order operations · Assisted Shopping quotes/assignment/cancellation · Aftersales · Group Orders · Sorting Center · Rider assignment'],
+    ['orders.payment_verify','Payments & Finance','Verify or reject customer/order payments','Marketplace · Group Order · Service/Cyber payment verification where supported'],
+    ['delivery.manage','Transport, Rider & Pickup','Manage Rider assignments, transport operations and Pickup Stations','Riders · Transport requests/providers/vehicles · delivery jobs · Pickup Stations · returns · delivery operations'],
+    ['customers.read','Customers','View customer accounts and customer-submitted records','Customer directory · customer details · feedback/testimonial visibility'],
+    ['support.chat','Customer Care','Handle assigned private Customer Care conversations','Customer Care inbox · claim/reply/close assigned chats'],
+    ['sellers.read','Sellers','View Seller accounts and Seller operational records','Seller directory · Seller record visibility'],
+    ['settlements.read','Settlements','View settlement accounts, requests and payout history','Seller · Service Provider · Transport Provider settlement records'],
+    ['settlements.manage','Settlements','Approve settlement accounts and process payouts','Settlement account review · settlement requests · payout recording'],
+    ['products.read','Marketplace Catalogue','View products, categories, listings and approved reviews','Products · categories · personal marketplace · product/service review visibility'],
+    ['products.manage','Marketplace Catalogue','Manage product/listing visibility and moderation','Catalogue management · product reviews · personal-sale status/interests'],
+    ['premium.read','Premium','View Premium customer/profile/subscription records','Premium profiles · Premium customers · subscription records'],
+    ['premium.manage','Premium','Manage Premium records and plans','Premium plans · supported Premium management actions'],
+    ['reports.export','Reports & Data','Open reports and export operational/financial data','Report catalogue · PDF/Excel exports · Loyalty dashboard read access'],
+    ['data.read','Reports & Data','Read protected operational media/data where explicitly supported','Protected Premium/media data access used by secured system functions'],
+    ['payments.manage','Payments & Finance','Manage LEOGO payment accounts and assignments — highly sensitive','Till / Paybill / Bank destinations · payment account status and routing'],
+    ['settings.read','System Configuration','Read supported system/service configuration','Read-only configuration access where a module supports it'],
+    ['fees.manage','System Configuration','Manage supported fee, commission and reward rules','Wallet/Loyalty rules · order fees · subscriptions · accommodation/transport/pickup finance settings'],
+    ['settings.manage','System Configuration','Manage business, notification, delivery and system settings — highly sensitive','Business identity · email notifications · advertisements · delivery/service settings · system preferences']
   ];
 
+  const STAFF_PERMISSION_GROUP_INFO = {
+    'Dashboard & Monitoring':'Operational overview and high-level monitoring.',
+    'Approvals & Partner Onboarding':'Approval Center, partner onboarding and moderation responsibilities.',
+    'Orders & Fulfilment':'Marketplace order, Assisted Shopping, Aftersales and fulfilment responsibilities.',
+    'Transport, Rider & Pickup':'Rider, Transport/Parcel, delivery and Pickup Station responsibilities.',
+    'Customers':'Customer records and customer-submitted information.',
+    'Customer Care':'Private Customer Care communication.',
+    'Sellers':'Seller account visibility.',
+    'Settlements':'Partner settlement review and payout responsibilities.',
+    'Marketplace Catalogue':'Products, categories, listings and review moderation.',
+    'Premium':'Premium customer/profile/subscription responsibilities.',
+    'Payments & Finance':'Payment verification and payment-account responsibilities.',
+    'Reports & Data':'Reports, exports and protected operational data.',
+    'System Configuration':'Fees and system configuration responsibilities.'
+  };
+
+  const STAFF_PERMISSION_DEPENDENCIES = {
+    'approvals.manage':['approvals.read'],
+    'orders.write':['orders.read'],
+    'orders.manage':['orders.read'],
+    'orders.payment_verify':['orders.read'],
+    'settlements.manage':['settlements.read'],
+    'products.manage':['products.read'],
+    'premium.manage':['premium.read'],
+    'settings.manage':['settings.read']
+  };
+
+  const STAFF_SENSITIVE_PERMISSIONS = new Set([
+    'approvals.manage','orders.manage','orders.payment_verify','settlements.manage',
+    'premium.manage','payments.manage','fees.manage','settings.manage'
+  ]);
+
+  const normalizeStaffPermissionValues = (values = []) => {
+    const chosen=new Set(Array.isArray(values)?values:[]);
+    let changed=true;
+    while(changed){
+      changed=false;
+      [...chosen].forEach((code)=>{
+        (STAFF_PERMISSION_DEPENDENCIES[code]||[]).forEach((dependency)=>{
+          if(!chosen.has(dependency)){chosen.add(dependency);changed=true;}
+        });
+      });
+    }
+    return [...chosen];
+  };
+
   const selectedPermissionValues = (container) =>
-    [...(container?.querySelectorAll('input[data-staff-permission]:checked') || [])].map((input) => input.value);
+    normalizeStaffPermissionValues([...(container?.querySelectorAll('input[data-staff-permission]:checked') || [])].map((input) => input.value));
 
   const presetForRole = (role) => state.staffRolePresets.find((preset) => preset.code === role);
 
+  const syncPermissionDependencies = (container) => {
+    if(!container)return;
+    const normalized=new Set(selectedPermissionValues(container));
+    container.querySelectorAll('input[data-staff-permission]').forEach((input)=>{
+      input.checked=normalized.has(input.value);
+    });
+  };
+
   const renderPermissionGrid = (container, selected = []) => {
     if (!container) return;
-    const chosen = new Set(Array.isArray(selected) ? selected : []);
-    container.innerHTML = STAFF_PERMISSION_DEFS.map(([code,group,label]) =>
-      '<label class="staff-permission-option'+(['payments.manage','settings.manage'].includes(code)?' sensitive':'')+'">'+
-        '<input type="checkbox" data-staff-permission value="'+escapeHtml(code)+'" '+(chosen.has(code)?'checked':'')+'>'+
-        '<span><b>'+escapeHtml(label)+'</b><small>'+escapeHtml(group)+' · '+escapeHtml(code)+'</small></span>'+
-      '</label>'
+    const chosen = new Set(normalizeStaffPermissionValues(selected));
+    const grouped=new Map();
+    STAFF_PERMISSION_DEFS.forEach((definition)=>{
+      const group=definition[1];
+      if(!grouped.has(group))grouped.set(group,[]);
+      grouped.get(group).push(definition);
+    });
+
+    container.innerHTML=[...grouped.entries()].map(([group,definitions])=>
+      '<section class="staff-permission-group">'+
+        '<header><strong>'+escapeHtml(group)+'</strong><small>'+escapeHtml(STAFF_PERMISSION_GROUP_INFO[group]||'')+'</small></header>'+
+        '<div class="staff-permission-group-list">'+definitions.map(([code,_group,label,coverage]) =>
+          '<label class="staff-permission-option'+(STAFF_SENSITIVE_PERMISSIONS.has(code)?' sensitive':'')+'">'+
+            '<input type="checkbox" data-staff-permission value="'+escapeHtml(code)+'" '+(chosen.has(code)?'checked':'')+'>'+
+            '<span><b>'+escapeHtml(label)+'</b><small>'+escapeHtml(code)+(STAFF_SENSITIVE_PERMISSIONS.has(code)?' · Sensitive':'')+'</small><em>'+escapeHtml(coverage||'')+'</em></span>'+
+          '</label>'
+        ).join('')+'</div>'+
+      '</section>'
     ).join('');
+
+    container.querySelectorAll('input[data-staff-permission]').forEach((input)=>input.addEventListener('change',()=>{
+      if(input.checked)syncPermissionDependencies(container);
+    }));
+  };
+
+  const setAllStaffPermissions = (container, checked) => {
+    if(!container)return;
+    container.querySelectorAll('input[data-staff-permission]').forEach((input)=>{input.checked=checked;});
+    if(checked)syncPermissionDependencies(container);
   };
 
   const renderStaffRoleOptions = () => {
@@ -5904,10 +5983,14 @@
     });
     $('#staffRole')?.addEventListener('change', applyCreateRolePreset);
     $('#resetStaffPermissions')?.addEventListener('click', applyCreateRolePreset);
+    $('#selectAllStaffPermissions')?.addEventListener('click',()=>setAllStaffPermissions($('#staffPermissionGrid'),true));
+    $('#clearStaffPermissions')?.addEventListener('click',()=>setAllStaffPermissions($('#staffPermissionGrid'),false));
     $('#createStaffForm')?.addEventListener('submit', createStaffAccount);
     $('#closeStaffEditor')?.addEventListener('click', closeStaffEditor);
     $('#staffEditorRole')?.addEventListener('change', resetEditorRolePermissions);
     $('#resetEditorPermissions')?.addEventListener('click', resetEditorRolePermissions);
+    $('#selectAllEditorPermissions')?.addEventListener('click',()=>setAllStaffPermissions($('#staffEditorPermissionGrid'),true));
+    $('#clearEditorPermissions')?.addEventListener('click',()=>setAllStaffPermissions($('#staffEditorPermissionGrid'),false));
     $('#staffAccessForm')?.addEventListener('submit', saveStaffAccess);
     $('#saveStaffDocuments')?.addEventListener('click', saveStaffDocuments);
     $('#refreshMarketplaceOrders').addEventListener('click', () => withButtonLock($('#refreshMarketplaceOrders'), 'Refreshing…', loadMarketplaceOrders));
