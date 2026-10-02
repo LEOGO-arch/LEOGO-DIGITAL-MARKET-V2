@@ -1331,6 +1331,8 @@
   const markPaymentPaidLabel = document.getElementById('markPaymentPaidLabel');
   const paymentStepStatus = document.getElementById('paymentStepStatus');
   const paymentOrderTotal = document.getElementById('paymentOrderTotal');
+  const checkoutUsePoints = document.getElementById('checkoutUsePoints');
+  const checkoutPointsAvailable = document.getElementById('checkoutPointsAvailable');
   const selectedPaymentLabel = document.getElementById('selectedPaymentLabel');
   const selectedPaymentStatus = document.getElementById('selectedPaymentStatus');
   const makeCheckoutOrder = document.getElementById('makeCheckoutOrder');
@@ -1354,6 +1356,107 @@
 
   const checkoutTotalText = () => checkoutGrandTotalValue?.textContent || 'KSh 0';
   const checkoutSubtotal = () => Number(checkoutShell?.dataset.checkoutSubtotal || 0);
+  const checkoutGrandTotalNumber = () => Number(checkoutShell?.dataset.checkoutGrandTotal || 0);
+  const checkoutPointsAppliedNumber = () => Number(checkoutShell?.dataset.checkoutPointsApplied || 0);
+  const checkoutExternalAmountDueNumber = () => Number(checkoutShell?.dataset.checkoutExternalAmountDue || checkoutGrandTotalNumber());
+
+  const loadCheckoutRewardPoints = async () => {
+    if (!window.leogoAuth?.isAuthenticated?.() || !window.leogoAuth?.client) {
+      checkoutRewardPointsBalance=0;
+      if(checkoutUsePoints){
+        checkoutUsePoints.checked=false;
+        checkoutUsePoints.disabled=true;
+      }
+      if(checkoutPointsAvailable)checkoutPointsAvailable.textContent='Sign in to load your LEOGO Points.';
+      updateCheckoutPointsTotals();
+      syncSelectedPaymentPresentation();
+      return 0;
+    }
+
+    if(checkoutPointsAvailable)checkoutPointsAvailable.textContent='Loading your LEOGO Points…';
+    const {data,error}=await window.leogoAuth.client.rpc('get_my_reward_points_balance');
+    if(error||!data?.success){
+      checkoutRewardPointsBalance=0;
+      if(checkoutUsePoints){
+        checkoutUsePoints.checked=false;
+        checkoutUsePoints.disabled=true;
+      }
+      if(checkoutPointsAvailable)checkoutPointsAvailable.textContent='Points could not be loaded. Refresh and try again.';
+      updateCheckoutPointsTotals();
+      syncSelectedPaymentPresentation();
+      return 0;
+    }
+
+    checkoutRewardPointsBalance=Math.max(0,Number(data.points_value_kes??data.points??0));
+    if(checkoutUsePoints)checkoutUsePoints.disabled=checkoutRewardPointsBalance<=0;
+    if(checkoutPointsAvailable){
+      checkoutPointsAvailable.textContent=checkoutRewardPointsBalance>0
+        ? Number(checkoutRewardPointsBalance).toLocaleString('en-KE',{maximumFractionDigits:2})+' points · worth '+deliveryMoney(checkoutRewardPointsBalance)
+        : 'You do not have usable LEOGO Points yet.';
+    }
+    updateCheckoutPointsTotals();
+    syncSelectedPaymentPresentation();
+    return checkoutRewardPointsBalance;
+  };
+
+  function syncSelectedPaymentPresentation() {
+    const due=checkoutExternalAmountDueNumber();
+    const fullyCovered=checkoutPointsAppliedNumber()>0 && checkoutGrandTotalNumber()>0 && due<=0;
+
+    if(fullyCovered){
+      if(lppDepositForm)lppDepositForm.hidden=true;
+      if(walletCheckoutPanel)walletCheckoutPanel.hidden=true;
+      if(standardPaymentProof)standardPaymentProof.hidden=true;
+      if(standardPaymentActions)standardPaymentActions.hidden=false;
+      if(selectedPaymentLabel)selectedPaymentLabel.textContent='LEOGO Points';
+      if(selectedPaymentStatus)selectedPaymentStatus.textContent='Fully covered by points';
+      if(paymentStepStatus)paymentStepStatus.textContent='Your LEOGO Points cover the full order. No additional payment is required.';
+      return;
+    }
+
+    if(!selectedCheckoutPayment){
+      if(lppDepositForm)lppDepositForm.hidden=true;
+      if(walletCheckoutPanel)walletCheckoutPanel.hidden=true;
+      if(standardPaymentProof)standardPaymentProof.hidden=false;
+      if(standardPaymentActions)standardPaymentActions.hidden=false;
+      if(selectedPaymentLabel)selectedPaymentLabel.textContent='Not selected';
+      if(selectedPaymentStatus)selectedPaymentStatus.textContent='Waiting';
+      return;
+    }
+
+    const labels={till:'M-Pesa Till',paybill:'M-Pesa Paybill',cod:'Cash on Delivery',lipapolepole:'Lipa Pole Pole',wallet:'LEOGO Savings Wallet'};
+    if(selectedPaymentLabel)selectedPaymentLabel.textContent=labels[selectedCheckoutPayment]||selectedCheckoutPayment;
+    if(selectedPaymentStatus)selectedPaymentStatus.textContent=checkoutPointsAppliedNumber()>0
+      ? 'Points applied · remaining payment pending'
+      : 'Waiting for confirmation';
+
+    const isLipaPolePole=selectedCheckoutPayment==='lipapolepole';
+    const isWallet=selectedCheckoutPayment==='wallet';
+    if(lppDepositForm)lppDepositForm.hidden=!isLipaPolePole;
+    if(walletCheckoutPanel)walletCheckoutPanel.hidden=!isWallet;
+    if(standardPaymentProof)standardPaymentProof.hidden=isLipaPolePole||isWallet;
+    if(standardPaymentActions)standardPaymentActions.hidden=isLipaPolePole||isWallet;
+
+    if(isLipaPolePole){
+      openLppDepositForm();
+    }else if(isWallet){
+      const walletOrderTotal=document.getElementById('walletCheckoutOrderTotal');
+      if(walletOrderTotal)walletOrderTotal.textContent=deliveryMoney(due);
+    }else if(selectedCheckoutPayment==='cod'){
+      paymentProofLabel.textContent='Paste M-Pesa message for the Transport & Parcel Delivery fee';
+      markPaymentPaidLabel.textContent=checkoutPointsAppliedNumber()>0
+        ? 'I confirm that I paid the required delivery fee first. LEOGO Points have been applied and I will pay the remaining COD amount on delivery.'
+        : 'I confirm that I paid the Transport & Parcel Delivery fee first. I will pay the order balance in cash on delivery.';
+    }else{
+      const destinationNumber=window.leogoPayments?.paymentNumber(marketplacePaymentDestination)||'';
+      paymentProofLabel.textContent=destinationNumber
+        ? 'Paste M-Pesa payment message after paying '+destinationNumber
+        : 'Paste M-Pesa payment message';
+      markPaymentPaidLabel.textContent=checkoutPointsAppliedNumber()>0
+        ? 'I confirm that I paid the remaining '+deliveryMoney(due)+' after my LEOGO Points were applied.'
+        : 'I confirm that I prepaid this order to the Admin-assigned payment account and want to mark the payment as paid.';
+    }
+  }
 
   const clearUnavailableMarketplaceSelection = () => {
     if (!['till','paybill'].includes(selectedCheckoutPayment)) return;
@@ -1452,6 +1555,8 @@
     checkoutPaymentStep.classList.toggle('active', payment);
     if (payment) {
       paymentOrderTotal.textContent = checkoutTotalText();
+      updateCheckoutPointsTotals();
+      syncSelectedPaymentPresentation();
       updateCashOnDeliveryAvailability();
     }
   };
@@ -1506,7 +1611,10 @@
       return;
     }
     showCheckoutStep('payment');
-    await loadMarketplacePaymentDestination(true);
+    await Promise.all([
+      loadMarketplacePaymentDestination(true),
+      loadCheckoutRewardPoints()
+    ]);
   });
   backToCheckoutDetails?.addEventListener('click', () => showCheckoutStep('details'));
 
@@ -1518,32 +1626,14 @@
       }
       selectedCheckoutPayment = button.dataset.paymentMethod;
       paymentMethodButtons.forEach((item) => item.classList.toggle('active', item === button));
-      const labels = { till: 'M-Pesa Till', paybill: 'M-Pesa Paybill', cod: 'Cash on Delivery', lipapolepole: 'Lipa Pole Pole', wallet: 'LEOGO Savings Wallet' };
-      selectedPaymentLabel.textContent = labels[selectedCheckoutPayment];
-      selectedPaymentStatus.textContent = 'Waiting for confirmation';
       paymentStepStatus.textContent = '';
-      const isLipaPolePole = selectedCheckoutPayment === 'lipapolepole';
-      const isWallet = selectedCheckoutPayment === 'wallet';
-      if (lppDepositForm) lppDepositForm.hidden = !isLipaPolePole;
-      if (walletCheckoutPanel) walletCheckoutPanel.hidden = !isWallet;
-      if (standardPaymentProof) standardPaymentProof.hidden = isLipaPolePole || isWallet;
-      if (standardPaymentActions) standardPaymentActions.hidden = isLipaPolePole || isWallet;
-      if (isLipaPolePole) {
-        openLppDepositForm();
-      } else if (isWallet) {
-        const walletOrderTotal = document.getElementById('walletCheckoutOrderTotal');
-        if (walletOrderTotal) walletOrderTotal.textContent = checkoutTotalText();
-      } else if (selectedCheckoutPayment === 'cod') {
-        paymentProofLabel.textContent = 'Paste M-Pesa message for the Transport & Parcel Delivery fee';
-        markPaymentPaidLabel.textContent = 'I confirm that I paid the Transport & Parcel Delivery fee first. I will pay the order balance in cash on delivery.';
-      } else {
-        const destinationNumber = window.leogoPayments?.paymentNumber(marketplacePaymentDestination) || '';
-        paymentProofLabel.textContent = destinationNumber
-          ? `Paste M-Pesa payment message after paying ${destinationNumber}`
-          : 'Paste M-Pesa payment message';
-        markPaymentPaidLabel.textContent = 'I confirm that I prepaid this order to the Admin-assigned payment account and want to mark the payment as paid.';
-      }
+      syncSelectedPaymentPresentation();
     });
+  });
+
+  checkoutUsePoints?.addEventListener('change',()=>{
+    updateCheckoutPointsTotals();
+    syncSelectedPaymentPresentation();
   });
 
   copyCheckoutPaymentDestination?.addEventListener('click', async () => {
