@@ -913,3 +913,71 @@
 /* Customer Feedback & Testimonies admin moderation */
 .customer-feedback-admin-card{margin-top:14px}
 .customer-feedback-admin-card .seller-admin-summary{margin:12px 0 4px}
+
+
+/* Assisted Shopping Admin V1 */
+.assisted-admin-toolbar{margin-bottom:12px}
+.assisted-admin-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.assisted-admin-card{display:grid;gap:11px;padding:14px;border:1px solid #dce4ed;border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(8,27,58,.05)}
+.assisted-admin-card>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.assisted-admin-card>header>div{display:grid;gap:3px}
+.assisted-admin-card>header span{font-size:8px;color:#ff7200;font-weight:950;letter-spacing:.08em}
+.assisted-admin-card>header h3{margin:0;color:#071a3a;font-size:14px}
+.assisted-admin-card>header small{font-size:8px;color:#7d8998}
+.assisted-admin-status{border-radius:999px;background:#eef2f7;color:#4c5a6b;padding:6px 8px;font-size:7px;text-transform:uppercase;white-space:nowrap}
+.assisted-admin-status.submitted,.assisted-admin-status.changes_requested{background:#fff2dd;color:#8d5700}
+.assisted-admin-status.payment_submitted,.assisted-admin-status.payment_rejected{background:#fff0f0;color:#9e2d2d}
+.assisted-admin-status.preparing,.assisted-admin-status.ready_for_dispatch,.assisted-admin-status.assigned,.assisted-admin-status.on_the_way{background:#eaf2ff;color:#1f5994}
+.assisted-admin-status.completed{background:#e6f7ed;color:#17623c}
+.assisted-admin-card-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.assisted-admin-card-grid span{display:grid;gap:3px;padding:8px;border-radius:9px;background:#f7f9fc}
+.assisted-admin-card-grid small{font-size:7px;color:#7a8797;text-transform:uppercase}
+.assisted-admin-card-grid strong{font-size:9px;color:#20314a;line-height:1.35}
+.assisted-admin-card>p{margin:0;color:#566479;font-size:9px;line-height:1.45}
+.assisted-admin-card>footer{display:flex;justify-content:flex-end}
+.assisted-admin-card>footer button{border:0;border-radius:9px;background:#071a3a;color:#fff;padding:9px 11px;font-size:9px;font-weight:900}
+.assisted-admin-modal-card{width:min(1040px,96vw)}
+.assisted-admin-request-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.assisted-admin-request-summary span{display:grid;gap:3px;padding:10px;border-radius:10px;background:#f7f9fc}
+.assisted-admin-request-summary small{font-size:7px;color:#7a8798;text-transform:uppercase}
+.assisted-admin-request-summary strong{font-size:10px;color:#0d1d37}
+.assisted-admin-request-summary em{font-style:normal;font-size:8px;color:#69778b;line-height:1.35}
+.assisted-admin-original-list{display:grid;gap:5px;padding:11px;border:1px solid #e1e7ee;border-radius:10px;background:#fbfcfe;margin-bottom:10px}
+.assisted-admin-original-list small{font-size:7px;font-weight:950;letter-spacing:.08em;color:#728095}
+.assisted-admin-original-list pre{margin:0;white-space:pre-wrap;font:inherit;font-size:9px;line-height:1.5;color:#3b4b60}
+.assisted-admin-files{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.assisted-admin-files button{border:1px solid #d4e0ec;border-radius:9px;background:#f8fbff;color:#294e73;padding:7px 9px;font-size:8px;font-weight:850}
+.assisted-admin-quote-builder{display:grid;gap:10px;padding:13px;border:1px solid #ead5bd;border-radius:12px;background:#fffaf5}
+.assisted-admin-quote-builder[hidden]{display:none!important}
+.assisted-admin-quote-rows{display:grid;gap:10px}
+.assisted-admin-quote-row{display:grid;grid-template-columns:2fr repeat(5,minmax(100px,1fr));gap:8px;align-items:end;padding:10px;border:1px solid #e4e8ed;border-radius:10px;background:#fff}
+.assisted-admin-quote-row label{display:grid;gap:4px;font-size:8px;font-weight:850;color:#3b4b62}
+.assisted-admin-quote-row label.wide{grid-column:auto}
+.assisted-admin-quote-row input,.assisted-admin-quote-row select{width:100%;box-sizing:border-box;border:1px solid #ccd7e4;border-radius:8px;padding:8px;font:inherit;font-size:8px;background:#fff}
+.assisted-remove-quote-row{border:1px solid #efc5c2;border-radius:8px;background:#fff0ef;color:#9e2e27;padding:8px;font-size:8px;font-weight:900}
+.assisted-admin-note-field{display:grid;gap:5px;font-size:8px;font-weight:900}
+.assisted-admin-note-field textarea{border:1px solid #d4dde7;border-radius:9px;padding:9px;font:inherit;font-size:9px}
+.assisted-admin-fulfilment-controls{display:grid;gap:10px;margin-top:13px;padding:13px;border:1px solid #d9e4f0;border-radius:12px;background:#f8fbff}
+.assisted-admin-fulfilment-controls[hidden]{display:none!important}
+.assisted-admin-control-head{display:grid;gap:3px}
+.assisted-admin-control-head span{font-size:7px;color:#708097;font-weight:950;letter-spacing:.08em}
+.assisted-admin-control-head h4{margin:0;color:#0b1b35}
+.assisted-admin-action-row{display:flex;gap:8px;flex-wrap:wrap}
+.assisted-admin-action-row button,.assisted-admin-rider-assign button{border:0;border-radius:9px;background:#0c5fa9;color:#fff;padding:9px 11px;font-size:8px;font-weight:900}
+.assisted-admin-action-row button.danger{background:#b3362f}
+.assisted-admin-rider-assign{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+.assisted-admin-rider-assign label{display:grid;gap:5px;font-size:8px;font-weight:900}
+.assisted-admin-rider-assign select{border:1px solid #ccd8e5;border-radius:9px;padding:9px;background:#fff;font:inherit;font-size:9px}
+.assisted-admin-rider-current,.assisted-admin-order-link{padding:9px;border-radius:9px;background:#fff;color:#44536a;font-size:9px}
+.assisted-shopping-settings-form{margin-top:14px;border-top:4px solid #ff7200}
+@media(max-width:900px){
+  .assisted-admin-list{grid-template-columns:1fr}
+  .assisted-admin-card-grid,.assisted-admin-request-summary{grid-template-columns:1fr 1fr}
+  .assisted-admin-quote-row{grid-template-columns:1fr 1fr}
+  .assisted-admin-quote-row label.wide{grid-column:1/-1}
+  .assisted-admin-rider-assign{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .assisted-admin-card-grid,.assisted-admin-request-summary,.assisted-admin-quote-row{grid-template-columns:1fr}
+  .assisted-admin-quote-row label.wide{grid-column:auto}
+}
