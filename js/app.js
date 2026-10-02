@@ -3258,10 +3258,21 @@
     cancelled:'Cancelled'
   }[status] || String(status || '').replaceAll('_',' '));
 
+  const customerPointsOrderSummaryHtml=(order)=>{
+    const points=Number(order?.reward_points_redeemed_kes||0);
+    if(points<=0)return '';
+    const due=Number(order?.external_amount_due_kes??Math.max(0,Number(order?.grand_total_kes||0)-points));
+    return '<div class="customer-order-points-summary"><span><small>LEOGO Points used</small><strong>'+money(points)+'</strong></span><span><small>Other payment amount</small><strong>'+money(due)+'</strong></span></div>';
+  };
+
   const customerOrderHistory = (order) => {
     const events = [];
     const add=(label,at,detail='')=>{ if(at) events.push({label,at,detail}); };
     add('Order placed',order.created_at,'Order '+order.order_reference+' was created.');
+    if(Number(order.reward_points_redeemed_kes||0)>0){
+      add('LEOGO Points applied',order.created_at,
+        money(order.reward_points_redeemed_kes)+' in points reduced the other payment amount to '+money(order.external_amount_due_kes||0)+'.');
+    }
     if(order.payment_verified_at){
       add('Payment verified',order.payment_verified_at,customerPaymentText(order.payment_status));
     }else if(order.payment_status==='submitted'){
@@ -3455,11 +3466,11 @@
 
       return '<article class="customer-order-card customer-order-card-compact" data-customer-order-id="'+receiptEscape(order.id)+'">'+
         '<header><div><strong>'+receiptEscape(order.order_reference)+'</strong><small>'+customerOrderFormatDate(order.created_at)+'</small></div><div><b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b><small>'+receiptEscape(customerPaymentText(order.payment_status))+'</small></div></header>'+
-        '<div class="customer-order-compact-body"><div><small>ITEM</small><strong>'+itemSummary+'</strong></div><div><small>TOTAL</small><strong>'+money(order.grand_total_kes)+'</strong></div></div>'+
+        '<div class="customer-order-compact-body"><div><small>ITEM</small><strong>'+itemSummary+'</strong></div><div><small>TOTAL</small><strong>'+money(order.grand_total_kes)+'</strong>'+(Number(order.reward_points_redeemed_kes||0)>0?'<span>'+money(order.reward_points_redeemed_kes)+' points · '+money(order.external_amount_due_kes)+' other payment</span>':'')+'</div></div>'+
         '<div class="customer-order-compact-actions">'+actionButtons+'</div>'+
         '<div class="customer-order-expanded" data-order-expanded hidden>'+
           '<div class="customer-order-expanded-head"><span>ORDER DETAILS & UPDATES</span><small>'+customerOrderHistory(order).length+' updates</small></div>'+
-          '<ul>'+items+'</ul><div class="customer-order-sellers">'+sellers+'</div>'+rider+
+          '<ul>'+items+'</ul>'+customerPointsOrderSummaryHtml(order)+'<div class="customer-order-sellers">'+sellers+'</div>'+rider+
           '<div class="customer-order-history-wrap"><div class="customer-order-history-title"><span>ORDER HISTORY</span><strong>'+customerOrderHistory(order).length+' updates</strong></div>'+customerOrderTimelineHtml(order,false)+'</div>'+
           (completed ? customerReviewBoxHtml(order) : '')+
         '</div>'+
