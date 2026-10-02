@@ -6,6 +6,8 @@ const adminJs=fs.readFileSync('admin/admin.js','utf8');
 const recoverHtml=fs.readFileSync('admin/recover.html','utf8');
 const recoverJs=fs.readFileSync('admin/recover.js','utf8');
 const migration=fs.readFileSync('supabase/migrations/20261002214500_admin_security_controls.sql','utf8');
+const securityEmailMigration=fs.readFileSync('supabase/migrations/20261002220000_admin_security_email_alerts.sql','utf8');
+const emailFunction=fs.readFileSync('supabase/functions/send-order-email/index.ts','utf8');
 
 new vm.Script(adminJs,{filename:'admin/admin.js'});
 new vm.Script(recoverJs,{filename:'admin/recover.js'});
@@ -58,6 +60,21 @@ for(const required of [
   'grant execute'
 ]){
   if(!migration.includes(required))throw new Error('Missing security migration guard: '+required);
+}
+
+for(const required of [
+  "kind === \"admin_security\"",
+  "Admin Security Alert",
+  "const securityEmail = emailKind === \"admin_security\""
+]){
+  if(!emailFunction.includes(required))throw new Error('Missing security email function behavior: '+required);
+}
+for(const required of [
+  "'kind','admin_security'",
+  "security_email_queued",
+  "admin.security.all_sessions_revoked"
+]){
+  if(!securityEmailMigration.includes(required))throw new Error('Missing security email migration behavior: '+required);
 }
 
 console.log('admin security regression checks passed');
