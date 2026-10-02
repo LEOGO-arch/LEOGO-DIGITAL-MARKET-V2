@@ -34,7 +34,7 @@ const deliveryStatusLabel=status=>({
   failed:'Failed'
 }[status]||String(status||'').replaceAll('_',' '));
 
-let user=null,staff=null,jobs=[],filter='active',authEvent='';
+let user=null,staff=null,jobs=[],assistedLists=[],filter='active',authEvent='';
 
 const setupMode=()=>new URLSearchParams(window.location.search).get('setup')==='1';
 const recoveryMode=()=>new URLSearchParams(window.location.search).get('recovery')==='1';
@@ -53,7 +53,8 @@ function show(mode){
   $('#staffPasswordSetup').hidden=mode!=='password';
   $('#staffRouting').hidden=mode!=='routing';
   $('#staffAccessDenied').hidden=mode!=='denied';
-  $('#riderApp').hidden=mode!=='app';
+  $('#riderApp').hidden=mode!=='app'||staff?.staff_role!=='rider';
+  $('#assistedStaffApp').hidden=mode!=='app';
   $('#staffLogout').hidden=['login','forgot','password'].includes(mode);
 }
 
@@ -87,18 +88,21 @@ async function routeStaffAccount(){
     return;
   }
 
-  const riderResult=await client.from('leogo_staff')
+  const staffResult=await client.from('leogo_staff')
     .select('*').eq('user_id',user.id).maybeSingle();
 
-  if(riderResult.error||!riderResult.data||riderResult.data.staff_role!=='rider'||riderResult.data.status!=='active'){
+  if(staffResult.error||!staffResult.data||staffResult.data.status!=='active'){
     show('denied');
     return;
   }
 
-  staff=riderResult.data;
-  $('#riderName').textContent=staff.display_name||'Rider Dashboard';
+  staff=staffResult.data;
+  $('#assistedStaffName').textContent=(staff.display_name||'LEOGO Staff')+' — Assigned Shopping Lists';
+  if(staff.staff_role==='rider')$('#riderName').textContent=staff.display_name||'Rider Dashboard';
   show('app');
-  await loadJobs();
+  const tasks=[loadAssistedLists()];
+  if(staff.staff_role==='rider')tasks.push(loadJobs());
+  await Promise.all(tasks);
 }
 
 async function handleSession(session,event=''){
@@ -108,6 +112,7 @@ async function handleSession(session,event=''){
   if(!user){
     staff=null;
     jobs=[];
+    assistedLists=[];
     if(setupMode()||recoveryMode()){
       setStatus('#staffLoginStatus','This secure link is invalid or has expired. Request a new password link.','error');
     }
@@ -122,6 +127,71 @@ async function handleSession(session,event=''){
   }
 
   await routeStaffAccount();
+}
+
+async function loadAssistedLists(){
+  setStatus('#assistedStaffStatus');
+  const {data,error}=await client.rpc('staff_list_assigned_assisted_shopping_requests');
+  if(error){
+    assistedLists=[];
+    renderAssistedLists();
+    setStatus('#assistedStaffStatus',error.message,'error');
+    return;
+  }
+  assistedLists=Array.isArray(data)?data:[];
+  renderAssistedLists();
+  if(!assistedLists.length)setStatus('#assistedStaffStatus','No Assisted Shopping Lists are currently assigned to you.');
+}
+
+function renderAssistedLists(){
+  const container=$('#assistedStaffList');
+  if(!container)return;
+  $('#assistedStaffCount').textContent=String(assistedLists.length);
+  $('#assistedStaffActiveCount').textContent=String(assistedLists.filter(item=>
+    ['submitted','under_review','changes_requested','quotation_ready','payment_submitted','payment_rejected','preparing','ready_for_dispatch']
+      .includes(item.status)
+  ).length);
+
+  if(!assistedLists.length){
+    container.innerHTML='<div class="empty">No Shopping Lists assigned to you.</div>';
+    return;
+  }
+
+  container.innerHTML=assistedLists.map(item=>{
+    const files=Array.isArray(item.files)?item.files:[];
+    const items=Array.isArray(item.items)?item.items:[];
+    const fulfil=item.fulfilment_method==='pickup'
+      ? 'Pickup Station: '+(item.pickup_station_name||'Selected station')
+      : 'Delivery: '+[item.estate,item.sub_county,item.county].filter(Boolean).join(', ');
+    const original=item.written_list
+      ? '<div class="assisted-staff-original"><small>CUSTOMER SHOPPING LIST</small><p>'+esc(item.written_list)+'</p></div>'
+      : '<div class="assisted-staff-original"><small>CUSTOMER SHOPPING LIST</small><p>Shopping List submitted through attachment(s).</p></div>';
+    const attachments=files.length
+      ? '<div class="assisted-staff-files">'+files.map(file=>
+          '<button type="button" data-assisted-staff-file="'+esc(file.path)+'">📎 '+esc(file.name||'Attachment')+'</button>'
+        ).join('')+'</div>'
+      :'';
+    const prepared=items.length
+      ? '<details class="assisted-staff-prepared"><summary>View LEOGO prepared items / quotation</summary><div>'+
+          items.map(line=>'<span><strong>'+esc(line.item_name||'Item')+'</strong><small>'+
+            esc(line.prepared_quantity)+' '+esc(line.unit_label||'')+' · '+money(line.line_total_kes)+' · '+esc(String(line.item_status||'available').replaceAll('_',' '))+
+            (line.substitution_note?' · '+esc(line.substitution_note):'')+
+          '</small></span>').join('')+
+          '<b>Grand Total: '+money(item.grand_total_kes)+'</b></div></details>'
+      :'';
+
+    return '<article class="assisted-staff-card" data-assisted-staff-id="'+esc(item.id)+'">'+
+      '<header><div><span>'+esc(item.request_reference)+'</span><h2>'+esc(item.customer_name||item.receiver_name||'Customer Shopping List')+'</h2><small>Assigned '+fmt(item.assigned_at)+'</small></div><b>'+esc(String(item.status||'').replaceAll('_',' ').toUpperCase())+'</b></header>'+
+      '<div class="assisted-staff-grid">'+
+        '<span><small>Receiver</small><strong>'+esc(item.receiver_name||'—')+'</strong><em>'+esc(item.contact_number||item.customer_phone||'')+'</em></span>'+
+        '<span><small>Fulfilment</small><strong>'+esc(fulfil||'—')+'</strong><em>'+esc(item.landmark||'')+'</em></span>'+
+        '<span><small>Budget</small><strong>'+(item.budget_kes!=null?money(item.budget_kes):'Not set')+'</strong><em>'+esc(String(item.substitution_policy||'').replaceAll('_',' '))+'</em></span>'+
+        '<span><small>Preferred</small><strong>'+esc(item.preferred_delivery_date||'Flexible')+'</strong><em>'+esc(item.preferred_delivery_time||'')+'</em></span>'+
+      '</div>'+
+      original+attachments+prepared+
+      '<footer><button type="button" data-download-assisted-staff="'+esc(item.id)+'">⬇ Download Shopping List PDF</button></footer>'+
+    '</article>';
+  }).join('');
 }
 
 async function loadJobs(){
@@ -393,6 +463,7 @@ const signOut=async()=>{
   user=null;
   staff=null;
   jobs=[];
+  assistedLists=[];
   history.replaceState({},document.title,window.location.pathname);
   show('login');
 };
@@ -400,6 +471,30 @@ const signOut=async()=>{
 $('#staffLogout').addEventListener('click',signOut);
 $('#deniedSignOut').addEventListener('click',signOut);
 $('#refreshRiderJobs').addEventListener('click',loadJobs);
+$('#refreshAssistedStaffLists').addEventListener('click',loadAssistedLists);
+
+$('#assistedStaffList').addEventListener('click',async(event)=>{
+  const fileButton=event.target.closest?.('[data-assisted-staff-file]');
+  if(fileButton){
+    const {data,error}=await client.storage.from('assisted-shopping-files').createSignedUrl(fileButton.dataset.assistedStaffFile,600);
+    if(error){setStatus('#assistedStaffStatus',error.message,'error');return;}
+    window.open(data.signedUrl,'_blank','noopener');
+    return;
+  }
+
+  const downloadButton=event.target.closest?.('[data-download-assisted-staff]');
+  if(downloadButton){
+    const item=assistedLists.find(row=>String(row.id)===String(downloadButton.dataset.downloadAssistedStaff));
+    if(!item)return;
+    try{
+      if(!window.leogoAssistedShoppingPdf)throw new Error('Shopping List PDF generator is still loading. Try again.');
+      window.leogoAssistedShoppingPdf.download(item,{assignedStaffName:staff?.display_name||''});
+      setStatus('#assistedStaffStatus','Shopping List PDF prepared for download.','success');
+    }catch(error){
+      setStatus('#assistedStaffStatus',error?.message||'Shopping List PDF could not be generated.','error');
+    }
+  }
+});
 
 $$('[data-rider-filter]').forEach(button=>button.addEventListener('click',()=>{
   filter=button.dataset.riderFilter;
