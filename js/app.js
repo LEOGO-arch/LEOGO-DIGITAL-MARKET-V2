@@ -3487,7 +3487,7 @@
         return;
       }
 
-      const {data,error}=await client.rpc('customer_list_marketplace_orders_v2');
+      const {data,error}=await client.rpc('customer_list_marketplace_orders_v3');
       if(error){
         console.error('LEOGO customer orders could not load:',error.message||error);
         const empty=document.getElementById('customerActivityEmpty');
