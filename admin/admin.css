@@ -981,3 +981,22 @@
   .assisted-admin-card-grid,.assisted-admin-request-summary,.assisted-admin-quote-row{grid-template-columns:1fr}
   .assisted-admin-quote-row label.wide{grid-column:auto}
 }
+
+
+/* Assisted Shopping staff assignment/download V1 */
+.assisted-admin-assignment-bar{display:grid;gap:10px;margin-bottom:12px;padding:12px;border:1px solid #d8e3ee;border-radius:12px;background:#f8fbff}
+.assisted-admin-assignment-copy{display:grid;gap:3px}
+.assisted-admin-assignment-copy span{font-size:7px;font-weight:950;letter-spacing:.08em;color:#6f8094}
+.assisted-admin-assignment-copy strong{font-size:12px;color:#0b1b35}
+.assisted-admin-assignment-copy small{font-size:8px;color:#6e7b8d;line-height:1.45}
+.assisted-admin-assignment-actions{display:grid;grid-template-columns:minmax(220px,1fr) auto auto;gap:8px;align-items:center}
+.assisted-admin-assignment-actions select{width:100%;box-sizing:border-box;border:1px solid #cfdbe7;border-radius:9px;padding:9px;background:#fff;font:inherit;font-size:9px}
+.assisted-admin-assignment-actions button{border:0;border-radius:9px;background:#071a3a;color:#fff;padding:9px 11px;font:inherit;font-size:9px;font-weight:900;white-space:nowrap}
+.assisted-admin-card-assignment{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 9px;border-radius:9px;background:#f7f9fc}
+.assisted-admin-card-assignment small{font-size:7px;color:#7a8797;text-transform:uppercase}
+.assisted-admin-card-assignment strong{font-size:9px;color:#20314a}
+.assisted-admin-card>footer{gap:8px;flex-wrap:wrap}
+.assisted-admin-card>footer button.secondary{background:#eef3f8;color:#29425f;border:1px solid #d7e0e9}
+@media(max-width:760px){
+  .assisted-admin-assignment-actions{grid-template-columns:1fr}
+}
