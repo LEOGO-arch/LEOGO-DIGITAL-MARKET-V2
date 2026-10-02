@@ -47,7 +47,7 @@
         <span class="nav-label">CONTROL CENTER</span>
         <button class="active" data-admin-view="dashboard"><i>▦</i><span>Dashboard</span></button>
         <button data-admin-view="approvals"><i>✓</i><span>Approval Center</span><em id="sidebarApprovalCount">0</em></button>
-        <button data-admin-view="orders"><i>▤</i><span>Orders</span><em id="sidebarOrderCount">0</em></button>
+        <button data-admin-view="orders"><i>▤</i><span>Orders</span><em id="sidebarOrderCount">0</em></button><button data-admin-view="assisted"><i>📝</i><span>Assisted Shopping</span><em id="sidebarAssistedShoppingCount">0</em></button>
         <button data-admin-view="flashsales"><i>⚡</i><span>Flash Sales</span><em id="sidebarFlashSaleCount">0</em></button>
         <button data-admin-view="aftersales"><i>↺</i><span>Aftersales</span><em id="sidebarAftersalesCount">0</em></button>
         <button data-admin-view="customers"><i>♙</i><span>Customers</span><em id="sidebarFeedbackCount">0</em></button>
@@ -246,6 +246,41 @@
             <div id="adminOrderDeliveryDetail" class="admin-order-delivery-detail"><div class="loading-card">Loading delivery state…</div></div>
           </article>
         </section>
+      </section>
+
+      <section class="admin-panel" data-admin-panel="assisted">
+        <div class="section-head">
+          <div><span>ASSISTED SHOPPING</span><h2>Shopping Lists</h2><p>Prepare customer Shopping Lists internally, send an item-by-item quotation for approval, verify payment, then hand the accepted order to the existing Rider / Pickup Station workflow.</p></div>
+          <button id="refreshAssistedShoppingAdmin" class="primary-button" type="button">↻ Refresh Shopping Lists</button>
+        </div>
+
+        <div class="seller-admin-summary">
+          <article><span>New / Changes</span><strong id="assistedAdminNewCount">0</strong><small>Needs LEOGO preparation</small></article>
+          <article><span>Quotation Ready</span><strong id="assistedAdminQuoteCount">0</strong><small>Waiting for customer</small></article>
+          <article><span>Payment Review</span><strong id="assistedAdminPaymentCount">0</strong><small>Needs verification</small></article>
+          <article><span>In Fulfilment</span><strong id="assistedAdminFulfilmentCount">0</strong><small>Preparing / Rider / Pickup</small></article>
+        </div>
+
+        <div class="seller-admin-toolbar assisted-admin-toolbar">
+          <input id="assistedAdminSearch" type="search" placeholder="Search reference, customer, phone or Shopping List…">
+          <select id="assistedAdminStatusFilter">
+            <option value="attention">Action required</option>
+            <option value="all">All statuses</option>
+            <option value="submitted">Submitted</option>
+            <option value="changes_requested">Changes requested</option>
+            <option value="quotation_ready">Quotation ready</option>
+            <option value="payment_submitted">Payment submitted</option>
+            <option value="preparing">Preparing</option>
+            <option value="ready_for_dispatch">Ready for dispatch</option>
+            <option value="assigned">Rider assigned</option>
+            <option value="ready_for_pickup">Ready for pickup</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        <div id="assistedShoppingAdminStatus" class="form-status" aria-live="polite"></div>
+        <div id="assistedShoppingAdminList" class="assisted-admin-list"><div class="loading-card">Loading Shopping Lists…</div></div>
       </section>
 
       <section class="admin-panel" data-admin-panel="flashsales">
@@ -1033,6 +1068,16 @@
             <div class="form-status" id="orderSettingsStatus"></div>
             <div class="locked-front-note">These values are read by the existing checkout without changing its layout or order workflow.</div>
           </form>
+
+          <form class="settings-form assisted-shopping-settings-form" id="assistedShoppingSettingsForm">
+            <div class="form-section-head"><div><span>📝</span><div><h3>Assisted Shopping Settings</h3><p>Control the LEOGO service fee charged on Shopping Lists prepared internally by LEOGO. The rate is snapshotted when Admin prepares each quotation.</p></div></div><button type="submit">Save Assisted Shopping Fee</button></div>
+            <div class="form-grid">
+              <label><span>Assisted Shopping service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.01" required><small>Applied to the prepared item subtotal. Delivery and Pickup Station charges remain separate and continue using their existing system rules.</small></label>
+            </div>
+            <div class="system-setting-preview" id="assistedShoppingSettingsPreview">Loading Assisted Shopping fee…</div>
+            <div class="form-status" id="assistedShoppingSettingsStatus"></div>
+            <div class="locked-front-note">Changing this rate affects newly prepared quotations only. Already-prepared customer quotations keep their saved fee snapshot.</div>
+          </form>
         </div>
 
         <div class="settings-panel" data-settings-content="lipa">
@@ -1225,6 +1270,30 @@
     <section class="premium-payment-history"><div class="review-media-heading"><span>SUBSCRIPTION HISTORY</span><strong>Payments &amp; Membership</strong><small>Historical payment records remain visible after approval and expiry.</small></div><div id="premiumCustomerPaymentHistory"></div></section>
   </div><footer><button class="secondary" data-close-modal type="button">Close</button></footer></section></div>
 
+  <div class="modal" id="assistedShoppingAdminModal" hidden>
+    <button class="modal-backdrop" data-close-assisted-admin type="button" aria-label="Close"></button>
+    <section class="modal-card wide-modal assisted-admin-modal-card">
+      <header><div><span>ASSISTED SHOPPING CONTROL</span><h2 id="assistedAdminModalTitle">Shopping List</h2><p id="assistedAdminModalSubtitle"></p></div><button data-close-assisted-admin type="button">×</button></header>
+      <div class="modal-body">
+        <div id="assistedAdminRequestSummary" class="assisted-admin-request-summary"></div>
+        <div id="assistedAdminOriginalList" class="assisted-admin-original-list"></div>
+        <div id="assistedAdminFiles" class="assisted-admin-files"></div>
+
+        <section class="assisted-admin-quote-builder">
+          <div class="admin-order-card-head"><div><span>PREPARED ITEMS</span><h4>Build Customer Quotation</h4><p>Unavailable items may stay on the list with KSh 0. Use substitution notes where LEOGO changed an item.</p></div><button id="addAssistedQuoteItem" type="button">＋ Add Item</button></div>
+          <div id="assistedAdminQuoteRows" class="assisted-admin-quote-rows"></div>
+          <label class="assisted-admin-note-field"><span>LEOGO note to customer <small>(optional)</small></span><textarea id="assistedAdminQuoteNote" rows="3" maxlength="1200"></textarea></label>
+          <div id="assistedAdminQuotePreview" class="system-setting-preview">Quotation totals will be calculated securely when you save.</div>
+          <button id="saveAssistedQuote" class="primary-button" type="button">Prepare / Update Quotation</button>
+        </section>
+
+        <section id="assistedAdminFulfilmentControls" class="assisted-admin-fulfilment-controls"></section>
+        <div id="assistedAdminModalStatus" class="form-status" aria-live="polite"></div>
+      </div>
+      <footer><button class="secondary" data-close-assisted-admin type="button">Close</button></footer>
+    </section>
+  </div>
+
   <div class="modal" id="paymentAccountModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="paymentAccountForm"><header><div><span>PAYMENT SETTINGS</span><h2 id="paymentModalTitle">Add Payment Method</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label><span>Display name</span><input name="display_name" required placeholder="e.g. LEOGO Main Till"></label><label><span>Payment type</span><select name="account_type" id="paymentAccountType" required><option value="mpesa_till">M-Pesa Till</option><option value="mpesa_paybill">M-Pesa Paybill</option><option value="bank">Bank Account</option><option value="other">Other</option></select></label><label data-payment-field="business"><span>Business name</span><input name="business_name"></label><label data-payment-field="account_name"><span>Account name</span><input name="account_name"></label><label data-payment-field="till"><span>Till number</span><input name="till_number" inputmode="numeric"></label><label data-payment-field="paybill"><span>Paybill number</span><input name="paybill_number" inputmode="numeric"></label><label data-payment-field="account_number"><span>Account number / instructions</span><input name="account_number"></label><label data-payment-field="bank"><span>Bank name</span><input name="bank_name"></label><label data-payment-field="bank"><span>Branch</span><input name="branch"></label><label class="wide"><span>Purpose description</span><input name="purpose_description" placeholder="What this account is intended to receive"></label><label class="wide"><span>Payment instructions</span><textarea name="instructions" rows="3"></textarea></label></div><div class="form-status" id="paymentAccountStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Payment Account</button></footer></form></div>
 
   <div class="modal" id="pickupStationModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="pickupStationForm"><header><div><span>DELIVERY SETTINGS</span><h2 id="pickupModalTitle">Add Pickup Station</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label class="wide"><span>Station name</span><input name="station_name" required></label><label><span>County</span><input name="county" required></label><label><span>Sub-County</span><input name="sub_county" required></label><label><span>Town</span><input name="town" required></label><label><span>Door number</span><input name="door_number"></label><label class="wide"><span>Address</span><input name="address_line" required></label><label><span>Landmark</span><input name="landmark"></label><label><span>Contact phone</span><input name="contact_phone"></label><div class="wide seller-shop-pin-box"><div class="section-title compact"><span>📍 REQUIRED LOCATION PIN</span><h4>Pin Pickup Station Location</h4><p>Use the current device location while at the station, paste a Google Maps/shared-location link, or enter valid coordinates.</p></div><div class="seller-shop-pin-actions"><button id="pinPickupStationLocation" type="button">📍 Pin Pickup Station</button><span id="pickupStationPinStatus">Pickup Station location not pinned yet.</span></div><label class="wide"><span>Google Maps / shared location link</span><input name="map_link" id="pickupStationMapLink" type="text" maxlength="1000" placeholder="Paste Google Maps link or coordinates"></label><div class="form-grid"><label><span>Latitude</span><input name="latitude" id="pickupStationLatitude" type="number" step="0.0000001" min="-90" max="90" required></label><label><span>Longitude</span><input name="longitude" id="pickupStationLongitude" type="number" step="0.0000001" min="-180" max="180" required></label></div></div><label class="wide"><span>Operating information</span><input name="operating_hours" placeholder="e.g. Monday–Saturday, 8:00 AM–6:00 PM"></label><label><span>Pickup service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.001" required></label><label><span>Shipping fee to this Pickup Station (KSh)</span><input name="shipping_fee_kes" type="number" min="0" step="1" value="50" required></label><label><span>Display order</span><input name="display_order" type="number" min="0" max="999" value="0"></label><label class="switch-label"><input name="is_active" type="checkbox" checked><span>Station is active</span></label></div><div class="form-status" id="pickupStationStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Pickup Station</button></footer></form></div>
@@ -1232,7 +1301,7 @@
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  <script src="admin.js?v=looking-request-v1" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
+  <script src="admin.js?v=looking-request-v1" defer></script><script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>

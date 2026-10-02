@@ -111,7 +111,7 @@
   };
 
   const viewTitles = {
-    dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', flashsales: 'Flash Sales', aftersales: 'Aftersales', customers: 'Customers',
+    dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', assisted: 'Assisted Shopping', flashsales: 'Flash Sales', aftersales: 'Aftersales', customers: 'Customers',
     chat: 'Customer Care Chats', products: 'Products & Categories', sellers: 'Sellers', settlements: 'Partner Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
     accommodation: 'Accommodation', advertisements: 'Advertisements', loyalty: 'Loyalty & Rewards', reports: 'Reports',
@@ -510,6 +510,7 @@
       dashboard: () => adminHas('dashboard.read'),
       approvals: () => adminHas('approvals.read'),
       orders: () => adminHas('orders.read'),
+      assisted: () => adminHas('orders.read'),
       flashsales: () => adminHas('approvals.read'),
       aftersales: () => adminHas('orders.read'),
       customers: () => adminHas('customers.read'),

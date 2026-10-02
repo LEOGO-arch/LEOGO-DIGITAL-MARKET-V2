@@ -569,7 +569,66 @@
   </article>
   <p class="advertisement-control-note">Only authorized LEOGO administrators can upload, publish, edit or remove advertisements shown here.</p>
 </section>
-<section class="section quick-links"><a href="#verifiedTransportProviders"><span>🚚</span><div><strong>Transport &amp; Parcel Delivery</strong><small>Move goods safely.</small></div></a><a href="#looking-for"><span>🔎</span><div><strong>What Are You Looking For?</strong><small>Post a request.</small></div></a><a href="#selling"><span>🏷️</span><div><strong>What Are You Selling?</strong><small>List an item.</small></div></a><a href="#premium"><span>🔞</span><div><strong>Premium 18+</strong><small>Verified adult connections.</small></div></a><a href="#advertisement"><span>📢</span><div><strong>Advertisement</strong><small>View featured promotions.</small></div></a><a href="#feedbackTestimonialsModal" id="openFeedbackTestimonials" aria-haspopup="dialog" aria-controls="feedbackTestimonialsModal"><span>💬</span><div><strong>Feedback &amp; Testimonies</strong><small>Read experiences or share yours.</small></div></a></section>
+<section class="section quick-links"><a href="#verifiedTransportProviders"><span>🚚</span><div><strong>Transport &amp; Parcel Delivery</strong><small>Move goods safely.</small></div></a><a href="#assistedShoppingModal" id="openAssistedShopping" aria-haspopup="dialog" aria-controls="assistedShoppingModal"><span>📝</span><div><strong>Send Shopping List</strong><small>Write or upload a list for LEOGO to prepare.</small></div></a><a href="#looking-for"><span>🔎</span><div><strong>What Are You Looking For?</strong><small>Post a request.</small></div></a><a href="#selling"><span>🏷️</span><div><strong>What Are You Selling?</strong><small>List an item.</small></div></a><a href="#premium"><span>🔞</span><div><strong>Premium 18+</strong><small>Verified adult connections.</small></div></a><a href="#advertisement"><span>📢</span><div><strong>Advertisement</strong><small>View featured promotions.</small></div></a><a href="#feedbackTestimonialsModal" id="openFeedbackTestimonials" aria-haspopup="dialog" aria-controls="feedbackTestimonialsModal"><span>💬</span><div><strong>Feedback &amp; Testimonies</strong><small>Read experiences or share yours.</small></div></a></section>
+<div class="service-review-modal assisted-shopping-modal" id="assistedShoppingModal" role="dialog" aria-modal="true" aria-labelledby="assistedShoppingTitle" aria-hidden="true">
+  <div class="service-review-modal-backdrop" data-close-assisted-shopping></div>
+  <section class="service-review-modal-card assisted-shopping-card">
+    <div class="service-review-modal-head">
+      <div><span>LEOGO ASSISTED SHOPPING</span><h2 id="assistedShoppingTitle">Send Us Your Shopping List</h2><p>Write your list or upload a photo/document. LEOGO prepares the items and price first; you approve before it becomes an order.</p></div>
+      <button type="button" aria-label="Close Assisted Shopping" data-close-assisted-shopping>×</button>
+    </div>
+
+    <div class="assisted-shopping-tabs" role="tablist" aria-label="Assisted Shopping">
+      <button class="active" type="button" role="tab" aria-selected="true" data-assisted-tab="new">New Shopping List</button>
+      <button type="button" role="tab" aria-selected="false" data-assisted-tab="mine">My Shopping Lists</button>
+    </div>
+
+    <section class="assisted-shopping-panel active" data-assisted-panel="new">
+      <form id="assistedShoppingForm" class="assisted-shopping-form">
+        <div class="assisted-shopping-login-note" id="assistedShoppingLoginNote">Sign in to send a Shopping List to LEOGO.</div>
+
+        <div class="assisted-shopping-form-grid">
+          <label><span>Receiver name</span><input id="assistedReceiverName" type="text" maxlength="120" required></label>
+          <label><span>Phone number</span><input id="assistedContactNumber" type="tel" maxlength="30" required></label>
+          <label class="wide"><span>Write your Shopping List <small>(optional if uploading a file)</small></span><textarea id="assistedWrittenList" rows="6" maxlength="5000" placeholder="Example:&#10;2 kg sugar&#10;1 loaf brown bread&#10;2 litres cooking oil&#10;1 bicycle helmet, medium"></textarea></label>
+          <label class="wide assisted-file-field"><span>Upload Shopping List file/photo <small>(optional)</small></span><input id="assistedShoppingFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/jpeg,image/png,image/webp"><small>Up to 5 files. PDF, Word, Excel, text or image. Maximum 20 MB per file.</small><div id="assistedFileList" class="assisted-file-list"></div></label>
+
+          <label><span>Substitutions</span><select id="assistedSubstitutionPolicy" required><option value="contact_first">Contact me before substituting</option><option value="allow_similar">Similar item is okay</option><option value="no_substitutes">No substitutes</option></select></label>
+          <label><span>Budget (KSh) <small>(optional)</small></span><input id="assistedBudget" type="number" min="0" step="1" placeholder="Maximum / target budget"></label>
+          <label><span>Preferred date <small>(optional)</small></span><input id="assistedPreferredDate" type="date"></label>
+          <label><span>Preferred time <small>(optional)</small></span><input id="assistedPreferredTime" type="time"></label>
+
+          <label><span>How should you receive it?</span><select id="assistedFulfilmentMethod" required><option value="delivery">Home / Customer Delivery</option><option value="pickup">Pickup Station</option></select></label>
+          <label id="assistedDeliveryZoneLabel"><span>Delivery zone</span><select id="assistedDeliveryZone"><option value="cbd">CBD</option><option value="estate">Estate</option><option value="outside">Outside town</option></select></label>
+          <label id="assistedPickupStationLabel" hidden><span>Pickup Station</span><select id="assistedPickupStation"></select></label>
+
+          <label data-assisted-delivery-field><span>County</span><input id="assistedCounty" type="text" maxlength="100"></label>
+          <label data-assisted-delivery-field><span>Sub-County</span><input id="assistedSubCounty" type="text" maxlength="120"></label>
+          <label data-assisted-delivery-field><span>Estate / Area</span><input id="assistedEstate" type="text" maxlength="150"></label>
+          <label data-assisted-delivery-field><span>Nearest landmark</span><input id="assistedLandmark" type="text" maxlength="200"></label>
+          <label class="wide" data-assisted-delivery-field><span>Location / map link <small>(optional)</small></span><input id="assistedLocationLink" type="url" maxlength="500" placeholder="Paste Google Maps or pin link"></label>
+        </div>
+
+        <div class="assisted-fee-note" id="assistedFeeNote">LEOGO prepares your quotation first. The Assisted Shopping service fee is controlled by Admin and is shown before you approve.</div>
+        <div id="assistedShoppingStatus" class="service-review-status" aria-live="polite"></div>
+        <div class="service-review-actions">
+          <button class="secondary" type="button" data-close-assisted-shopping>Cancel</button>
+          <button id="submitAssistedShopping" type="submit">Send Shopping List to LEOGO</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="assisted-shopping-panel" data-assisted-panel="mine" hidden>
+      <div class="assisted-shopping-my-head">
+        <div><strong>My Shopping Lists</strong><small>Review quotations, approve payment and follow preparation/delivery.</small></div>
+        <button id="refreshAssistedShopping" type="button">↻ Refresh</button>
+      </div>
+      <div id="assistedShoppingMyList" class="assisted-shopping-my-list">
+        <div class="customer-empty-state compact"><span>📝</span><h4>Loading your Shopping Lists…</h4></div>
+      </div>
+    </section>
+  </section>
+</div>
 <div class="service-review-modal feedback-testimonials-modal" id="feedbackTestimonialsModal" role="dialog" aria-modal="true" aria-labelledby="feedbackTestimonialsTitle" aria-hidden="true">
   <div class="service-review-modal-backdrop" data-close-feedback-testimonials></div>
   <section class="service-review-modal-card feedback-testimonials-card">
@@ -1460,5 +1519,5 @@
   </div>
 </section>
 <footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><a href="staff/" style="display:inline-block;margin:6px 0;font-weight:800;color:#07152f">LEOGO Staff / Rider Login →</a><small>From the Market To Your Comfort.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=looking-request-v1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=stay-card-v3" defer></script><script src="js/cyber.js?v=delivery-rates-1" defer></script><script src="js/shipping-moq.js?v=product-modes-2" defer></script><script src="js/wallet.js?v=payment-routing-2" defer></script>
-<script src="js/loans.js?v=loan-v2-3" defer></script><script src="js/feedback-testimonials.js?v=feedback-testimonials-v1" defer></script><script src="js/premium.js?v=customer-meetup-limit-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
+<script src="js/loans.js?v=loan-v2-3" defer></script><script src="js/feedback-testimonials.js?v=feedback-testimonials-v1" defer></script><script src="js/assisted-shopping.js?v=assisted-shopping-v1" defer></script><script src="js/premium.js?v=customer-meetup-limit-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
 
