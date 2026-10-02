@@ -2459,7 +2459,7 @@
     const readiness=sellerReadiness(sellers);
     const codNeedsCollection=String(order.payment_method||'').toLowerCase()==='cod'
       && !['cod_paid','verified_paid'].includes(String(order.payment_status||'').toLowerCase());
-    const codInstruction='COD: Collect and confirm the full '+formatMoney(order.grand_total_kes)+' payment before handing over the order to the customer.';
+    const codInstruction='COD: Collect and confirm '+formatMoney(order.external_amount_due_kes??order.grand_total_kes)+' before handing over the order to the customer.'+(Number(order.reward_points_redeemed_kes||0)>0?' LEOGO Points already covered '+formatMoney(order.reward_points_redeemed_kes)+'.':'');
 
     panel.hidden=false;
     if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=false;
@@ -2491,6 +2491,10 @@
         '<span><small>Pickup fee</small><strong>'+formatMoney(order.pickup_fee_kes)+'</strong></span>'+
         '<span><small>Delivery fee</small><strong>'+formatMoney(order.delivery_fee_kes)+'</strong></span>'+
         '<span class="grand"><small>Grand total</small><strong>'+formatMoney(order.grand_total_kes)+'</strong></span>'+
+        (Number(order.reward_points_redeemed_kes||0)>0
+          ? '<span><small>LEOGO Points used</small><strong>'+formatMoney(order.reward_points_redeemed_kes)+'</strong></span>'+
+            '<span class="grand"><small>Other payment amount</small><strong>'+formatMoney(order.external_amount_due_kes)+'</strong></span>'
+          : '')+
       '</div>'+
       (order.payment_verified_at?'<p class="admin-order-verified-note">Verified '+escapeHtml(formatDate(order.payment_verified_at,true))+(order.payment_verified_by_name?' by '+escapeHtml(order.payment_verified_by_name):'')+'</p>':'')+
       paymentActions;
