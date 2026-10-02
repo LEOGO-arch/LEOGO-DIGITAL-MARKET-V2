@@ -2294,3 +2294,12 @@ body.advertisement-lightbox-open{overflow:hidden}
 @media(max-width:560px){
   .assisted-points-preview{grid-template-columns:1fr}
 }
+
+
+/* Customer order points split */
+.customer-order-points-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:9px 0;padding:9px;border-radius:10px;background:#fff8ef;border:1px solid #efd3b3}
+.customer-order-points-summary span{display:grid;gap:3px}
+.customer-order-points-summary small{font-size:7px;color:#7b6d60;text-transform:uppercase}
+.customer-order-points-summary strong{font-size:10px;color:#17263c}
+.customer-order-compact-body>div>span{display:block;margin-top:3px;font-size:7px;color:#a35a1d}
+@media(max-width:560px){.customer-order-points-summary{grid-template-columns:1fr}}
