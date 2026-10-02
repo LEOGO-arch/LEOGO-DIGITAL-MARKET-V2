@@ -1033,6 +1033,7 @@
   let deliveryRateSettings = { cbd_fee_kes:50, estate_fee_kes:80, outside_town_fee_kes:200, standard_max_weight_kg:50, standard_max_area_sqm:1, rate_note:'' };
   let orderSettings = { cod_limit_kes:10000, service_fee_threshold_kes:3000, service_fee_below_percent:2, service_fee_at_or_above_percent:1.5 };
   let lipaPolePoleSettings = { cancellation_deduction_percent:25, overdue_refund_deduction_percent:25, overdue_interest_percent:5, reminder_days_before_due:3 };
+  let checkoutRewardPointsBalance = 0;
   let updateCheckoutReadiness = () => {};
   const deliveryMoney=(value)=>'KSh '+Number(value||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 
@@ -1209,6 +1210,28 @@
   };
   checkoutCounty?.addEventListener('change', populateCheckoutSubCounties);
 
+  function updateCheckoutPointsTotals() {
+    const total=Number(checkoutShell?.dataset.checkoutGrandTotal||0);
+    const usePoints=Boolean(document.getElementById('checkoutUsePoints')?.checked);
+    const applied=usePoints?Math.min(Math.max(0,checkoutRewardPointsBalance),Math.max(0,total)):0;
+    const due=Math.max(0,total-applied);
+    if(checkoutShell){
+      checkoutShell.dataset.checkoutPointsApplied=String(applied);
+      checkoutShell.dataset.checkoutExternalAmountDue=String(due);
+    }
+    const appliedNode=document.getElementById('checkoutPointsApplied');
+    const dueNode=document.getElementById('checkoutAmountDue');
+    const paymentPoints=document.getElementById('paymentPointsUsed');
+    const paymentDue=document.getElementById('paymentAmountDue');
+    const panel=document.getElementById('checkoutPointsPanel');
+    if(appliedNode)appliedNode.textContent=deliveryMoney(applied);
+    if(dueNode)dueNode.textContent=deliveryMoney(due);
+    if(paymentPoints)paymentPoints.textContent=deliveryMoney(applied);
+    if(paymentDue)paymentDue.textContent=deliveryMoney(due);
+    panel?.classList.toggle('is-active',applied>0);
+    panel?.classList.toggle('is-covered',total>0&&due<=0&&applied>0);
+  }
+
   function updateCheckoutFees() {
     const subtotal = Number(checkoutShell?.dataset.checkoutSubtotal || 0);
     const serviceRate = checkoutServiceRateFor(subtotal);
@@ -1230,11 +1253,16 @@
     if (checkoutPickupFeeRate) checkoutPickupFeeRate.textContent = '(' + pickupRate.toLocaleString() + '%)';
     if (checkoutPickupFeeValue) checkoutPickupFeeValue.textContent = 'KSh ' + Math.round(pickupFee).toLocaleString();
     if (checkoutDeliveryFeeValue) checkoutDeliveryFeeValue.textContent = delivery?.label || 'Select zone';
+    const grandTotal=delivery?.amount===null
+      ? null
+      : Math.round((subtotal + serviceFee + pickupFee + (delivery?.amount || 0))*100)/100;
+    if(checkoutShell)checkoutShell.dataset.checkoutGrandTotal=grandTotal===null?'0':String(grandTotal);
     if (checkoutGrandTotalValue) {
-      checkoutGrandTotalValue.textContent = delivery?.amount === null
+      checkoutGrandTotalValue.textContent = grandTotal===null
         ? 'Pending quote'
-        : 'KSh ' + Math.round(subtotal + serviceFee + pickupFee + (delivery?.amount || 0)).toLocaleString();
+        : deliveryMoney(grandTotal);
     }
+    updateCheckoutPointsTotals();
   }
   checkoutDeliveryZone?.addEventListener('change', () => {
     const isPickup = checkoutDeliveryZone.value === 'pickup';
