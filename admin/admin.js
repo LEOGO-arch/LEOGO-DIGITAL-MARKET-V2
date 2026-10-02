@@ -5800,7 +5800,7 @@
       globalStatus('Super Admin access is required for Admin Security.','error');
       return;
     }
-    $('#settingsTabs [data-settings-panel]').forEach((button) => button.classList.toggle('active', button.dataset.settingsPanel === tab));
+    $$('#settingsTabs [data-settings-panel]').forEach((button) => button.classList.toggle('active', button.dataset.settingsPanel === tab));
     $$('[data-settings-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.settingsContent === tab));
     if (tab === 'data') renderDataManagement();
     if (tab === 'orders') loadOrderSettings().catch((error)=>setFormStatus($('#orderSettingsStatus'),friendlyError(error),'error'));
@@ -5825,7 +5825,7 @@
     if(target==='preferences'){changeSettingsTab('business');scrollTo('#businessSettingsForm');return;}
   };
   const closeSidebar = () => { $('#adminSidebar').classList.remove('open'); $('#sidebarScrim').classList.remove('open'); };
-  const closeModals = () => { $('.modal').forEach((modal) => { modal.hidden = true; }); state.activeApproval = null; };
+  const closeModals = () => { $$('.modal').forEach((modal) => { modal.hidden = true; }); state.activeApproval = null; };
 
 
   const validateSuperAdminPassword = (password) => {
@@ -6002,7 +6002,7 @@
         renderApprovals();
       }
     }));
-    $('#settingsTabs [data-settings-panel]').forEach((button) => button.addEventListener('click', () => changeSettingsTab(button.dataset.settingsPanel)));
+    $$('#settingsTabs [data-settings-panel]').forEach((button) => button.addEventListener('click', () => changeSettingsTab(button.dataset.settingsPanel)));
     $('#adminChangePasswordForm')?.addEventListener('submit',async(event)=>{
       event.preventDefault();
       const button=event.currentTarget.querySelector('button[type="submit"]');
@@ -6034,7 +6034,7 @@
         }catch(error){setFormStatus($('#adminRecoveryStatus'),friendlyError(error),'error');}
       });
     });
-    $('[data-settings-card]').forEach((button)=>button.addEventListener('click',()=>openSystemSettingsCard(button.dataset.settingsCard)));
+    $$('[data-settings-card]').forEach((button)=>button.addEventListener('click',()=>openSystemSettingsCard(button.dataset.settingsCard)));
     $$('#approvalFilters [data-approval-filter]').forEach((button) => button.addEventListener('click', () => {
       state.approvalFilter = button.dataset.approvalFilter;
       $$('#approvalFilters [data-approval-filter]').forEach((item) => item.classList.toggle('active', item === button));
