@@ -1276,6 +1276,15 @@
       <header><div><span>ASSISTED SHOPPING CONTROL</span><h2 id="assistedAdminModalTitle">Shopping List</h2><p id="assistedAdminModalSubtitle"></p></div><button data-close-assisted-admin type="button">×</button></header>
       <div class="modal-body">
         <div id="assistedAdminRequestSummary" class="assisted-admin-request-summary"></div>
+        <section class="assisted-admin-assignment-bar">
+          <div class="assisted-admin-assignment-copy"><span>SHOPPING LIST ACCESS</span><strong>Assigned LEOGO Staff</strong><small>Only Admin and the selected active staff member can open/download this Shopping List and its private attachments.</small></div>
+          <div class="assisted-admin-assignment-actions">
+            <select id="assistedAdminAssignedStaffSelect" aria-label="Assigned LEOGO staff"><option value="">No staff assigned</option></select>
+            <button id="saveAssistedStaffAssignment" type="button">Save Assignment</button>
+            <button id="downloadAssistedShoppingPdf" type="button" class="primary-button">⬇ Download Shopping List PDF</button>
+          </div>
+          <div id="assistedAdminAssignmentStatus" class="form-status" aria-live="polite"></div>
+        </section>
         <div id="assistedAdminOriginalList" class="assisted-admin-original-list"></div>
         <div id="assistedAdminFiles" class="assisted-admin-files"></div>
 
@@ -1301,6 +1310,7 @@
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+  <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
   <script src="admin.js?v=looking-request-v1" defer></script><script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>
