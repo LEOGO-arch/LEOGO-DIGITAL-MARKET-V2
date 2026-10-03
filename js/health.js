@@ -19,6 +19,7 @@
     medical_supplies:'Medical Equipment & Supplies',
     orthopaedic_rehab:'Orthopaedic & Rehabilitation',
     laboratory_diagnostics:'Laboratory / Diagnostics',
+    health_specialist:'Health Specialist / Doctor',
     other_health:'Other Health & Medicine'
   }[value]||String(value||'').replaceAll('_',' '));
   const productKindLabel=(value)=>({
@@ -82,7 +83,9 @@
           '<div class="health-partner-photo">'+(image?'<img src="'+esc(image)+'" alt="'+esc(row.business_name)+'">':'⚕️')+'</div>'+
           '<div class="health-partner-copy"><span>'+esc(typeLabel(row.business_type))+'</span><strong>'+esc(row.business_name)+'</strong>'+
           '<small>📍 '+esc([row.location_details,row.town,row.sub_county,row.county].filter(Boolean).join(' · '))+'</small>'+
-          '<em>'+Number(row.approved_product_count||0)+' approved Health product'+(Number(row.approved_product_count||0)===1?'':'s')+'</em></div>'+
+          '<em>'+(row.business_type==='health_specialist'
+            ? Number(row.approved_service_count||0)+' approved professional service'+(Number(row.approved_service_count||0)===1?'':'s')
+            : Number(row.approved_product_count||0)+' approved Health product'+(Number(row.approved_product_count||0)===1?'':'s'))+'</em></div>'+
         '</article>';
       }).join(''):'<div class="health-market-empty">No approved Health & Medicine partners match this filter yet.</div>';
     }
