@@ -97,7 +97,63 @@ begin
   v_meta:=jsonb_strip_nulls(jsonb_build_object(
     'status',case when v_status>0 then v_status else null end,
     'method',nullif(left(upper(coalesce(p_metadata->>'method','')),12),''),
-    'host',nullif(left(lower(coalesce(p_metadata->>'host','')),120),'')
+    'host',nullif(left(lower(coalesce(p_metadata->>'host','')),120),''),
+    'failed_count',case
+      when coalesce(p_metadata->>'failed_count','') ~ '^[0-9]{1,3}
+
+  insert into private.system_runtime_issues(
+    fingerprint,portal,module,error_type,severity,status,title,last_message,
+    operation,first_seen,last_seen,event_count,last_page_path,last_source,updated_at
+  )
+  values(
+    v_fingerprint,v_portal,v_module,v_type,v_severity,'new',
+    left(initcap(replace(v_module,'_',' '))||' runtime error',140),
+    v_message,v_operation,now(),now(),1,v_page,v_source,now()
+  )
+  on conflict(fingerprint) do update
+  set severity=case
+        when private.system_runtime_issues.severity='critical' or excluded.severity='critical'
+          then 'critical' else 'warning' end,
+      status=case
+        when private.system_runtime_issues.status='resolved' then 'reopened'
+        when private.system_runtime_issues.status='ignored' then 'ignored'
+        else 'recurring' end,
+      reopened_count=private.system_runtime_issues.reopened_count+
+        case when private.system_runtime_issues.status='resolved' then 1 else 0 end,
+      last_message=excluded.last_message,
+      operation=coalesce(excluded.operation,private.system_runtime_issues.operation),
+      last_seen=now(),
+      event_count=private.system_runtime_issues.event_count+1,
+      last_page_path=coalesce(excluded.last_page_path,private.system_runtime_issues.last_page_path),
+      last_source=coalesce(excluded.last_source,private.system_runtime_issues.last_source),
+      updated_at=now();
+
+  insert into private.system_runtime_error_events(
+    fingerprint,portal,module,error_type,severity,message,operation,error_code,
+    page_path,source,line_no,column_no,user_type,client_hash,metadata,occurred_at
+  )
+  values(
+    v_fingerprint,v_portal,v_module,v_type,v_severity,v_message,v_operation,
+    v_error_code,v_page,v_source,
+    case when coalesce(p_line_no,0)>0 then p_line_no else null end,
+    case when coalesce(p_column_no,0)>0 then p_column_no else null end,
+    v_user_type,v_client_hash,v_meta,now()
+  );
+
+  return jsonb_build_object('ok',true,'fingerprint',v_fingerprint);
+end;
+$function$;
+
+revoke execute on function public.record_system_runtime_error(
+  text,text,text,text,text,text,text,text,integer,integer,text,text,text,jsonb
+) from public;
+grant execute on function public.record_system_runtime_error(
+  text,text,text,text,text,text,text,text,integer,integer,text,text,text,jsonb
+) to anon,authenticated;
+
+        then least(500,greatest(1,(p_metadata->>'failed_count')::integer))
+      else null
+    end
   ));
 
   insert into private.system_runtime_issues(
