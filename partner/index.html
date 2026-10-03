@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Partner Portal</title>
-  <link rel="stylesheet" href="partner.css?v=transport-layout-v2">
+  <link rel="stylesheet" href="partner.css?v=accommodation-subscription-v1">
   <link rel="stylesheet" href="cyber.css?v=cyber-partner-7">
 <style>
 .partner-subscription-panel{margin:0 0 18px;border:1px solid #dce3ed;border-radius:16px;background:#fff;padding:18px;box-shadow:0 8px 24px rgba(7,26,58,.06)}.partner-subscription-panel header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.partner-subscription-panel h3,.partner-subscription-panel p{margin:0}.partner-subscription-panel header span{font-size:11px;font-weight:900;letter-spacing:.08em;color:#ff7200}.partner-subscription-panel header b{border-radius:999px;padding:7px 10px;background:#fff1e7;color:#9a4400;font-size:12px}.partner-subscription-panel header b.active{background:#e8f8ef;color:#14723a}.partner-subscription-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.partner-subscription-grid form{border:1px solid #e3e8ef;border-radius:13px;padding:14px;display:grid;gap:10px}.partner-subscription-grid label{display:grid;gap:5px;font-weight:800}.partner-subscription-grid input,.partner-subscription-grid select{border:1px solid #cfd8e5;border-radius:9px;padding:10px}.partner-subscription-grid button{border:0;border-radius:9px;padding:11px 14px;background:#071a3a;color:#fff;font-weight:900}.partner-subscription-grid small{color:#65738a}.premium-application-payment{border:1px solid #ffd3ae;background:#fff8f2;border-radius:14px;padding:14px;display:grid;gap:10px}.premium-application-payment h4,.premium-application-payment p{margin:0}@media(max-width:700px){.partner-subscription-panel header,.partner-subscription-grid{grid-template-columns:1fr;display:grid}}
@@ -911,6 +911,7 @@
           <button data-accommodation-view="availability" type="button"><span>🗓️</span>Availability Calendar</button>
           <button data-accommodation-view="earnings" type="button"><span>↗</span>Earnings</button>
           <button data-accommodation-view="settlements" type="button"><span>₿</span>Settlements</button>
+          <button data-accommodation-view="subscription" type="button"><span>💳</span>Subscription &amp; Billing</button>
           <button data-accommodation-view="notifications" type="button"><span>🔔</span>Notifications <b id="accommodationNotificationBadge" hidden>0</b></button>
           <button data-accommodation-view="profile" type="button"><span>👤</span>My Profile</button>
         </nav>
@@ -1075,6 +1076,11 @@
         <section class="accommodation-view" data-accommodation-content="availability"><section class="panel"><div class="section-title"><span>CALENDAR</span><h3>Availability Calendar</h3><p>Room/unit availability, blocked dates and confirmed bookings will be managed here.</p></div></section></section>
         <section class="accommodation-view" data-accommodation-content="earnings"><section class="panel"><div class="section-title"><span>EARNINGS</span><h3>Accommodation Earnings</h3><p>Completed-stay earnings and LEOGO commission reporting will be connected after the booking workflow.</p></div></section></section>
         <section class="accommodation-view" data-accommodation-content="settlements"><section class="panel"><div class="section-title"><span>SETTLEMENTS</span><h3>Accommodation Payouts</h3><p>Approved payout accounts, payout requests and Admin-initiated settlements will use the same Partner settlement standard already used elsewhere in LEOGO.</p></div></section></section>
+        <section class="accommodation-view accommodation-subscription-view" data-accommodation-content="subscription">
+          <div data-partner-subscription-slot>
+            <div class="empty-card">Loading Accommodation Provider subscription details…</div>
+          </div>
+        </section>
         <section class="accommodation-view" data-accommodation-content="notifications"><section class="panel"><div class="section-title"><span>NOTIFICATIONS</span><h3>Accommodation Activity</h3><p>Booking requests, listing approvals and LEOGO Admin updates appear here.</p></div><div class="product-actions"><button id="markAllAccommodationNotificationsRead" class="secondary" type="button">Mark All Read</button><button id="refreshAccommodationNotifications" type="button">↻ Refresh Notifications</button></div><div id="accommodationNotificationList" class="seller-notification-list"><div class="empty-card">Loading Accommodation notifications…</div></div></section></section>
         <section class="accommodation-view" data-accommodation-content="profile"><section class="panel"><div class="section-title premium-profile-section-title"><div><span>MY PROFILE</span><h3>Accommodation Provider Details</h3><p>Your approved provider information. Any profile changes are sent to LEOGO Admin before they become active.</p></div><button id="editApprovedAccommodationProfile" type="button">✎ Edit Profile</button></div><div id="accommodationProfileSummary" class="summary-grid"></div><p id="accommodationProfileEditStatus" class="status"></p></section></section>
       </div>
@@ -1635,7 +1641,7 @@
   <script src="../js/runtime-monitor.js?v=network-storm-fix-2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=transport-layout-v2" defer></script>
+<script src="partner.js?v=accommodation-subscription-v1" defer></script>
 <script src="cyber.js?v=cyber-partner-8" defer></script>
 <script src="shipping-moq.js?v=auth-timing-2" defer></script>
 </body></html>

@@ -3507,13 +3507,14 @@ function accommodationViewDescription(view){
     availability:'Manage room and unit availability dates.',
     earnings:'View Accommodation earnings after completed stays.',
     settlements:'Manage Accommodation payout accounts and settlements.',
+    subscription:'Review your Accommodation Provider subscription, renewal plan and payment status.',
     notifications:'Application, listing and booking notifications.',
     profile:'Your approved Accommodation Provider information.'
   }[view]||'Accommodation Provider Portal';
 }
 function openAccommodationView(view='overview'){
   const approved=accommodationProvider?.verification_status==='approved';
-  const allowed=approved?['overview','properties','bookings','availability','earnings','settlements','notifications','profile']:['overview','notifications','profile'];
+  const allowed=approved?['overview','properties','bookings','availability','earnings','settlements','subscription','notifications','profile']:['overview','subscription','notifications','profile'];
   const resolved=allowed.includes(view)?view:'overview';
   $$('[data-accommodation-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.accommodationContent===resolved));
   $$('[data-accommodation-view]').forEach(button=>button.classList.toggle('active',button.dataset.accommodationView===resolved));
@@ -3521,6 +3522,7 @@ function openAccommodationView(view='overview'){
   closeAccommodationSidebar();
   if(resolved==='properties')loadAccommodationCatalogue().catch(error=>status($('#accommodationCatalogueStatus'),error?.message||'Accommodation listings could not load.','error'));
   if(resolved==='bookings')loadAccommodationBookings().catch(error=>status($('#accommodationBookingStatus'),error?.message||'Accommodation bookings could not load.','error'));
+  if(resolved==='subscription')mountPartnerSubscription('accommodation',accommodationDashboard).catch(error=>console.warn('Accommodation subscription refresh failed:',error));
   if(resolved==='notifications')loadAccommodationNotifications().catch(error=>console.warn('Accommodation notifications refresh failed:',error));
 }
 function accommodationCoordinatesFromText(value=''){
