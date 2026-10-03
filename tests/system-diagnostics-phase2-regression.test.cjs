@@ -50,4 +50,12 @@ for(const required of [
 if(!diagnostics.includes("db.rpc('admin_list_system_runtime_issues'"))throw new Error('Admin runtime issue loader missing');
 if(!diagnostics.includes('loadRuntimeIssues()'))throw new Error('Runtime issues are not refreshed with diagnostics');
 
+const fixMigration=fs.readFileSync('supabase/migrations/20261003104500_fix_diagnosis_product_image_query.sql','utf8');
+if(fixMigration.includes("coalesce(p.main_image_path,'')),'''')")){
+  throw new Error('product-image dynamic SQL quote regression');
+}
+if(!fixMigration.includes("nullif(btrim(coalesce(p.main_image_path,'')),\'\') is null")){
+  throw new Error('static product-image diagnostic check missing');
+}
+
 console.log('system diagnostics Phase 2 regression checks passed');
