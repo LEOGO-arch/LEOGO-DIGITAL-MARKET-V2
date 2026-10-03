@@ -6,12 +6,12 @@ const html=fs.readFileSync('admin/index.html','utf8');
 
 new vm.Script(admin,{filename:'admin/admin.js'});
 
-if(!html.includes('<option value="a6">A6</option>')||
-   !html.includes('<option value="80mm">80 mm Thermal — Auto Length</option>')){
-  throw new Error('A6 / 80mm paper selector changed unexpectedly');
+if(!html.includes('<option value="80mm" selected>80 mm Thermal — Auto Length</option>')||
+   !html.includes('<option value="a6">A6</option>')){
+  throw new Error('80mm thermal must be the default while A6 remains available');
 }
-if(!html.includes('admin.js?v=thermal-receipt-80mm-1')){
-  throw new Error('Thermal receipt cache version missing');
+if(!html.includes('admin.js?v=xprinter-80mm-2')){
+  throw new Error('Xprinter thermal receipt cache version missing');
 }
 
 const thermalStart=admin.indexOf('const buildOrderThermalReceiptHtml = async (detail) =>');
@@ -23,11 +23,14 @@ for(const required of [
   "width:80mm;min-width:80mm;max-width:80mm",
   ".receipt{width:72mm",
   "font-size:16pt",
-  "font-size:13pt",
+  "font-size:15pt",
   "receipt-items",
   "receipt-money-row receipt-total",
+  "width:27mm;height:27mm",
+  "font-size:11.5pt",
   "SCAN ORDER",
   "getBoundingClientRect().height",
+  "requestAnimationFrame(function(){requestAnimationFrame",
   'pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}"'
 ]){
   if(!thermal.includes(required))throw new Error('Thermal receipt feature missing: '+required);
