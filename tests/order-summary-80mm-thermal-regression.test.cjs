@@ -10,7 +10,7 @@ if(!html.includes('<option value="80mm" selected>80 mm Thermal — Auto Length</
    !html.includes('<option value="a6">A6</option>')){
   throw new Error('80mm thermal must be the default while A6 remains available');
 }
-if(!html.includes('admin.js?v=xprinter-80mm-2')){
+if(!html.includes('admin.js?v=xprinter-80mm-compact-3')){
   throw new Error('Xprinter thermal receipt cache version missing');
 }
 
@@ -22,12 +22,15 @@ const thermal=admin.slice(thermalStart,printStart);
 for(const required of [
   "width:80mm;min-width:80mm;max-width:80mm",
   ".receipt{width:72mm",
-  "font-size:16pt",
-  "font-size:15pt",
+  "font-size:11pt",
+  "font-size:10.5pt",
   "receipt-items",
   "receipt-money-row receipt-total",
-  "width:27mm;height:27mm",
-  "font-size:11.5pt",
+  "width:18.5mm;height:18.5mm",
+  "font-size:8pt",
+  "receipt-logo",
+  "receipt-bottom",
+  "compact-single",
   "SCAN ORDER",
   "getBoundingClientRect().height",
   "requestAnimationFrame(function(){requestAnimationFrame",
@@ -35,6 +38,10 @@ for(const required of [
 ]){
   if(!thermal.includes(required))throw new Error('Thermal receipt feature missing: '+required);
 }
+
+if(!thermal.includes("leogo-official-logo.jpg"))throw new Error('Corner LEOGO logo missing from compact receipt');
+if(!thermal.includes("Math.max(35,Math.ceil(heightPx/pxPerMm+2))"))throw new Error('Compact receipt height trim missing');
+if(thermal.includes('font-size:16pt')||thermal.includes('font-size:15pt'))throw new Error('Oversized thermal fonts returned');
 
 if(thermal.includes('slice(0,7)')){
   throw new Error('80mm thermal receipt must not truncate the order item list');
