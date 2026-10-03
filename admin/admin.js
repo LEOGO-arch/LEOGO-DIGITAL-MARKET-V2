@@ -2584,8 +2584,9 @@
     const items=Array.isArray(detail.items)?detail.items:[];
     const sellers=Array.isArray(detail.sellers)?detail.sellers:[];
     const delivery=detail.delivery||null;
-    const qr=await buildDeliveryQrCanvas(deliveryQrTarget(order),300);
+    const qr=await buildDeliveryQrCanvas(deliveryQrTarget(order),260);
     const qrDataUrl=qr.toDataURL('image/png');
+    const logoUrl=new URL('../assets/images/leogo-official-logo.jpg',window.location.href).href;
     const codDue=String(order.payment_status||'').toLowerCase()==='cod_due';
     const sellerNames=sellers.map((seller)=>seller.business_name).filter(Boolean).join(', ');
     const printedAt=formatDate(new Date().toISOString(),true);
@@ -2621,17 +2622,20 @@
         '*{box-sizing:border-box;}'+
         'html,body{width:80mm;min-width:80mm;max-width:80mm;margin:0;padding:0;background:#fff;color:#000;}'+
         'body{font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'+
-        '.receipt{width:72mm;margin:0 auto;padding:2.2mm 0 3mm;font-size:12pt;line-height:1.2;font-weight:700;color:#000;}'+
-        '.receipt-header{text-align:center;}'+
-        '.receipt-header h1{margin:0;font-size:16pt;line-height:1.02;font-weight:900;letter-spacing:.15px;}'+
-        '.receipt-header h2{margin:1mm 0 0;font-size:11pt;line-height:1.1;font-weight:900;}'+
-        '.receipt-header p{margin:.8mm 0 0;font-size:9pt;font-weight:800;}'+
-        '.receipt-rule{border:0;border-top:1.4px dashed #000;margin:1.7mm 0;}'+
-        '.receipt-reference{text-align:center;margin:.8mm 0;}'+
-        '.receipt-reference small{display:block;font-size:9pt;font-weight:900;}'+
-        '.receipt-reference strong{display:block;margin-top:.5mm;font-size:14pt;line-height:1.08;font-weight:900;word-break:break-word;}'+
-        '.receipt-status{display:grid;grid-template-columns:1fr;gap:.5mm;text-align:left;font-size:10.5pt;}'+
-        '.receipt-status div{display:flex;justify-content:space-between;gap:2.5mm;}'+
+        '.receipt{width:72mm;margin:0 auto;padding:1.2mm 0 1.8mm;font-size:8.2pt;line-height:1.12;font-weight:700;color:#000;}'+
+        '.receipt.compact-single{padding-top:1mm;padding-bottom:1.4mm;}'+
+        '.receipt-header{display:grid;grid-template-columns:10mm minmax(0,1fr);gap:2mm;align-items:center;text-align:left;}'+
+        '.receipt-logo{width:9mm;height:9mm;object-fit:contain;display:block;}'+
+        '.receipt-brand{min-width:0;}'+
+        '.receipt-header h1{margin:0;font-size:11pt;line-height:1;font-weight:900;letter-spacing:.08px;}'+
+        '.receipt-header h2{margin:.45mm 0 0;font-size:7.4pt;line-height:1.05;font-weight:900;}'+
+        '.receipt-header p{margin:.35mm 0 0;font-size:6.6pt;line-height:1.05;font-weight:800;}'+
+        '.receipt-rule{border:0;border-top:1px dashed #000;margin:.8mm 0;}'+
+        '.receipt-reference{text-align:left;margin:.25mm 0 .45mm;}'+
+        '.receipt-reference small{display:block;font-size:6.4pt;font-weight:900;letter-spacing:.25px;}'+
+        '.receipt-reference strong{display:block;margin-top:.2mm;font-size:10.2pt;line-height:1.02;font-weight:900;word-break:break-word;}'+
+        '.receipt-status{display:grid;grid-template-columns:1fr;gap:.18mm;text-align:left;font-size:7.4pt;line-height:1.08;}'+
+        '.receipt-status div{display:flex;justify-content:space-between;gap:2mm;}'+
         '.receipt-status span{font-weight:800;}'+
         '.receipt-status strong{text-align:right;font-weight:900;}'+
         '.receipt-section{margin:0;}'+
