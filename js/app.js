@@ -3302,7 +3302,15 @@
       : {dateStyle:'medium',timeZone:'Africa/Nairobi'}).format(date);
   };
   const customerOrderStatusText = (status) => ({
-    placed:'Order placed',processing:'Seller preparing order',with_rider:'Delivery in progress',delivered:'Delivered',cancelled:'Cancelled'
+    placed:'Order placed',
+    accepted:'Health Partner accepted',
+    preparing:'Health Partner preparing',
+    ready_for_handover:'Ready for LEOGO handover',
+    handed_to_leogo:'Handed to LEOGO',
+    processing:'Seller preparing order',
+    with_rider:'Delivery in progress',
+    delivered:'Delivered',
+    cancelled:'Cancelled'
   }[status] || String(status || '').replaceAll('_',' '));
   const customerPaymentText = (status) => ({
     submitted:'Payment submitted — verifying',verified_paid:'Paid',cod_due:'COD — due on delivery',cod_paid:'Paid on delivery',rejected:'Payment rejected'
@@ -3317,6 +3325,10 @@
     on_the_way:'On the way',
     delivered_to_pickup_station:'Delivered to Pickup Station — awaiting station receipt',
     ready_for_pickup:'Pickup Station received — Ready for Pickup',
+    accepted:'Health Partner accepted',
+    preparing:'Health Partner preparing',
+    ready_for_handover:'Ready for LEOGO handover',
+    handed_to_leogo:'Handed to LEOGO',
     delivered:'Delivered',
     failed:'Delivery issue',
     cancelled:'Cancelled'
@@ -3351,6 +3363,14 @@
       add('Payment submitted',order.created_at,'Payment is awaiting LEOGO verification.');
     }else if(order.payment_status==='cod_due'){
       add('Cash on Delivery selected',order.created_at,'Payment will be collected before customer handover.');
+    }
+
+    if(order.order_source==='health_medicine'){
+      const provider=order.provider_name||'Health & Medicine Partner';
+      add(provider+' accepted the order',order.provider_received_at,'The Health Partner accepted your order.');
+      add(provider+' is preparing the order',order.preparing_at,'Your approved OTC / non-prescription items are being prepared.');
+      add('Ready for LEOGO handover',order.ready_for_handover_at,'The Health Partner marked the order ready for LEOGO.');
+      add('Handed to LEOGO',order.handed_to_leogo_at,'The Health Partner handed the order to LEOGO for onward delivery.');
     }
 
     (Array.isArray(order.seller_fulfilments)?order.seller_fulfilments:[]).forEach((seller)=>{
@@ -3456,7 +3476,7 @@
     const select=document.getElementById('aftersalesOrderId');
     if(!select) return;
     const current=select.value;
-    const delivered=customerMarketplaceOrders.filter((order)=>order.order_status==='delivered');
+    const delivered=customerMarketplaceOrders.filter((order)=>order.order_status==='delivered'&&order.order_source!=='health_medicine');
     select.innerHTML='<option value="">Select a delivered order</option>'+delivered.map((order)=>
       '<option value="'+receiptEscape(order.id)+'">'+receiptEscape(order.order_reference)+' · '+receiptEscape(customerOrderFormatDate(order.delivered_at||order.delivery_delivered_at||order.created_at))+'</option>'
     ).join('');
@@ -3479,7 +3499,7 @@
         customerOrderTimelineHtml(order,true)+
         '<div class="customer-dashboard-order-bottom"><strong>'+receiptEscape(money(order.grand_total_kes))+'</strong><div>'+
           '<button type="button" data-view-order-history="'+receiptEscape(order.id)+'">View History</button>'+
-          (completed?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(orderHasProductReviews(order)?'Product Reviews':'Review Products')+'</button><button type="button" class="secondary" data-aftersales-order="'+receiptEscape(order.id)+'">'+(order.aftersales_case?'Aftersales':'Aftersales')+'</button>':'')+
+          (completed&&order.order_source!=='health_medicine'?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(orderHasProductReviews(order)?'Product Reviews':'Review Products')+'</button><button type="button" class="secondary" data-aftersales-order="'+receiptEscape(order.id)+'">'+(order.aftersales_case?'Aftersales':'Aftersales')+'</button>':'')+
         '</div></div>'+
       '</article>';
     }).join('');
@@ -3524,8 +3544,12 @@
     container.innerHTML = rows.map(order => {
       const orderItems=Array.isArray(order.items)?order.items:[];
       const items=orderItems.map(i=>'<li>'+receiptEscape(i.product_name)+(i.variant_name?' — <b>'+receiptEscape(i.variant_name)+'</b>':'')+' × '+Number(i.quantity)+' <strong>'+money(i.line_total_kes)+'</strong></li>').join('');
-      const sellers=(Array.isArray(order.seller_fulfilments)?order.seller_fulfilments:[]).map(s=>'<span>'+receiptEscape(s.seller_name)+' — <b>'+receiptEscape(String(s.fulfilment_status).replaceAll('_',' '))+'</b></span>').join('');
-      const rider = order.rider_name ? '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>'+receiptEscape(order.rider_name)+'</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>' : '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>Awaiting assignment</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>';
+      const sellers=order.order_source==='health_medicine'
+        ? '<span>'+receiptEscape(order.provider_name||'Health & Medicine Partner')+' — <b>'+receiptEscape(customerOrderStatusText(order.order_status))+'</b></span>'
+        : (Array.isArray(order.seller_fulfilments)?order.seller_fulfilments:[]).map(s=>'<span>'+receiptEscape(s.seller_name)+' — <b>'+receiptEscape(String(s.fulfilment_status).replaceAll('_',' '))+'</b></span>').join('');
+      const rider = order.order_source==='health_medicine'
+        ? '<div class="customer-order-delivery"><span><small>Health Partner</small><strong>'+receiptEscape(order.provider_name||'Health & Medicine Partner')+'</strong></span><span><small>Order status</small><strong>'+receiptEscape(customerOrderStatusText(order.order_status))+'</strong></span></div>'
+        : order.rider_name ? '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>'+receiptEscape(order.rider_name)+'</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>' : '<div class="customer-order-delivery"><span><small>LEOGO Rider</small><strong>Awaiting assignment</strong></span><span><small>Delivery status</small><strong>'+receiptEscape(customerDeliveryStatusText(order.delivery_status||'awaiting_assignment'))+'</strong></span></div>';
       const firstItem=orderItems[0];
       const itemSummary=firstItem
         ? receiptEscape(firstItem.product_name)+(firstItem.variant_name?' · '+receiptEscape(firstItem.variant_name):'')+' × '+Number(firstItem.quantity)+(orderItems.length>1?' · +'+(orderItems.length-1)+' more':'')
@@ -3533,7 +3557,7 @@
       const completed=order.order_status==='delivered';
       const actionButtons=
         '<button type="button" class="customer-order-update-toggle" data-toggle-order-updates="'+receiptEscape(order.id)+'" aria-expanded="false">View Order Updates <span>⌄</span></button>'+
-        (completed?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(orderHasProductReviews(order)?'Product Reviews':'Review Products')+'</button>'+
+        (completed&&order.order_source!=='health_medicine'?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(orderHasProductReviews(order)?'Product Reviews':'Review Products')+'</button>'+
           '<button type="button" class="secondary" data-aftersales-order="'+receiptEscape(order.id)+'">'+(order.aftersales_case?'Aftersales · '+receiptEscape(customerAftersalesStatusText(order.aftersales_case.status)):'Apply for Aftersales')+'</button>':'');
 
       return '<article class="customer-order-card customer-order-card-compact" data-customer-order-id="'+receiptEscape(order.id)+'">'+
@@ -3544,7 +3568,7 @@
           '<div class="customer-order-expanded-head"><span>ORDER DETAILS & UPDATES</span><small>'+customerOrderHistory(order).length+' updates</small></div>'+
           '<ul>'+items+'</ul>'+customerPointsOrderSummaryHtml(order)+'<div class="customer-order-sellers">'+sellers+'</div>'+rider+
           '<div class="customer-order-history-wrap"><div class="customer-order-history-title"><span>ORDER HISTORY</span><strong>'+customerOrderHistory(order).length+' updates</strong></div>'+customerOrderTimelineHtml(order,false)+'</div>'+
-          (completed ? customerReviewBoxHtml(order) : '')+
+          (completed&&order.order_source!=='health_medicine' ? customerReviewBoxHtml(order) : '')+
         '</div>'+
       '</article>';
     }).join('');
@@ -3570,7 +3594,11 @@
         return;
       }
 
-      const {data,error}=await client.rpc('customer_list_marketplace_orders_v3');
+      const [marketResult,healthResult]=await Promise.all([
+        client.rpc('customer_list_marketplace_orders_v3'),
+        client.rpc('customer_list_health_medicine_orders')
+      ]);
+      const error=marketResult.error||healthResult.error;
       if(error){
         console.error('LEOGO customer orders could not load:',error.message||error);
         const empty=document.getElementById('customerActivityEmpty');
@@ -3583,7 +3611,15 @@
         }
         return;
       }
-      customerMarketplaceOrders=Array.isArray(data)?data:[];
+      const marketRows=(Array.isArray(marketResult.data)?marketResult.data:[]).map((row)=>({...row,order_source:row.order_source||'marketplace'}));
+      const healthRows=(Array.isArray(healthResult.data)?healthResult.data:[]).map((row)=>({
+        ...row,
+        order_source:'health_medicine',
+        delivery_status:row.order_status,
+        seller_fulfilments:[],
+        items:(Array.isArray(row.items)?row.items:[]).map((item)=>({...item,order_item_id:item.id}))
+      }));
+      customerMarketplaceOrders=[...marketRows,...healthRows].sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
       renderCustomerMarketplaceOrders();
     })().finally(()=>{customerOrderLoadPromise=null;});
     return customerOrderLoadPromise;
@@ -3592,6 +3628,7 @@
   const refreshCustomerOrdersSoon=()=>window.setTimeout(()=>loadCustomerMarketplaceOrders(),40);
   document.addEventListener('leogo:authchange',refreshCustomerOrdersSoon);
   document.addEventListener('leogo:customer-data-refresh',refreshCustomerOrdersSoon);
+  window.addEventListener('leogo:healthordersrefresh',refreshCustomerOrdersSoon);
   document.addEventListener('click',(event)=>{
     if(event.target.closest?.('[data-customer-view="dashboard"],[data-open-customer-view="dashboard"],[data-customer-view="orders"],[data-open-customer-view="orders"]')){
       refreshCustomerOrdersSoon();
