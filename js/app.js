@@ -1651,7 +1651,18 @@
       return;
     }
 
+    const hasHealthCart=cartHasSource('health_medicine');
+    const hasSellerCart=cartHasSource('seller');
+    if(hasHealthCart&&hasSellerCart){
+      paymentStepStatus.textContent='Health & Medicine items and ordinary Seller items must be checked out separately.';
+      return;
+    }
+    const healthCheckout=hasHealthCart&&!hasSellerCart;
     const usePoints=Boolean(checkoutUsePoints?.checked);
+    if(healthCheckout&&usePoints){
+      paymentStepStatus.textContent='LEOGO Points are not yet connected to Health & Medicine checkout. Untick Points and use Till, Paybill or Cash on Delivery.';
+      return;
+    }
     const previewDue=checkoutExternalAmountDueNumber();
     const fullyCoveredByPoints=usePoints && checkoutPointsAppliedNumber()>0 && checkoutGrandTotalNumber()>0 && previewDue<=0;
 
@@ -1676,24 +1687,29 @@
       return;
     }
 
-    const unsupported = testCart.find(item => !item.productId || !item.sellerId);
+    const unsupported = healthCheckout
+      ? testCart.find(item => !item.healthProductId || !item.providerId || item.requiresPrescription)
+      : testCart.find(item => !item.productId || !item.sellerId);
     if (unsupported) {
-      paymentStepStatus.textContent = 'Your cart contains an old preview item. Remove it and add the current Seller product again.';
+      paymentStepStatus.textContent = healthCheckout
+        ? 'Your Health cart contains an item that is not eligible for normal checkout. Remove it and add the approved OTC/non-prescription item again.'
+        : 'Your cart contains an old preview item. Remove it and add the current Seller product again.';
       return;
     }
 
     const button = makeCheckoutOrder;
     const original = button.textContent;
     button.disabled = true;
-    button.textContent = 'Creating Order…';
-    paymentStepStatus.textContent = usePoints
-      ? 'Securing your LEOGO Points and creating the order…'
-      : 'Creating your order and sending it to the Seller…';
+    button.textContent = healthCheckout?'Creating Health Order…':'Creating Order…';
+    paymentStepStatus.textContent = healthCheckout
+      ? 'Creating your Health & Medicine order and sending it to the Health Partner…'
+      : usePoints
+        ? 'Securing your LEOGO Points and creating the order…'
+        : 'Creating your order and sending it to the Seller…';
 
     try {
       const pickupStation = checkoutDeliveryZone?.value === 'pickup' ? selectedPickupStation() : null;
-      const { data, error } = await window.leogoAuth.client.rpc('customer_create_marketplace_order_v2', {
-        p_items: testCart.map(item => ({ product_id: item.productId, variant_id: item.variantId || null, quantity: item.quantity })),
+      const commonOrderArgs={
         p_receiver_name: document.getElementById('checkoutReceiverName')?.value.trim(),
         p_contact_number: document.getElementById('checkoutContactNumber')?.value.trim(),
         p_delivery_zone: checkoutDeliveryZone?.value,
@@ -1704,9 +1720,19 @@
         p_location_link: document.getElementById('checkoutLocationLink')?.value.trim() || null,
         p_pickup_station_id: pickupStation?.id || null,
         p_payment_method: fullyCoveredByPoints ? null : selectedCheckoutPayment,
-        p_payment_message: fullyCoveredByPoints ? null : mpesaPaymentMessage.value.trim(),
-        p_use_reward_points: usePoints
-      });
+        p_payment_message: fullyCoveredByPoints ? null : mpesaPaymentMessage.value.trim()
+      };
+      const orderRequest=healthCheckout
+        ? await window.leogoAuth.client.rpc('customer_create_health_medicine_order',{
+            ...commonOrderArgs,
+            p_items:testCart.map(item=>({product_id:item.healthProductId,quantity:item.quantity}))
+          })
+        : await window.leogoAuth.client.rpc('customer_create_marketplace_order_v2',{
+            ...commonOrderArgs,
+            p_items:testCart.map(item=>({product_id:item.productId,variant_id:item.variantId||null,quantity:item.quantity})),
+            p_use_reward_points:usePoints
+          });
+      const {data,error}=orderRequest;
       if (error) throw error;
 
       previewOrderReference = data?.order_reference || '';
@@ -1724,7 +1750,9 @@
           : 'Payment submitted — '+deliveryMoney(actualDue)+' awaiting Admin verification';
         paymentStepStatus.textContent = actualPoints>0
           ? 'Order created successfully. '+deliveryMoney(actualPoints)+' in LEOGO Points was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
-          : 'Order created successfully and sent to the Seller.';
+          : healthCheckout
+            ? 'Health & Medicine order created successfully and sent to the Health Partner.'
+            : 'Order created successfully and sent to the Seller.';
       }
 
       orderCreatedPanel.hidden = false;
@@ -1736,6 +1764,7 @@
         loadCustomerMarketplaceOrders(),
         loadCheckoutRewardPoints()
       ]);
+      if(healthCheckout)window.dispatchEvent(new CustomEvent('leogo:healthordersrefresh'));
       window.dispatchEvent(new CustomEvent('leogo:walletrefresh'));
       orderCreatedPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (error) {
@@ -1940,6 +1969,8 @@
   const testCartCount = () => testCart.reduce((total, item) => total + item.quantity, 0);
   const testCartSubtotal = () => testCart.reduce((total, item) => total + (item.price * item.quantity), 0);
   const saveTestCart = () => localStorage.setItem(testCartStorageKey, JSON.stringify(testCart));
+  const cartItemSource=(item)=>item?.sourceType==='health_medicine'?'health_medicine':'seller';
+  const cartHasSource=(source)=>testCart.some((item)=>cartItemSource(item)===source);
 
   const renderTestCart = () => {
     const count = testCartCount();
@@ -1952,7 +1983,7 @@
 
     if (cartShellItems) {
       if (!testCart.length) {
-        cartShellItems.innerHTML = '<div class="customer-empty-state compact"><span>🛒</span><h4>Your cart is empty</h4><p>Add one of the active sample products to test checkout.</p><button type="button" data-close-customer-shell>Browse Products</button></div>';
+        cartShellItems.innerHTML = '<div class="customer-empty-state compact"><span>🛒</span><h4>Your cart is empty</h4><p>Add an approved Seller product or cart-eligible Health & Medicine item.</p><button type="button" data-close-customer-shell>Browse Products</button></div>';
         cartShellItems.querySelector('[data-close-customer-shell]')?.addEventListener('click', closeCustomerShell);
       } else {
         cartShellItems.innerHTML = testCart.map((item) => `
@@ -1972,6 +2003,52 @@
     updateCashOnDeliveryAvailability();
     updateCheckoutReadiness();
     if (paymentOrderTotal) paymentOrderTotal.textContent = checkoutTotalText();
+  };
+
+  window.leogoAddHealthOtcToCart=(product)=>{
+    if(!product||!product.id)return {ok:false,message:'Health product is unavailable.'};
+    if(product.requires_prescription||product.order_mode!=='cart'||product.cart_eligible===false){
+      return {ok:false,message:'This medicine requires a prescription and cannot be added to normal cart checkout.'};
+    }
+    const stock=Number(product.quantity_available||0);
+    if(product.availability_status!=='available'||stock<=0){
+      return {ok:false,message:'This Health & Medicine item is currently out of stock.'};
+    }
+    if(cartHasSource('seller')){
+      return {ok:false,message:'Health & Medicine items and ordinary Seller items use separate checkout. Complete or clear the Seller cart first.'};
+    }
+    const otherProvider=testCart.find((item)=>cartItemSource(item)==='health_medicine'&&String(item.providerId)!==String(product.provider_id));
+    if(otherProvider){
+      return {ok:false,message:'For Health & Medicine safety, checkout one Health Partner at a time. Complete or clear the current Health cart first.'};
+    }
+    const cartId='health:'+String(product.id);
+    const existing=testCart.find((item)=>item.id===cartId);
+    if(existing){
+      if(Number(existing.quantity||0)>=stock)return {ok:false,message:'Maximum available stock is already in your cart.'};
+      existing.quantity+=1;
+      existing.stock=stock;
+    }else{
+      testCart.push({
+        id:cartId,
+        sourceType:'health_medicine',
+        healthProductId:product.id,
+        providerId:product.provider_id,
+        providerName:product.provider_name||'Health & Medicine Partner',
+        name:product.product_name,
+        productName:product.product_name,
+        price:Number(product.price_kes||0),
+        stock,
+        icon:'⚕️',
+        quantity:1,
+        medicineClassification:product.medicine_classification||'non_medicine',
+        requiresPrescription:false
+      });
+    }
+    saveTestCart();
+    renderTestCart();
+    const feedback=document.getElementById('testCartFeedback');
+    if(feedback)feedback.textContent=product.product_name+' added to Health & Medicine cart.';
+    return {ok:true,message:product.product_name+' added to cart.'};
   };
 
   const sellerMarketplaceList = document.getElementById('sellerMarketplaceList');
@@ -2527,6 +2604,11 @@
     if (!button || button.disabled) return;
     const product = marketplaceProducts.find((item) => item.id === button.dataset.productId);
     if (!product) return;
+    if(cartHasSource('health_medicine')){
+      const feedback=document.getElementById('testCartFeedback');
+      if(feedback)feedback.textContent='Health & Medicine items and ordinary Seller items use separate checkout. Complete or clear the Health cart first.';
+      return;
+    }
     const shipping=product.shipping_profile||{};
     const hasShippingProfile=Boolean(shipping.product_id||Object.keys(shipping).length);
     const localAvailable=hasShippingProfile ? shipping.local_available!==false : product.fulfilment_type!=='group_order';
