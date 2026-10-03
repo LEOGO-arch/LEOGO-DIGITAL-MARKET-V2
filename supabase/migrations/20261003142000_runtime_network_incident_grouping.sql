@@ -42,7 +42,7 @@ begin
     return jsonb_build_object('ok',false,'reason','invalid_portal');
   end if;
 
-  if v_type not in ('js_error','unhandled_rejection','http_error','resource_error','network_error') then
+  if v_type not in ('js_error','unhandled_rejection','http_error','resource_error','connectivity_error') then
     v_type:='js_error';
   end if;
 
