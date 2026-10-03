@@ -2089,6 +2089,9 @@
   let selectedMarketplaceCategory = 'all';
   let selectedMarketplaceSellerId = '';
   let selectedMarketplaceSellerName = '';
+  const MARKETPLACE_BATCH_SIZE = 12;
+  let marketplaceVisibleCount = MARKETPLACE_BATCH_SIZE;
+  const resetMarketplaceVisibleCount = () => { marketplaceVisibleCount = MARKETPLACE_BATCH_SIZE; };
 
   const categoryIcon = (code) => ({
     food_drinks: '🍔',
@@ -2304,6 +2307,7 @@
     selectedMarketplaceSellerId=String(sellerId||'');
     selectedMarketplaceSellerName=String(sellerName||'LEOGO Seller');
     selectedMarketplaceCategory='all';
+    resetMarketplaceVisibleCount();
     renderLiveCatalogue();
     document.getElementById('live-product-catalogue')?.scrollIntoView({behavior:'smooth',block:'start'});
   };
@@ -2491,7 +2495,7 @@
   };
   const renderPersonalSaleCard = (listing) => {
     const imageUrl = personalSaleMediaUrl(listing.item_image_path);
-    return '<article class="live-product-card personal-sale-market-card" data-personal-sale-card="'+receiptEscape(listing.id)+'">'+
+    return '<article class="live-product-card live-product-card-compact personal-sale-market-card" data-personal-sale-card="'+receiptEscape(listing.id)+'">'+
       '<div class="live-product-image">'+
         (imageUrl ? '<img src="'+receiptEscape(imageUrl)+'" alt="'+receiptEscape(listing.item_name)+'">' : '<span>🏷️</span>')+
       '</div>'+
@@ -2531,10 +2535,17 @@
     }
 
     const combined = allProducts
-      ? [
-          ...sellerProducts.map((item) => ({ type:'seller', item })),
-          ...personalSaleListings.map((item) => ({ type:'personal', item }))
-        ].sort(() => Math.random() - 0.5)
+      ? (() => {
+          const rows = [];
+          const sellerEntries = sellerProducts.map((item) => ({ type:'seller', item }));
+          const personalEntries = personalSaleListings.map((item) => ({ type:'personal', item }));
+          const length = Math.max(sellerEntries.length, personalEntries.length);
+          for (let index = 0; index < length; index += 1) {
+            if (sellerEntries[index]) rows.push(sellerEntries[index]);
+            if (personalEntries[index]) rows.push(personalEntries[index]);
+          }
+          return rows;
+        })()
       : sellerProducts.map((item) => ({ type:'seller', item }));
 
     if (!combined.length) {
@@ -2542,11 +2553,25 @@
         ? 'No approved products or personal listings are available yet.'
         : 'No approved Seller products are available in this category yet.';
       liveProductGrid.innerHTML = '<div class="customer-empty-state live-catalogue-empty"><span>'+categoryIcon(selectedMarketplaceCategory)+'</span><h4>No approved listings yet</h4><p>Listings appear here only after LEOGO Admin approves them.</p></div>';
+      if (showAllLiveProducts) showAllLiveProducts.hidden = true;
       return;
     }
 
-    liveCatalogueStatus.textContent = combined.length+' approved listing'+(combined.length === 1 ? '' : 's')+' found.';
-    liveProductGrid.innerHTML = combined.map((entry) =>
+    const visibleEntries = combined.slice(0, marketplaceVisibleCount);
+    const remaining = Math.max(0, combined.length - visibleEntries.length);
+    const expanded = combined.length > MARKETPLACE_BATCH_SIZE && marketplaceVisibleCount > MARKETPLACE_BATCH_SIZE;
+    liveCatalogueStatus.textContent = expanded
+      ? combined.length+' approved listing'+(combined.length === 1 ? '' : 's')+' shown.'
+      : 'Showing '+visibleEntries.length+' of '+combined.length+' approved listing'+(combined.length === 1 ? '' : 's')+'.';
+    if (showAllLiveProducts) {
+      showAllLiveProducts.hidden = combined.length <= MARKETPLACE_BATCH_SIZE;
+      showAllLiveProducts.textContent = expanded ? '← Back to Categories' : 'See More';
+      showAllLiveProducts.setAttribute(
+        'aria-label',
+        expanded ? 'Return to Explore LEOGO shortcut categories' : 'Show all '+combined.length+' marketplace listings'
+      );
+    }
+    liveProductGrid.innerHTML = visibleEntries.map((entry) =>
       entry.type === 'personal' ? renderPersonalSaleCard(entry.item) : renderSellerProductCard(entry.item)
     ).join('');
   };
@@ -2710,6 +2735,7 @@
       selectedMarketplaceSellerId='';
       selectedMarketplaceSellerName='';
       selectedMarketplaceCategory='all';
+      marketplaceVisibleCount = Number.MAX_SAFE_INTEGER;
       renderLiveCatalogue();
       const card=liveProductGrid?.querySelector('[data-live-product-card="'+CSS.escape(productButton.dataset.flashProduct)+'"]');
       (card||liveProductGrid)?.scrollIntoView({behavior:'smooth',block:'center'});
@@ -2850,6 +2876,7 @@
     selectedMarketplaceSellerId='';
     selectedMarketplaceSellerName='';
     selectedMarketplaceCategory = code === 'marketplace' ? 'all' : code;
+    resetMarketplaceVisibleCount();
     renderLiveCatalogue();
     document.getElementById('live-product-catalogue')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
@@ -2859,13 +2886,28 @@
     selectedMarketplaceSellerId='';
     selectedMarketplaceSellerName='';
     selectedMarketplaceCategory = 'all';
+    resetMarketplaceVisibleCount();
     renderLiveCatalogue();
     document.getElementById('live-product-catalogue')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const showMoreMarketplace = (event) => {
+    event?.preventDefault?.();
+
+    if (marketplaceVisibleCount > MARKETPLACE_BATCH_SIZE) {
+      resetMarketplaceVisibleCount();
+      renderLiveCatalogue();
+      document.getElementById('explore-leogo')?.scrollIntoView({ behavior:'smooth', block:'start' });
+      return;
+    }
+
+    marketplaceVisibleCount = Number.MAX_SAFE_INTEGER;
+    renderLiveCatalogue();
+  };
+
   bindHomeSellerGrid(popularNearYouSellerGrid);
   bindHomeSellerGrid(featuredLocalSellerRow);
-  showAllLiveProducts?.addEventListener('click', openGeneralMarketplace);
+  showAllLiveProducts?.addEventListener('click', showMoreMarketplace);
   viewAllProductCategories?.addEventListener('click', openGeneralMarketplace);
   personalSalesSeeMore?.addEventListener('click', openGeneralMarketplace);
   popularNearYouViewAll?.addEventListener('click', openGeneralMarketplace);
@@ -4284,6 +4326,7 @@
       selectedMarketplaceCategory='all';
       selectedMarketplaceSellerId='';
       selectedMarketplaceSellerName='';
+      marketplaceVisibleCount = Number.MAX_SAFE_INTEGER;
       renderLiveCatalogue();
       window.setTimeout(()=>{
         const card=liveProductGrid?.querySelector('[data-live-product-card="'+CSS.escape(String(row.id))+'"]');
@@ -4296,6 +4339,7 @@
       selectedMarketplaceCategory='all';
       selectedMarketplaceSellerId='';
       selectedMarketplaceSellerName='';
+      marketplaceVisibleCount = Number.MAX_SAFE_INTEGER;
       renderLiveCatalogue();
       window.setTimeout(()=>{
         const card=liveProductGrid?.querySelector('[data-personal-sale-card="'+CSS.escape(String(row.id))+'"]');
