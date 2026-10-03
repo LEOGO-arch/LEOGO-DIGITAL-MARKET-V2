@@ -10,6 +10,8 @@ const healthPartnerJs=read('partner/health.js');
 const adminHtml=read('admin/index.html');
 const healthAdminJs=read('admin/health.js');
 const migration=read('supabase/migrations/20261003211000_health_otc_cart_orders_v2.sql');
+const hardening=read('supabase/migrations/20261003212500_health_otc_order_hardening.sql');
+const notificationMigration=read('supabase/migrations/20261003213000_health_partner_notifications.sql');
 
 for(const [name,source] of [
   ['js/app.js',customerJs],
@@ -70,6 +72,9 @@ for(const marker of [
   "'health_medicine_payment'",
   "'health'"
 ]) requireMarker(migration,marker,'Health OTC migration safeguard missing');
+
+requireMarker(hardening,"p_status not in ('accepted','preparing','ready_for_handover','handed_to_leogo')",'Health Partner order progression hardening missing');
+requireMarker(notificationMigration,"'health_medicine'",'Health partner notification type is not allowed');
 
 // HTML remains structurally balanced for the edited surfaces.
 for(const [name,html] of [['index.html',customerHtml],['partner/index.html',partnerHtml],['admin/index.html',adminHtml]]){
