@@ -1195,3 +1195,42 @@ $$;
 
 revoke all on function public.admin_list_pending_payment_actions() from public,anon;
 grant execute on function public.admin_list_pending_payment_actions() to authenticated;
+
+
+-- Admin Health network summary now counts specialist service listings separately from Health products.
+create or replace function public.admin_list_health_medicine_network()
+returns jsonb
+language plpgsql security definer set search_path=''
+as $$
+begin
+  if not private.is_leogo_admin('approvals.read') then raise exception 'Admin access required'; end if;
+  return jsonb_build_object(
+    'partners',coalesce((
+      select jsonb_agg(to_jsonb(x) order by x.updated_at desc)
+      from (
+        select h.user_id,h.business_name,h.owner_name,h.phone,h.business_type,h.other_business_type,
+          h.county,h.sub_county,h.town,h.location_details,h.application_status,h.availability_status,
+          h.submitted_at,h.approved_at,h.updated_at,u.email::text as email,
+          (select count(*) from public.health_medicine_products p where p.provider_id=h.user_id) as product_count,
+          (select count(*) from public.health_specialist_services s where s.provider_id=h.user_id) as service_count
+        from public.health_medicine_accounts h
+        left join auth.users u on u.id=h.user_id
+      ) x
+    ),'[]'::jsonb),
+    'products',coalesce((
+      select jsonb_agg(to_jsonb(x) order by x.updated_at desc)
+      from (
+        select p.id,p.provider_id,h.business_name as provider_name,p.product_name,p.product_kind,
+          p.medicine_classification,p.requires_prescription,p.brand,p.price_kes,p.quantity_available,
+          p.measurement_unit,p.availability_status,p.order_mode,p.approval_status,p.admin_notes,
+          p.submitted_at,p.approved_at,p.updated_at
+        from public.health_medicine_products p
+        join public.health_medicine_accounts h on h.user_id=p.provider_id
+      ) x
+    ),'[]'::jsonb)
+  );
+end;
+$$;
+
+revoke all on function public.admin_list_health_medicine_network() from public,anon;
+grant execute on function public.admin_list_health_medicine_network() to authenticated;
