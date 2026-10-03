@@ -69,7 +69,7 @@
     $('#diagnosticsRuntimeCritical').textContent=critical;
     $('#diagnosticsRuntimeWarning').textContent=warnings;
 
-    host.innerHTML=rows.length?rows.map((issue)=>`
+    host.innerHTML=activeRows.length?activeRows.map((issue)=>`
       <article class="diagnostics-runtime-issue ${escapeHtml(issue.severity||'warning')}">
         <header>
           <div>
@@ -93,7 +93,7 @@
           ${issue.last_source?`<span><strong>Source</strong>${escapeHtml(issue.last_source)}</span>`:''}
         </div>
       </article>
-    `).join(''):'<div class="empty-mini">No runtime issues recorded in this period.</div>';
+    `).join(''):'<div class="empty-mini">No active runtime issues in this period.</div>';
   };
 
   const loadRuntimeIssues=async()=>{
