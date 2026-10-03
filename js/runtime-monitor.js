@@ -123,7 +123,8 @@
       p_metadata:{
         status:Number.isFinite(Number(input.status))?Number(input.status):null,
         method:cleanText(input.method||'',12)||null,
-        host:window.location.hostname
+        host:cleanText(input.host||window.location.hostname,120)||null,
+        failed_count:Number.isFinite(Number(input.failedCount))?Math.max(1,Math.min(500,Number(input.failedCount))):null
       }
     };
 
@@ -188,6 +189,46 @@
     });
   });
 
+  const connectivityBursts=new Map();
+
+  const flushConnectivityBurst=(host)=>{
+    const burst=connectivityBursts.get(host);
+    if(!burst)return;
+    connectivityBursts.delete(host);
+    report({
+      errorType:'connectivity_error',
+      module:'connectivity',
+      message:'Temporary network connection interruption',
+      operation:'connectivity:'+host,
+      source:burst.source,
+      method:burst.method,
+      host,
+      failedCount:burst.count,
+      severity:'warning'
+    });
+  };
+
+  const queueConnectivityFailure=(url,method)=>{
+    let host='network';
+    try{host=new URL(String(url||''),window.location.href).hostname||'network';}catch{}
+    const existing=connectivityBursts.get(host)||{
+      count:0,
+      source:url,
+      method,
+      timer:null
+    };
+    existing.count+=1;
+    existing.source=existing.source||url;
+    existing.method=existing.method||method;
+    if(existing.timer)clearTimeout(existing.timer);
+    existing.timer=setTimeout(()=>flushConnectivityBurst(host),1200);
+    connectivityBursts.set(host,existing);
+  };
+
+  window.addEventListener('online',()=>{
+    for(const host of [...connectivityBursts.keys()])flushConnectivityBurst(host);
+  });
+
   window.fetch=async(...args)=>{
     const request=args[0];
     const init=args[1]||{};
@@ -210,17 +251,7 @@
       return response;
     }catch(error){
       if(!String(url).includes('/record_system_runtime_error')){
-        let host='network';
-        try{host=new URL(String(url||''),window.location.href).hostname||'network';}catch{}
-        report({
-          errorType:'network_error',
-          module:'connectivity',
-          message:'Temporary network connection failed',
-          operation:'connectivity:'+host,
-          source:url,
-          method,
-          severity:'warning'
-        });
+        queueConnectivityFailure(url,method);
       }
       throw error;
     }
