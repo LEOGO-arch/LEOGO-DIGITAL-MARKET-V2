@@ -94,6 +94,7 @@
     accommodationBookings: [],
     advertisements: [],
     adminNotifications: [],
+    systemMonitoring: null,
     audit: [],
     dashboard: null,
     dashboardRange: 'today',
@@ -338,6 +339,28 @@
       });
     });
 
+    (state.systemMonitoring?.incidents||[]).forEach((incident)=>{
+      const active=incident.status==='active';
+      const transition=active
+        ? 'active:'+String(incident.reopened_count||0)
+        : 'recovered:'+String(incident.recovered_at||'');
+      items.push({
+        key:'system-diagnosis:'+String(incident.id||incident.check_id||'incident')+':'+transition,
+        category:'System Diagnosis',
+        title:active
+          ? String(incident.severity||'warning').toUpperCase()+': '+String(incident.title||'System monitoring incident')
+          : 'Recovered: '+String(incident.title||'System monitoring incident'),
+        message:active
+          ? String(incident.evidence||incident.summary||'System Diagnosis detected a preventive monitoring finding.')
+          : 'Preventive monitoring verified that this incident is no longer active.',
+        created_at:active?(incident.last_detected_at||incident.first_detected_at):incident.recovered_at,
+        view:'diagnostics',
+        sourceId:incident.id,
+        priority:active&&incident.severity==='critical'
+      });
+    });
+
+
     (state.dashboard?.recent_admin_activity||[]).slice(0,10).forEach((item)=>{
       items.push({
         key:'admin-activity:'+String(item.created_at||'')+':'+String(item.action||''),
@@ -376,7 +399,7 @@
     list.innerHTML=state.adminNotifications.length?state.adminNotifications.map((item)=>{
       const isSeen=seen.has(item.key);
       return '<article class="admin-notification-item '+(isSeen?'':'unread')+' '+(item.priority?'priority':'')+'">'+
-        '<div class="admin-notification-icon">'+(item.category==='Accommodation'?'🏨':item.category==='Payment'?'KSh':item.category==='Transport'?'🚚':item.category==='Approval'?'✓':item.category==='System'?'!':'◴')+'</div>'+
+        '<div class="admin-notification-icon">'+(item.category==='Accommodation'?'🏨':item.category==='Payment'?'KSh':item.category==='Transport'?'🚚':item.category==='Approval'?'✓':(item.category==='System'||item.category==='System Diagnosis')?'!':'◴')+'</div>'+
         '<div class="admin-notification-copy"><span>'+escapeHtml(item.category)+'</span><strong>'+escapeHtml(item.title)+'</strong><p>'+escapeHtml(item.message)+'</p><small>'+escapeHtml(formatDate(item.created_at,true))+'</small></div>'+
         '<button type="button" data-open-admin-notification="'+escapeHtml(item.key)+'">Open</button>'+
       '</article>';
@@ -572,6 +595,34 @@
     return data?.status === 'active' ? data : null;
   };
 
+  let systemMonitoringPollTimer=null;
+
+  const loadSystemMonitoringSnapshot=async()=>{
+    if(!db||!isSuperAdmin())return null;
+    const {data,error}=await db.rpc('admin_get_system_monitoring_snapshot');
+    if(error)throw error;
+    state.systemMonitoring=data||null;
+    document.dispatchEvent(new CustomEvent('leogo:system-monitoring-snapshot',{detail:data||{}}));
+    return data;
+  };
+
+  const startSystemMonitoringPolling=()=>{
+    if(systemMonitoringPollTimer)clearInterval(systemMonitoringPollTimer);
+    if(!isSuperAdmin())return;
+    systemMonitoringPollTimer=setInterval(()=>{
+      if(!state.admin||!isSuperAdmin()||document.hidden)return;
+      loadSystemMonitoringSnapshot()
+        .then(()=>renderAdminNotifications())
+        .catch(()=>{});
+    },60000);
+  };
+
+  document.addEventListener('leogo:system-monitoring-updated',(event)=>{
+    if(!event.detail||!isSuperAdmin())return;
+    state.systemMonitoring=event.detail;
+    renderAdminNotifications();
+  });
+
   const enterAdmin = async (user) => {
     try {
       const admin = await verifyAdmin(user);
@@ -588,6 +639,7 @@
       if($('#adminRecoveryDestination')) $('#adminRecoveryDestination').textContent=user.email||'No email on account';
       applyAdminNavigationPermissions();
       await loadAll();
+      startSystemMonitoringPolling();
     } catch (error) {
       showGate('denied');
       globalStatus(friendlyError(error), 'error');
@@ -662,6 +714,7 @@
       [loadPremiumPlans, () => adminHas('premium.read')],
       [loadAccommodationSummary, () => adminHas('approvals.read')],
       [loadAuditLog, () => isSuperAdmin()],
+      [loadSystemMonitoringSnapshot, () => isSuperAdmin()],
       [loadStaffManagement, () => isSuperAdmin()]
     ];
     const loaders = loaderSpecs.filter(([,allowed]) => allowed()).map(([load]) => load);
