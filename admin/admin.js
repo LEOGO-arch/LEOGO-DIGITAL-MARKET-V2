@@ -135,7 +135,7 @@
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
     accommodation_property: 'Accommodation Property',
     accommodation_unit: 'Accommodation Room / Unit',
-    health_medicine_application: 'Health & Medicine Registration', health_medicine_product: 'Health & Medicine Product',
+    health_medicine_application: 'Health & Medicine Registration', health_medicine_product: 'Health & Medicine Product', health_medicine_service: 'Health Specialist Service',
     cyber_application: 'Cyber Partner Registration', cyber_service: 'Cyber Service', cyber_product: 'Cyber Shop Item', cyber_profile_change: 'Cyber Profile Update'
   };
   const functionLabels = {
