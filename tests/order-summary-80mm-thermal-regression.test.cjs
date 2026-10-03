@@ -7,7 +7,7 @@ const html=fs.readFileSync('admin/index.html','utf8');
 new vm.Script(admin,{filename:'admin/admin.js'});
 
 if(!html.includes('<option value="a6">A6</option>')||
-   !html.includes('<option value="80mm">80 mm Thermal</option>')){
+   !html.includes('<option value="80mm">80 mm Thermal — Auto Length</option>')){
   throw new Error('A6 / 80mm paper selector changed unexpectedly');
 }
 if(!html.includes('admin.js?v=thermal-receipt-80mm-1')){
