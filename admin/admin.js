@@ -2617,7 +2617,7 @@
       '<meta name="viewport" content="width=device-width,initial-scale=1">'+
       '<title>'+escapeHtml(order.order_reference||'LEOGO Order Summary')+'</title>'+
       '<style>'+
-        '@page{size:80mm auto;margin:0;}'+
+        '@page{margin:0;}'+
         '*{box-sizing:border-box;}'+
         'html,body{width:80mm;min-width:80mm;max-width:80mm;margin:0;padding:0;background:#fff;color:#000;}'+
         'body{font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'+
@@ -2724,7 +2724,7 @@
             '<div>Keep this receipt with the order until final handover.</div>'+
           '</footer>'+
         '</main>'+
-        '<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},180)});<\/script>'+
+        '<script>window.addEventListener("load",function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var heightMm=Math.max(40,Math.ceil((receipt?receipt.getBoundingClientRect().height:0)/pxPerMm+2));var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);setTimeout(function(){window.print();},220)});<\/script>'+
       '</body></html>';
   };
 
