@@ -427,7 +427,7 @@ language plpgsql security definer set search_path=''
 as $$
 declare v_row jsonb;
 begin
-  if not (private.is_leogo_admin('settings.read') or private.is_leogo_admin('approvals.read')) then
+  if not (private.is_leogo_admin('settings.read') or private.is_leogo_admin('fees.manage') or private.is_leogo_admin('approvals.read')) then
     raise exception 'Admin access required';
   end if;
   select to_jsonb(s) into v_row from public.health_medicine_settings s where s.id=1;
@@ -520,7 +520,7 @@ using (customer_id=(select auth.uid()));
 drop policy if exists health_specialist_bookings_provider_read on public.health_specialist_bookings;
 create policy health_specialist_bookings_provider_read
 on public.health_specialist_bookings for select to authenticated
-using (provider_id=(select auth.uid()));
+using (provider_id=(select auth.uid()) and payment_status='verified_paid');
 
 drop policy if exists health_specialist_bookings_admin_read on public.health_specialist_bookings;
 create policy health_specialist_bookings_admin_read
@@ -612,7 +612,7 @@ begin
   if v_uid is null then raise exception 'Sign in required'; end if;
   if char_length(btrim(coalesce(p_customer_name,'')))<2 then raise exception 'Customer name is required'; end if;
   if coalesce(p_customer_phone,'') !~ '^[+]254[17][0-9]{8}$' then raise exception 'Enter a valid Kenyan phone number'; end if;
-  if p_preferred_date is null or p_preferred_date<current_date then raise exception 'Choose a valid booking date'; end if;
+  if p_preferred_date is null or p_preferred_date<(now() at time zone 'Africa/Nairobi')::date then raise exception 'Choose a valid booking date'; end if;
   if p_preferred_time is null then raise exception 'Choose a preferred booking time'; end if;
   if p_service_mode not in ('in_person','online') then raise exception 'Choose in-person or online service'; end if;
   if char_length(btrim(coalesce(p_payment_message,'')))<4 then
@@ -740,10 +740,11 @@ begin
   into v_rows
   from public.health_specialist_bookings b
   join public.health_specialist_services s on s.id=b.service_id
-  where b.provider_id=v_uid;
+  where b.provider_id=v_uid
+    and b.payment_status='verified_paid';
   return v_rows;
 end;
-$$;
+$;
 
 revoke all on function public.health_specialist_list_own_bookings() from public,anon;
 grant execute on function public.health_specialist_list_own_bookings() to authenticated;
