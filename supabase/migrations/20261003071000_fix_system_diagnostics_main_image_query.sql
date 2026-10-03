@@ -11,10 +11,12 @@ begin
   select pg_get_functiondef('public.admin_run_system_diagnosis(text,text,text)'::regprocedure)
   into v_def;
 
-  if position(v_old in v_def)=0 then
+  if position(v_old in v_def)>0 then
+    execute replace(v_def,v_old,v_new);
+  elsif position(v_new in v_def)>0 then
+    null; -- already fixed
+  else
     raise exception 'Expected diagnostics main-image query was not found';
   end if;
-
-  execute replace(v_def,v_old,v_new);
 end
 $patch$;
