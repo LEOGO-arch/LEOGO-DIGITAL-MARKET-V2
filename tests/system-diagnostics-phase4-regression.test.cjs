@@ -6,6 +6,7 @@ const diagnostics=fs.readFileSync('admin/system-diagnostics.js','utf8');
 const admin=fs.readFileSync('admin/admin.js','utf8');
 const css=fs.readFileSync('admin/system-diagnostics.css','utf8');
 const migration=fs.readFileSync('supabase/migrations/20261003161000_system_diagnostics_phase4.sql','utf8');
+const hardening=fs.readFileSync('supabase/migrations/20261003162500_system_diagnostics_phase4_hardening.sql','utf8');
 
 new vm.Script(diagnostics,{filename:'admin/system-diagnostics.js'});
 new vm.Script(admin,{filename:'admin/admin.js'});
@@ -111,6 +112,24 @@ if(!html.includes('system-diagnostics.js?v=diagnostics-phase4-1')||
 }
 if(!css.includes('.diagnostics-monitoring-center')||!css.includes('.diagnostics-monitoring-trend')){
   throw new Error('Phase 4 responsive styles missing');
+}
+if(!hardening.includes("run_status='failed'")||!hardening.includes("'monitor.engine_failure'")){
+  throw new Error('Phase 4 failed-run durability hardening missing');
+}
+if(!hardening.includes("to_timestamp(")||!hardening.includes("Africa/Nairobi")){
+  throw new Error('Phase 4 cron-boundary/Nairobi summary hardening missing');
+}
+for(const forbidden of [
+  'update public.marketplace_orders',
+  'update public.wallet_ledger_entries',
+  'update public.payment_accounts',
+  'update public.leogo_staff',
+  'update public.seller_products',
+  'delete from public.'
+]){
+  if(hardening.toLowerCase().includes(forbidden)){
+    throw new Error('Phase 4 hardening must not mutate operational data: '+forbidden);
+  }
 }
 
 console.log('system diagnostics Phase 4 regression checks passed');
