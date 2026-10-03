@@ -2452,3 +2452,42 @@ body.advertisement-lightbox-open{overflow:hidden}
   .global-search-card-copy small,.global-search-card-copy em{font-size:7.5px}
   .global-search-price{font-size:8px}
 }
+
+
+/* Marketplace density: compact cards and 12-item first batch */
+.live-product-catalogue .live-product-grid{gap:10px}
+.live-product-catalogue .live-product-card-compact{border-radius:12px;box-shadow:0 5px 14px rgba(7,21,47,.05)}
+.live-product-catalogue .live-product-card-compact .live-product-image{height:112px}
+.live-product-catalogue .live-product-card-compact .live-product-body{gap:4px;padding:8px}
+.live-product-catalogue .live-product-card-compact .live-product-body>h3{font-size:11.5px;line-height:1.25;min-height:29px}
+.live-product-catalogue .live-product-compact-price strong{font-size:12.5px}
+.live-product-catalogue .live-product-primary-actions{gap:5px}
+.live-product-catalogue .live-product-primary-actions button{padding:7px 5px;font-size:7.4px}
+.live-product-catalogue .live-product-mode-badges{gap:3px}
+.live-product-catalogue .live-product-mode-badge{padding:3px 5px;font-size:6.8px}
+.personal-sale-market-card.live-product-card-compact .live-product-description{display:none}
+.personal-sale-market-card.live-product-card-compact .live-product-category{font-size:7px;line-height:1.2}
+.personal-sale-market-card.live-product-card-compact .live-product-seller{font-size:7.5px;line-height:1.25}
+.personal-sale-market-card.live-product-card-compact .live-product-price-row{align-items:center;flex-direction:row;gap:5px}
+.personal-sale-market-card.live-product-card-compact .live-product-price-row strong{font-size:12.5px}
+.personal-sale-market-card.live-product-card-compact .live-product-price-row span{font-size:7.5px}
+.personal-sale-market-card.live-product-card-compact .personal-sale-public-badge{padding:4px 6px;font-size:6.8px}
+.personal-sale-market-card.live-product-card-compact .personal-interest-button{margin-top:3px;border-radius:8px;padding:7px 6px;font-size:8px}
+@media(min-width:981px){
+  .live-product-catalogue .live-product-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+@media(min-width:701px) and (max-width:980px){
+  .live-product-catalogue .live-product-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(max-width:700px){
+  .live-product-catalogue .live-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .live-product-catalogue .live-product-card-compact .live-product-image{height:92px}
+  .live-product-catalogue .live-product-card-compact .live-product-body{padding:7px}
+  .live-product-catalogue .live-product-card-compact .live-product-body>h3{font-size:10.5px;min-height:27px}
+  .live-product-catalogue .live-product-compact-price strong{font-size:11.5px}
+}
+@media(max-width:380px){
+  .live-product-catalogue .live-product-card-compact .live-product-image{height:86px}
+  .live-product-catalogue .live-product-card-compact .live-product-body{padding:6px}
+  .live-product-catalogue .live-product-primary-actions button{padding:6px 4px;font-size:6.9px}
+}
