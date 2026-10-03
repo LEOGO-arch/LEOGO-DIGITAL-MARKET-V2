@@ -1643,7 +1643,7 @@
     updateCheckoutPointsTotals();
 
     if (!testCart.length) {
-      paymentStepStatus.textContent = 'Your cart is empty. Add a Seller product before making an order.';
+      paymentStepStatus.textContent = 'Your cart is empty. Add a Seller product or an approved OTC/non-prescription Health item before making an order.';
       return;
     }
     if (!window.leogoAuth?.isAuthenticated?.()) {
@@ -1978,6 +1978,13 @@
     if (headerCartCount) headerCartCount.textContent = count;
     if (cartShellCount) cartShellCount.textContent = count + (count === 1 ? ' item' : ' items');
     if (checkoutShell) checkoutShell.dataset.checkoutSubtotal = String(subtotal);
+    const healthOnlyCart=testCart.length>0&&testCart.every((item)=>cartItemSource(item)==='health_medicine');
+    if(checkoutUsePoints){
+      checkoutUsePoints.disabled=healthOnlyCart;
+      if(healthOnlyCart)checkoutUsePoints.checked=false;
+    }
+    const pointsPanel=document.getElementById('checkoutPointsPanel');
+    if(pointsPanel)pointsPanel.classList.toggle('health-points-unavailable',healthOnlyCart);
     const subtotalValue = document.getElementById('checkoutSubtotalValue');
     if (subtotalValue) subtotalValue.textContent = money(subtotal);
 
