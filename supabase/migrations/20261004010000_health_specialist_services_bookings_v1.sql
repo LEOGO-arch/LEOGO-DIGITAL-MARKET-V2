@@ -444,7 +444,7 @@ language plpgsql security definer set search_path=''
 as $$
 declare v_before jsonb;v_after jsonb;
 begin
-  if not private.is_leogo_admin('settings.manage') then raise exception 'Settings permission required'; end if;
+  if not (private.is_leogo_admin('fees.manage') or private.is_leogo_admin('settings.manage')) then raise exception 'Fee settings permission required'; end if;
   if p_booking_fee_kes is null or p_booking_fee_kes<0 or p_booking_fee_kes>100000 then
     raise exception 'Enter a valid Health Specialist booking fee';
   end if;
@@ -643,6 +643,12 @@ begin
       and b.preferred_time=p_preferred_time
       and b.booking_status not in ('declined','cancelled')
   ) then raise exception 'You already have this Health Specialist service booked for the selected date and time'; end if;
+
+  if exists(
+    select 1 from public.health_specialist_bookings b
+    where lower(btrim(b.payment_message))=lower(btrim(p_payment_message))
+      and b.payment_status in ('submitted','verified_paid')
+  ) then raise exception 'This booking payment confirmation has already been used'; end if;
 
   select specialist_booking_fee_kes into v_fee
   from public.health_medicine_settings where id=1;
@@ -1012,3 +1018,68 @@ $$;
 
 revoke all on function public.admin_review_health_specialist_booking_payment(uuid,text,text) from public,anon;
 grant execute on function public.admin_review_health_specialist_booking_payment(uuid,text,text) to authenticated;
+
+
+-- Existing Health Partner list now reports approved specialist service counts as well.
+create or replace function public.public_list_health_medicine()
+returns jsonb
+language sql security definer set search_path=''
+as $$
+  select jsonb_build_object(
+    'providers',coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'provider_id',h.user_id,
+        'business_name',h.business_name,
+        'business_type',h.business_type,
+        'other_business_type',h.other_business_type,
+        'county',h.county,
+        'sub_county',h.sub_county,
+        'town',h.town,
+        'location_details',h.location_details,
+        'shop_map_link',h.shop_map_link,
+        'business_description',h.business_description,
+        'profile_picture_path',h.profile_picture_path,
+        'availability_status',h.availability_status,
+        'approved_product_count',(select count(*) from public.health_medicine_products p where p.provider_id=h.user_id and p.approval_status='approved' and p.availability_status<>'inactive'),
+        'approved_service_count',(select count(*) from public.health_specialist_services s where s.provider_id=h.user_id and s.approval_status='approved' and s.listing_status='active')
+      ) order by h.business_name)
+      from public.health_medicine_accounts h
+      where h.application_status='approved'
+        and h.availability_status<>'closed'
+    ),'[]'::jsonb),
+    'products',coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id',p.id,
+        'provider_id',p.provider_id,
+        'provider_name',h.business_name,
+        'business_type',h.business_type,
+        'product_name',p.product_name,
+        'product_kind',p.product_kind,
+        'medicine_classification',p.medicine_classification,
+        'requires_prescription',p.requires_prescription,
+        'brand',p.brand,
+        'description',p.description,
+        'price_kes',p.price_kes,
+        'quantity_available',p.quantity_available,
+        'measurement_unit',p.measurement_unit,
+        'image_path',p.image_path,
+        'availability_status',p.availability_status,
+        'order_mode',p.order_mode,
+        'cart_eligible',(p.order_mode='cart' and p.medicine_classification='otc' and p.requires_prescription=false),
+        'county',h.county,
+        'sub_county',h.sub_county,
+        'town',h.town,
+        'location_details',h.location_details
+      ) order by p.updated_at desc)
+      from public.health_medicine_products p
+      join public.health_medicine_accounts h on h.user_id=p.provider_id
+      where h.application_status='approved'
+        and h.availability_status<>'closed'
+        and p.approval_status='approved'
+        and p.availability_status<>'inactive'
+    ),'[]'::jsonb)
+  );
+$$;
+
+revoke all on function public.public_list_health_medicine() from public;
+grant execute on function public.public_list_health_medicine() to anon,authenticated;
