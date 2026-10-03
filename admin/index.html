@@ -1344,7 +1344,7 @@
             <form id="diagnosticsRunForm">
               <div class="diagnostics-form-grid">
                 <label><span>Scan type</span><select id="diagnosticsMode"><option value="quick">Quick Scan</option><option value="full" selected>Full Diagnosis</option><option value="module">Module Diagnosis</option></select></label>
-                <label id="diagnosticsModuleWrap" hidden><span>Module</span><select id="diagnosticsModule"><option value="core">Core</option><option value="security">Security</option><option value="auth_staff">Admin &amp; Staff</option><option value="database">Database</option><option value="storage">Storage</option><option value="orders">Orders</option><option value="products">Products</option><option value="payments">Payments</option><option value="notifications">Notifications &amp; Email</option><option value="services">Service Providers</option><option value="transport">Transport &amp; Rider</option><option value="wallet">Wallet</option><option value="premium">Premium</option><option value="accommodation">Accommodation</option><option value="cyber">Cyber</option></select></label>
+                <label id="diagnosticsModuleWrap" hidden><span>Module</span><select id="diagnosticsModule"><option value="core">Core</option><option value="security">Security</option><option value="auth_staff">Admin &amp; Staff</option><option value="database">Database</option><option value="storage">Storage</option><option value="orders">Orders</option><option value="products">Products</option><option value="payments">Payments</option><option value="notifications">Notifications &amp; Email</option><option value="services">Service Providers</option><option value="transport">Transport &amp; Rider</option><option value="wallet">Wallet</option><option value="premium">Premium</option><option value="accommodation">Accommodation</option><option value="cyber">Cyber</option><option value="runtime">Live Runtime Errors</option></select></label>
                 <label class="wide"><span>System Diagnosis PIN</span><input id="diagnosticsRunPin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required></label>
               </div>
               <div class="diagnostics-actions"><button type="submit">Run Diagnosis</button></div>
@@ -1394,6 +1394,27 @@
         <section class="diagnostics-card" id="diagnosticsResultsSection" hidden>
           <header><div><h3>Diagnostic Findings</h3><p>Evidence and the smallest suggested repair for each check.</p></div></header>
           <div id="diagnosticsResults" class="diagnostics-results"></div>
+        </section>
+
+        <section class="diagnostics-card" id="diagnosticsRuntimeCard">
+          <header class="diagnostics-runtime-head">
+            <div><h3>Live Runtime Errors</h3><p>Grouped failures reported from Customer, Partner, Admin, Staff/Rider and Pickup Station portals. Sensitive request data is not collected.</p></div>
+            <div class="diagnostics-runtime-controls">
+              <select id="diagnosticsRuntimeHours" aria-label="Runtime error period">
+                <option value="24" selected>Last 24 hours</option>
+                <option value="72">Last 3 days</option>
+                <option value="168">Last 7 days</option>
+              </select>
+              <button id="refreshRuntimeIssues" class="secondary-button" type="button">↻ Refresh</button>
+            </div>
+          </header>
+          <div class="diagnostics-runtime-summary">
+            <div><small>Active issues</small><strong id="diagnosticsRuntimeTotal">0</strong></div>
+            <div><small>Critical</small><strong id="diagnosticsRuntimeCritical">0</strong></div>
+            <div><small>Warnings</small><strong id="diagnosticsRuntimeWarning">0</strong></div>
+          </div>
+          <div id="diagnosticsRuntimeStatus" class="form-status" aria-live="polite"></div>
+          <div id="diagnosticsRuntimeIssues" class="diagnostics-runtime-issues"><div class="empty-mini">No live runtime errors loaded.</div></div>
         </section>
 
         <section class="diagnostics-card">
