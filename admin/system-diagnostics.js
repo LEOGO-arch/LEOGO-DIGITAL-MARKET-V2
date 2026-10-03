@@ -532,18 +532,19 @@
   };
 
   window.leogoDiagnostics={
-    activate:()=>Promise.all([
-      loadStatus(),
-      loadRuntimeIssues(),
-      loadLatestDiagnosticRun(),
-      loadRepairHistory()
-    ]).catch((error)=>{
-      setStatus($('#diagnosticsRunStatus'),friendly(error),'error');
-      setStatus($('#diagnosticsRuntimeStatus'),friendly(error),'error');
-    }),
-    refresh:()=>Promise.all([
-      loadStatus(),loadRuntimeIssues(),loadLatestDiagnosticRun(),loadRepairHistory()
-    ])
+    activate:async()=>{
+      try{
+        await loadStatus();
+        await Promise.all([loadRuntimeIssues(),loadLatestDiagnosticRun(),loadRepairHistory()]);
+      }catch(error){
+        setStatus($('#diagnosticsRunStatus'),friendly(error),'error');
+        setStatus($('#diagnosticsRuntimeStatus'),friendly(error),'error');
+      }
+    },
+    refresh:async()=>{
+      await loadStatus();
+      await Promise.all([loadRuntimeIssues(),loadLatestDiagnosticRun(),loadRepairHistory()]);
+    }
   };
 
   bind();
