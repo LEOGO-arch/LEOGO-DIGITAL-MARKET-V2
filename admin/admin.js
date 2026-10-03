@@ -2661,18 +2661,19 @@
         '.receipt-meta div{display:grid;grid-template-columns:14mm minmax(0,1fr);gap:.8mm;}'+
         '.receipt-meta b{font-weight:900;}'+
         '.receipt-meta span{font-weight:800;overflow-wrap:anywhere;}'+
-        '.receipt-qr{text-align:center;margin-top:.6mm;break-inside:avoid;}'+
-        '.receipt-qr img{display:block;width:27mm;height:27mm;margin:0 auto;image-rendering:pixelated;image-rendering:crisp-edges;}'+
-        '.receipt-qr strong{display:block;margin-top:.6mm;font-size:9.5pt;font-weight:900;}'+
-        '.receipt-qr small{display:block;margin-top:.35mm;font-size:8pt;font-weight:800;overflow-wrap:anywhere;}'+
-        '.receipt-footer{text-align:center;font-size:8.5pt;font-weight:800;line-height:1.22;}'+
-        '@media print{html,body{width:80mm!important;height:auto!important;overflow:visible!important;color:#000!important;background:#fff!important;}.receipt{width:72mm!important;page-break-after:auto;}.receipt-section,.receipt-item,.receipt-qr{break-inside:avoid;}}'+
+        '.receipt-bottom{display:grid;grid-template-columns:20mm minmax(0,1fr);gap:2mm;align-items:center;break-inside:avoid;}'+
+        '.receipt-qr{text-align:center;margin:0;break-inside:avoid;}'+
+        '.receipt-qr img{display:block;width:18.5mm;height:18.5mm;margin:0 auto;image-rendering:pixelated;image-rendering:crisp-edges;}'+
+        '.receipt-qr strong{display:block;margin-top:.25mm;font-size:6.8pt;font-weight:900;}'+
+        '.receipt-qr small{display:block;margin-top:.15mm;font-size:5.8pt;font-weight:800;overflow-wrap:anywhere;}'+
+        '.receipt-footer{text-align:left;font-size:6.3pt;font-weight:800;line-height:1.12;}'+
+        '.receipt-footer div+div{margin-top:.25mm;}'+
+        '@media print{html,body{width:80mm!important;height:auto!important;overflow:visible!important;color:#000!important;background:#fff!important;}.receipt{width:72mm!important;page-break-after:auto;}.receipt-section,.receipt-item,.receipt-bottom,.receipt-qr{break-inside:avoid;}}'+
       '</style></head><body>'+
-        '<main class="receipt">'+
+        '<main class="receipt '+(items.length<=1?'compact-single':'')+'">'+
           '<header class="receipt-header">'+
-            '<h1>LEOGO DIGITAL MARKET</h1>'+
-            '<h2>ORDER SUMMARY / DELIVERY RECEIPT</h2>'+
-            '<p>Any market to your Door Step</p>'+
+            '<img class="receipt-logo" src="'+logoUrl+'" alt="LEOGO">'+
+            '<div class="receipt-brand"><h1>LEOGO DIGITAL MARKET</h1><h2>ORDER SUMMARY / DELIVERY RECEIPT</h2><p>Any market to your Door Step</p></div>'+
           '</header>'+
           '<hr class="receipt-rule">'+
           '<div class="receipt-reference"><small>ORDER REFERENCE</small><strong>'+escapeHtml(order.order_reference||'ORDER')+'</strong></div>'+
@@ -2684,8 +2685,7 @@
           '<hr class="receipt-rule">'+
           '<section class="receipt-section">'+
             '<h3>DELIVER TO</h3>'+
-            '<p class="primary">'+escapeHtml(order.receiver_name||'Receiver')+'</p>'+
-            '<p>'+escapeHtml(order.contact_number||'No phone')+'</p>'+
+            '<p class="primary">'+escapeHtml(order.receiver_name||'Receiver')+' · '+escapeHtml(order.contact_number||'No phone')+'</p>'+
             '<p>'+escapeHtml(orderDeliveryAddress(order))+'</p>'+
           '</section>'+
           '<hr class="receipt-rule">'+
@@ -2709,26 +2709,18 @@
           '<hr class="receipt-rule">'+
           '<section class="receipt-section receipt-meta">'+
             '<h3>FULFILMENT</h3>'+
-            '<div><b>Rider</b><span>'+escapeHtml(delivery?.rider_name||'Not yet assigned')+'</span></div>'+
-            (delivery?.rider_phone?'<div><b>Phone</b><span>'+escapeHtml(delivery.rider_phone)+'</span></div>':'')+
+            '<div><b>Rider</b><span>'+escapeHtml((delivery?.rider_name||'Not yet assigned')+(delivery?.rider_phone?' · '+delivery.rider_phone:''))+'</span></div>'+
             '<div><b>Seller(s)</b><span>'+escapeHtml(sellerNames||'Seller details available in Admin')+'</span></div>'+
           '</section>'+
           noteBlock('STAFF / RIDER INSTRUCTIONS',delivery?.admin_notes)+
           noteBlock('RIDER UPDATE',delivery?.rider_notes)+
           '<hr class="receipt-rule">'+
-          '<div class="receipt-qr">'+
-            '<img src="'+qrDataUrl+'" alt="Order QR">'+
-            '<strong>SCAN ORDER</strong>'+
-            '<small>'+escapeHtml(order.order_reference||'LEOGO ORDER')+'</small>'+
+          '<div class="receipt-bottom">'+
+            '<div class="receipt-qr"><img src="'+qrDataUrl+'" alt="Order QR"><strong>SCAN ORDER</strong><small>'+escapeHtml(order.order_reference||'LEOGO ORDER')+'</small></div>'+
+            '<footer class="receipt-footer"><div>Authorized LEOGO order summary.</div><div>Printed '+escapeHtml(printedAt)+'</div><div>Keep with the order until final handover.</div></footer>'+
           '</div>'+
-          '<hr class="receipt-rule">'+
-          '<footer class="receipt-footer">'+
-            '<div>Authorized LEOGO order summary.</div>'+
-            '<div>Printed '+escapeHtml(printedAt)+'</div>'+
-            '<div>Keep this receipt with the order until final handover.</div>'+
-          '</footer>'+
         '</main>'+
-        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var heightPx=receipt?Math.max(receipt.scrollHeight,receipt.getBoundingClientRect().height):0;var heightMm=Math.max(45,Math.ceil(heightPx/pxPerMm+4));var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";setTimeout(function(){window.print();},180)})})});<\/script>'+
+        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var heightPx=receipt?Math.max(receipt.scrollHeight,receipt.getBoundingClientRect().height):0;var heightMm=Math.max(35,Math.ceil(heightPx/pxPerMm+2));var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";setTimeout(function(){window.print();},180)})})});<\/script>'+
       '</body></html>';
   };
 
