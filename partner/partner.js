@@ -33,6 +33,7 @@ let passwordRecoverySessionVerified=false;
 let passwordRecoverySessionPromise=null;
 const client=window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 if(!client)return;
+window.leogoPartnerClient=client;
 
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -125,6 +126,7 @@ async function hydratePremiumApplicationBilling(){
   if($('#premiumApplicationPaymentDestination'))$('#premiumApplicationPaymentDestination').textContent='Pay to '+partnerPaymentDestination(data.payment_destination)+'. Admin will verify the reference before activation.';
 }
 window.leogoSetPartnerActiveRole=(role='')=>{activeRole=String(role||'');};
+window.leogoPartnerCurrentUser=()=>currentUser;
 
 const waitTimeout=(ms,message='Request timed out')=>new Promise((_,reject)=>window.setTimeout(()=>reject(new Error(message)),ms));
 
