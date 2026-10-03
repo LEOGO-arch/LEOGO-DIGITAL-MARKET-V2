@@ -4,7 +4,7 @@
   const db=window.leogoAdminDb;
   const $=(selector,root=document)=>root.querySelector(selector);
   const $$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
-  const state={configured:false,lastResult:null,runtimeHours:24};
+  const state={configured:false,lastResult:null,latestRun:null,runtimeHours:24,currentFinding:null};
 
   const escapeHtml=(value)=>String(value??'').replace(/[&<>"']/g,(char)=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -109,6 +109,223 @@
     setStatus(status,'Live monitoring is active across LEOGO.','success');
   };
 
+
+  const humanizeKey=(key)=>String(key||'')
+    .replace(/_/g,' ')
+    .replace(/\b\w/g,(char)=>char.toUpperCase());
+
+  const displayValue=(value)=>{
+    if(value===null||value===undefined||value==='')return '—';
+    if(typeof value==='boolean')return value?'Yes':'No';
+    if(typeof value==='object')return JSON.stringify(value);
+    return String(value);
+  };
+
+  const renderRepairCenter=(result)=>{
+    const host=$('#diagnosticsRepairQueue');
+    if(!host)return;
+    const rows=Array.isArray(result?.checks)?result.checks:[];
+    const findings=rows.filter((check)=>check.status!=='healthy');
+    if(!findings.length){
+      host.innerHTML='<div class="diagnostics-repair-empty"><strong>No active repair findings.</strong><span>The latest diagnostic run is healthy. Phase 3 remains armed for future findings.</span></div>';
+      return;
+    }
+    host.innerHTML=findings.map((check)=>`
+      <article class="diagnostics-repair-item ${escapeHtml(check.status||'warning')}">
+        <div>
+          <span>${escapeHtml(check.module||'system')}</span>
+          <h4>${escapeHtml(check.title||check.id||'Diagnostic finding')}</h4>
+          <p>${escapeHtml(check.evidence||check.summary||'')}</p>
+        </div>
+        <div class="diagnostics-phase3-actions">
+          <button class="secondary-button" type="button" data-diagnostics-finding="${escapeHtml(check.id)}">View Affected Records</button>
+          <button type="button" data-diagnostics-verify-open="${escapeHtml(check.id)}">Verify This Check</button>
+        </div>
+      </article>
+    `).join('');
+  };
+
+  const renderRepairHistory=(rows)=>{
+    const host=$('#diagnosticsRepairHistory');
+    if(!host)return;
+    const repairs=Array.isArray(rows)?rows:[];
+    host.innerHTML=repairs.length?repairs.map((repair)=>`
+      <article class="diagnostics-repair-history-row">
+        <div>
+          <strong>${escapeHtml(humanizeKey(repair.repair_action||'repair'))}</strong>
+          <small>${escapeHtml(repair.check_id||'')} · ${escapeHtml(formatWhen(repair.created_at))}</small>
+        </div>
+        <div>
+          <b class="diagnostics-risk ${escapeHtml(repair.risk_level||'low')}">${escapeHtml(String(repair.risk_level||'low').toUpperCase())}</b>
+          <small>${repair.verification_data?.healthy?'Verified Healthy':Number(repair.verification_data?.affected_count||0)+' affected remaining'}</small>
+        </div>
+      </article>
+    `).join(''):'<div class="empty-mini">No Phase 3 repairs recorded.</div>';
+  };
+
+  const loadRepairHistory=async()=>{
+    if(!db||!state.configured)return;
+    const {data,error}=await db.rpc('admin_list_system_diagnostic_repairs',{p_limit:50});
+    if(error)throw error;
+    renderRepairHistory(data);
+  };
+
+  const loadLatestDiagnosticRun=async()=>{
+    if(!db||!state.configured)return;
+    const {data,error}=await db.rpc('admin_get_latest_system_diagnostic_run');
+    if(error)throw error;
+    state.latestRun=data||null;
+    if(!state.lastResult&&data?.checks)renderRepairCenter(data);
+  };
+
+  const closeFindingModal=()=>{
+    const modal=$('#diagnosticsFindingModal');
+    if(modal)modal.hidden=true;
+    state.currentFinding=null;
+    const pin=$('#diagnosticsPhase3Pin');
+    if(pin)pin.value='';
+    setStatus($('#diagnosticsFindingStatus'),'');
+  };
+
+  const renderAffectedRecords=(data)=>{
+    state.currentFinding=data;
+    $('#diagnosticsFindingModule').textContent=String(data.module||'system').toUpperCase();
+    $('#diagnosticsFindingTitle').textContent=data.title||data.check_id||'Finding details';
+
+    const policy=data.policy||{};
+    const mode=policy.repair_mode||'manual_only';
+    const risk=policy.risk_level||'high';
+    $('#diagnosticsFindingPolicy').innerHTML=`
+      <div>
+        <b class="diagnostics-risk ${escapeHtml(risk)}">${escapeHtml(String(risk).toUpperCase())} RISK</b>
+        <b class="diagnostics-repair-mode ${escapeHtml(mode)}">${escapeHtml(humanizeKey(mode))}</b>
+      </div>
+      <p>${escapeHtml(policy.message||'Review this finding before making any change.')}</p>
+      <small><strong>Affected now:</strong> ${Number(data.affected_count||0)} · <strong>Last scan:</strong> ${escapeHtml(statusLabel(data.last_status||'unknown'))}</small>
+    `;
+
+    const host=$('#diagnosticsAffectedRecords');
+    const rows=Array.isArray(data.records)?data.records:[];
+    host.innerHTML=rows.length?rows.map((record,index)=>{
+      const entries=Object.entries(record).filter(([key])=>!['target_key','repair_action','repairable'].includes(key));
+      const safe=policy.repair_mode==='safe'&&record.repairable&&record.repair_action;
+      return `
+        <article class="diagnostics-affected-record">
+          <header><strong>Affected record ${index+1}</strong>${safe?'<span class="diagnostics-state healthy">SAFE ACTION AVAILABLE</span>':''}</header>
+          <div class="diagnostics-record-grid">
+            ${entries.map(([key,value])=>`<div><small>${escapeHtml(humanizeKey(key))}</small><span>${escapeHtml(displayValue(value))}</span></div>`).join('')}
+          </div>
+          ${safe?`<button class="diagnostics-safe-repair" type="button" data-repair-target="${escapeHtml(record.target_key)}" data-repair-action="${escapeHtml(record.repair_action)}">Apply Safe Repair</button>`:''}
+        </article>
+      `;
+    }).join(''):'<div class="diagnostics-repair-empty"><strong>No affected records.</strong><span>This check is currently healthy.</span></div>';
+  };
+
+  const loadFindingDetails=async(checkId,focusPin=false)=>{
+    if(!checkId)return;
+    const modal=$('#diagnosticsFindingModal');
+    if(modal)modal.hidden=false;
+    $('#diagnosticsFindingTitle').textContent='Loading finding…';
+    $('#diagnosticsFindingModule').textContent='SYSTEM DIAGNOSIS';
+    $('#diagnosticsAffectedRecords').innerHTML='<div class="empty-mini">Loading affected records…</div>';
+    setStatus($('#diagnosticsFindingStatus'),'');
+    try{
+      const {data,error}=await db.rpc('admin_diagnostic_finding_details',{
+        p_check_id:checkId,p_limit:50
+      });
+      if(error)throw error;
+      if(!data?.ok)throw new Error(data?.message||'Finding details could not be loaded.');
+      renderAffectedRecords(data);
+      if(focusPin)window.setTimeout(()=>$('#diagnosticsPhase3Pin')?.focus(),50);
+    }catch(error){
+      setStatus($('#diagnosticsFindingStatus'),friendly(error),'error');
+      $('#diagnosticsAffectedRecords').innerHTML='<div class="empty-mini">Affected records could not be loaded.</div>';
+    }
+  };
+
+  const verifyCurrentFinding=async()=>{
+    const finding=state.currentFinding;
+    if(!finding?.check_id)return;
+    const pin=$('#diagnosticsPhase3Pin').value.trim();
+    if(!validatePin(pin)){
+      setStatus($('#diagnosticsFindingStatus'),'Enter the 6-digit System Diagnosis PIN to verify this check.','error');
+      return;
+    }
+    const button=$('#diagnosticsVerifyCheck');
+    const original=button.textContent;
+    button.disabled=true;
+    button.textContent='Verifying…';
+    try{
+      const {data,error}=await db.rpc('admin_verify_system_diagnostic_check',{
+        p_pin:pin,p_check_id:finding.check_id
+      });
+      if(error)throw error;
+      if(!data?.ok){
+        setStatus($('#diagnosticsFindingStatus'),parseAuthFailure(data),'error');
+        return;
+      }
+      $('#diagnosticsPhase3Pin').value='';
+      setStatus(
+        $('#diagnosticsFindingStatus'),
+        data.healthy?'Verified Healthy — no affected records remain.':`Verification complete — ${Number(data.affected_count||0)} affected record(s) remain.`,
+        data.healthy?'success':'error'
+      );
+      await loadFindingDetails(finding.check_id,false);
+    }catch(error){
+      setStatus($('#diagnosticsFindingStatus'),friendly(error),'error');
+    }finally{
+      button.disabled=false;
+      button.textContent=original;
+    }
+  };
+
+  const applySafeRepair=async(targetKey,action,button)=>{
+    const finding=state.currentFinding;
+    if(!finding?.check_id||!targetKey||!action)return;
+    const pin=$('#diagnosticsPhase3Pin').value.trim();
+    if(!validatePin(pin)){
+      setStatus($('#diagnosticsFindingStatus'),'Enter the 6-digit System Diagnosis PIN before applying a repair.','error');
+      return;
+    }
+    if(finding.policy?.repair_mode!=='safe'){
+      setStatus($('#diagnosticsFindingStatus'),'This finding is not approved for automated repair.','error');
+      return;
+    }
+    const approved=window.confirm('Apply this allowlisted safe repair? The original value will be saved in the immutable repair audit and the check will be verified immediately afterward.');
+    if(!approved)return;
+
+    const original=button.textContent;
+    button.disabled=true;
+    button.textContent='Applying…';
+    try{
+      const {data,error}=await db.rpc('admin_apply_system_diagnostic_repair',{
+        p_pin:pin,p_check_id:finding.check_id,p_target_key:targetKey,p_action:action
+      });
+      if(error)throw error;
+      if(!data?.ok){
+        setStatus($('#diagnosticsFindingStatus'),parseAuthFailure(data)||data?.message||'Repair was not applied.','error');
+        return;
+      }
+      $('#diagnosticsPhase3Pin').value='';
+      const verified=data.verification?.healthy;
+      setStatus(
+        $('#diagnosticsFindingStatus'),
+        verified?'Safe repair applied and verified Healthy. Run Full Diagnosis to refresh the overall score.':'Repair applied, but other affected records remain. Review them before rerunning Full Diagnosis.',
+        verified?'success':'error'
+      );
+      await Promise.all([
+        loadFindingDetails(finding.check_id,false),
+        loadRepairHistory(),
+        loadRuntimeIssues()
+      ]);
+    }catch(error){
+      setStatus($('#diagnosticsFindingStatus'),friendly(error),'error');
+    }finally{
+      button.disabled=false;
+      button.textContent=original;
+    }
+  };
+
   const loadStatus=async()=>{
     if(!db)throw new Error('Secure connection unavailable.');
     const {data,error}=await db.rpc('admin_system_diagnostics_status');
@@ -156,9 +373,14 @@
         <p>${escapeHtml(check.summary||'')}</p>
         <div class="diagnostic-evidence"><strong>Evidence</strong><span>${escapeHtml(check.evidence||'No additional evidence.')}</span></div>
         <div class="diagnostic-repair"><strong>Suggested repair</strong><span>${escapeHtml(check.suggested_repair||'Review the affected module.')}</span></div>
+        <div class="diagnostics-phase3-actions">
+          <button class="secondary-button" type="button" data-diagnostics-finding="${escapeHtml(check.id||'')}">View Affected Records</button>
+          <button type="button" data-diagnostics-verify-open="${escapeHtml(check.id||'')}">Verify This Check</button>
+        </div>
       </article>
     `).join(''):'<div class="empty-mini">No checks were returned for this scope.</div>';
 
+    renderRepairCenter(result);
     $('#diagnosticsResultsSection').hidden=false;
   };
 
@@ -199,7 +421,7 @@
       }
       renderResult(data);
       setStatus($('#diagnosticsRunStatus'),'Diagnosis complete. No repair was applied automatically.','success');
-      await Promise.all([loadHistory(),loadRuntimeIssues()]);
+      await Promise.all([loadHistory(),loadRuntimeIssues(),loadRepairHistory(),loadLatestDiagnosticRun()]);
     }catch(error){
       setStatus($('#diagnosticsRunStatus'),friendly(error),'error');
     }finally{
@@ -286,17 +508,42 @@
       state.runtimeHours=Number(event.target.value)||24;
       loadRuntimeIssues().catch((error)=>setStatus($('#diagnosticsRuntimeStatus'),friendly(error),'error'));
     });
+    $('#refreshDiagnosticRepairs')?.addEventListener('click',()=>Promise.all([
+      loadLatestDiagnosticRun(),loadRepairHistory()
+    ]).catch((error)=>setStatus($('#diagnosticsRunStatus'),friendly(error),'error')));
+    $('#diagnosticsResults')?.addEventListener('click',(event)=>{
+      const inspect=event.target.closest('[data-diagnostics-finding]');
+      if(inspect)loadFindingDetails(inspect.dataset.diagnosticsFinding,false);
+      const verify=event.target.closest('[data-diagnostics-verify-open]');
+      if(verify)loadFindingDetails(verify.dataset.diagnosticsVerifyOpen,true);
+    });
+    $('#diagnosticsRepairQueue')?.addEventListener('click',(event)=>{
+      const inspect=event.target.closest('[data-diagnostics-finding]');
+      if(inspect)loadFindingDetails(inspect.dataset.diagnosticsFinding,false);
+      const verify=event.target.closest('[data-diagnostics-verify-open]');
+      if(verify)loadFindingDetails(verify.dataset.diagnosticsVerifyOpen,true);
+    });
+    $('#diagnosticsFindingModal')?.addEventListener('click',(event)=>{
+      if(event.target.closest('[data-diagnostics-close]'))closeFindingModal();
+      const repair=event.target.closest('[data-repair-target]');
+      if(repair)applySafeRepair(repair.dataset.repairTarget,repair.dataset.repairAction,repair);
+    });
+    $('#diagnosticsVerifyCheck')?.addEventListener('click',verifyCurrentFinding);
   };
 
   window.leogoDiagnostics={
     activate:()=>Promise.all([
       loadStatus(),
-      loadRuntimeIssues()
+      loadRuntimeIssues(),
+      loadLatestDiagnosticRun(),
+      loadRepairHistory()
     ]).catch((error)=>{
       setStatus($('#diagnosticsRunStatus'),friendly(error),'error');
       setStatus($('#diagnosticsRuntimeStatus'),friendly(error),'error');
     }),
-    refresh:()=>Promise.all([loadStatus(),loadRuntimeIssues()])
+    refresh:()=>Promise.all([
+      loadStatus(),loadRuntimeIssues(),loadLatestDiagnosticRun(),loadRepairHistory()
+    ])
   };
 
   bind();
