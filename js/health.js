@@ -70,7 +70,7 @@
     if(partnerGrid){
       partnerGrid.innerHTML=rows.providers.length?rows.providers.map((row)=>{
         const image=imageUrl(row.profile_picture_path);
-        return '<article class="health-partner-card">'+
+        return '<article class="health-partner-card" data-health-provider-id="'+esc(row.provider_id)+'">'+
           '<div class="health-partner-photo">'+(image?'<img src="'+esc(image)+'" alt="'+esc(row.business_name)+'">':'⚕️')+'</div>'+
           '<div class="health-partner-copy"><span>'+esc(typeLabel(row.business_type))+'</span><strong>'+esc(row.business_name)+'</strong>'+
           '<small>📍 '+esc([row.location_details,row.town,row.sub_county,row.county].filter(Boolean).join(' · '))+'</small>'+
@@ -84,7 +84,7 @@
       productGrid.innerHTML=rows.products.length?rows.products.map((row)=>{
         const image=imageUrl(row.image_path);
         const classification=row.product_kind==='pharmaceutical'?classificationLabel(row.medicine_classification):productKindLabel(row.product_kind);
-        return '<article class="health-public-product">'+
+        return '<article class="health-public-product" data-health-product-id="'+esc(row.id)+'">'+
           '<div class="health-public-product-photo">'+(image?'<img src="'+esc(image)+'" alt="'+esc(row.product_name)+'">':'⚕️')+'</div>'+
           '<div class="health-public-product-body"><span>'+esc(productKindLabel(row.product_kind))+'</span><h4>'+esc(row.product_name)+'</h4>'+
           '<small>'+esc(row.provider_name)+' · 📍 '+esc([row.town,row.county].filter(Boolean).join(', ')||'Kenya')+'</small>'+
