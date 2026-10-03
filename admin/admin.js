@@ -608,6 +608,26 @@
     await enterAdmin(data.session.user);
   };
 
+  const settleLoadersWithConcurrency = async (loaders, limit = 2) => {
+    const results = new Array(loaders.length);
+    let cursor = 0;
+    const worker = async () => {
+      while (true) {
+        const index = cursor++;
+        if (index >= loaders.length) return;
+        try {
+          await loaders[index]();
+          results[index] = { status: 'fulfilled' };
+        } catch (reason) {
+          results[index] = { status: 'rejected', reason };
+        }
+      }
+    };
+    const workerCount = Math.min(Math.max(1, limit), Math.max(1, loaders.length));
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+    return results;
+  };
+
   const loadAll = async () => {
     const loaderSpecs = [
       [loadDashboard, () => adminHas('dashboard.read')],
@@ -645,7 +665,10 @@
       [loadStaffManagement, () => isSuperAdmin()]
     ];
     const loaders = loaderSpecs.filter(([,allowed]) => allowed()).map(([load]) => load);
-    const results = await Promise.allSettled(loaders.map((load) => load()));
+    // Mobile browsers were previously asked to start every permitted Admin loader
+    // at once, which could create 100+ Supabase requests in a single second.
+    // Keep the same loaders, but cap top-level concurrency to avoid network storms.
+    const results = await settleLoadersWithConcurrency(loaders, 2);
     const failed = results.find((result) => result.status === 'rejected');
     if (failed) globalStatus(`Some permitted Admin data could not load: ${friendlyError(failed.reason)}`, 'error');
     if (isSuperAdmin()) renderDataManagement();
