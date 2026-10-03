@@ -7,6 +7,7 @@ const diagnosticsJs=fs.readFileSync('admin/system-diagnostics.js','utf8');
 const diagnosticsCss=fs.readFileSync('admin/system-diagnostics.css','utf8');
 const migration=fs.readFileSync('supabase/migrations/20261002232000_admin_system_diagnostics.sql','utf8');
 const resetEdge=fs.readFileSync('supabase/functions/admin-reset-diagnostics-pin/index.ts','utf8');
+const quoteFix=fs.readFileSync('supabase/migrations/20261003071000_fix_system_diagnostics_main_image_query.sql','utf8');
 
 new vm.Script(adminJs,{filename:'admin/admin.js'});
 new vm.Script(diagnosticsJs,{filename:'admin/system-diagnostics.js'});
@@ -68,5 +69,12 @@ for(const name of asyncFormHandlers){
   if(afterAwait.includes('event.currentTarget'))throw new Error('Async handler reuses event.currentTarget after await: '+name);
 }
 if(!diagnosticsJs.includes('setConfiguredUi(true)'))throw new Error('Successful PIN setup/reset does not reveal diagnostics controls immediately');
+
+if(!quoteFix.includes("coalesce(p.main_image_path,'''')),'''') is null")){
+  throw new Error('Diagnostics main-image dynamic SQL is not correctly escaped');
+}
+if(quoteFix.includes("coalesce(p.main_image_path,'')),'''') is null")){
+  throw new Error('Broken diagnostics main-image quoting has returned');
+}
 
 console.log('admin system diagnostics regression checks passed');
