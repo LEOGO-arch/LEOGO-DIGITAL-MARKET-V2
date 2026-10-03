@@ -7,7 +7,7 @@ const js = fs.readFileSync('partner/partner.js','utf8');
 new vm.Script(js,{filename:'partner/partner.js'});
 
 const start=html.indexOf('<section id="accommodationDashboard"');
-const end=html.indexOf('<section class="seller-shell provider-shell premium-shell"',start);
+const end=html.indexOf('<section class="seller-shell cyber-shell" id="cyberShell"',start);
 if(start<0||end<0)throw new Error('Accommodation dashboard boundary not found');
 const accommodation=html.slice(start,end);
 const count=(needle)=>accommodation.split(needle).length-1;
