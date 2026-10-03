@@ -11,6 +11,7 @@
 
   let account=null;
   let products=[];
+  let orders=[];
   let notifications=[];
   let counties=[];
   let subcounties=[];
@@ -43,9 +44,8 @@
   }[value]||String(value||'').replaceAll('_',' '));
   const classificationLabel=(value)=>({
     non_medicine:'Non-medicine',
-    otc:'General / OTC',
-    prescription_required:'Prescription Required',
-    pharmacy_only:'Pharmacy-only'
+    otc:'OTC — No prescription required',
+    prescription_required:'Prescription Required'
   }[value]||String(value||'').replaceAll('_',' '));
   const normalisePhone=(value)=>{
     const digits=String(value||'').replace(/\D/g,'');
@@ -224,7 +224,7 @@
       return '<article class="health-product-card">'+
         '<div class="health-product-card-photo">'+(image?'<img src="'+escapeHtml(image)+'" alt="'+escapeHtml(row.product_name)+'">':'⚕️')+'</div>'+
         '<div class="health-product-card-copy"><span>'+escapeHtml(productKindLabel(row.product_kind))+'</span><strong>'+escapeHtml(row.product_name)+'</strong>'+
-          '<small>'+escapeHtml(classification)+' · '+escapeHtml(String(row.availability_status||'').replaceAll('_',' '))+'</small>'+
+          '<small>'+escapeHtml(classification)+' · '+escapeHtml(String(row.availability_status||'').replaceAll('_',' '))+' · '+(row.order_mode==='cart'?'Cart checkout':'Enquiry only')+'</small>'+
           (row.requires_prescription?'<em>Prescription required</em>':'')+
           (row.admin_notes?'<small>Admin note: '+escapeHtml(row.admin_notes)+'</small>':'')+
         '</div>'+
@@ -244,7 +244,7 @@
       $('#healthMedicineProductName').value=row.product_name||'';
       $('#healthMedicineProductKind').value=row.product_kind||'';
       updateProductClassification();
-      $('#healthMedicineClassification').value=row.medicine_classification==='non_medicine'?'otc':row.medicine_classification;
+      $('#healthMedicineClassification').value=row.medicine_classification==='prescription_required'?'prescription_required':'otc';
       $('#healthMedicineBrand').value=row.brand||'';
       $('#healthMedicinePrice').value=row.price_kes??'';
       $('#healthMedicineQuantity').value=row.quantity_available??'';
@@ -255,6 +255,75 @@
       $('#healthMedicineProductForm')?.scrollIntoView({behavior:'smooth',block:'start'});
     }));
   };
+
+  const orderStatusLabel=(value)=>({
+    placed:'Placed',
+    accepted:'Accepted',
+    preparing:'Preparing',
+    ready_for_handover:'Ready for LEOGO',
+    handed_to_leogo:'Handed to LEOGO',
+    delivered:'Delivered',
+    cancelled:'Cancelled'
+  }[value]||String(value||'').replaceAll('_',' '));
+  const paymentStatusLabel=(value)=>({
+    submitted:'Awaiting Admin verification',
+    verified_paid:'Payment verified',
+    cod_due:'Cash on Delivery',
+    cod_paid:'COD paid',
+    rejected:'Payment rejected'
+  }[value]||String(value||'').replaceAll('_',' '));
+  const orderNextAction=(row)=>{
+    if(row.order_status==='placed')return ['accepted','Accept Order'];
+    if(row.order_status==='accepted')return ['preparing','Start Preparing'];
+    if(row.order_status==='preparing')return ['ready_for_handover','Ready for LEOGO'];
+    if(row.order_status==='ready_for_handover')return ['handed_to_leogo','Handed to LEOGO'];
+    return null;
+  };
+  const renderOrders=()=>{
+    const active=orders.filter((row)=>!['delivered','cancelled'].includes(row.order_status)).length;
+    if($('#healthMedicineActiveOrders'))$('#healthMedicineActiveOrders').textContent=String(active);
+    const badge=$('#healthMedicineOrderBadge');
+    const needsAction=orders.filter((row)=>row.order_status==='placed'&&['verified_paid','cod_due','cod_paid'].includes(row.payment_status)).length;
+    if(badge){badge.hidden=!needsAction;badge.textContent=String(needsAction);}
+    const target=$('#healthMedicineOrderList');
+    if(!target)return;
+    if(!orders.length){
+      target.innerHTML='<div class="empty-card">No Health & Medicine orders yet.</div>';
+      return;
+    }
+    target.innerHTML=orders.map((row)=>{
+      const items=Array.isArray(row.items)?row.items:[];
+      const next=orderNextAction(row);
+      const canProgress=['verified_paid','cod_due','cod_paid'].includes(row.payment_status);
+      return '<article class="health-order-card" data-health-order-id="'+escapeHtml(row.id)+'">'+
+        '<header><div><span>'+escapeHtml(row.order_reference)+'</span><strong>'+escapeHtml(orderStatusLabel(row.order_status))+'</strong><small>'+escapeHtml(new Date(row.created_at).toLocaleString('en-KE'))+'</small></div><b>KSh '+Number(row.grand_total_kes||0).toLocaleString('en-KE')+'</b></header>'+
+        '<div class="health-order-meta"><span><small>Payment</small><strong>'+escapeHtml(paymentStatusLabel(row.payment_status))+'</strong></span><span><small>Delivery</small><strong>'+escapeHtml(String(row.delivery_zone||'').replaceAll('_',' '))+'</strong></span><span><small>Customer</small><strong>'+escapeHtml(row.receiver_name||'Customer')+'</strong></span><span><small>Phone</small><strong>'+escapeHtml(row.contact_number||'')+'</strong></span></div>'+
+        '<div class="health-order-items">'+items.map((item)=>'<span><strong>'+escapeHtml(item.product_name)+'</strong><small>'+Number(item.quantity)+' × KSh '+Number(item.unit_price_kes||0).toLocaleString('en-KE')+'</small></span>').join('')+'</div>'+
+        (!canProgress&&row.payment_status==='submitted'?'<div class="restricted-notice">Wait for LEOGO Admin to verify payment before preparing this order.</div>':'')+
+        (next&&canProgress?'<div class="product-actions"><button type="button" data-health-order-status="'+escapeHtml(next[0])+'" data-health-order-id="'+escapeHtml(row.id)+'">'+escapeHtml(next[1])+'</button></div>':'')+
+      '</article>';
+    }).join('');
+    $('[data-health-order-status]',target).forEach((button)=>button.addEventListener('click',async()=>{
+      const id=button.dataset.healthOrderId,statusValue=button.dataset.healthOrderStatus;
+      const original=button.textContent;button.disabled=true;button.textContent='Saving…';
+      try{
+        const {error}=await client.rpc('health_medicine_update_order_status',{p_order_id:id,p_status:statusValue});
+        if(error)throw error;
+        status($('#healthMedicineOrderStatus'),'Order updated successfully.','success');
+        await Promise.all([loadOrders(),loadNotifications()]);
+      }catch(error){
+        status($('#healthMedicineOrderStatus'),error?.message||'Order could not be updated.','error');
+      }finally{
+        button.disabled=false;button.textContent=original;
+      }
+    }));
+  };
+  async function loadOrders(){
+    const {data,error}=await client.rpc('health_medicine_list_own_orders');
+    if(error)throw error;
+    orders=Array.isArray(data)?data:[];
+    renderOrders();
+  }
 
   const renderNotifications=()=>{
     const unread=notifications.filter((row)=>!row.read_at).length;
@@ -292,7 +361,7 @@
     $('#healthMedicineBusinessTypeCard').textContent=typeLabel(account.business_type);
     $('#healthMedicineAccountStatus').textContent='Approved';
     productKindOptions();
-    await Promise.allSettled([loadProducts(),loadNotifications()]);
+    await Promise.allSettled([loadProducts(),loadOrders(),loadNotifications()]);
     openHealthView(activeView);
   };
 
@@ -327,16 +396,18 @@
   window.leogoOpenHealthMedicinePartner=openHealthRole;
 
   function openHealthView(view='overview'){
-    activeView=['overview','products','notifications'].includes(view)?view:'overview';
+    activeView=['overview','products','orders','notifications'].includes(view)?view:'overview';
     $$('[data-health-view]',shell).forEach((button)=>button.classList.toggle('active',button.dataset.healthView===activeView));
     $$('[data-health-content]',shell).forEach((panel)=>panel.classList.toggle('active',panel.dataset.healthContent===activeView));
     $('#healthMedicineViewDescription').textContent={
       overview:'Approved Health & Medicine partner overview.',
       products:'Manage Health products and Admin approval status.',
-      notifications:'Application and product approval notifications.'
+      orders:'Receive and prepare approved OTC / non-prescription Health orders.',
+      notifications:'Application, product and order approval notifications.'
     }[activeView];
     $('#healthMedicineSidebar')?.classList.remove('open');
     document.body.classList.remove('seller-menu-open');
+    if(activeView==='orders')loadOrders().catch(()=>{});
     if(activeView==='notifications')loadNotifications().catch(()=>{});
   }
 
