@@ -822,12 +822,13 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,lookingRequestResult,serviceProviderResult,healthMedicineResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,partnerBillingResult,customerMeetupBillingResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,lookingRequestResult,serviceProviderResult,healthMedicineResult,healthSpecialistResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,partnerBillingResult,customerMeetupBillingResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
       db.rpc('admin_list_looking_request_approvals'),
       db.rpc('admin_list_service_provider_approvals'),
       db.rpc('admin_list_health_medicine_approvals'),
+      db.rpc('admin_list_health_specialist_approvals'),
       db.rpc('admin_list_transport_approvals'),
       db.rpc('admin_list_pickup_station_approvals'),
       db.rpc('admin_list_partner_profile_changes'),
@@ -845,6 +846,7 @@
     if (lookingRequestResult.error) throw lookingRequestResult.error;
     if (serviceProviderResult.error) throw serviceProviderResult.error;
     if (healthMedicineResult.error) throw healthMedicineResult.error;
+    if (healthSpecialistResult.error) throw healthSpecialistResult.error;
     if (transportResult.error) throw transportResult.error;
     if (pickupStationResult.error) throw pickupStationResult.error;
     if (profileChangesResult.error) throw profileChangesResult.error;
@@ -863,6 +865,7 @@
       ...(Array.isArray(lookingRequestResult.data) ? lookingRequestResult.data : []),
       ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : []),
       ...(Array.isArray(healthMedicineResult.data) ? healthMedicineResult.data : []),
+      ...(Array.isArray(healthSpecialistResult.data) ? healthSpecialistResult.data : []),
       ...(Array.isArray(transportResult.data) ? transportResult.data : []),
       ...(Array.isArray(pickupStationResult.data) ? pickupStationResult.data : []),
       ...(Array.isArray(profileChangesResult.data) ? profileChangesResult.data : []),
@@ -1039,6 +1042,7 @@
     release_photo_path: { label: 'Asset Release Photo', bucket: 'loan-asset-media' },
     cyber_product_image_path: { label: 'Cyber Product Picture', bucket: 'cyber-public-media', publicBucket: true },
     health_product_image_path: { label: 'Health Product Picture', bucket: 'health-medicine-public-media', publicBucket: true },
+    health_service_image_path: { label: 'Health Specialist Service Picture', bucket: 'health-medicine-public-media', publicBucket: true },
 
     cover_image_url: { label: 'Property Cover Image', directUrl: true },
     gallery_image_urls: { label: 'Property Gallery Image', directUrl: true, multiple: true },
@@ -1084,6 +1088,8 @@
         resolvedConfig = { ...config, bucket:'health-medicine-verification', publicBucket:false };
       } else if (kind === 'health_medicine_product' && key === 'health_product_image_path') {
         resolvedConfig = { ...config, bucket:'health-medicine-public-media', publicBucket:true, label:'Health Product Picture' };
+      } else if (kind === 'health_medicine_service' && key === 'health_service_image_path') {
+        resolvedConfig = { ...config, bucket:'health-medicine-public-media', publicBucket:true, label:'Health Specialist Service Picture' };
       } else if (['cyber_application','cyber_profile_change'].includes(kind) && key === 'profile_picture_path') {
         resolvedConfig = { ...config, bucket:'cyber-public-media', publicBucket:true, label:'Cyber Shop Profile Picture' };
       } else if (['cyber_application','cyber_profile_change'].includes(kind) && cyberVerificationFields.has(key)) {
@@ -1243,10 +1249,10 @@
     const requestChanges = $('[data-review-action="changes_requested"]');
     const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
-    const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','health_medicine_application','health_medicine_product','transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change'].includes(kind) && item.status === 'changes_requested';
+    const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','health_medicine_application','health_medicine_product','health_medicine_service','transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change'].includes(kind) && item.status === 'changes_requested';
     const settlementAccountApproval = ['seller_settlement_account','service_provider_settlement_account','transport_provider_settlement_account'].includes(kind);
     underReview.hidden = ['premium_payment','partner_subscription_payment','premium_extra_acceptance_payment','premium_customer_meetup_payment','wallet_deposit','wallet_withdrawal'].includes(kind) || awaitingCorrection || settlementAccountApproval;
-    requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','health_medicine_application','health_medicine_product','transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
+    requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','health_medicine_application','health_medicine_product','health_medicine_service','transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
@@ -1276,6 +1282,8 @@
         ? 'admin_review_health_medicine_application'
         : item.kind === 'health_medicine_product'
           ? 'admin_review_health_medicine_product'
+        : item.kind === 'health_medicine_service'
+          ? 'admin_review_health_specialist_service'
         : item.kind === 'cyber_application'
         ? 'admin_review_cyber_provider'
         : item.kind === 'cyber_service'
@@ -1321,7 +1329,7 @@
         ? { p_payment_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : ['partner_subscription_payment','premium_extra_acceptance_payment'].includes(item.kind)
         ? { p_payment_id: item.record_id, p_decision: decision, p_notes: notes || null }
-        : ['health_medicine_application','health_medicine_product'].includes(item.kind)
+        : ['health_medicine_application','health_medicine_product','health_medicine_service'].includes(item.kind)
         ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : item.kind === 'cyber_application'
         ? { p_user_id: item.record_id, p_decision: decision, p_notes: notes || null }
@@ -1364,6 +1372,7 @@
       );
       const refreshers=[loadApprovals(),loadDashboard(),loadSellers(),loadServiceProviders(),loadCatalogue(),loadPremiumCustomers(),loadPremiumProfiles(),loadAccommodationSummary(),loadPickupStations()];
       if(window.leogoLoadHealthMedicineAdmin)refreshers.push(window.leogoLoadHealthMedicineAdmin());
+      if(window.leogoLoadHealthSpecialistAdmin)refreshers.push(window.leogoLoadHealthSpecialistAdmin());
       if(isSuperAdmin()) refreshers.push(loadAuditLog());
       if(adminHas('settlements.read')) refreshers.push(loadSellerSettlements());
       await Promise.allSettled(refreshers);
