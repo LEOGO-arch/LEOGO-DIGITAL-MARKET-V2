@@ -2591,6 +2591,7 @@
     const sellerNames=sellers.map((seller)=>seller.business_name).filter(Boolean).join(', ');
     const printedAt=formatDate(new Date().toISOString(),true);
     const orderDate=formatDate(order.created_at,true);
+    const itemLineCount=items.length;
 
     const itemRows=items.length
       ? items.map((item)=>{
@@ -2622,7 +2623,7 @@
         '*{box-sizing:border-box;}'+
         'html,body{width:80mm;min-width:80mm;max-width:80mm;margin:0;padding:0;background:#fff;color:#000;}'+
         'body{font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'+
-        '.receipt{width:72mm;margin:0 auto;padding:1mm 0 1.4mm;font-size:7.4pt;line-height:1.08;font-weight:800;color:#000;}'+
+        '.receipt{width:72mm;margin:0 auto;padding:1mm 0 1.4mm;font-size:7.4pt;line-height:1.08;font-weight:800;color:#000;transform-origin:top center;}'+
         '.receipt-header{display:grid;grid-template-columns:10mm minmax(0,1fr);gap:2mm;align-items:center;text-align:left;}'+
         '.receipt-logo{width:9mm;height:9mm;object-fit:cover;filter:grayscale(1) contrast(1.3);}'+
         '.receipt-header-copy{min-width:0;}'+
@@ -2730,7 +2731,7 @@
             '<div>Keep this receipt with the order until final handover.</div>'+
           '</footer>'+
         '</main>'+
-        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var heightPx=receipt?Math.max(receipt.scrollHeight,receipt.getBoundingClientRect().height):0;var heightMm=Math.max(38,Math.ceil(heightPx/pxPerMm+2));var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";setTimeout(function(){window.print();},180)})})});<\/script>'+
+        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var naturalPx=receipt?Math.max(receipt.scrollHeight,receipt.getBoundingClientRect().height):0;var naturalMm=naturalPx/pxPerMm;var itemLineCount='+JSON.stringify(itemLineCount)+';var scale=1;var targetShortReceiptMm=118;if(receipt&&itemLineCount<=1&&naturalMm>targetShortReceiptMm){scale=targetShortReceiptMm/naturalMm;receipt.style.transform="scale("+scale+")";}var renderedMm=naturalMm*scale;var heightMm=Math.max(38,Math.ceil(renderedMm+2));if(itemLineCount<=1){heightMm=Math.min(120,heightMm);document.body.style.overflow="hidden";}var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";setTimeout(function(){window.print();},180)})})});<\/script>'+
       '</body></html>';
   };
 
@@ -2756,7 +2757,7 @@
         popup.document.open();
         popup.document.write(receiptHtml);
         popup.document.close();
-        setFormStatus($('#adminOrderDetailStatus'),'80 mm thermal receipt opened for the Xprinter. It uses full-size receipt text and auto length based on the order items.','success');
+        setFormStatus($('#adminOrderDetailStatus'),'80 mm thermal receipt opened with compact bold text, a corner LEOGO logo, a 120 mm cap for single-item orders, and automatic growth for additional order items.','success');
         return;
       }
 

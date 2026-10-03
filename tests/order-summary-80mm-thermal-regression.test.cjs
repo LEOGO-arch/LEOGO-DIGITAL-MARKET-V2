@@ -10,7 +10,7 @@ if(!html.includes('<option value="80mm" selected>80 mm Thermal — Auto Length</
    !html.includes('<option value="a6">A6</option>')){
   throw new Error('80mm thermal must be the default while A6 remains available');
 }
-if(!html.includes('admin.js?v=xprinter-80mm-compact-3')){
+if(!html.includes('admin.js?v=xprinter-80mm-compact-4')){
   throw new Error('Xprinter thermal receipt cache version missing');
 }
 
@@ -47,8 +47,15 @@ if(!thermal.includes('padding:1mm 0 1.4mm')||
 if(!thermal.includes("const logoUrl=new URL('../assets/images/leogo-official-logo.jpg',window.location.href).href")){
   throw new Error('Compact 80mm receipt must keep the LEOGO logo in the header corner');
 }
-if(!thermal.includes('Math.ceil(heightPx/pxPerMm+2)')){
-  throw new Error('Thermal auto-length should use compact bottom allowance');
+if(!thermal.includes('const itemLineCount=items.length')||
+   !thermal.includes('targetShortReceiptMm=118')||
+   !thermal.includes('heightMm=Math.min(120,heightMm)')){
+  throw new Error('Single-item thermal receipts must be capped at 120mm without affecting multi-item auto length');
+}
+if(!thermal.includes('naturalPx')||
+   !thermal.includes('renderedMm')||
+   !thermal.includes('Math.ceil(renderedMm+2)')){
+  throw new Error('Thermal auto-length must use the rendered receipt height after any short-order scale-to-fit');
 }
 
 if(thermal.includes('slice(0,7)')){
