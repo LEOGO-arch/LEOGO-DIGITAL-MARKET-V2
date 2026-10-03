@@ -74,6 +74,10 @@
     if(!grid)return;
     const type=$('#healthMarketTypeFilter')?.value||'';
     section.hidden=Boolean(type&&type!=='health_specialist');
+    const productsHeading=document.querySelector('.health-products-heading');
+    const productsGrid=$('#healthProductGrid');
+    if(productsHeading)productsHeading.hidden=type==='health_specialist';
+    if(productsGrid)productsGrid.hidden=type==='health_specialist';
     if(section.hidden)return;
 
     const feeNode=$('#healthSpecialistBookingFee');
@@ -226,11 +230,28 @@
     window.setTimeout(()=>$('#healthSpecialistCustomerName')?.focus(),50);
   };
 
-  $('#healthSpecialistServiceGrid')?.addEventListener('click',(event)=>{
+  $('#healthSpecialistServiceGrid')?.addEventListener('click',async(event)=>{
     const button=event.target.closest('[data-book-health-specialist]');
     if(!button)return;
-    const service=services.find((row)=>String(row.id)===String(button.dataset.bookHealthSpecialist));
-    if(service)openBooking(service);
+    const serviceId=button.dataset.bookHealthSpecialist;
+    const original=button.textContent;
+    button.disabled=true;
+    button.textContent='Preparing…';
+    try{
+      const {data,error}=await client.rpc('public_list_health_specialist_services');
+      if(error)throw error;
+      services=Array.isArray(data?.services)?data.services:services;
+      bookingFee=Number(data?.booking_fee_kes||0);
+      payment=data?.payment||null;
+      renderServices();
+      const service=services.find((row)=>String(row.id)===String(serviceId));
+      if(!service)throw new Error('This Health Specialist service is no longer available.');
+      openBooking(service);
+    }catch(error){
+      status(error?.message||'The booking could not be prepared. Please try again.');
+    }finally{
+      if(button.isConnected){button.disabled=false;button.textContent=original;}
+    }
   });
 
   $$('[data-close-health-specialist-booking]').forEach((button)=>button.addEventListener('click',closeBooking));
