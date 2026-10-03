@@ -2559,11 +2559,17 @@
 
     const visibleEntries = combined.slice(0, marketplaceVisibleCount);
     const remaining = Math.max(0, combined.length - visibleEntries.length);
-    liveCatalogueStatus.textContent = 'Showing '+visibleEntries.length+' of '+combined.length+' approved listing'+(combined.length === 1 ? '' : 's')+'.';
+    const expanded = combined.length > MARKETPLACE_BATCH_SIZE && marketplaceVisibleCount > MARKETPLACE_BATCH_SIZE;
+    liveCatalogueStatus.textContent = expanded
+      ? combined.length+' approved listing'+(combined.length === 1 ? '' : 's')+' shown.'
+      : 'Showing '+visibleEntries.length+' of '+combined.length+' approved listing'+(combined.length === 1 ? '' : 's')+'.';
     if (showAllLiveProducts) {
-      showAllLiveProducts.hidden = remaining === 0;
-      showAllLiveProducts.textContent = remaining > 0 ? 'See More' : 'See More';
-      showAllLiveProducts.setAttribute('aria-label', remaining > 0 ? 'Show '+Math.min(MARKETPLACE_BATCH_SIZE, remaining)+' more marketplace listings' : 'All marketplace listings are shown');
+      showAllLiveProducts.hidden = combined.length <= MARKETPLACE_BATCH_SIZE;
+      showAllLiveProducts.textContent = expanded ? '← Back to Categories' : 'See More';
+      showAllLiveProducts.setAttribute(
+        'aria-label',
+        expanded ? 'Return to Explore LEOGO shortcut categories' : 'Show all '+combined.length+' marketplace listings'
+      );
     }
     liveProductGrid.innerHTML = visibleEntries.map((entry) =>
       entry.type === 'personal' ? renderPersonalSaleCard(entry.item) : renderSellerProductCard(entry.item)
@@ -2887,7 +2893,15 @@
 
   const showMoreMarketplace = (event) => {
     event?.preventDefault?.();
-    marketplaceVisibleCount += MARKETPLACE_BATCH_SIZE;
+
+    if (marketplaceVisibleCount > MARKETPLACE_BATCH_SIZE) {
+      resetMarketplaceVisibleCount();
+      renderLiveCatalogue();
+      document.getElementById('explore-leogo')?.scrollIntoView({ behavior:'smooth', block:'start' });
+      return;
+    }
+
+    marketplaceVisibleCount = Number.MAX_SAFE_INTEGER;
     renderLiveCatalogue();
   };
 
