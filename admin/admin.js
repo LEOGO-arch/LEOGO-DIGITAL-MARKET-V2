@@ -2639,26 +2639,26 @@
         '.receipt-status span{font-weight:800;}'+
         '.receipt-status strong{text-align:right;font-weight:900;}'+
         '.receipt-section{margin:0;}'+
-        '.receipt-section h3{margin:0 0 .8mm;font-size:10.5pt;font-weight:900;letter-spacing:.35px;}'+
-        '.receipt-section p{margin:.35mm 0;font-size:11.5pt;font-weight:800;line-height:1.18;overflow-wrap:anywhere;}'+
-        '.receipt-section .primary{font-size:13pt;font-weight:900;}'+
+        '.receipt-section h3{margin:0 0 .35mm;font-size:7.2pt;font-weight:900;letter-spacing:.25px;}'+
+        '.receipt-section p{margin:.15mm 0;font-size:7.8pt;font-weight:800;line-height:1.1;overflow-wrap:anywhere;}'+
+        '.receipt-section .primary{font-size:8.8pt;font-weight:900;}'+
         '.receipt-items{display:grid;gap:0;}'+
-        '.receipt-item{display:grid;grid-template-columns:minmax(0,1fr) 21mm;gap:1.6mm;padding:1.2mm 0;border-bottom:1.2px dotted #000;align-items:start;break-inside:avoid;}'+
+        '.receipt-item{display:grid;grid-template-columns:minmax(0,1fr) 18mm;gap:1.2mm;padding:.55mm 0;border-bottom:1px dotted #000;align-items:start;break-inside:avoid;}'+
         '.receipt-item:last-child{border-bottom:0;}'+
-        '.receipt-item-main{display:grid;grid-template-columns:9mm minmax(0,1fr);gap:.8mm;min-width:0;}'+
-        '.receipt-item-main b{font-size:11.5pt;font-weight:900;}'+
-        '.receipt-item-main span{font-size:11.5pt;font-weight:800;line-height:1.16;overflow-wrap:anywhere;}'+
-        '.receipt-item>strong{text-align:right;font-size:11.5pt;font-weight:900;white-space:nowrap;}'+
-        '.receipt-empty{padding:1.2mm 0;font-size:11pt;font-weight:800;}'+
-        '.receipt-money{display:grid;gap:.55mm;}'+
-        '.receipt-money-row{display:flex;justify-content:space-between;gap:2.5mm;font-size:11.5pt;}'+
+        '.receipt-item-main{display:grid;grid-template-columns:7mm minmax(0,1fr);gap:.55mm;min-width:0;}'+
+        '.receipt-item-main b{font-size:8pt;font-weight:900;}'+
+        '.receipt-item-main span{font-size:8pt;font-weight:800;line-height:1.08;overflow-wrap:anywhere;}'+
+        '.receipt-item>strong{text-align:right;font-size:8pt;font-weight:900;white-space:nowrap;}'+
+        '.receipt-empty{padding:.6mm 0;font-size:7.8pt;font-weight:800;}'+
+        '.receipt-money{display:grid;gap:.18mm;}'+
+        '.receipt-money-row{display:flex;justify-content:space-between;gap:2mm;font-size:7.8pt;line-height:1.08;}'+
         '.receipt-money-row span{font-weight:800;}'+
         '.receipt-money-row strong{font-weight:900;white-space:nowrap;}'+
-        '.receipt-total{margin-top:.8mm;padding-top:1mm;border-top:2px solid #000;font-size:15pt;line-height:1.08;font-weight:900;}'+
+        '.receipt-total{margin-top:.35mm;padding-top:.55mm;border-top:1.5px solid #000;font-size:10.5pt;line-height:1.02;font-weight:900;}'+
         '.receipt-total span,.receipt-total strong{font-weight:900;}'+
-        '.receipt-note p{font-size:10.5pt;line-height:1.2;font-weight:800;}'+
-        '.receipt-meta{display:grid;gap:.55mm;font-size:10.5pt;}'+
-        '.receipt-meta div{display:grid;grid-template-columns:18mm minmax(0,1fr);gap:1.2mm;}'+
+        '.receipt-note p{font-size:7.3pt;line-height:1.1;font-weight:800;}'+
+        '.receipt-meta{display:grid;gap:.18mm;font-size:7.4pt;line-height:1.08;}'+
+        '.receipt-meta div{display:grid;grid-template-columns:14mm minmax(0,1fr);gap:.8mm;}'+
         '.receipt-meta b{font-weight:900;}'+
         '.receipt-meta span{font-weight:800;overflow-wrap:anywhere;}'+
         '.receipt-qr{text-align:center;margin-top:.6mm;break-inside:avoid;}'+
