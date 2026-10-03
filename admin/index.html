@@ -10,7 +10,7 @@
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
   <link rel="stylesheet" href="admin.css?v=admin-security-v1">
-  <link rel="stylesheet" href="system-diagnostics.css?v=system-diagnostics-v1">
+  <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-phase2-1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
   <link rel="stylesheet" href="flash-sales.css?v=flash-sale-v1">
 <style>
@@ -1344,7 +1344,7 @@
             <form id="diagnosticsRunForm">
               <div class="diagnostics-form-grid">
                 <label><span>Scan type</span><select id="diagnosticsMode"><option value="quick">Quick Scan</option><option value="full" selected>Full Diagnosis</option><option value="module">Module Diagnosis</option></select></label>
-                <label id="diagnosticsModuleWrap" hidden><span>Module</span><select id="diagnosticsModule"><option value="core">Core</option><option value="security">Security</option><option value="auth_staff">Admin &amp; Staff</option><option value="database">Database</option><option value="storage">Storage</option><option value="orders">Orders</option><option value="products">Products</option><option value="payments">Payments</option><option value="notifications">Notifications &amp; Email</option><option value="services">Service Providers</option><option value="transport">Transport &amp; Rider</option><option value="wallet">Wallet</option><option value="premium">Premium</option><option value="accommodation">Accommodation</option><option value="cyber">Cyber</option></select></label>
+                <label id="diagnosticsModuleWrap" hidden><span>Module</span><select id="diagnosticsModule"><option value="core">Core</option><option value="security">Security</option><option value="auth_staff">Admin &amp; Staff</option><option value="database">Database</option><option value="storage">Storage</option><option value="orders">Orders</option><option value="products">Products</option><option value="payments">Payments</option><option value="notifications">Notifications &amp; Email</option><option value="services">Service Providers</option><option value="transport">Transport &amp; Rider</option><option value="wallet">Wallet</option><option value="premium">Premium</option><option value="accommodation">Accommodation</option><option value="cyber">Cyber</option><option value="runtime">Live Runtime Errors</option></select></label>
                 <label class="wide"><span>System Diagnosis PIN</span><input id="diagnosticsRunPin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required></label>
               </div>
               <div class="diagnostics-actions"><button type="submit">Run Diagnosis</button></div>
@@ -1394,6 +1394,27 @@
         <section class="diagnostics-card" id="diagnosticsResultsSection" hidden>
           <header><div><h3>Diagnostic Findings</h3><p>Evidence and the smallest suggested repair for each check.</p></div></header>
           <div id="diagnosticsResults" class="diagnostics-results"></div>
+        </section>
+
+        <section class="diagnostics-card" id="diagnosticsRuntimeCard">
+          <header class="diagnostics-runtime-head">
+            <div><h3>Live Runtime Errors</h3><p>Grouped failures reported from Customer, Partner, Admin, Staff/Rider and Pickup Station portals. Sensitive request data is not collected.</p></div>
+            <div class="diagnostics-runtime-controls">
+              <select id="diagnosticsRuntimeHours" aria-label="Runtime error period">
+                <option value="24" selected>Last 24 hours</option>
+                <option value="72">Last 3 days</option>
+                <option value="168">Last 7 days</option>
+              </select>
+              <button id="refreshRuntimeIssues" class="secondary-button" type="button">↻ Refresh</button>
+            </div>
+          </header>
+          <div class="diagnostics-runtime-summary">
+            <div><small>Active issues</small><strong id="diagnosticsRuntimeTotal">0</strong></div>
+            <div><small>Critical</small><strong id="diagnosticsRuntimeCritical">0</strong></div>
+            <div><small>Warnings</small><strong id="diagnosticsRuntimeWarning">0</strong></div>
+          </div>
+          <div id="diagnosticsRuntimeStatus" class="form-status" aria-live="polite"></div>
+          <div id="diagnosticsRuntimeIssues" class="diagnostics-runtime-issues"><div class="empty-mini">No live runtime errors loaded.</div></div>
         </section>
 
         <section class="diagnostics-card">
@@ -1460,11 +1481,12 @@
   <div class="modal" id="pickupStationModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><form class="modal-card wide-modal" id="pickupStationForm"><header><div><span>DELIVERY SETTINGS</span><h2 id="pickupModalTitle">Add Pickup Station</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><input name="id" type="hidden"><div class="form-grid"><label class="wide"><span>Station name</span><input name="station_name" required></label><label><span>County</span><input name="county" required></label><label><span>Sub-County</span><input name="sub_county" required></label><label><span>Town</span><input name="town" required></label><label><span>Door number</span><input name="door_number"></label><label class="wide"><span>Address</span><input name="address_line" required></label><label><span>Landmark</span><input name="landmark"></label><label><span>Contact phone</span><input name="contact_phone"></label><div class="wide seller-shop-pin-box"><div class="section-title compact"><span>📍 REQUIRED LOCATION PIN</span><h4>Pin Pickup Station Location</h4><p>Use the current device location while at the station, paste a Google Maps/shared-location link, or enter valid coordinates.</p></div><div class="seller-shop-pin-actions"><button id="pinPickupStationLocation" type="button">📍 Pin Pickup Station</button><span id="pickupStationPinStatus">Pickup Station location not pinned yet.</span></div><label class="wide"><span>Google Maps / shared location link</span><input name="map_link" id="pickupStationMapLink" type="text" maxlength="1000" placeholder="Paste Google Maps link or coordinates"></label><div class="form-grid"><label><span>Latitude</span><input name="latitude" id="pickupStationLatitude" type="number" step="0.0000001" min="-90" max="90" required></label><label><span>Longitude</span><input name="longitude" id="pickupStationLongitude" type="number" step="0.0000001" min="-180" max="180" required></label></div></div><label class="wide"><span>Operating information</span><input name="operating_hours" placeholder="e.g. Monday–Saturday, 8:00 AM–6:00 PM"></label><label><span>Pickup service fee (%)</span><input name="service_fee_percent" type="number" min="0" max="100" step="0.001" required></label><label><span>Shipping fee to this Pickup Station (KSh)</span><input name="shipping_fee_kes" type="number" min="0" step="1" value="50" required></label><label><span>Display order</span><input name="display_order" type="number" min="0" max="999" value="0"></label><label class="switch-label"><input name="is_active" type="checkbox" checked><span>Station is active</span></label></div><div class="form-status" id="pickupStationStatus"></div></div><footer><button class="secondary" data-close-modal type="button">Cancel</button><button class="primary" type="submit">Save Pickup Station</button></footer></form></div>
 
   <script src="../js/vendor/supabase-2.116.0.min.js?v=admin-v1-1" defer></script>
+  <script src="../js/runtime-monitor.js?v=diagnostics-phase2-1" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
   <script src="admin.js?v=system-diagnostics-v1" defer></script>
-  <script src="system-diagnostics.js?v=system-diagnostics-v1" defer></script>
+  <script src="system-diagnostics.js?v=diagnostics-phase2-1" defer></script>
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
   <script src="loyalty-rewards.js?v=loyalty-rewards-v2" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>

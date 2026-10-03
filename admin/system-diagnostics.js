@@ -4,7 +4,7 @@
   const db=window.leogoAdminDb;
   const $=(selector,root=document)=>root.querySelector(selector);
   const $$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
-  const state={configured:false,lastResult:null};
+  const state={configured:false,lastResult:null,runtimeHours:24};
 
   const escapeHtml=(value)=>String(value??'').replace(/[&<>"']/g,(char)=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -50,6 +50,62 @@
     const {data,error}=await db.rpc('admin_list_system_diagnostic_runs');
     if(error)throw error;
     renderHistory(data);
+  };
+
+  const formatWhen=(value)=>{
+    if(!value)return 'Unknown time';
+    try{return new Date(value).toLocaleString('en-KE',{timeZone:'Africa/Nairobi'});}
+    catch{return String(value);}
+  };
+
+  const renderRuntimeIssues=(issues)=>{
+    const host=$('#diagnosticsRuntimeIssues');
+    if(!host)return;
+    const rows=Array.isArray(issues)?issues:[];
+    const critical=rows.filter((row)=>row.severity==='critical').length;
+    const warnings=rows.filter((row)=>row.severity!=='critical').length;
+    $('#diagnosticsRuntimeTotal').textContent=rows.length;
+    $('#diagnosticsRuntimeCritical').textContent=critical;
+    $('#diagnosticsRuntimeWarning').textContent=warnings;
+
+    host.innerHTML=rows.length?rows.map((issue)=>`
+      <article class="diagnostics-runtime-issue ${escapeHtml(issue.severity||'warning')}">
+        <header>
+          <div>
+            <span>${escapeHtml((issue.portal||'unknown')+' · '+(issue.module||'unknown'))}</span>
+            <h3>${escapeHtml(issue.title||'Runtime issue')}</h3>
+          </div>
+          <div class="diagnostics-runtime-badges">
+            <b class="${escapeHtml(issue.severity||'warning')}">${escapeHtml(String(issue.severity||'warning').toUpperCase())}</b>
+            <b>${escapeHtml(String(issue.status||'new').toUpperCase())}</b>
+          </div>
+        </header>
+        <p>${escapeHtml(issue.last_message||'No error message recorded.')}</p>
+        <div class="diagnostics-runtime-meta">
+          <span><strong>Recent:</strong> ${Number(issue.recent_count||0)}</span>
+          <span><strong>Total:</strong> ${Number(issue.event_count||0)}</span>
+          <span><strong>Last seen:</strong> ${escapeHtml(formatWhen(issue.last_seen))}</span>
+        </div>
+        <div class="diagnostics-runtime-paths">
+          ${issue.operation?`<span><strong>Operation</strong>${escapeHtml(issue.operation)}</span>`:''}
+          ${issue.last_page_path?`<span><strong>Page</strong>${escapeHtml(issue.last_page_path)}</span>`:''}
+          ${issue.last_source?`<span><strong>Source</strong>${escapeHtml(issue.last_source)}</span>`:''}
+        </div>
+      </article>
+    `).join(''):'<div class="empty-mini">No runtime issues recorded in this period.</div>';
+  };
+
+  const loadRuntimeIssues=async()=>{
+    if(!db)return;
+    const status=$('#diagnosticsRuntimeStatus');
+    setStatus(status,'Loading live runtime errors…');
+    const {data,error}=await db.rpc('admin_list_system_runtime_issues',{
+      p_hours:state.runtimeHours,
+      p_limit:100
+    });
+    if(error)throw error;
+    renderRuntimeIssues(data);
+    setStatus(status,'Live monitoring is active across LEOGO.','success');
   };
 
   const loadStatus=async()=>{
@@ -142,7 +198,7 @@
       }
       renderResult(data);
       setStatus($('#diagnosticsRunStatus'),'Diagnosis complete. No repair was applied automatically.','success');
-      await loadHistory();
+      await Promise.all([loadHistory(),loadRuntimeIssues()]);
     }catch(error){
       setStatus($('#diagnosticsRunStatus'),friendly(error),'error');
     }finally{
@@ -224,11 +280,22 @@
       $('#diagnosticsModuleWrap').hidden=event.target.value!=='module';
     });
     $('#refreshDiagnosticsHistory')?.addEventListener('click',()=>loadHistory().catch((error)=>setStatus($('#diagnosticsRunStatus'),friendly(error),'error')));
+    $('#refreshRuntimeIssues')?.addEventListener('click',()=>loadRuntimeIssues().catch((error)=>setStatus($('#diagnosticsRuntimeStatus'),friendly(error),'error')));
+    $('#diagnosticsRuntimeHours')?.addEventListener('change',(event)=>{
+      state.runtimeHours=Number(event.target.value)||24;
+      loadRuntimeIssues().catch((error)=>setStatus($('#diagnosticsRuntimeStatus'),friendly(error),'error'));
+    });
   };
 
   window.leogoDiagnostics={
-    activate:()=>loadStatus().catch((error)=>setStatus($('#diagnosticsRunStatus'),friendly(error),'error')),
-    refresh:()=>loadStatus()
+    activate:()=>Promise.all([
+      loadStatus(),
+      loadRuntimeIssues()
+    ]).catch((error)=>{
+      setStatus($('#diagnosticsRunStatus'),friendly(error),'error');
+      setStatus($('#diagnosticsRuntimeStatus'),friendly(error),'error');
+    }),
+    refresh:()=>Promise.all([loadStatus(),loadRuntimeIssues()])
   };
 
   bind();
