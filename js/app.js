@@ -2071,6 +2071,7 @@
   const liveCatalogueSubtitle = document.getElementById('liveCatalogueSubtitle');
   const liveCatalogueStatus = document.getElementById('liveCatalogueStatus');
   const showAllLiveProducts = document.getElementById('showAllLiveProducts');
+  const marketplaceCategoryShortcuts = document.getElementById('marketplaceCategoryShortcuts');
   const viewAllProductCategories = document.getElementById('viewAllProductCategories');
   const personalSalesSeeMore = document.getElementById('personalSalesSeeMore');
   const customerFlashSaleGrid = document.getElementById('customerFlashSaleGrid');
@@ -2082,6 +2083,7 @@
   const quickDeliveryViewMarket = document.getElementById('quickDeliveryViewMarket');
 
   let marketplaceProducts = [];
+  let healthMarketplaceProducts = [];
   let marketplaceCategories = [];
   let personalSaleListings = [];
   let customerFlashSales = [];
@@ -2096,6 +2098,7 @@
   const categoryIcon = (code) => ({
     food_drinks: '🍔',
     groceries: '🛒',
+    health_medicine: '⚕️',
     pharmacy: '💊',
     dry_goods: '📦',
     bookshop: '📚',
@@ -2125,6 +2128,12 @@
     const client = window.leogoAuth?.client;
     if (!client || !path) return '';
     return client.storage.from('customer-sale-media').getPublicUrl(String(path)).data?.publicUrl || '';
+  };
+
+  const healthMarketplaceMediaUrl = (path) => {
+    const client = window.leogoAuth?.client;
+    if (!client || !path) return '';
+    return client.storage.from('health-medicine-public-media').getPublicUrl(String(path)).data?.publicUrl || '';
   };
 
   const sellerFlashActive=(product)=>{
@@ -2511,69 +2520,172 @@
     '</article>';
   };
 
+  const healthProductKindLabel = (value) => ({
+    pharmaceutical:'Pharmaceutical',
+    optical:'Optical',
+    medical_supply:'Medical Supply',
+    orthopaedic_rehab:'Orthopaedic / Rehabilitation',
+    diagnostic_lab:'Laboratory / Diagnostic',
+    other_health:'Other Health Item'
+  }[value] || String(value || 'Health & Medicine').replaceAll('_',' '));
+
+  const healthClassificationLabel = (value) => ({
+    otc:'OTC — No prescription required',
+    prescription_required:'Prescription Required',
+    non_medicine:'Non-medicine'
+  }[value] || String(value || '').replaceAll('_',' '));
+
+  const renderHealthMarketplaceCard = (product) => {
+    const imageUrl=healthMarketplaceMediaUrl(product.image_path);
+    const canAdd=Boolean(product.cart_eligible && product.availability_status==='available' && Number(product.quantity_available||0)>0);
+    const classification=product.product_kind==='pharmaceutical'
+      ? healthClassificationLabel(product.medicine_classification)
+      : healthProductKindLabel(product.product_kind);
+    const location=[product.town,product.county].filter(Boolean).join(', ') || 'Kenya';
+    const action=canAdd
+      ? '<button type="button" class="live-product-cart-start health-market-cart" data-health-market-add="'+receiptEscape(product.id)+'">Add to Cart</button>'
+      : product.cart_eligible
+        ? '<button type="button" class="live-product-cart-start" disabled>Out of Stock</button>'
+        : '<button type="button" class="health-market-enquiry" data-health-market-enquiry="'+receiptEscape(product.id)+'">Ask LEOGO</button>';
+
+    return '<article class="live-product-card live-product-card-compact health-marketplace-product-card" data-live-product-card="health:'+receiptEscape(product.id)+'">'+
+      '<div class="live-product-image" data-live-product-image>'+
+        (imageUrl?'<img src="'+receiptEscape(imageUrl)+'" alt="'+receiptEscape(product.product_name)+'">':'<span>⚕️</span>')+
+      '</div>'+
+      '<div class="live-product-body">'+
+        '<h3>'+receiptEscape(product.product_name)+'</h3>'+
+        '<div class="live-product-mode-badges"><span class="live-product-mode-badge health">⚕️ Health &amp; Medicine</span>'+
+          (product.requires_prescription?'<span class="live-product-mode-badge prescription">Prescription</span>':'')+
+        '</div>'+
+        '<div class="live-product-compact-price"><strong>'+money(product.price_kes)+'</strong></div>'+
+        '<p class="health-marketplace-provider">'+receiptEscape(product.provider_name||'LEOGO Health Partner')+'</p>'+
+        '<div class="live-product-primary-actions">'+action+
+          '<button type="button" class="live-product-details-toggle" data-product-details-toggle aria-expanded="false">View Details</button>'+
+        '</div>'+
+        '<div class="live-product-details" data-product-details hidden>'+
+          '<div class="live-product-details-head"><span>'+receiptEscape(healthProductKindLabel(product.product_kind))+'</span>'+
+            '<small>Health Partner: '+receiptEscape(product.provider_name||'LEOGO Health Partner')+'</small></div>'+
+          '<div class="live-product-detail-stock"><small>Availability</small><strong>'+receiptEscape(product.availability_status==='available'?'Available':'Unavailable')+
+            (product.cart_eligible?' · Qty '+Number(product.quantity_available||0):'')+'</strong></div>'+
+          '<div class="live-product-detail-section"><div class="live-product-detail-label">Health classification</div><p class="live-product-description">'+receiptEscape(classification)+'</p></div>'+
+          (product.description?'<div class="live-product-detail-section"><div class="live-product-detail-label">Description</div><p class="live-product-description">'+receiptEscape(product.description)+'</p></div>':'')+
+          '<div class="live-product-detail-section"><div class="live-product-detail-label">Location</div><p class="live-product-description">📍 '+receiptEscape(location)+'</p></div>'+
+          (product.requires_prescription?'<div class="health-marketplace-safety-note">Prescription-required medicine remains enquiry-only and cannot use normal cart checkout.</div>':'')+
+        '</div>'+
+      '</div>'+
+    '</article>';
+  };
+
+  const marketplaceShortcutRows = () => {
+    const rows=[{code:'all',name:'All',icon:'❤'},{code:'health_medicine',name:'Health & Medicine',icon:'⚕️'}];
+    marketplaceCategories.forEach((category)=>{
+      if(!category?.code || ['marketplace','alcoholic_leogo_bar'].includes(category.code)) return;
+      if(rows.some((item)=>item.code===category.code)) return;
+      rows.push({code:category.code,name:categoryDisplayName(category.name||category.code),icon:categoryIcon(category.code)});
+    });
+    return rows;
+  };
+
+  const renderMarketplaceShortcuts = (expanded) => {
+    if(!marketplaceCategoryShortcuts) return;
+    if(!expanded || selectedMarketplaceSellerId){
+      marketplaceCategoryShortcuts.hidden=true;
+      marketplaceCategoryShortcuts.innerHTML='';
+      return;
+    }
+    marketplaceCategoryShortcuts.hidden=false;
+    marketplaceCategoryShortcuts.innerHTML=marketplaceShortcutRows().map((item)=>
+      '<button type="button" class="'+(selectedMarketplaceCategory===item.code || (item.code==='all'&&selectedMarketplaceCategory==='marketplace')?'active':'')+'" data-marketplace-shortcut="'+receiptEscape(item.code)+'">'+
+        '<span>'+item.icon+'</span><small>'+receiptEscape(item.name)+'</small>'+
+      '</button>'
+    ).join('');
+  };
+
   const renderLiveCatalogue = () => {
     if (!liveProductGrid || !liveCatalogueStatus) return;
 
     const category = marketplaceCategories.find((item) => item.code === selectedMarketplaceCategory);
     const sellerFiltered = Boolean(selectedMarketplaceSellerId);
+    const healthOnly = !sellerFiltered && selectedMarketplaceCategory === 'health_medicine';
     const allProducts = !sellerFiltered && (selectedMarketplaceCategory === 'all' || selectedMarketplaceCategory === 'marketplace');
-    const sellerProducts = filteredMarketplaceProducts();
+    const sellerProducts = healthOnly ? [] : filteredMarketplaceProducts();
+    const healthProducts = sellerFiltered
+      ? []
+      : (allProducts || healthOnly ? healthMarketplaceProducts : []);
 
     if (liveCatalogueTitle) {
       liveCatalogueTitle.textContent = sellerFiltered
         ? selectedMarketplaceSellerName
-        : allProducts
-          ? 'LEOGO Marketplace'
-          : categoryDisplayName(category?.name || selectedMarketplaceCategory.replaceAll('_',' '));
+        : healthOnly
+          ? 'Health & Medicine'
+          : allProducts
+            ? 'LEOGO Marketplace'
+            : categoryDisplayName(category?.name || selectedMarketplaceCategory.replaceAll('_',' '));
     }
     if (liveCatalogueSubtitle) {
       liveCatalogueSubtitle.textContent = sellerFiltered
         ? 'Live Admin-approved products from '+selectedMarketplaceSellerName+'.'
-        : allProducts
-          ? 'All Admin-approved Seller products and approved personal customer listings available on LEOGO.'
-          : 'Admin-approved Seller products in '+categoryDisplayName(category?.name || selectedMarketplaceCategory.replaceAll('_',' '))+'.';
+        : healthOnly
+          ? 'Approved Health & Medicine products. Existing Health cart and prescription safety rules remain in force.'
+          : allProducts
+            ? 'Admin-approved Seller products, Health & Medicine products and approved personal customer listings available on LEOGO.'
+            : 'Admin-approved Seller products in '+categoryDisplayName(category?.name || selectedMarketplaceCategory.replaceAll('_',' '))+'.';
     }
 
-    const combined = allProducts
-      ? (() => {
-          const rows = [];
-          const sellerEntries = sellerProducts.map((item) => ({ type:'seller', item }));
-          const personalEntries = personalSaleListings.map((item) => ({ type:'personal', item }));
-          const length = Math.max(sellerEntries.length, personalEntries.length);
-          for (let index = 0; index < length; index += 1) {
-            if (sellerEntries[index]) rows.push(sellerEntries[index]);
-            if (personalEntries[index]) rows.push(personalEntries[index]);
-          }
-          return rows;
-        })()
-      : sellerProducts.map((item) => ({ type:'seller', item }));
+    let combined;
+    if(allProducts){
+      combined=[];
+      const groups=[
+        sellerProducts.map((item)=>({type:'seller',item})),
+        healthProducts.map((item)=>({type:'health',item})),
+        personalSaleListings.map((item)=>({type:'personal',item}))
+      ];
+      const length=Math.max(...groups.map((group)=>group.length),0);
+      for(let index=0;index<length;index+=1){
+        groups.forEach((group)=>{ if(group[index]) combined.push(group[index]); });
+      }
+    }else if(healthOnly){
+      combined=healthProducts.map((item)=>({type:'health',item}));
+    }else{
+      combined=sellerProducts.map((item)=>({type:'seller',item}));
+    }
+
+    const expanded = marketplaceVisibleCount > MARKETPLACE_BATCH_SIZE;
+    renderMarketplaceShortcuts(expanded);
 
     if (!combined.length) {
-      liveCatalogueStatus.textContent = allProducts
-        ? 'No approved products or personal listings are available yet.'
-        : 'No approved Seller products are available in this category yet.';
+      liveCatalogueStatus.textContent = healthOnly
+        ? 'No approved Health & Medicine products are available yet.'
+        : allProducts
+          ? 'No approved Marketplace listings are available yet.'
+          : 'No approved Seller products are available in this category yet.';
       liveProductGrid.innerHTML = '<div class="customer-empty-state live-catalogue-empty"><span>'+categoryIcon(selectedMarketplaceCategory)+'</span><h4>No approved listings yet</h4><p>Listings appear here only after LEOGO Admin approves them.</p></div>';
-      if (showAllLiveProducts) showAllLiveProducts.hidden = true;
+      if (showAllLiveProducts) {
+        showAllLiveProducts.hidden = !expanded;
+        showAllLiveProducts.textContent = '← Back to Categories';
+      }
       return;
     }
 
     const visibleEntries = combined.slice(0, marketplaceVisibleCount);
-    const remaining = Math.max(0, combined.length - visibleEntries.length);
-    const expanded = combined.length > MARKETPLACE_BATCH_SIZE && marketplaceVisibleCount > MARKETPLACE_BATCH_SIZE;
     liveCatalogueStatus.textContent = expanded
       ? combined.length+' approved listing'+(combined.length === 1 ? '' : 's')+' shown.'
       : 'Showing '+visibleEntries.length+' of '+combined.length+' approved listing'+(combined.length === 1 ? '' : 's')+'.';
+
     if (showAllLiveProducts) {
-      showAllLiveProducts.hidden = combined.length <= MARKETPLACE_BATCH_SIZE;
+      showAllLiveProducts.hidden = !expanded && combined.length <= MARKETPLACE_BATCH_SIZE;
       showAllLiveProducts.textContent = expanded ? '← Back to Categories' : 'See More';
       showAllLiveProducts.setAttribute(
         'aria-label',
-        expanded ? 'Return to Explore LEOGO shortcut categories' : 'Show all '+combined.length+' marketplace listings'
+        expanded ? 'Return to Explore LEOGO shortcut categories' : 'Show all '+combined.length+' marketplace listings and category shortcuts'
       );
     }
-    liveProductGrid.innerHTML = visibleEntries.map((entry) =>
-      entry.type === 'personal' ? renderPersonalSaleCard(entry.item) : renderSellerProductCard(entry.item)
-    ).join('');
+
+    liveProductGrid.innerHTML = visibleEntries.map((entry) => {
+      if(entry.type==='personal') return renderPersonalSaleCard(entry.item);
+      if(entry.type==='health') return renderHealthMarketplaceCard(entry.item);
+      return renderSellerProductCard(entry.item);
+    }).join('');
   };
 
   const renderMarketplacePreview = () => {
@@ -2748,6 +2860,44 @@
   });
 
   liveProductGrid?.addEventListener('click', (event) => {
+    const healthAddButton=event.target.closest('[data-health-market-add]');
+    if(healthAddButton){
+      const product=healthMarketplaceProducts.find((item)=>String(item.id)===String(healthAddButton.dataset.healthMarketAdd));
+      if(!product) return;
+      if(typeof window.leogoAddHealthOtcToCart!=='function'){
+        liveCatalogueStatus.textContent='Health cart is still loading. Try again in a moment.';
+        return;
+      }
+      const result=window.leogoAddHealthOtcToCart(product);
+      if(result?.message) liveCatalogueStatus.textContent=result.message;
+      if(result?.ok){
+        const original=healthAddButton.textContent;
+        healthAddButton.textContent='✓ Added';
+        window.setTimeout(()=>{if(healthAddButton.isConnected)healthAddButton.textContent=original;},900);
+      }
+      return;
+    }
+
+    const healthEnquiryButton=event.target.closest('[data-health-market-enquiry]');
+    if(healthEnquiryButton){
+      const product=healthMarketplaceProducts.find((item)=>String(item.id)===String(healthEnquiryButton.dataset.healthMarketEnquiry));
+      if(!product) return;
+      const user=window.leogoAuth?.getUser?.()||null;
+      if(!user){
+        window.leogoAuth?.requireLogin?.('Please log in to ask LEOGO about this Health & Medicine item.');
+        return;
+      }
+      const chatButton=document.querySelector('[data-customer-view="chat"]')||document.querySelector('[data-open-customer-view="chat"]');
+      chatButton?.click();
+      window.setTimeout(()=>{
+        const message=document.getElementById('customerCareMessage');
+        if(message){
+          message.value='Health & Medicine enquiry: '+product.product_name+' from '+(product.provider_name||'LEOGO Health Partner')+' ('+[product.town,product.county].filter(Boolean).join(', ')+'). Please assist me with availability and the correct ordering process.';
+          message.focus();
+        }
+      },120);
+      return;
+    }
     const galleryButton=event.target.closest('[data-product-gallery-image]');
     if(galleryButton){
       const card=galleryButton.closest('[data-live-product-card]');
@@ -2866,6 +3016,17 @@
     addLiveProductToCart(event.target.closest('[data-live-add-cart]'));
   });
 
+  marketplaceCategoryShortcuts?.addEventListener('click',(event)=>{
+    const shortcut=event.target.closest('[data-marketplace-shortcut]');
+    if(!shortcut) return;
+    selectedMarketplaceSellerId='';
+    selectedMarketplaceSellerName='';
+    selectedMarketplaceCategory=shortcut.dataset.marketplaceShortcut||'all';
+    marketplaceVisibleCount=Number.MAX_SAFE_INTEGER;
+    renderLiveCatalogue();
+    document.getElementById('live-product-catalogue')?.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+
   exploreCategoryGrid?.addEventListener('click', (event) => {
     const card = event.target.closest('[data-product-category-code]');
     if (!card) return;
@@ -2895,6 +3056,9 @@
     event?.preventDefault?.();
 
     if (marketplaceVisibleCount > MARKETPLACE_BATCH_SIZE) {
+      selectedMarketplaceSellerId='';
+      selectedMarketplaceSellerName='';
+      selectedMarketplaceCategory='all';
       resetMarketplaceVisibleCount();
       renderLiveCatalogue();
       document.getElementById('explore-leogo')?.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -2915,9 +3079,20 @@
   quickDeliveryShopNow?.addEventListener('click', openGeneralMarketplace);
   quickDeliveryViewMarket?.addEventListener('click', openGeneralMarketplace);
 
+  document.addEventListener('leogo:health-marketplace-updated',(event)=>{
+    healthMarketplaceProducts=Array.isArray(event.detail?.products)?event.detail.products:[];
+    renderLiveCatalogue();
+  });
   document.addEventListener('leogo:authchange', () => loadMarketplaceProducts());
   document.addEventListener('leogo:customer-data-refresh', () => loadMarketplaceProducts());
   window.setTimeout(loadMarketplaceProducts, 500);
+  window.setTimeout(()=>{
+    const existing=window.leogoHealthMarketplace?.getProducts?.();
+    if(Array.isArray(existing)){
+      healthMarketplaceProducts=existing;
+      renderLiveCatalogue();
+    }
+  },900);
 
   const personalInterestModal = document.getElementById('personalInterestModal');
   const personalInterestForm = document.getElementById('personalInterestForm');

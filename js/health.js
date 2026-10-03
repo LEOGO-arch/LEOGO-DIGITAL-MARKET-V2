@@ -37,6 +37,15 @@
   const money=(value)=>'KSh '+Number(value||0).toLocaleString('en-KE');
   const imageUrl=(path)=>path?client.storage.from('health-medicine-public-media').getPublicUrl(path).data?.publicUrl||'':'';
 
+  const publishMarketplaceProducts=()=>{
+    window.leogoHealthMarketplace=window.leogoHealthMarketplace||{};
+    window.leogoHealthMarketplace.getProducts=()=>products.slice();
+    window.leogoHealthMarketplace.imageUrl=imageUrl;
+    document.dispatchEvent(new CustomEvent('leogo:health-marketplace-updated',{
+      detail:{products:products.slice()}
+    }));
+  };
+
   const filtered=()=>{
     const type=$('#healthMarketTypeFilter')?.value||'';
     const query=$('#healthMarketSearch')?.value.trim().toLowerCase()||'';
@@ -149,6 +158,7 @@
       if(error)throw error;
       providers=Array.isArray(data?.providers)?data.providers:[];
       products=Array.isArray(data?.products)?data.products:[];
+      publishMarketplaceProducts();
       render();
     }catch(error){
       console.warn('Health & Medicine marketplace could not load:',error);

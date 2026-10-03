@@ -2491,3 +2491,87 @@ body.advertisement-lightbox-open{overflow:hidden}
   .live-product-catalogue .live-product-card-compact .live-product-body{padding:6px}
   .live-product-catalogue .live-product-primary-actions button{padding:6px 4px;font-size:6.9px}
 }
+
+
+/* Expanded Marketplace shortcuts + Health product integration */
+.marketplace-category-shortcuts{
+  display:flex;
+  align-items:stretch;
+  gap:7px;
+  margin:2px 0 12px;
+  padding:4px 1px 7px;
+  overflow-x:auto;
+  overscroll-behavior-inline:contain;
+  scrollbar-width:thin;
+}
+.marketplace-category-shortcuts[hidden]{display:none!important}
+.marketplace-category-shortcuts button{
+  flex:0 0 78px;
+  min-width:78px;
+  min-height:58px;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:4px;
+  border:0;
+  border-bottom:2px solid transparent;
+  border-radius:9px;
+  background:#fff;
+  color:#536174;
+  padding:7px 6px 6px;
+  cursor:pointer;
+  font:inherit;
+}
+.marketplace-category-shortcuts button span{font-size:18px;line-height:1}
+.marketplace-category-shortcuts button small{
+  display:block;
+  width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:7.5px;
+  font-weight:900;
+  text-align:center;
+}
+.marketplace-category-shortcuts button.active{
+  color:#07152f;
+  border-bottom-color:#ff7800;
+  background:#fff8f1;
+}
+.health-marketplace-product-card{border-color:#cfe7dc}
+.health-marketplace-product-card .health-marketplace-provider{
+  margin:0;
+  color:#68778b;
+  font-size:7.5px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.health-marketplace-product-card .live-product-mode-badge.health{
+  background:#eaf8ef;
+  color:#17633c;
+}
+.health-marketplace-product-card .live-product-mode-badge.prescription{
+  background:#fff1f1;
+  color:#a02929;
+}
+.health-marketplace-product-card .health-market-enquiry{
+  border:0;
+  background:#07152f;
+  color:#fff;
+}
+.health-marketplace-safety-note{
+  padding:7px 8px;
+  border-radius:8px;
+  background:#fff4e8;
+  color:#8a4a0d;
+  font-size:8px;
+  line-height:1.4;
+  font-weight:800;
+}
+@media(max-width:700px){
+  .marketplace-category-shortcuts{gap:5px;margin-bottom:9px}
+  .marketplace-category-shortcuts button{flex-basis:68px;min-width:68px;min-height:52px;padding:6px 4px}
+  .marketplace-category-shortcuts button span{font-size:16px}
+  .marketplace-category-shortcuts button small{font-size:7px}
+}
