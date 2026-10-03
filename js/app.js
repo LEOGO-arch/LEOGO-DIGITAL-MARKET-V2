@@ -15,19 +15,9 @@
 
   const searchForm = document.getElementById('searchForm');
   const searchInput = document.getElementById('searchInput');
-
-  if (searchForm && searchInput) {
-    searchForm.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const term = searchInput.value.trim();
-      if (!term) {
-        searchInput.focus();
-        return;
-      }
-      // Catalogue/search functionality will be connected to Supabase in the approved later phase.
-      window.location.hash = 'catalogue';
-    });
-  }
+  const headerSearch = document.getElementById('headerSearch');
+  const headerSearchInput = document.getElementById('headerSearchInput');
+  const globalSearchResults = document.getElementById('globalSearchResults');
   const requestModal = document.getElementById('requestModal');
   const openRequestForm = document.getElementById('openRequestForm');
   const requestForm = document.getElementById('customerRequestForm');
@@ -4076,6 +4066,235 @@
       if(publicTransportProviderList)publicTransportProviderList.innerHTML='<div class="service-provider-public-empty">Approved Transport Providers are temporarily unavailable.</div>';
     }
   };
+
+  /* Customer global search: products, services and registered locations */
+  const globalSearchTypeMeta={
+    product:{label:'Product',icon:'🛍️'},
+    service:{label:'Service',icon:'🛠️'},
+    transport:{label:'Transport',icon:'🚚'},
+    accommodation:{label:'Accommodation',icon:'🏨'},
+    cyber_service:{label:'Cyber Service',icon:'🖥️'},
+    cyber_product:{label:'Cyber Shop Item',icon:'🖨️'},
+    personal_sale:{label:'Personal Sale',icon:'🏷️'}
+  };
+  let globalSearchRows=[];
+  let globalSearchTimer=null;
+  let globalSearchSerial=0;
+  const globalSearchCache=new Map();
+
+  const globalSearchImageUrl=(row)=>{
+    if(row?.image_url)return String(row.image_url);
+    if(!row?.image_path||!row?.media_bucket)return '';
+    const client=window.leogoAuth?.client;
+    if(!client)return '';
+    return client.storage.from(String(row.media_bucket)).getPublicUrl(String(row.image_path)).data?.publicUrl||'';
+  };
+
+  const globalSearchPrice=(row)=>{
+    const value=Number(row?.price_kes||0);
+    if(!value)return '';
+    if(row.type==='accommodation')return 'From '+money(value);
+    if(row.type==='service')return 'From '+money(value);
+    return money(value);
+  };
+
+  const showGlobalSearchPanel=()=>{
+    if(globalSearchResults)globalSearchResults.hidden=false;
+  };
+  const hideGlobalSearchPanel=()=>{
+    if(globalSearchResults)globalSearchResults.hidden=true;
+  };
+
+  const renderGlobalSearchResults=(rows=[],query='')=>{
+    if(!globalSearchResults)return;
+    globalSearchRows=rows;
+    showGlobalSearchPanel();
+    if(!rows.length){
+      globalSearchResults.innerHTML='<div class="global-search-empty">No active LEOGO products, services or registered listings matched <strong>'+receiptEscape(query)+'</strong>. Try a product name, business, town or county.</div>';
+      return;
+    }
+    globalSearchResults.innerHTML=
+      '<div class="global-search-summary"><strong>'+rows.length+' match'+(rows.length===1?'':'es')+' for “'+receiptEscape(query)+'”</strong><small>Products • Services • Locations</small></div>'+
+      '<div class="global-search-list">'+rows.map((row,index)=>{
+        const meta=globalSearchTypeMeta[row.type]||{label:'LEOGO',icon:'🔎'};
+        const image=globalSearchImageUrl(row);
+        const location=String(row.location||'').trim()||'Kenya';
+        const price=globalSearchPrice(row);
+        const flash=row.is_flash_sale?'<em class="global-search-flash">⚡ Flash Sale</em>':'';
+        return '<button type="button" class="global-search-card" data-global-search-index="'+index+'">'+
+          '<span class="global-search-card-icon">'+(image?'<img src="'+receiptEscape(image)+'" alt="">':meta.icon)+'</span>'+
+          '<span class="global-search-card-copy">'+
+            '<span>'+receiptEscape(meta.label+(row.category?' · '+row.category:''))+'</span>'+
+            '<strong>'+receiptEscape(row.title||'LEOGO listing')+'</strong>'+
+            '<small>'+receiptEscape(row.subtitle||'LEOGO Partner')+'</small>'+
+            '<em>📍 '+receiptEscape(location)+'</em>'+
+            flash+
+          '</span>'+
+          (price?'<b class="global-search-price">'+receiptEscape(price)+'</b>':'')+
+        '</button>';
+      }).join('')+'</div>';
+  };
+
+  const markGlobalSearchTarget=(element)=>{
+    if(!element)return;
+    element.scrollIntoView({behavior:'smooth',block:'center'});
+    element.classList.add('global-search-target');
+    window.setTimeout(()=>element.classList.remove('global-search-target'),1900);
+  };
+
+  const openGlobalSearchResult=async(row)=>{
+    if(!row)return;
+    hideGlobalSearchPanel();
+
+    if(row.type==='product'){
+      selectedMarketplaceCategory='all';
+      selectedMarketplaceSellerId='';
+      selectedMarketplaceSellerName='';
+      renderLiveCatalogue();
+      window.setTimeout(()=>{
+        const card=liveProductGrid?.querySelector('[data-live-product-card="'+CSS.escape(String(row.id))+'"]');
+        markGlobalSearchTarget(card||document.getElementById('live-product-catalogue'));
+      },30);
+      return;
+    }
+
+    if(row.type==='personal_sale'){
+      selectedMarketplaceCategory='all';
+      selectedMarketplaceSellerId='';
+      selectedMarketplaceSellerName='';
+      renderLiveCatalogue();
+      window.setTimeout(()=>{
+        const card=liveProductGrid?.querySelector('[data-personal-sale-card="'+CSS.escape(String(row.id))+'"]');
+        markGlobalSearchTarget(card||document.getElementById('live-product-catalogue'));
+      },30);
+      return;
+    }
+
+    if(row.type==='service'){
+      if(!customerPublicServices.length)await loadPublicServices().catch(()=>{});
+      const button=publicServiceProviderList?.querySelector('[data-request-service="'+CSS.escape(String(row.id))+'"]');
+      markGlobalSearchTarget(button?.closest('.leogo-compact-partner-card')||document.getElementById('services'));
+      return;
+    }
+
+    if(row.type==='transport'){
+      if(!customerPublicTransportVehicles.length)await loadPublicServices().catch(()=>{});
+      const button=publicTransportProviderList?.querySelector('[data-request-transport="'+CSS.escape(String(row.id))+'"]');
+      markGlobalSearchTarget(button?.closest('.leogo-compact-partner-card')||document.getElementById('verifiedTransportProviders'));
+      return;
+    }
+
+    if(row.type==='accommodation'){
+      const section=document.getElementById('accommodation');
+      section?.scrollIntoView({behavior:'smooth',block:'start'});
+      window.setTimeout(()=>{
+        const button=document.querySelector('[data-accommodation-property="'+CSS.escape(String(row.id))+'"]');
+        if(button){
+          markGlobalSearchTarget(button.closest('.leogo-stay-card-v3')||button);
+          window.setTimeout(()=>button.click(),250);
+        }
+      },180);
+      return;
+    }
+
+    if(row.type==='cyber_service'||row.type==='cyber_product'){
+      const section=document.getElementById('cyberMarketplace');
+      section?.scrollIntoView({behavior:'smooth',block:'start'});
+      const shopButton=document.querySelector('[data-open-cyber-shop="'+CSS.escape(String(row.provider_id||''))+'"]');
+      shopButton?.click();
+      window.setTimeout(()=>{
+        if(row.type==='cyber_product')document.getElementById('showCyberProducts')?.click();
+        else document.getElementById('showCyberServices')?.click();
+        window.setTimeout(()=>{
+          const selector=row.type==='cyber_product'
+            ? '[data-order-cyber-product="'+CSS.escape(String(row.id))+'"]'
+            : '[data-order-cyber-service="'+CSS.escape(String(row.id))+'"]';
+          const action=document.querySelector(selector);
+          markGlobalSearchTarget(action?.closest('.cyber-item-card')||section);
+        },80);
+      },80);
+      return;
+    }
+
+    document.getElementById(row.section_id||'home')?.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  const runGlobalSearch=async(rawQuery,{force=false}={})=>{
+    const query=String(rawQuery||'').trim();
+    if(!globalSearchResults)return;
+    if(query.length<2){
+      globalSearchRows=[];
+      if(force){
+        showGlobalSearchPanel();
+        globalSearchResults.innerHTML='<div class="global-search-empty">Type at least 2 letters. You can search a product, service, business or location such as <strong>Kisumu</strong>.</div>';
+      }else hideGlobalSearchPanel();
+      return;
+    }
+
+    const key=query.toLowerCase();
+    const cached=globalSearchCache.get(key);
+    if(cached){
+      renderGlobalSearchResults(cached,query);
+      return;
+    }
+
+    const serial=++globalSearchSerial;
+    showGlobalSearchPanel();
+    globalSearchResults.innerHTML='<div class="global-search-empty">🔎 Searching LEOGO for <strong>'+receiptEscape(query)+'</strong>…</div>';
+    try{
+      const client=window.leogoAuth?.client;
+      if(!client)throw new Error('Search connection is not ready.');
+      const {data,error}=await client.rpc('customer_global_search',{p_query:query,p_limit:24});
+      if(error)throw error;
+      if(serial!==globalSearchSerial)return;
+      const rows=Array.isArray(data)?data:[];
+      globalSearchCache.set(key,rows);
+      if(globalSearchCache.size>30)globalSearchCache.delete(globalSearchCache.keys().next().value);
+      renderGlobalSearchResults(rows,query);
+    }catch(error){
+      if(serial!==globalSearchSerial)return;
+      globalSearchRows=[];
+      globalSearchResults.innerHTML='<div class="global-search-empty">Search is temporarily unavailable. Please try again. '+receiptEscape(error?.message||'')+'</div>';
+    }
+  };
+
+  headerSearchInput?.addEventListener('input',()=>{
+    window.clearTimeout(globalSearchTimer);
+    const query=headerSearchInput.value.trim();
+    if(query.length<2){hideGlobalSearchPanel();return;}
+    globalSearchTimer=window.setTimeout(()=>runGlobalSearch(query),170);
+  });
+  headerSearchInput?.addEventListener('focus',()=>{
+    const query=headerSearchInput.value.trim();
+    if(query.length>=2)runGlobalSearch(query);
+  });
+  headerSearch?.addEventListener('submit',(event)=>{
+    event.preventDefault();
+    window.clearTimeout(globalSearchTimer);
+    runGlobalSearch(headerSearchInput?.value||'',{force:true});
+  });
+  searchForm?.addEventListener('submit',(event)=>{
+    event.preventDefault();
+    const query=searchInput?.value.trim()||'';
+    if(!query){searchInput?.focus();return;}
+    if(headerSearchInput)headerSearchInput.value=query;
+    window.scrollTo({top:0,behavior:'smooth'});
+    window.setTimeout(()=>runGlobalSearch(query,{force:true}),180);
+  });
+  globalSearchResults?.addEventListener('click',(event)=>{
+    const button=event.target.closest?.('[data-global-search-index]');
+    if(!button)return;
+    const index=Number(button.dataset.globalSearchIndex);
+    openGlobalSearchResult(globalSearchRows[index]).catch((error)=>console.warn('Global search result could not open:',error));
+  });
+  document.addEventListener('keydown',(event)=>{
+    if(event.key==='Escape'&&!globalSearchResults?.hidden)hideGlobalSearchPanel();
+  });
+  document.addEventListener('click',(event)=>{
+    if(globalSearchResults?.hidden)return;
+    if(event.target.closest?.('#headerSearch')||event.target.closest?.('#globalSearchResults'))return;
+    hideGlobalSearchPanel();
+  });
 
   const closeServiceReviewModal=()=>{
     if(!serviceReviewModal)return;
