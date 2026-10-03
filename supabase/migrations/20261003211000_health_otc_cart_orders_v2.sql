@@ -9,16 +9,9 @@
 alter table public.health_medicine_products
   drop constraint if exists health_medicine_products_medicine_classification_check;
 alter table public.health_medicine_products
-  add constraint health_medicine_products_medicine_classification_check
-  check (medicine_classification in ('non_medicine','otc','prescription_required'));
-
-alter table public.health_medicine_products
   drop constraint if exists health_medicine_products_order_mode_check;
-alter table public.health_medicine_products
-  add constraint health_medicine_products_order_mode_check
-  check (order_mode in ('cart','enquiry_only'));
 
--- Existing rows, if any, are normalized safely.
+-- Existing rows, if any, are normalized before the tighter V2 constraints are added.
 update public.health_medicine_products
 set
   medicine_classification=case
@@ -34,6 +27,13 @@ set
     when product_kind='pharmaceutical' and requires_prescription then 'enquiry_only'
     else 'cart'
   end;
+
+alter table public.health_medicine_products
+  add constraint health_medicine_products_medicine_classification_check
+  check (medicine_classification in ('non_medicine','otc','prescription_required'));
+alter table public.health_medicine_products
+  add constraint health_medicine_products_order_mode_check
+  check (order_mode in ('cart','enquiry_only'));
 
 create table if not exists public.health_medicine_orders (
   id uuid primary key default gen_random_uuid(),
