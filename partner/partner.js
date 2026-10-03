@@ -4702,6 +4702,7 @@ function transportViewDescription(view){
     vehicles:'Add vehicles, customer-facing vehicle pictures and private driver verification details.',
     earnings:'Review completed Transport & Parcel earnings and LEOGO commission deductions.',
     settlements:'Add payout accounts and request settlement of available Transport earnings.',
+    subscription:'Review your Transport Provider subscription, renewal plan and payment status.',
     notifications:'Application, vehicle, settlement and transport-job notifications.',
     profile:'Your approved Transport Provider registration details.'
   }[view]||'Transport & Parcel Portal';
@@ -4712,7 +4713,7 @@ function closeTransportSidebar(){
 }
 function openTransportView(view='overview'){
   const approved=transportProvider?.application_status==='approved';
-  const allowed=approved?['overview','jobs','vehicles','earnings','settlements','notifications','profile']:['overview','notifications','profile'];
+  const allowed=approved?['overview','jobs','vehicles','earnings','settlements','subscription','notifications','profile']:['overview','subscription','notifications','profile'];
   const resolved=allowed.includes(view)?view:'overview';
   if(transportProvider){
     transportPendingArea.hidden=true;
@@ -4725,6 +4726,7 @@ function openTransportView(view='overview'){
   if(resolved==='jobs')loadTransportJobs().catch(error=>console.warn('Transport jobs refresh failed:',error));
   if(resolved==='earnings')loadTransportEarnings().catch(error=>console.warn('Transport earnings refresh failed:',error));
   if(resolved==='settlements')loadTransportSettlementData().catch(error=>console.warn('Transport settlement refresh failed:',error));
+  if(resolved==='subscription')mountPartnerSubscription('transport',transportDashboard).catch(error=>console.warn('Transport subscription refresh failed:',error));
   if(resolved==='notifications')loadTransportNotifications().catch(error=>console.warn('Transport notifications refresh failed:',error));
   closeTransportSidebar();
   window.scrollTo({top:0,behavior:'smooth'});
