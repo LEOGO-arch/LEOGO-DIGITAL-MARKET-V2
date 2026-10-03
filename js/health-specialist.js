@@ -204,7 +204,7 @@
     const meta=user?.user_metadata||{};
     $('#healthSpecialistCustomerName').value=meta.full_name||meta.name||'';
     $('#healthSpecialistCustomerPhone').value=meta.phone||'';
-    $('#healthSpecialistPreferredDate').min=new Date().toISOString().slice(0,10);
+    $('#healthSpecialistPreferredDate').min=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
     $('#healthSpecialistPreferredDate').value='';
     $('#healthSpecialistPreferredTime').value='';
     $('#healthSpecialistCustomerNotes').value='';
