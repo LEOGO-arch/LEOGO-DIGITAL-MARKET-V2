@@ -1408,8 +1408,9 @@ async function loadTaxonomy(){
   const select=$('#productCategory');
   const staticTaxonomy=window.LEOGO_PRODUCT_TAXONOMY||{};
   if(Array.isArray(staticTaxonomy.categories)&&staticTaxonomy.categories.length){
-    categories=staticTaxonomy.categories;
-    subcategories=Array.isArray(staticTaxonomy.subcategories)?staticTaxonomy.subcategories:[];
+    const pharmacyCategoryIds=new Set(staticTaxonomy.categories.filter((item)=>item.code==='pharmacy').map((item)=>item.id));
+    categories=staticTaxonomy.categories.filter((item)=>item.code!=='pharmacy');
+    subcategories=(Array.isArray(staticTaxonomy.subcategories)?staticTaxonomy.subcategories:[]).filter((item)=>!pharmacyCategoryIds.has(item.category_id));
     renderTaxonomyOptions();
   }else if(select){
     select.innerHTML='<option value="">Loading categories…</option>';
