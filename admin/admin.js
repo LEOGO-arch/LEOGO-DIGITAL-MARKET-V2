@@ -2591,7 +2591,7 @@
     const printedAt=formatDate(new Date().toISOString(),true);
     const orderDate=formatDate(order.created_at,true);
     const logoUrl=new URL('../assets/images/leogo-official.svg',window.location.href).href;
-    const itemCount=items.reduce((total,item)=>total+Math.max(0,Number(item.quantity||0)),0);
+    const itemCount=items.length;
 
     const itemRows=items.length
       ? items.map((item)=>{
