@@ -2591,6 +2591,7 @@
     const sellerNames=sellers.map((seller)=>seller.business_name).filter(Boolean).join(', ');
     const printedAt=formatDate(new Date().toISOString(),true);
     const orderDate=formatDate(order.created_at,true);
+    const itemCount=items.length;
 
     const itemRows=items.length
       ? items.map((item)=>{
@@ -2665,9 +2666,25 @@
         '.receipt-qr strong{display:block;margin-top:.25mm;font-size:6.8pt;font-weight:900;}'+
         '.receipt-qr small{display:block;margin-top:.15mm;font-size:5.8pt;font-weight:800;overflow-wrap:anywhere;}'+
         '.receipt-footer{text-align:center;font-size:5.9pt;font-weight:800;line-height:1.08;}'+
+        '.receipt.single-item{padding-top:.8mm;padding-bottom:1mm;}'+
+        '.receipt.single-item .receipt-rule{margin:.65mm 0;}'+
+        '.receipt.single-item.tight-single{font-size:7pt;padding-top:.55mm;padding-bottom:.7mm;}'+
+        '.receipt.single-item.tight-single .receipt-header{grid-template-columns:9mm minmax(0,1fr);gap:1.3mm;}'+
+        '.receipt.single-item.tight-single .receipt-logo{width:8mm;height:8mm;}'+
+        '.receipt.single-item.tight-single .receipt-header h1{font-size:9.6pt;}'+
+        '.receipt.single-item.tight-single .receipt-header h2{font-size:6.5pt;margin-top:.25mm;}'+
+        '.receipt.single-item.tight-single .receipt-header p{font-size:5.9pt;margin-top:.2mm;}'+
+        '.receipt.single-item.tight-single .receipt-rule{margin:.5mm 0;}'+
+        '.receipt.single-item.tight-single .receipt-section p,.receipt.single-item.tight-single .receipt-item-main b,.receipt.single-item.tight-single .receipt-item-main span,.receipt.single-item.tight-single .receipt-item>strong,.receipt.single-item.tight-single .receipt-money-row{font-size:6.8pt;}'+
+        '.receipt.single-item.tight-single .receipt-section .primary{font-size:7.8pt;}'+
+        '.receipt.single-item.tight-single .receipt-item{padding:.3mm 0;}'+
+        '.receipt.single-item.tight-single .receipt-total{font-size:8.9pt;}'+
+        '.receipt.single-item.tight-single .receipt-meta{font-size:6.5pt;}'+
+        '.receipt.single-item.tight-single .receipt-qr img{width:17.5mm;height:17.5mm;}'+
+        '.receipt.single-item.tight-single .receipt-footer{font-size:5.6pt;}'+
         '@media print{html,body{width:80mm!important;height:auto!important;overflow:visible!important;color:#000!important;background:#fff!important;}.receipt{width:72mm!important;page-break-after:auto;}.receipt-section,.receipt-item,.receipt-qr{break-inside:avoid;}}'+
       '</style></head><body>'+
-        '<main class="receipt">'+
+        '<main class="receipt '+(itemCount<=1?'single-item':'multi-item')+'" data-item-count="'+String(itemCount)+'">'+
           '<header class="receipt-header">'+
             '<img class="receipt-logo" src="'+logoUrl+'" alt="LEOGO logo">'+
             '<div class="receipt-header-copy">'+
@@ -2725,12 +2742,11 @@
           '</div>'+
           '<hr class="receipt-rule">'+
           '<footer class="receipt-footer">'+
-            '<div>Authorized LEOGO order summary.</div>'+
-            '<div>Printed '+escapeHtml(printedAt)+'</div>'+
-            '<div>Keep this receipt with the order until final handover.</div>'+
+            '<div>Authorized LEOGO · Printed '+escapeHtml(printedAt)+'</div>'+
+            '<div>Keep with the order until final handover.</div>'+
           '</footer>'+
         '</main>'+
-        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var heightPx=receipt?Math.max(receipt.scrollHeight,receipt.getBoundingClientRect().height):0;var heightMm=Math.max(38,Math.ceil(heightPx/pxPerMm+2));var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";setTimeout(function(){window.print();},180)})})});<\/script>'+
+        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var measure=function(){var px=receipt?Math.max(receipt.scrollHeight,receipt.getBoundingClientRect().height):0;return Math.max(38,Math.ceil(px/pxPerMm+2))};var heightMm=measure();var itemCount=Number(receipt&&receipt.dataset?receipt.dataset.itemCount:0);if(receipt&&itemCount<=1&&heightMm>118){receipt.classList.add("tight-single");heightMm=measure()}var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";setTimeout(function(){window.print();},180)})})});<\/script>'+
       '</body></html>';
   };
 
