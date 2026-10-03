@@ -2669,6 +2669,19 @@
         '.receipt-footer{text-align:center;font-size:6.7pt;font-weight:800;line-height:1.1;}'+
         '.receipt.single-item{padding-top:1mm;padding-bottom:1.2mm;}'+
         '.receipt.single-item .receipt-rule{margin:.75mm 0;}'+
+        '.receipt.single-item.tight-single{font-size:8pt;padding-top:.7mm;padding-bottom:.9mm;}'+
+        '.receipt.single-item.tight-single .receipt-header{grid-template-columns:8.5mm minmax(0,1fr);gap:1.2mm;}'+
+        '.receipt.single-item.tight-single .receipt-logo{width:8mm;height:8mm;}'+
+        '.receipt.single-item.tight-single .receipt-header h1{font-size:10pt;}'+
+        '.receipt.single-item.tight-single .receipt-header h2{font-size:7.6pt;margin-top:.3mm;}'+
+        '.receipt.single-item.tight-single .receipt-header p{font-size:6.5pt;margin-top:.25mm;}'+
+        '.receipt.single-item.tight-single .receipt-rule{margin:.55mm 0;}'+
+        '.receipt.single-item.tight-single .receipt-section p,.receipt.single-item.tight-single .receipt-item-main b,.receipt.single-item.tight-single .receipt-item-main span,.receipt.single-item.tight-single .receipt-item>strong,.receipt.single-item.tight-single .receipt-money-row{font-size:8pt;}'+
+        '.receipt.single-item.tight-single .receipt-section .primary{font-size:9pt;}'+
+        '.receipt.single-item.tight-single .receipt-item{padding:.35mm 0;}'+
+        '.receipt.single-item.tight-single .receipt-total{font-size:10.7pt;}'+
+        '.receipt.single-item.tight-single .receipt-qr img{width:18mm;height:18mm;}'+
+        '.receipt.single-item.tight-single .receipt-footer{font-size:6.2pt;}'+
         '@media print{html,body{width:80mm!important;height:auto!important;overflow:visible!important;color:#000!important;background:#fff!important;}.receipt{width:74mm!important;page-break-after:auto;}.receipt-section,.receipt-item,.receipt-qr{break-inside:avoid;}}'+
       '</style></head><body>'+
         '<main class="receipt '+(itemCount<=1?'single-item':'multi-item')+'" data-item-count="'+String(itemCount)+'">'+
@@ -2729,7 +2742,7 @@
             '<div>Keep with the order until final handover.</div>'+
           '</footer>'+
         '</main>'+
-        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var heightPx=receipt?Math.max(receipt.scrollHeight,receipt.getBoundingClientRect().height):0;var heightMm=Math.max(38,Math.ceil(heightPx/pxPerMm+2));var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";setTimeout(function(){window.print();},180)})})});<\/script>'+
+        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var measure=function(){var px=receipt?Math.max(receipt.scrollHeight,receipt.getBoundingClientRect().height):0;return Math.max(38,Math.ceil(px/pxPerMm+2))};var heightMm=measure();var itemCount=Number(receipt&&receipt.dataset?receipt.dataset.itemCount:0);if(receipt&&itemCount<=1&&heightMm>118){receipt.classList.add("tight-single");heightMm=measure()}var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";setTimeout(function(){window.print();},180)})})});<\/script>'+
       '</body></html>';
   };
 
