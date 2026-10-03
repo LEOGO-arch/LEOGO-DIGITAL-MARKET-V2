@@ -10,6 +10,7 @@
   <title>LEOGO Partner Portal</title>
   <link rel="stylesheet" href="partner.css?v=premium-chat-photo-1">
   <link rel="stylesheet" href="cyber.css?v=cyber-partner-7">
+  <link rel="stylesheet" href="health.css?v=health-partner-v1">
 <style>
 .partner-subscription-panel{margin:0 0 18px;border:1px solid #dce3ed;border-radius:16px;background:#fff;padding:18px;box-shadow:0 8px 24px rgba(7,26,58,.06)}.partner-subscription-panel header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.partner-subscription-panel h3,.partner-subscription-panel p{margin:0}.partner-subscription-panel header span{font-size:11px;font-weight:900;letter-spacing:.08em;color:#ff7200}.partner-subscription-panel header b{border-radius:999px;padding:7px 10px;background:#fff1e7;color:#9a4400;font-size:12px}.partner-subscription-panel header b.active{background:#e8f8ef;color:#14723a}.partner-subscription-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:16px}.partner-subscription-grid form{border:1px solid #e3e8ef;border-radius:13px;padding:14px;display:grid;gap:10px}.partner-subscription-grid label{display:grid;gap:5px;font-weight:800}.partner-subscription-grid input,.partner-subscription-grid select{border:1px solid #cfd8e5;border-radius:9px;padding:10px}.partner-subscription-grid button{border:0;border-radius:9px;padding:11px 14px;background:#071a3a;color:#fff;font-weight:900}.partner-subscription-grid small{color:#65738a}.premium-application-payment{border:1px solid #ffd3ae;background:#fff8f2;border-radius:14px;padding:14px;display:grid;gap:10px}.premium-application-payment h4,.premium-application-payment p{margin:0}@media(max-width:700px){.partner-subscription-panel header,.partner-subscription-grid{grid-template-columns:1fr;display:grid}}
 .transport-priority-nav{order:-1}.transport-application-progress{display:grid;gap:14px}.transport-progress-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.transport-progress-steps span{border:1px solid #dce3ed;border-radius:12px;padding:12px;display:grid;gap:3px;background:#f8fafc}.transport-progress-steps span i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e8edf4;font-style:normal;font-weight:900}.transport-progress-steps span.done i{background:#071a3a;color:#fff}.transport-progress-steps span.current{border-color:#ff7200;background:#fff8f2}.transport-progress-steps span.current i{background:#ff7200;color:#fff}.transport-progress-steps span.alert{border-color:#c98724;background:#fff9ec}.transport-progress-steps span.alert i{background:#c98724;color:#fff}.seller-icon-button{position:relative}.seller-icon-button #transportHeaderNotificationBadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:999px;background:#ff7200;color:#fff;font-size:10px;display:grid;place-items:center;padding:0 4px}.seller-icon-button #transportHeaderNotificationBadge[hidden]{display:none}.transport-view-lock-note{padding:12px;border-radius:10px;background:#fff8f2;color:#7a4108;font-weight:700}@media(max-width:700px){.transport-progress-steps{grid-template-columns:1fr}}
@@ -28,7 +29,7 @@
   <section class="hero">
     <span>ONE PARTNER URL</span>
     <h1>Join and manage your LEOGO partner account</h1>
-    <p>This portal is the common entry point for Seller, Service Provider, Transporter, Pickup Station, Cyber Services, Premium Profile and Accommodation Provider accounts. Sign in once, then open the partner account you registered.</p>
+    <p>This portal is the common entry point for Seller, Service Provider, Health &amp; Medicine, Transporter, Pickup Station, Cyber Services, Premium Profile and Accommodation Provider accounts. Sign in once, then open the partner account you registered.</p>
   </section>
 
   <section class="partnership-picker" id="partnerRolePicker" hidden>
@@ -36,6 +37,7 @@
     <div class="role-grid" id="partnerRoleGrid">
       <button data-role-target="seller"><span>🏪</span><strong>Seller</strong><small>Sell products & manage your shop</small></button>
       <button data-role-target="service_provider"><span>🛠️</span><strong>Service Provider</strong><small>Offer services & manage customer jobs</small></button>
+      <button data-role-target="health_medicine"><span>⚕️</span><strong>Health &amp; Medicine</strong><small>Pharmacy, Optics, Medical Supplies, Orthopaedic, Lab &amp; Diagnostics</small></button>
       <button data-role-target="transport"><span>🚚</span><strong>Transport & Parcel</strong><small>Register vehicles and receive transport / parcel work</small></button>
       <button data-role-target="pickup_station"><span>📦</span><strong>Pickup Station</strong><small>Receive, scan, hand over parcels & manage station earnings</small></button>
       <button data-role-target="cyber"><span>🖥️</span><strong>Cyber Services</strong><small>Printing, online services, files &amp; shop items</small></button>
@@ -77,6 +79,141 @@
     <p id="partnerAuthStatus" class="status"></p>
   </section>
 
+
+  <section class="seller-shell health-medicine-shell" id="healthMedicineShell" hidden>
+    <section id="healthMedicineOnboarding" class="panel seller-onboarding" hidden>
+      <div class="seller-onboarding-icon">⚕️</div>
+      <div><span>HEALTH &amp; MEDICINE PARTNER</span><h2>Register a regulated Health &amp; Medicine business</h2><p>This is separate from an ordinary Seller account. Choose Pharmacy, Optics, Medical Supplies, Orthopaedic / Rehabilitation, Laboratory / Diagnostics or another approved health business type.</p></div>
+      <button id="showHealthMedicineRegistration" type="button">Register Health &amp; Medicine</button>
+    </section>
+
+    <form id="healthMedicineRegistrationForm" class="panel seller-registration" hidden>
+      <div class="section-title"><span>HEALTH &amp; MEDICINE REGISTRATION</span><h3>Business &amp; verification details</h3><p>Pharmacy / pharmaceuticals applications require a regulatory licence document before submission. All verification documents remain Admin-only.</p></div>
+      <div class="form-grid">
+        <label>Business name<input id="healthBusinessName" type="text" maxlength="120" required></label>
+        <label>Owner / responsible person<input id="healthOwnerName" type="text" maxlength="120" required></label>
+        <label>National ID / identification number<input id="healthIdNumber" type="text" maxlength="30" required></label>
+        <label>Phone number<input id="healthPhone" type="tel" placeholder="+2547XXXXXXXX" required></label>
+        <label>Health &amp; Medicine business type
+          <select id="healthBusinessType" required>
+            <option value="">Choose business type</option>
+            <option value="pharmacy">Pharmacy / Pharmaceuticals</option>
+            <option value="optics">Optics / Optical</option>
+            <option value="medical_supplies">Medical Equipment &amp; Supplies</option>
+            <option value="orthopaedic_rehab">Orthopaedic &amp; Rehabilitation</option>
+            <option value="laboratory_diagnostics">Laboratory / Diagnostics</option>
+            <option value="other_health">Other Health &amp; Medicine</option>
+          </select>
+        </label>
+        <label id="healthOtherBusinessTypeLabel" hidden>Other Health business type<input id="healthOtherBusinessType" type="text" maxlength="120"></label>
+        <label>County<select id="healthCounty" required><option value="">Select county</option></select></label>
+        <label>Sub-County<select id="healthSubCounty" required disabled><option value="">Choose a county first</option></select></label>
+        <label>Town<input id="healthTown" type="text" maxlength="100" required></label>
+        <label class="wide">Shop / business location<input id="healthLocationDetails" type="text" maxlength="180" placeholder="Estate, building, road or landmark" required></label>
+        <label>Latitude <small>Optional</small><input id="healthLatitude" type="number" step="0.0000001"></label>
+        <label>Longitude <small>Optional</small><input id="healthLongitude" type="number" step="0.0000001"></label>
+        <label class="wide">Map link <small>Optional</small><input id="healthMapLink" type="url" placeholder="Google Maps link"></label>
+        <label class="wide">Business description<textarea id="healthBusinessDescription" rows="3" maxlength="1500" placeholder="Describe your Health & Medicine business and the products you handle."></textarea></label>
+        <label>Public profile picture <small>Shown to customers only after approval.</small><input id="healthProfilePicture" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        <label>Business ID / identification document <small>Required · Admin only</small><input id="healthBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+        <label>Business licence <small>Optional unless Admin requires it</small><input id="healthBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label id="healthRegulatoryLicenceLabel">Regulatory / professional licence <small id="healthRegulatoryLicenceHelp">Required for Pharmacy / pharmaceuticals</small><input id="healthRegulatoryLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label>Professional certificate <small>Optional</small><input id="healthProfessionalCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label>Registration certificate / CR12 <small>Optional</small><input id="healthRegistrationCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label class="wide">Other Health permits <small>Optional, up to 5 files</small><input id="healthOtherPermits" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple></label>
+      </div>
+      <div class="private-doc-note">🔒 Health verification documents are private and available only to the partner and authorized LEOGO Admin users.</div>
+      <div class="product-actions"><button id="cancelHealthMedicineRegistration" class="secondary" type="button">Cancel</button><button type="submit">Submit Health &amp; Medicine Application</button></div>
+      <p id="healthMedicineRegistrationStatus" class="status"></p>
+    </form>
+
+    <section id="healthMedicinePending" class="panel" hidden>
+      <div class="section-title"><span>APPLICATION STATUS</span><h3 id="healthMedicinePendingTitle">Health &amp; Medicine application submitted</h3><p id="healthMedicinePendingMessage">LEOGO Admin will verify the business type and submitted documents.</p></div>
+      <div id="healthMedicineApplicationSummary" class="summary-grid"></div>
+      <div id="healthMedicineAdminNote" class="restricted-notice" hidden></div>
+      <div class="product-actions"><button id="healthMedicinePendingBack" class="secondary" type="button">← Partnerships</button><button id="editHealthMedicineApplication" type="button" hidden>Correct &amp; Resubmit</button></div>
+    </section>
+
+    <section id="healthMedicineDashboard" class="seller-portal health-medicine-portal" hidden>
+      <button id="healthMedicineSidebarToggle" class="seller-sidebar-toggle" type="button">☰ Menu</button>
+      <aside id="healthMedicineSidebar" class="seller-sidebar health-medicine-sidebar">
+        <div class="seller-sidebar-brand">
+          <span>HEALTH &amp; MEDICINE</span>
+          <strong id="healthMedicineSidebarBusiness">My Health Business</strong>
+          <small id="healthMedicineSidebarStatus">APPROVED</small>
+        </div>
+        <nav>
+          <button class="active" data-health-view="overview" type="button"><span>▦</span>Overview</button>
+          <button data-health-view="products" type="button"><span>💊</span>Health Products <b id="healthMedicineProductBadge" hidden>0</b></button>
+          <button data-health-view="notifications" type="button"><span>🔔</span>Notifications <b id="healthMedicineNotificationBadge" hidden>0</b></button>
+        </nav>
+        <div class="seller-sidebar-footer"><button id="healthMedicineBackToPartnerships" class="secondary" type="button">← Partnerships</button></div>
+      </aside>
+      <button id="healthMedicineSidebarScrim" class="seller-sidebar-scrim" type="button" aria-label="Close Health & Medicine menu"></button>
+
+      <div class="seller-portal-main">
+        <div class="account-head seller-portal-head">
+          <div><span>HEALTH &amp; MEDICINE PARTNER</span><h2 id="healthMedicineDashboardName">My Health Business</h2><p id="healthMedicineViewDescription">Approved Health &amp; Medicine partner overview.</p></div>
+          <div class="seller-head-actions"><button id="healthMedicineRefresh" class="secondary" type="button">↻ Refresh</button></div>
+        </div>
+
+        <section class="seller-view active" data-health-content="overview">
+          <section class="health-overview-grid">
+            <article><span>Business Type</span><strong id="healthMedicineBusinessTypeCard">—</strong><small>Separate Health &amp; Medicine classification</small></article>
+            <article><span>Products</span><strong id="healthMedicineProductCount">0</strong><small>Submitted Health listings</small></article>
+            <article><span>Approved Products</span><strong id="healthMedicineApprovedCount">0</strong><small>Visible to customers</small></article>
+            <article><span>Account Status</span><strong id="healthMedicineAccountStatus">Approved</strong><small>Admin verified partner</small></article>
+          </section>
+          <section class="panel health-safety-panel">
+            <div class="section-title"><span>REGULATED MARKETPLACE</span><h3>Health items stay separate from ordinary Seller products</h3><p>Pharmaceutical items can only be submitted by an approved Pharmacy profile. Prescription-required products are clearly marked and are not connected to ordinary checkout in this V1 foundation.</p></div>
+          </section>
+        </section>
+
+        <section class="seller-view" data-health-content="products">
+          <section class="panel">
+            <div class="section-title"><span>HEALTH PRODUCT CATALOGUE</span><h3>Add a Health &amp; Medicine product</h3><p>Every item is sent to LEOGO Admin for approval before customer publication.</p></div>
+            <form id="healthMedicineProductForm">
+              <input id="healthMedicineProductId" type="hidden">
+              <input id="healthMedicineExistingImagePath" type="hidden">
+              <div class="form-grid">
+                <label>Product name<input id="healthMedicineProductName" type="text" maxlength="160" required></label>
+                <label>Product type<select id="healthMedicineProductKind" required></select></label>
+                <label id="healthMedicineClassificationLabel" hidden>Medicine classification
+                  <select id="healthMedicineClassification">
+                    <option value="otc">General / OTC</option>
+                    <option value="prescription_required">Prescription Required</option>
+                    <option value="pharmacy_only">Pharmacy-only</option>
+                  </select>
+                </label>
+                <label>Brand <small>Optional</small><input id="healthMedicineBrand" type="text" maxlength="120"></label>
+                <label>Price (KSh)<input id="healthMedicinePrice" type="number" min="0" step="0.01" required></label>
+                <label>Quantity available<input id="healthMedicineQuantity" type="number" min="0" step="0.01" required></label>
+                <label>Measurement unit<input id="healthMedicineUnit" type="text" maxlength="40" value="piece" required></label>
+                <label>Availability<select id="healthMedicineAvailability" required><option value="available">Available</option><option value="out_of_stock">Out of Stock</option><option value="inactive">Inactive</option></select></label>
+                <label class="wide">Product description<textarea id="healthMedicineProductDescription" rows="3" maxlength="1800"></textarea></label>
+                <label class="wide">Product image <small>JPG, PNG or WEBP. Required for new products.</small><input id="healthMedicineProductImage" type="file" accept="image/jpeg,image/png,image/webp"></label>
+              </div>
+              <div class="health-prescription-note" id="healthPrescriptionNote" hidden>Prescription-required medicines are clearly flagged for customers and are not connected to ordinary Seller checkout.</div>
+              <div class="product-actions"><button id="resetHealthMedicineProduct" class="secondary" type="button">Clear</button><button type="submit">Save &amp; Send to Admin</button></div>
+              <p id="healthMedicineProductStatus" class="status"></p>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="section-title"><span>MY HEALTH PRODUCTS</span><h3>Product approval status</h3></div>
+            <div id="healthMedicineProductList" class="health-product-list"><div class="empty-card">No Health &amp; Medicine products submitted yet.</div></div>
+          </section>
+        </section>
+
+        <section class="seller-view" data-health-content="notifications">
+          <section class="panel">
+            <div class="section-title"><span>NOTIFICATIONS</span><h3>Health &amp; Medicine Admin Updates</h3><p>Application and product approval decisions appear here.</p></div>
+            <div class="product-actions"><button id="markAllHealthMedicineNotificationsRead" class="secondary" type="button">Mark All Read</button></div>
+            <div id="healthMedicineNotificationList" class="seller-notification-list"><div class="empty-card">No Health &amp; Medicine notifications yet.</div></div>
+          </section>
+        </section>
+      </div>
+    </section>
+  </section>
 
   <section class="seller-shell provider-shell" id="providerShell" hidden>
     <section id="providerBootStatus" class="panel seller-boot-status">
@@ -1660,7 +1797,8 @@
   <script src="../js/runtime-monitor.js?v=network-storm-fix-2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=premium-chat-photo-1" defer></script>
+<script src="partner.js?v=health-medicine-v1" defer></script>
+<script src="health.js?v=health-medicine-v1" defer></script>
 <script src="cyber.js?v=premium-cyber-subscription-v1" defer></script>
 <script src="shipping-moq.js?v=auth-timing-2" defer></script>
 </body></html>

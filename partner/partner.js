@@ -33,6 +33,7 @@ let passwordRecoverySessionVerified=false;
 let passwordRecoverySessionPromise=null;
 const client=window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 if(!client)return;
+window.leogoPartnerClient=client;
 
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -59,7 +60,7 @@ const applyInitialServiceAreas=()=>{
   kenyaSubcounties=[];
 };
 
-const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),providerShell=$('#providerShell'),transportShell=$('#transportShell'),premiumShell=$('#premiumShell'),accommodationShell=$('#accommodationShell'),cyberShell=$('#cyberShell'),logout=$('#partnerLogout'),hero=$('.hero');
+const authShell=$('#partnerAuthShell'),rolePicker=$('#partnerRolePicker'),sellerShell=$('#sellerShell'),providerShell=$('#providerShell'),healthMedicineShell=$('#healthMedicineShell'),transportShell=$('#transportShell'),premiumShell=$('#premiumShell'),accommodationShell=$('#accommodationShell'),cyberShell=$('#cyberShell'),logout=$('#partnerLogout'),hero=$('.hero');
 const partnerNotificationBell=$('#partnerNotificationBell'),partnerNotificationBadge=$('#partnerNotificationBadge');
 const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partnerResetUpdateForm');
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
@@ -125,6 +126,7 @@ async function hydratePremiumApplicationBilling(){
   if($('#premiumApplicationPaymentDestination'))$('#premiumApplicationPaymentDestination').textContent='Pay to '+partnerPaymentDestination(data.payment_destination)+'. Admin will verify the reference before activation.';
 }
 window.leogoSetPartnerActiveRole=(role='')=>{activeRole=String(role||'');};
+window.leogoPartnerCurrentUser=()=>currentUser;
 
 const waitTimeout=(ms,message='Request timed out')=>new Promise((_,reject)=>window.setTimeout(()=>reject(new Error(message)),ms));
 
@@ -234,6 +236,7 @@ function showPasswordRecoveryScreen({valid=false,message='',type=''}={}){
   rolePicker.hidden=true;
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
+  if(healthMedicineShell)healthMedicineShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
   if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
@@ -383,6 +386,7 @@ resetUpdateForm.addEventListener('submit',async e=>{
   rolePicker.hidden=true;
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
+  if(healthMedicineShell)healthMedicineShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
   if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
@@ -415,6 +419,11 @@ $$('[data-role-target]').forEach((button)=>button.addEventListener('click',()=>{
   const target=button.dataset.roleTarget;
   if(target==='seller')openSellerRole();
   if(target==='service_provider')openProviderRole();
+  if(target==='health_medicine'){
+    activeRole='health_medicine';
+    if(typeof window.leogoOpenHealthMedicinePartner==='function')window.leogoOpenHealthMedicinePartner();
+    else window.setTimeout(()=>window.leogoOpenHealthMedicinePartner?.(),120);
+  }
   if(target==='transport')openTransportRole();
   if(target==='pickup_station'){window.location.href='../pickup/';return;}
   if(target==='cyber'){
@@ -669,6 +678,7 @@ function showRolePicker(){
   rolePicker.hidden=false;
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
+  if(healthMedicineShell)healthMedicineShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
   if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
@@ -1398,8 +1408,9 @@ async function loadTaxonomy(){
   const select=$('#productCategory');
   const staticTaxonomy=window.LEOGO_PRODUCT_TAXONOMY||{};
   if(Array.isArray(staticTaxonomy.categories)&&staticTaxonomy.categories.length){
-    categories=staticTaxonomy.categories;
-    subcategories=Array.isArray(staticTaxonomy.subcategories)?staticTaxonomy.subcategories:[];
+    const pharmacyCategoryIds=new Set(staticTaxonomy.categories.filter((item)=>item.code==='pharmacy').map((item)=>item.id));
+    categories=staticTaxonomy.categories.filter((item)=>item.code!=='pharmacy');
+    subcategories=(Array.isArray(staticTaxonomy.subcategories)?staticTaxonomy.subcategories:[]).filter((item)=>!pharmacyCategoryIds.has(item.category_id));
     renderTaxonomyOptions();
   }else if(select){
     select.innerHTML='<option value="">Loading categories…</option>';
@@ -5704,6 +5715,7 @@ async function handleSession(session){
     document.body.classList.remove('cyber-role-open');
     authShell.hidden=false;rolePicker.hidden=true;sellerShell.hidden=true;
     if(providerShell)providerShell.hidden=true;
+    if(healthMedicineShell)healthMedicineShell.hidden=true;
     if(transportShell)transportShell.hidden=true;
     if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
@@ -5714,6 +5726,7 @@ async function handleSession(session){
   authShell.hidden=true;
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
+  if(healthMedicineShell)healthMedicineShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
   if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
@@ -5724,6 +5737,7 @@ async function handleSession(session){
   if(hero)hero.hidden=reopeningCyber;
   if(activeRole==='seller')await openSellerRole();
   if(activeRole==='service_provider')await openProviderRole();
+  if(activeRole==='health_medicine'&&typeof window.leogoOpenHealthMedicinePartner==='function')await window.leogoOpenHealthMedicinePartner();
   if(activeRole==='transport')await openTransportRole();
   if(activeRole==='premium')await openPremiumRole();
   if(activeRole==='accommodation')await openAccommodationRole();
