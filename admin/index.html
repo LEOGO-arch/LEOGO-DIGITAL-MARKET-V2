@@ -10,7 +10,7 @@
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
   <link rel="stylesheet" href="admin.css?v=admin-security-v1">
-  <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-phase3-1">
+  <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-phase4-1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
   <link rel="stylesheet" href="flash-sales.css?v=flash-sale-v1">
 <style>
@@ -1396,6 +1396,41 @@
           <div id="diagnosticsResults" class="diagnostics-results"></div>
         </section>
 
+        <section class="diagnostics-card diagnostics-monitoring-center" id="diagnosticsMonitoringCenter">
+          <header class="diagnostics-runtime-head">
+            <div><span class="diagnostics-phase-label">PHASE 4</span><h3>Preventive Monitoring &amp; Alerts</h3><p>Lightweight server-side health checks run every 15 minutes, group repeat faults into incidents, detect recovery and feed the Admin notification bell.</p></div>
+            <div class="diagnostics-runtime-controls"><span id="diagnosticsMonitoringState" class="diagnostics-state healthy">LOADING</span><button id="refreshSystemMonitoring" class="secondary-button" type="button">↻ Refresh</button></div>
+          </header>
+          <div class="diagnostics-monitoring-summary">
+            <div><small>Preventive Health</small><strong id="monitoringHealthScore">—</strong><span id="monitoringHealthLabel">—</span></div>
+            <div><small>Active Critical</small><strong id="monitoringCriticalCount">0</strong></div>
+            <div><small>Active Warnings</small><strong id="monitoringWarningCount">0</strong></div>
+            <div><small>Recovered Today</small><strong id="monitoringRecoveredToday">0</strong></div>
+            <div><small>Last Automatic Scan</small><strong id="monitoringLastScan">—</strong></div>
+            <div><small>Next Scan</small><strong id="monitoringNextScan">—</strong></div>
+          </div>
+          <div class="diagnostics-monitoring-controls">
+            <label class="diagnostics-monitor-toggle"><input id="monitoringEnabled" type="checkbox" checked><span><strong>Automatic monitoring</strong><small>Keep the 15-minute lightweight scan enabled.</small></span></label>
+            <label class="diagnostics-monitor-toggle"><input id="monitoringMaintenance" type="checkbox"><span><strong>Maintenance mode</strong><small>Pause incident creation during planned maintenance.</small></span></label>
+            <label><span>Maintenance ends</span><input id="monitoringMaintenanceUntil" type="datetime-local"></label>
+            <label><span>Maintenance reason</span><input id="monitoringMaintenanceReason" type="text" maxlength="240" placeholder="Optional maintenance note"></label>
+            <label><span>System Diagnosis PIN</span><input id="monitoringPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="6-digit PIN"></label>
+            <div class="diagnostics-monitoring-actions"><button id="saveMonitoringSettings" class="secondary-button" type="button">Save Monitoring Settings</button><button id="runMonitoringNow" type="button">Run Quick Scan Now</button></div>
+          </div>
+          <div id="diagnosticsMonitoringStatus" class="form-status" aria-live="polite"></div>
+          <div class="diagnostics-monitoring-grid">
+            <div>
+              <div class="diagnostics-repair-history-head"><h4>Active &amp; Recently Recovered Incidents</h4><small>Repeated findings are grouped instead of duplicated.</small></div>
+              <div id="diagnosticsMonitoringIncidents" class="diagnostics-monitoring-incidents"><div class="empty-mini">No monitoring incidents loaded.</div></div>
+            </div>
+            <div>
+              <div class="diagnostics-repair-history-head"><h4>7-Day Health Trend</h4><small>Recent automatic/manual preventive health checks.</small></div>
+              <div id="diagnosticsMonitoringTrend" class="diagnostics-monitoring-trend"><div class="empty-mini">No monitoring trend yet.</div></div>
+            </div>
+          </div>
+          <div class="diagnostics-safety-note"><strong>Monitoring only:</strong> Phase 4 detects and alerts. It never runs Full Diagnosis automatically and never applies Phase 3 repairs or changes operational records.</div>
+        </section>
+
         <section class="diagnostics-card diagnostics-repair-center" id="diagnosticsRepairCenter">
           <header>
             <div><span class="diagnostics-phase-label">PHASE 3</span><h3>Repair Center</h3><p>Inspect affected records, verify individual checks and apply only explicitly allowlisted safe repairs.</p></div>
@@ -1521,7 +1556,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
   <script src="admin.js?v=network-storm-fix-1" defer></script>
-  <script src="system-diagnostics.js?v=diagnostics-phase3-1" defer></script>
+  <script src="system-diagnostics.js?v=diagnostics-phase4-1" defer></script>
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
   <script src="loyalty-rewards.js?v=loyalty-rewards-v2" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
