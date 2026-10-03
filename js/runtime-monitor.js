@@ -123,7 +123,7 @@
       p_metadata:{
         status:Number.isFinite(Number(input.status))?Number(input.status):null,
         method:cleanText(input.method||'',12)||null,
-        host:window.location.hostname,
+        host:cleanText(input.host||window.location.hostname,120)||null,
         failed_count:Number.isFinite(Number(input.failedCount))?Math.max(1,Math.min(500,Number(input.failedCount))):null
       }
     };
@@ -240,9 +240,11 @@
 
     report({
       errorType:'connectivity_error',
+      module:'connectivity',
       message:'Temporary network interruption while contacting LEOGO backend',
       operation:'connectivity:supabase_api',
       source:PROJECT_URL+'/rest/v1/',
+      host:new URL(PROJECT_URL).hostname,
       severity:'warning',
       failedCount:affectedCount
     });
