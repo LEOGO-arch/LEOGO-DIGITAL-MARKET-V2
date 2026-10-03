@@ -62,9 +62,10 @@
     const host=$('#diagnosticsRuntimeIssues');
     if(!host)return;
     const rows=Array.isArray(issues)?issues:[];
-    const critical=rows.filter((row)=>row.severity==='critical').length;
-    const warnings=rows.filter((row)=>row.severity!=='critical').length;
-    $('#diagnosticsRuntimeTotal').textContent=rows.length;
+    const activeRows=rows.filter((row)=>!['resolved','ignored'].includes(row.status));
+    const critical=activeRows.filter((row)=>row.severity==='critical').length;
+    const warnings=activeRows.filter((row)=>row.severity!=='critical').length;
+    $('#diagnosticsRuntimeTotal').textContent=activeRows.length;
     $('#diagnosticsRuntimeCritical').textContent=critical;
     $('#diagnosticsRuntimeWarning').textContent=warnings;
 
