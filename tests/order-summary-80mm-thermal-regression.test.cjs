@@ -10,7 +10,7 @@ if(!html.includes('<option value="80mm" selected>80 mm Thermal — Auto Length</
    !html.includes('<option value="a6">A6</option>')){
   throw new Error('80mm thermal must be the default while A6 remains available');
 }
-if(!html.includes('admin.js?v=xprinter-80mm-compact-5')){
+if(!html.includes('admin.js?v=xprinter-80mm-compact-6')){
   throw new Error('Xprinter thermal receipt cache version missing');
 }
 
@@ -48,17 +48,30 @@ if(!thermal.includes("const logoUrl=new URL('../assets/images/leogo-official-log
   throw new Error('Compact 80mm receipt must keep the LEOGO logo in the header corner');
 }
 if(!thermal.includes('const itemLineCount=items.length')||
-   !thermal.includes('targetShortReceiptMm=118')||
+   !thermal.includes('targetShortReceiptMm=116')||
    !thermal.includes('heightMm=Math.min(120,heightMm)')){
-  throw new Error('Single-item thermal receipts must be capped at 120mm without affecting multi-item auto length');
+  throw new Error('Single-item thermal receipts must stay within 120mm without affecting multi-item auto length');
 }
-if(!thermal.includes('naturalPx')||
-   !thermal.includes('renderedMm')||
+if(!thermal.includes('receipt.style.zoom=String(targetShortReceiptMm/naturalMm)')||
+   !thermal.includes('renderedPx')||
    !thermal.includes('Math.ceil(renderedMm+2)')){
-  throw new Error('Thermal auto-length must use the rendered receipt height after any short-order scale-to-fit');
+  throw new Error('Thermal short-order fitting must change layout height and then remeasure before printing');
 }
-if(!thermal.includes('transformOrigin="top center"')){
-  throw new Error('Single-item scale-to-fit must anchor at the receipt top so the 120mm page does not clip the bottom');
+if(thermal.includes('receipt.style.transform=')){
+  throw new Error('Thermal receipt must not use transform scaling because it can leave a phantom layout box and print a second page');
+}
+if(!thermal.includes('margin:0!important')||
+   !thermal.includes('document.documentElement.style.overflow="hidden"')){
+  throw new Error('Thermal page must suppress overflow and request zero print margins');
+}
+if(!thermal.includes('receipt-title-line')||
+   !thermal.includes('receipt-print-time')||
+   !thermal.includes("'<title></title>'")){
+  throw new Error('Receipt date/time must sit beside the receipt title and the popup title must stay blank');
+}
+if(!thermal.includes('<footer class="receipt-footer">')||
+   !thermal.includes("'<div>Authorized LEOGO order summary.</div>'")){
+  throw new Error('Authorization footer must stay attached directly to the QR block');
 }
 
 if(thermal.includes('slice(0,7)')){

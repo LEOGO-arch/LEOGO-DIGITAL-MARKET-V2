@@ -2617,7 +2617,7 @@
 
     return '<!doctype html><html><head><meta charset="utf-8">'+
       '<meta name="viewport" content="width=device-width,initial-scale=1">'+
-      '<title>'+escapeHtml(order.order_reference||'LEOGO Order Summary')+'</title>'+
+      '<title></title>'+
       '<style>'+
         '@page{margin:0;}'+
         '*{box-sizing:border-box;}'+
@@ -2628,8 +2628,10 @@
         '.receipt-logo{width:9mm;height:9mm;object-fit:cover;filter:grayscale(1) contrast(1.3);}'+
         '.receipt-header-copy{min-width:0;}'+
         '.receipt-header h1{margin:0;font-size:10.2pt;line-height:1;font-weight:900;letter-spacing:.1px;}'+
-        '.receipt-header h2{margin:.45mm 0 0;font-size:6.9pt;line-height:1.02;font-weight:900;}'+
-        '.receipt-header p{margin:.35mm 0 0;font-size:6.2pt;font-weight:800;}'+
+        '.receipt-title-line{display:flex;align-items:baseline;justify-content:space-between;gap:1.5mm;margin:.35mm 0 0;}'+
+        '.receipt-header h2{margin:0;font-size:6.9pt;line-height:1.02;font-weight:900;white-space:nowrap;}'+
+        '.receipt-print-time{font-size:5.5pt;line-height:1;font-weight:900;text-align:right;white-space:nowrap;}'+
+        '.receipt-header p{margin:.28mm 0 0;font-size:6.2pt;font-weight:800;}'+
         '.receipt-rule{border:0;border-top:1px dashed #000;margin:.8mm 0;}'+
         '.receipt-reference{display:flex;align-items:baseline;gap:1.2mm;text-align:left;margin:.2mm 0;}'+
         '.receipt-reference small{display:block;font-size:6.3pt;font-weight:900;white-space:nowrap;}'+
@@ -2665,7 +2667,7 @@
         '.receipt-qr img{display:block;width:19mm;height:19mm;margin:0 auto;image-rendering:pixelated;image-rendering:crisp-edges;}'+
         '.receipt-qr strong{display:block;margin-top:.25mm;font-size:6.8pt;font-weight:900;}'+
         '.receipt-qr small{display:block;margin-top:.15mm;font-size:5.8pt;font-weight:800;overflow-wrap:anywhere;}'+
-        '.receipt-footer{text-align:center;font-size:5.9pt;font-weight:800;line-height:1.08;}'+
+        '.receipt-footer{margin-top:.45mm;text-align:center;font-size:5.9pt;font-weight:800;line-height:1.08;}'+
         '@media print{html,body{width:80mm!important;height:auto!important;overflow:visible!important;color:#000!important;background:#fff!important;}.receipt{width:72mm!important;page-break-after:auto;}.receipt-section,.receipt-item,.receipt-qr{break-inside:avoid;}}'+
       '</style></head><body>'+
         '<main class="receipt">'+
@@ -2673,7 +2675,7 @@
             '<img class="receipt-logo" src="'+logoUrl+'" alt="LEOGO logo">'+
             '<div class="receipt-header-copy">'+
               '<h1>LEOGO DIGITAL MARKET</h1>'+
-              '<h2>ORDER SUMMARY / DELIVERY RECEIPT</h2>'+
+              '<div class="receipt-title-line"><h2>ORDER SUMMARY / DELIVERY RECEIPT</h2><span class="receipt-print-time">'+escapeHtml(printedAt)+'</span></div>'+
               '<p>Any market to your Door Step</p>'+
             '</div>'+
           '</header>'+
@@ -2723,15 +2725,13 @@
             '<img src="'+qrDataUrl+'" alt="Order QR">'+
             '<strong>SCAN ORDER</strong>'+
             '<small>'+escapeHtml(order.order_reference||'LEOGO ORDER')+'</small>'+
+            '<footer class="receipt-footer">'+
+              '<div>Authorized LEOGO order summary.</div>'+
+              '<div>Keep this receipt with the order until final handover.</div>'+
+            '</footer>'+
           '</div>'+
-          '<hr class="receipt-rule">'+
-          '<footer class="receipt-footer">'+
-            '<div>Authorized LEOGO order summary.</div>'+
-            '<div>Printed '+escapeHtml(printedAt)+'</div>'+
-            '<div>Keep this receipt with the order until final handover.</div>'+
-          '</footer>'+
         '</main>'+
-        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var naturalPx=receipt?Math.max(receipt.scrollHeight,receipt.getBoundingClientRect().height):0;var naturalMm=naturalPx/pxPerMm;var itemLineCount='+JSON.stringify(itemLineCount)+';var scale=1;var targetShortReceiptMm=118;if(receipt&&itemLineCount<=1&&naturalMm>targetShortReceiptMm){scale=targetShortReceiptMm/naturalMm;receipt.style.transformOrigin="top center";receipt.style.transform="scale("+scale+")";}var renderedMm=naturalMm*scale;var heightMm=Math.max(38,Math.ceil(renderedMm+2));if(itemLineCount<=1){heightMm=Math.min(120,heightMm);document.body.style.overflow="hidden";}var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";setTimeout(function(){window.print();},180)})})});<\/script>'+
+        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var itemLineCount='+JSON.stringify(itemLineCount)+';var naturalPx=receipt?receipt.getBoundingClientRect().height:0;var naturalMm=naturalPx/pxPerMm;var targetShortReceiptMm=116;if(receipt&&itemLineCount<=1&&naturalMm>targetShortReceiptMm){receipt.style.zoom=String(targetShortReceiptMm/naturalMm);}requestAnimationFrame(function(){var renderedPx=receipt?receipt.getBoundingClientRect().height:0;var renderedMm=renderedPx/pxPerMm;var heightMm=Math.max(38,Math.ceil(renderedMm+2));if(itemLineCount<=1){heightMm=Math.min(120,heightMm);}var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0!important}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";document.documentElement.style.overflow="hidden";document.body.style.overflow="hidden";setTimeout(function(){window.print();},180);})})})});<\/script>'+
       '</body></html>';
   };
 
@@ -2757,7 +2757,7 @@
         popup.document.open();
         popup.document.write(receiptHtml);
         popup.document.close();
-        setFormStatus($('#adminOrderDetailStatus'),'80 mm thermal receipt opened with compact bold text, a corner LEOGO logo, a 120 mm cap for single-item orders, and automatic growth for additional order items.','success');
+        setFormStatus($('#adminOrderDetailStatus'),'80 mm thermal receipt ready. For the shortest single-page roll, keep print Margins = None and turn OFF browser Headers and footers (the date/about:blank/page number shown by Chrome).','success');
         return;
       }
 
