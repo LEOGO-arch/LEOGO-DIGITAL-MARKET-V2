@@ -14,6 +14,7 @@
     medical_supplies:'Medical Equipment & Supplies',
     orthopaedic_rehab:'Orthopaedic & Rehabilitation',
     laboratory_diagnostics:'Laboratory / Diagnostics',
+    health_specialist:'Health Specialist / Doctor',
     other_health:'Other Health & Medicine'
   }[value]||String(value||'').replaceAll('_',' '));
   const productTypeLabel=(value)=>({
