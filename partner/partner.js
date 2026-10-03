@@ -676,6 +676,7 @@ function showRolePicker(){
   rolePicker.hidden=false;
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
+  if(healthMedicineShell)healthMedicineShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
   if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
@@ -5722,6 +5723,7 @@ async function handleSession(session){
   authShell.hidden=true;
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
+  if(healthMedicineShell)healthMedicineShell.hidden=true;
   if(transportShell)transportShell.hidden=true;
   if(premiumShell)premiumShell.hidden=true;
   if(accommodationShell)accommodationShell.hidden=true;
