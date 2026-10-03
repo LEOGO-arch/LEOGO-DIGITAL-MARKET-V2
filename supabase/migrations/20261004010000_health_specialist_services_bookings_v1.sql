@@ -724,7 +724,7 @@ grant execute on function public.customer_list_health_specialist_bookings() to a
 create or replace function public.health_specialist_list_own_bookings()
 returns jsonb
 language plpgsql security definer set search_path=''
-as $$
+as $health_bookings$
 declare v_uid uuid:=auth.uid();v_rows jsonb;
 begin
   if v_uid is null then raise exception 'Sign in required'; end if;
@@ -744,7 +744,7 @@ begin
     and b.payment_status='verified_paid';
   return v_rows;
 end;
-$;
+$health_bookings$;
 
 revoke all on function public.health_specialist_list_own_bookings() from public,anon;
 grant execute on function public.health_specialist_list_own_bookings() to authenticated;
