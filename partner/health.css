@@ -1,0 +1,51 @@
+/* LEOGO Health & Medicine Partner V1 — intentionally isolated from Seller styling */
+.health-medicine-shell{max-width:1180px;margin:0 auto;padding:0 18px 32px}
+.health-medicine-portal{min-height:640px}
+.health-medicine-sidebar{background:linear-gradient(180deg,#0a2941,#0b3650)}
+.health-medicine-sidebar .seller-sidebar-brand>span{color:#8fe0d5}
+.health-medicine-sidebar nav button.active{background:#0f4e63;color:#fff}
+.health-medicine-sidebar nav button.active span{color:#8fe0d5}
+.health-overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.health-overview-grid article{border:1px solid #dbe6ea;border-radius:14px;background:#fff;padding:15px;display:grid;gap:5px;box-shadow:0 7px 20px rgba(10,41,65,.05)}
+.health-overview-grid span{font-size:8px;font-weight:900;color:#5d7180;text-transform:uppercase;letter-spacing:.08em}
+.health-overview-grid strong{font-size:20px;color:#0a2941}
+.health-overview-grid small{font-size:8px;color:#758592}
+.health-safety-panel{border-left:4px solid #0f8a73}
+.health-prescription-note{margin:10px 0;padding:11px 12px;border:1px solid #f1c892;border-radius:10px;background:#fff8ec;color:#75480e;font-size:9px;font-weight:800}
+.health-product-list{display:grid;gap:10px}
+.health-product-card{border:1px solid #dce5ea;border-radius:13px;padding:12px;display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:11px;align-items:center;background:#fff}
+.health-product-card-photo{width:62px;height:62px;border-radius:10px;background:#eff5f6;display:grid;place-items:center;overflow:hidden;font-size:26px}
+.health-product-card-photo img{width:100%;height:100%;object-fit:cover}
+.health-product-card-copy{min-width:0;display:grid;gap:3px}
+.health-product-card-copy>span{font-size:7.5px;font-weight:950;color:#0f8a73;text-transform:uppercase;letter-spacing:.06em}
+.health-product-card-copy strong{font-size:12px;color:#0a2941}
+.health-product-card-copy small{font-size:8px;color:#667984}
+.health-product-card-copy em{font-style:normal;font-size:8px;color:#8a4a12;font-weight:850}
+.health-product-card-actions{display:grid;gap:7px;justify-items:end}
+.health-product-card-actions b{font-size:10px;color:#0a2941}
+.health-product-card-actions button{border:0;border-radius:8px;background:#0a2941;color:#fff;padding:8px 10px;font-size:8px;font-weight:900}
+.health-product-card-actions button.secondary{background:#edf2f5;color:#0a2941}
+.health-business-type-chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:6px 9px;background:#e8f7f3;color:#12634f;font-size:8px;font-weight:900}
+.health-medicine-shell .status-chip.approved{background:#e8f7ef;color:#18643c}
+.health-medicine-shell .status-chip.changes_requested{background:#fff6df;color:#8a5707}
+.health-medicine-shell .status-chip.rejected{background:#ffe9e9;color:#922d2d}
+.health-medicine-shell .status-chip.pending,
+.health-medicine-shell .status-chip.submitted,
+.health-medicine-shell .status-chip.under_review{background:#edf3ff;color:#2d5790}
+.health-medicine-shell .seller-view{display:none}
+.health-medicine-shell .seller-view.active{display:block}
+.health-medicine-shell .health-medicine-sidebar nav b{margin-left:auto;min-width:18px;height:18px;border-radius:999px;background:#ff7200;color:#fff;display:grid;place-items:center;font-size:8px;padding:0 4px}
+.health-medicine-shell .health-medicine-sidebar nav b[hidden]{display:none}
+
+@media(max-width:900px){
+  .health-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:700px){
+  .health-medicine-shell{padding:0 10px 24px}
+  .health-overview-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .health-overview-grid article{padding:12px}
+  .health-product-card{grid-template-columns:50px minmax(0,1fr);align-items:start}
+  .health-product-card-photo{width:50px;height:50px}
+  .health-product-card-actions{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between}
+  .health-medicine-sidebar{width:min(78vw,270px)!important;max-width:270px!important;height:100dvh!important;overflow-y:auto}
+}
