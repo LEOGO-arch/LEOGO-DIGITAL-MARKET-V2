@@ -10,7 +10,7 @@
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
   <link rel="stylesheet" href="admin.css?v=admin-security-v1">
-  <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-phase2-1">
+  <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-phase3-1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
   <link rel="stylesheet" href="flash-sales.css?v=flash-sale-v1">
 <style>
@@ -1317,13 +1317,13 @@
 
       <section class="admin-panel" data-admin-panel="diagnostics">
         <div class="section-head">
-          <div><span>ADMINISTRATION</span><h2>System Diagnosis</h2><p>PIN-protected, read-only health checks across LEOGO modules. Diagnosis suggests repairs but never applies them automatically.</p></div>
+          <div><span>ADMINISTRATION</span><h2>System Diagnosis</h2><p>PIN-protected health checks across LEOGO modules, with a separate controlled Repair Center for approved Phase 3 actions.</p></div>
           <div class="diagnostics-actions"><span id="diagnosticsPinState" class="diagnostics-state warning">Checking…</span><span id="diagnosticsLockState" class="diagnostics-state healthy">Ready</span></div>
         </div>
 
         <div class="diagnostics-intro">
           <div><span>🛡️</span><div><h3>LEOGO Diagnostic Engine</h3><p>Checks live database structure, privileged functions, storage privacy, Admin/Staff authentication links, payments, email queues, Orders, Rider links, products, Service Providers, Transport, Wallet, Premium, Accommodation and Cyber dependencies.</p></div></div>
-          <span class="diagnostics-state healthy">READ ONLY</span>
+          <span class="diagnostics-state healthy">SCAN: READ ONLY</span>
         </div>
 
         <div class="diagnostics-security-grid">
@@ -1396,6 +1396,18 @@
           <div id="diagnosticsResults" class="diagnostics-results"></div>
         </section>
 
+        <section class="diagnostics-card diagnostics-repair-center" id="diagnosticsRepairCenter">
+          <header>
+            <div><span class="diagnostics-phase-label">PHASE 3</span><h3>Repair Center</h3><p>Inspect affected records, verify individual checks and apply only explicitly allowlisted safe repairs.</p></div>
+            <div class="diagnostics-runtime-controls"><span class="diagnostics-state healthy">CONTROLLED</span><button id="refreshDiagnosticRepairs" class="secondary-button" type="button">↻ Refresh</button></div>
+          </header>
+          <div class="diagnostics-safety-note"><strong>No automatic repair:</strong> diagnosis remains read-only. A repair is a separate action, requires the Diagnostic PIN again, records before/after evidence, and is verified immediately afterward.</div>
+          <div id="diagnosticsRepairQueue" class="diagnostics-repair-queue"><div class="empty-mini">Run a diagnosis to populate the Repair Center.</div></div>
+          <div class="diagnostics-repair-history-head"><h4>Recent Repair Audit</h4><small>Immutable before/after snapshots for Phase 3 repairs.</small></div>
+          <div id="diagnosticsRepairHistory" class="diagnostics-repair-history"><div class="empty-mini">No Phase 3 repairs recorded.</div></div>
+        </section>
+
+
         <section class="diagnostics-card" id="diagnosticsRuntimeCard">
           <header class="diagnostics-runtime-head">
             <div><h3>Live Runtime Errors</h3><p>Grouped failures reported from Customer, Partner, Admin, Staff/Rider and Pickup Station portals. Sensitive request data is not collected.</p></div>
@@ -1428,6 +1440,29 @@
         <div class="table-card"><div class="responsive-table"><table><thead><tr><th>Date &amp; Time</th><th>Admin</th><th>Action</th><th>Entity</th><th>Reference</th></tr></thead><tbody id="auditTableBody"><tr><td colspan="5">Loading audit history…</td></tr></tbody></table></div></div>
       </section>
     </main>
+  </div>
+
+  <div class="modal diagnostics-phase3-modal" id="diagnosticsFindingModal" hidden>
+    <button class="modal-backdrop" data-diagnostics-close type="button" aria-label="Close"></button>
+    <section class="modal-card diagnostics-phase3-modal-card">
+      <header>
+        <div><span id="diagnosticsFindingModule">SYSTEM DIAGNOSIS</span><h2 id="diagnosticsFindingTitle">Finding details</h2></div>
+        <button data-diagnostics-close type="button">×</button>
+      </header>
+      <div class="modal-body">
+        <div class="diagnostics-finding-policy" id="diagnosticsFindingPolicy"></div>
+        <div class="form-status" id="diagnosticsFindingStatus" aria-live="polite"></div>
+        <div id="diagnosticsAffectedRecords" class="diagnostics-affected-records"><div class="empty-mini">Loading affected records…</div></div>
+        <div class="diagnostics-phase3-auth">
+          <div><strong>Protected verification / repair</strong><span>Enter the 6-digit System Diagnosis PIN. The PIN is required again for every repair action.</span></div>
+          <input id="diagnosticsPhase3Pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" placeholder="Diagnostic PIN">
+        </div>
+      </div>
+      <footer>
+        <button class="secondary" data-diagnostics-close type="button">Close</button>
+        <button id="diagnosticsVerifyCheck" type="button">Verify This Check</button>
+      </footer>
+    </section>
   </div>
 
   <div class="modal" id="approvalReviewModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><section class="modal-card"><header><div><span>SECURE REVIEW</span><h2 id="reviewModalTitle">Review request</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body"><div class="review-applicant" id="reviewApplicant"></div><div class="review-media" id="reviewMedia" hidden></div><div class="review-details" id="reviewDetails"></div><label><span id="reviewNotesLabel">Admin notes / reason</span><textarea id="reviewNotes" rows="4" placeholder="Add internal review notes. A reason is required when rejecting or requesting corrections."></textarea></label><div class="form-status" id="reviewStatus"></div></div><footer id="reviewActions"><button class="secondary" data-review-action="under_review" type="button">Mark Under Review</button><button class="warning" data-review-action="changes_requested" type="button" hidden>Request Correction</button><button class="danger" data-review-action="reject" type="button">Reject</button><button class="primary" data-review-action="approve" type="button">Approve</button></footer></section></div>
@@ -1486,7 +1521,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
   <script src="admin.js?v=network-storm-fix-1" defer></script>
-  <script src="system-diagnostics.js?v=network-storm-fix-2" defer></script>
+  <script src="system-diagnostics.js?v=diagnostics-phase3-1" defer></script>
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
   <script src="loyalty-rewards.js?v=loyalty-rewards-v2" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
