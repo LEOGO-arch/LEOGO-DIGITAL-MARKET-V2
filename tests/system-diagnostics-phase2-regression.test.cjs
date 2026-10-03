@@ -91,4 +91,15 @@ if(!resolvedRuntimeRepair.includes("status not in ('ignored','resolved')")){
   throw new Error('Resolved runtime errors still lower active health');
 }
 
+if(!runtime.includes('confirmSameOriginResourceFailure'))throw new Error('same-origin resource retry missing');
+if(!runtime.includes("cache:'no-store'"))throw new Error('resource retry must bypass cache');
+if(!runtime.includes("Resource failed to load after retry"))throw new Error('resource error should be reported only after retry');
+
+for(const path of ['index.html','partner/index.html','staff/index.html','pickup/index.html','admin/index.html']){
+  const html=fs.readFileSync(path,'utf8');
+  if(!html.includes('runtime-monitor.js?v=resource-retry-1')){
+    throw new Error('Resource-retry runtime monitor cache version missing from '+path);
+  }
+}
+
 console.log('system diagnostics Phase 2 regression checks passed');
