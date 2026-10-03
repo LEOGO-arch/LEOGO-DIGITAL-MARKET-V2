@@ -470,7 +470,7 @@ as $$
 declare v_uid uuid:=auth.uid();v_order public.health_medicine_orders%rowtype;
 begin
   if v_uid is null then raise exception 'Sign in required'; end if;
-  if p_status not in ('accepted','preparing','ready_for_handover','handed_to_leogo','cancelled') then
+  if p_status not in ('accepted','preparing','ready_for_handover','handed_to_leogo') then
     raise exception 'Unsupported Health order status';
   end if;
 
@@ -480,7 +480,7 @@ begin
   for update;
   if not found then raise exception 'Health order not found'; end if;
 
-  if v_order.payment_status not in ('verified_paid','cod_due','cod_paid') and p_status<>'cancelled' then
+  if v_order.payment_status not in ('verified_paid','cod_due','cod_paid') then
     raise exception 'Wait for LEOGO payment verification before preparing this Health order';
   end if;
   if v_order.order_status in ('delivered','cancelled') then raise exception 'This Health order is already closed'; end if;
@@ -496,7 +496,6 @@ begin
     preparing_at=case when p_status='preparing' then coalesce(preparing_at,now()) else preparing_at end,
     ready_for_handover_at=case when p_status='ready_for_handover' then coalesce(ready_for_handover_at,now()) else ready_for_handover_at end,
     handed_to_leogo_at=case when p_status='handed_to_leogo' then coalesce(handed_to_leogo_at,now()) else handed_to_leogo_at end,
-    cancelled_at=case when p_status='cancelled' then coalesce(cancelled_at,now()) else cancelled_at end,
     updated_at=now()
   where id=p_order_id;
 
@@ -589,7 +588,10 @@ declare
   v_order public.health_medicine_orders%rowtype;
   v_status text;
 begin
-  if not private.is_leogo_admin('approvals.manage') then raise exception 'Approval permission required'; end if;
+  if not private.is_leogo_admin('approvals.manage')
+     and not private.is_leogo_admin('orders.payment_verify') then
+    raise exception 'Payment verification permission required';
+  end if;
   if p_decision not in ('verify','reject') then raise exception 'Choose verify or reject'; end if;
 
   select * into v_order from public.health_medicine_orders where id=p_order_id for update;
