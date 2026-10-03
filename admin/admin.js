@@ -114,7 +114,7 @@
 
   const viewTitles = {
     dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', assisted: 'Assisted Shopping', flashsales: 'Flash Sales', aftersales: 'Aftersales', customers: 'Customers',
-    chat: 'Customer Care Chats', products: 'Products & Categories', sellers: 'Sellers', settlements: 'Partner Settlements', providers: 'Service Providers',
+    chat: 'Customer Care Chats', products: 'Products & Categories', sellers: 'Sellers', health: 'Health & Medicine', settlements: 'Partner Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
     accommodation: 'Accommodation', advertisements: 'Advertisements', loyalty: 'Loyalty & Rewards', reports: 'Reports',
     staff: 'Staff Management', settings: 'System Settings', diagnostics: 'System Diagnosis', audit: 'Audit Log'
@@ -135,6 +135,7 @@
     wallet_withdrawal: 'Wallet Withdrawal', accommodation_host: 'Accommodation Host',
     accommodation_property: 'Accommodation Property',
     accommodation_unit: 'Accommodation Room / Unit',
+    health_medicine_application: 'Health & Medicine Registration', health_medicine_product: 'Health & Medicine Product',
     cyber_application: 'Cyber Partner Registration', cyber_service: 'Cyber Service', cyber_product: 'Cyber Shop Item', cyber_profile_change: 'Cyber Profile Update'
   };
   const functionLabels = {
@@ -541,6 +542,7 @@
       chat: () => adminHas('support.chat'),
       products: () => adminHas('products.read'),
       sellers: () => adminHas('sellers.read'),
+      health: () => adminHas('approvals.read'),
       settlements: () => adminHas('settlements.read'),
       providers: () => adminHas('approvals.read'),
       transport: () => adminHas('orders.read') || adminHas('delivery.manage'),
@@ -820,11 +822,12 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,lookingRequestResult,serviceProviderResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,partnerBillingResult,customerMeetupBillingResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,lookingRequestResult,serviceProviderResult,healthMedicineResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,partnerBillingResult,customerMeetupBillingResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
       db.rpc('admin_list_looking_request_approvals'),
       db.rpc('admin_list_service_provider_approvals'),
+      db.rpc('admin_list_health_medicine_approvals'),
       db.rpc('admin_list_transport_approvals'),
       db.rpc('admin_list_pickup_station_approvals'),
       db.rpc('admin_list_partner_profile_changes'),
@@ -841,6 +844,7 @@
     if (personalSaleResult.error) throw personalSaleResult.error;
     if (lookingRequestResult.error) throw lookingRequestResult.error;
     if (serviceProviderResult.error) throw serviceProviderResult.error;
+    if (healthMedicineResult.error) throw healthMedicineResult.error;
     if (transportResult.error) throw transportResult.error;
     if (pickupStationResult.error) throw pickupStationResult.error;
     if (profileChangesResult.error) throw profileChangesResult.error;
@@ -858,6 +862,7 @@
       ...(Array.isArray(personalSaleResult.data) ? personalSaleResult.data : []),
       ...(Array.isArray(lookingRequestResult.data) ? lookingRequestResult.data : []),
       ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : []),
+      ...(Array.isArray(healthMedicineResult.data) ? healthMedicineResult.data : []),
       ...(Array.isArray(transportResult.data) ? transportResult.data : []),
       ...(Array.isArray(pickupStationResult.data) ? pickupStationResult.data : []),
       ...(Array.isArray(profileChangesResult.data) ? profileChangesResult.data : []),
@@ -920,7 +925,7 @@
     renderAdminNotifications();
   };
 
-  const approvalGroup = (kind) => kind==='customer_looking_request' ? 'customer_requests' : ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle','transport_provider_settlement_account','pickup_station_application'].includes(kind) ? 'transport' : kind.startsWith('cyber_') ? 'cyber' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalGroup = (kind) => kind==='customer_looking_request' ? 'customer_requests' : ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : kind.startsWith('health_medicine_') ? 'health' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle','transport_provider_settlement_account','pickup_station_application'].includes(kind) ? 'transport' : kind.startsWith('cyber_') ? 'cyber' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
   const approvalIsFinancial = (item) => ['premium_payment','partner_subscription_payment','premium_extra_acceptance_payment','premium_customer_meetup_payment'].includes(item.kind) || item.kind.startsWith('wallet') || item.kind.endsWith('_settlement_account');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
@@ -955,6 +960,7 @@
     const transport = state.approvals.filter((item) => approvalGroup(item.kind) === 'transport').length;
     const cyber = state.approvals.filter((item) => approvalGroup(item.kind) === 'cyber').length;
     const accommodation = state.approvals.filter((item) => approvalGroup(item.kind) === 'accommodation').length;
+    const health = state.approvals.filter((item) => approvalGroup(item.kind) === 'health').length;
     const customer_requests = state.approvals.filter((item) => approvalGroup(item.kind) === 'customer_requests').length;
     const oldest = [...state.approvals].filter((item) => item.submitted_at).sort((a,b) => new Date(a.submitted_at) - new Date(b.submitted_at))[0];
     $('#approvalTotalCount').textContent = state.approvals.length;
@@ -962,7 +968,8 @@
     $('#approvalPremiumCount').textContent = premium;
     $('#approvalAccommodationCount').textContent = accommodation;
     $('#approvalOldestWaiting').textContent = oldest ? waitingAge(oldest.submitted_at) : '—';
-    const counts = { all: state.approvals.length, financial, wallet, sellers, customer_requests, providers, transport, cyber, premium, accommodation };
+    const counts = { all: state.approvals.length, financial, wallet, sellers, health, customer_requests, providers, transport, cyber, premium, accommodation };
+    if ($('#sidebarHealthCount')) $('#sidebarHealthCount').textContent = health;
     Object.entries(counts).forEach(([key, count]) => {
       const target = $(`#approvalFilters [data-approval-filter="${key}"] b`);
       if (target) target.textContent = count;
@@ -1012,6 +1019,8 @@
     registration_certificate_path: { label: 'CR12 / Registration Certificate', bucket: 'seller-verification' },
     other_permit_paths: { label: 'Other Related Permit', bucket: 'seller-verification', multiple: true },
     professional_licence_path: { label: 'Professional Licence / Certificate', bucket: 'service-provider-verification' },
+    regulatory_licence_path: { label: 'Regulatory Licence', bucket: 'health-medicine-verification' },
+    professional_certificate_path: { label: 'Professional Certificate', bucket: 'health-medicine-verification' },
     transport_operator_permit_path: { label: 'Transport / Operator Permit', bucket: 'transport-verification' },
     vehicle_profile_picture_path: { label: 'Vehicle Profile Picture', bucket: 'transport-public-media', publicBucket: true },
     driver_passport_photo_path: { label: 'Driver Passport Photo — Admin Only', bucket: 'transport-driver-private' },
@@ -1029,6 +1038,7 @@
     inspection_photo_paths: { label: 'Asset Inspection Photo', bucket: 'loan-asset-media', multiple: true },
     release_photo_path: { label: 'Asset Release Photo', bucket: 'loan-asset-media' },
     cyber_product_image_path: { label: 'Cyber Product Picture', bucket: 'cyber-public-media', publicBucket: true },
+    health_product_image_path: { label: 'Health Product Picture', bucket: 'health-medicine-public-media', publicBucket: true },
 
     cover_image_url: { label: 'Property Cover Image', directUrl: true },
     gallery_image_urls: { label: 'Property Gallery Image', directUrl: true, multiple: true },
@@ -1064,10 +1074,17 @@
     const providerVerificationFields = new Set(['passport_photo_path','business_id_document_path','business_licence_path','registration_certificate_path','professional_licence_path','other_permit_paths']);
     const transportVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','transport_operator_permit_path','other_permit_paths']);
     const cyberVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','other_permit_paths']);
+    const healthVerificationFields = new Set(['business_id_document_path','business_licence_path','regulatory_licence_path','professional_certificate_path','registration_certificate_path','other_permit_paths']);
     const pickupStationVerificationFields = new Set(['business_id_document_path','business_licence_path','registration_certificate_path','other_permit_paths']);
     Object.entries(approvalMediaFields).forEach(([key, config]) => {
       let resolvedConfig = config;
-      if (['cyber_application','cyber_profile_change'].includes(kind) && key === 'profile_picture_path') {
+      if (kind === 'health_medicine_application' && key === 'profile_picture_path') {
+        resolvedConfig = { ...config, bucket:'health-medicine-public-media', publicBucket:true, label:'Health Partner Profile Picture' };
+      } else if (kind === 'health_medicine_application' && healthVerificationFields.has(key)) {
+        resolvedConfig = { ...config, bucket:'health-medicine-verification', publicBucket:false };
+      } else if (kind === 'health_medicine_product' && key === 'health_product_image_path') {
+        resolvedConfig = { ...config, bucket:'health-medicine-public-media', publicBucket:true, label:'Health Product Picture' };
+      } else if (['cyber_application','cyber_profile_change'].includes(kind) && key === 'profile_picture_path') {
         resolvedConfig = { ...config, bucket:'cyber-public-media', publicBucket:true, label:'Cyber Shop Profile Picture' };
       } else if (['cyber_application','cyber_profile_change'].includes(kind) && cyberVerificationFields.has(key)) {
         resolvedConfig = { ...config, bucket:'cyber-verification', publicBucket:false };
@@ -1226,10 +1243,10 @@
     const requestChanges = $('[data-review-action="changes_requested"]');
     const reject = $('[data-review-action="reject"]');
     const approve = $('[data-review-action="approve"]');
-    const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change'].includes(kind) && item.status === 'changes_requested';
+    const awaitingCorrection = ['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','health_medicine_application','health_medicine_product','transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change'].includes(kind) && item.status === 'changes_requested';
     const settlementAccountApproval = ['seller_settlement_account','service_provider_settlement_account','transport_provider_settlement_account'].includes(kind);
     underReview.hidden = ['premium_payment','partner_subscription_payment','premium_extra_acceptance_payment','premium_customer_meetup_payment','wallet_deposit','wallet_withdrawal'].includes(kind) || awaitingCorrection || settlementAccountApproval;
-    requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
+    requestChanges.hidden = !['seller_application','seller_profile_change','seller_product','service_provider_application','service_provider_profile_change','service_listing','health_medicine_application','health_medicine_product','transport_provider_application','transport_provider_profile_change','transport_vehicle','pickup_station_application','accommodation_host','accommodation_provider_profile_change','premium_partner_profile_change','cyber_application','cyber_service','cyber_product','cyber_profile_change','premium_customer', 'premium_profile'].includes(kind) || awaitingCorrection || kind === 'customer_personal_sale' || settlementAccountApproval;
     reject.hidden = awaitingCorrection;
     approve.hidden = awaitingCorrection;
     $('#reviewNotesLabel').textContent = requestChanges.hidden ? 'Admin notes / reason' : 'Admin notes / correction request';
@@ -1255,6 +1272,10 @@
         ? 'admin_review_premium_customer_meetup_payment'
         : ['partner_subscription_payment','premium_extra_acceptance_payment'].includes(item.kind)
         ? 'admin_review_partner_billing_payment'
+        : item.kind === 'health_medicine_application'
+        ? 'admin_review_health_medicine_application'
+        : item.kind === 'health_medicine_product'
+          ? 'admin_review_health_medicine_product'
         : item.kind === 'cyber_application'
         ? 'admin_review_cyber_provider'
         : item.kind === 'cyber_service'
@@ -1300,6 +1321,8 @@
         ? { p_payment_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : ['partner_subscription_payment','premium_extra_acceptance_payment'].includes(item.kind)
         ? { p_payment_id: item.record_id, p_decision: decision, p_notes: notes || null }
+        : ['health_medicine_application','health_medicine_product'].includes(item.kind)
+        ? { p_record_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : item.kind === 'cyber_application'
         ? { p_user_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : item.kind === 'cyber_service'
@@ -1340,6 +1363,7 @@
             : 'Approval decision saved and audited.'
       );
       const refreshers=[loadApprovals(),loadDashboard(),loadSellers(),loadServiceProviders(),loadCatalogue(),loadPremiumCustomers(),loadPremiumProfiles(),loadAccommodationSummary(),loadPickupStations()];
+      if(window.leogoLoadHealthMedicineAdmin)refreshers.push(window.leogoLoadHealthMedicineAdmin());
       if(isSuperAdmin()) refreshers.push(loadAuditLog());
       if(adminHas('settlements.read')) refreshers.push(loadSellerSettlements());
       await Promise.allSettled(refreshers);
