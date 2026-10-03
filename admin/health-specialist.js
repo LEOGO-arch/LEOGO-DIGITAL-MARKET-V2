@@ -144,10 +144,13 @@
   };
 
   const load=async()=>{
-    const results=await Promise.allSettled([loadSettings(),loadOperations()]);
-    const failed=results.find((result)=>result.status==='rejected');
-    if(failed){
-      console.warn('Health Specialist Admin extension could not load:',failed.reason);
+    const [settingsResult,operationsResult]=await Promise.allSettled([loadSettings(),loadOperations()]);
+    if(settingsResult.status==='rejected'){
+      console.warn('Health Specialist booking-fee settings could not load:',settingsResult.reason);
+      setStatus($('#adminHealthSpecialistFeeStatus'),'Booking fee settings are unavailable for this Admin role or session.','error');
+    }
+    if(operationsResult.status==='rejected'){
+      console.warn('Health Specialist operations could not load:',operationsResult.reason);
       const body=$('#adminHealthSpecialistServiceTable');
       if(body)body.innerHTML='<tr><td colspan="6">Health Specialist service data is unavailable.</td></tr>';
       const bookingsNode=$('#adminHealthSpecialistBookingList');
