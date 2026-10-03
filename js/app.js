@@ -1378,11 +1378,17 @@
     }
 
     checkoutRewardPointsBalance=Math.max(0,Number(data.points_value_kes??data.points??0));
-    if(checkoutUsePoints)checkoutUsePoints.disabled=checkoutRewardPointsBalance<=0;
+    const healthOnlyCart=testCart.length>0&&testCart.every((item)=>cartItemSource(item)==='health_medicine');
+    if(checkoutUsePoints){
+      checkoutUsePoints.disabled=healthOnlyCart||checkoutRewardPointsBalance<=0;
+      if(healthOnlyCart)checkoutUsePoints.checked=false;
+    }
     if(checkoutPointsAvailable){
-      checkoutPointsAvailable.textContent=checkoutRewardPointsBalance>0
-        ? Number(checkoutRewardPointsBalance).toLocaleString('en-KE',{maximumFractionDigits:2})+' points · worth '+deliveryMoney(checkoutRewardPointsBalance)
-        : 'You do not have usable LEOGO Points yet.';
+      checkoutPointsAvailable.textContent=healthOnlyCart
+        ? 'LEOGO Points are not yet available for Health & Medicine checkout.'
+        : checkoutRewardPointsBalance>0
+          ? Number(checkoutRewardPointsBalance).toLocaleString('en-KE',{maximumFractionDigits:2})+' points · worth '+deliveryMoney(checkoutRewardPointsBalance)
+          : 'You do not have usable LEOGO Points yet.';
     }
     updateCheckoutPointsTotals();
     syncSelectedPaymentPresentation();
