@@ -2746,7 +2746,7 @@
         popup.document.open();
         popup.document.write(receiptHtml);
         popup.document.close();
-        setFormStatus($('#adminOrderDetailStatus'),'80 mm thermal receipt opened for the Xprinter. It uses full-size receipt text and auto length based on the order items.','success');
+        setFormStatus($('#adminOrderDetailStatus'),'80 mm Xprinter receipt opened in compact supermarket layout. Length grows automatically with the number of order items.','success');
         return;
       }
 
