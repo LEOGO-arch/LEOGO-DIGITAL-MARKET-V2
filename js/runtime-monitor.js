@@ -210,13 +210,16 @@
       return response;
     }catch(error){
       if(!String(url).includes('/record_system_runtime_error')){
+        let host='network';
+        try{host=new URL(String(url||''),window.location.href).hostname||'network';}catch{}
         report({
-          errorType:'http_error',
-          message:'Network request failed: '+cleanText(error?.message||error,300),
-          operation:operationFromUrl(url),
+          errorType:'network_error',
+          module:'connectivity',
+          message:'Temporary network connection failed',
+          operation:'connectivity:'+host,
           source:url,
           method,
-          severity:'critical'
+          severity:'warning'
         });
       }
       throw error;
