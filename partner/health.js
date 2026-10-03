@@ -5,7 +5,7 @@
 
   const $=(selector,root=document)=>root?.querySelector(selector)||null;
   const $$=(selector,root=document)=>root?Array.from(root.querySelectorAll(selector)):[];
-  const client=window.leogoAuth?.client;
+  const client=window.leogoPartnerClient;
   const shell=$('#healthMedicineShell');
   if(!client||!shell)return;
 
@@ -55,7 +55,7 @@
     return String(value||'').trim();
   };
   const publicMedia=(path)=>path?client.storage.from('health-medicine-public-media').getPublicUrl(path).data?.publicUrl||'':'';
-  const currentUser=()=>window.leogoAuth?.getUser?.()||null;
+  const currentUser=()=>window.leogoPartnerCurrentUser?.()||null;
 
   const showOnlyHealthShell=()=>{
     ['sellerShell','providerShell','transportShell','premiumShell','accommodationShell','cyberShell'].forEach((id)=>{
