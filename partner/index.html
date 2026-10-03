@@ -83,7 +83,7 @@
   <section class="seller-shell health-medicine-shell" id="healthMedicineShell" hidden>
     <section id="healthMedicineOnboarding" class="panel seller-onboarding" hidden>
       <div class="seller-onboarding-icon">⚕️</div>
-      <div><span>HEALTH &amp; MEDICINE PARTNER</span><h2>Register a regulated Health &amp; Medicine business</h2><p>This is separate from an ordinary Seller account. Choose Pharmacy, Optics, Medical Supplies, Orthopaedic / Rehabilitation, Laboratory / Diagnostics or another approved health business type.</p></div>
+      <div><span>HEALTH &amp; MEDICINE PARTNER</span><h2>Register a regulated Health &amp; Medicine business</h2><p>This is separate from an ordinary Seller account. Choose Pharmacy, Optics, Medical Supplies, Orthopaedic / Rehabilitation, Laboratory / Diagnostics, Health Specialist / Doctor or another approved health business type.</p></div>
       <button id="showHealthMedicineRegistration" type="button">Register Health &amp; Medicine</button>
     </section>
 
@@ -102,6 +102,7 @@
             <option value="medical_supplies">Medical Equipment &amp; Supplies</option>
             <option value="orthopaedic_rehab">Orthopaedic &amp; Rehabilitation</option>
             <option value="laboratory_diagnostics">Laboratory / Diagnostics</option>
+            <option value="health_specialist">Health Specialist / Doctor</option>
             <option value="other_health">Other Health &amp; Medicine</option>
           </select>
         </label>
@@ -118,7 +119,7 @@
         <label>Business ID / identification document <small>Required · Admin only</small><input id="healthBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
         <label>Business licence <small>Optional unless Admin requires it</small><input id="healthBusinessLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
         <label id="healthRegulatoryLicenceLabel">Regulatory / professional licence <small id="healthRegulatoryLicenceHelp">Required for Pharmacy / pharmaceuticals</small><input id="healthRegulatoryLicence" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
-        <label>Professional certificate <small>Optional</small><input id="healthProfessionalCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
+        <label>Professional certificate <small>Required for Health Specialist / Doctor applications</small><input id="healthProfessionalCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
         <label>Registration certificate / CR12 <small>Optional</small><input id="healthRegistrationCertificate" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label>
         <label class="wide">Other Health permits <small>Optional, up to 5 files</small><input id="healthOtherPermits" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple></label>
       </div>
@@ -144,8 +145,10 @@
         </div>
         <nav>
           <button class="active" data-health-view="overview" type="button"><span>▦</span>Overview</button>
-          <button data-health-view="products" type="button"><span>💊</span>Health Products <b id="healthMedicineProductBadge" hidden>0</b></button>
-          <button data-health-view="orders" type="button"><span>▤</span>Orders <b id="healthMedicineOrderBadge" hidden>0</b></button>
+          <button id="healthMedicineProductsNav" data-health-view="products" type="button"><span>💊</span>Health Products <b id="healthMedicineProductBadge" hidden>0</b></button>
+          <button id="healthMedicineOrdersNav" data-health-view="orders" type="button"><span>▤</span>Orders <b id="healthMedicineOrderBadge" hidden>0</b></button>
+          <button id="healthSpecialistServicesNav" data-health-view="services" type="button" hidden><span>🩺</span>My Services <b id="healthSpecialistServiceBadge" hidden>0</b></button>
+          <button id="healthSpecialistBookingsNav" data-health-view="bookings" type="button" hidden><span>📅</span>Service Bookings <b id="healthSpecialistBookingBadge" hidden>0</b></button>
           <button data-health-view="notifications" type="button"><span>🔔</span>Notifications <b id="healthMedicineNotificationBadge" hidden>0</b></button>
         </nav>
         <div class="seller-sidebar-footer"><button id="healthMedicineBackToPartnerships" class="secondary" type="button">← Partnerships</button></div>
@@ -164,10 +167,15 @@
             <article><span>Products</span><strong id="healthMedicineProductCount">0</strong><small>Submitted Health listings</small></article>
             <article><span>Approved Products</span><strong id="healthMedicineApprovedCount">0</strong><small>Visible to customers</small></article>
             <article><span>Active Orders</span><strong id="healthMedicineActiveOrders">0</strong><small>OTC / non-prescription orders</small></article>
+            <article id="healthSpecialistServicesMetric" hidden><span>Approved Services</span><strong id="healthSpecialistApprovedServices">0</strong><small>Customer-bookable professional services</small></article>
+            <article id="healthSpecialistBookingsMetric" hidden><span>Service Bookings</span><strong id="healthSpecialistActiveBookings">0</strong><small>Bookings needing your attention</small></article>
             <article><span>Account Status</span><strong id="healthMedicineAccountStatus">Approved</strong><small>Admin verified partner</small></article>
           </section>
-          <section class="panel health-safety-panel">
+          <section class="panel health-safety-panel" id="healthMedicineProductSafetyPanel">
             <div class="section-title"><span>REGULATED MARKETPLACE</span><h3>Medicine sellers classify each medicine before approval</h3><p>Pharmaceutical items can only be submitted by an approved Pharmacy profile. Mark each medicine as OTC or Prescription Required. Approved OTC medicine can use the cart and normal Health checkout; Prescription Required medicine remains enquiry-only.</p></div>
+          </section>
+          <section class="panel health-specialist-overview-note" id="healthSpecialistOverviewNote" hidden>
+            <div class="section-title"><span>VERIFIED HEALTH SPECIALIST</span><h3>List professional services and receive verified bookings</h3><p>Each service is reviewed by LEOGO Admin before publication. Customers pay the Admin-controlled LEOGO booking fee first; after verification the booking is sent to you for acceptance.</p></div>
           </section>
         </section>
 
@@ -210,6 +218,42 @@
             <div class="section-title"><span>HEALTH ORDERS</span><h3>OTC &amp; Non-Prescription Orders</h3><p>Orders appear here after a customer checks out an approved cart-eligible Health product. Till/Paybill orders must be verified by LEOGO Admin before preparation. COD orders can be accepted immediately.</p></div>
             <div id="healthMedicineOrderList" class="health-order-list"><div class="empty-card">No Health &amp; Medicine orders yet.</div></div>
             <p id="healthMedicineOrderStatus" class="status"></p>
+          </section>
+        </section>
+
+        <section class="seller-view" data-health-content="services">
+          <section class="panel">
+            <div class="section-title"><span>HEALTH SPECIALIST SERVICES</span><h3>List a professional Health service</h3><p>For approved Health Specialist / Doctor accounts. Each service is sent to LEOGO Admin for approval before customers can book it.</p></div>
+            <form id="healthSpecialistServiceForm">
+              <input id="healthSpecialistServiceId" type="hidden">
+              <input id="healthSpecialistExistingImagePath" type="hidden">
+              <div class="form-grid">
+                <label>Service name<input id="healthSpecialistServiceName" type="text" maxlength="160" placeholder="e.g. General Medical Consultation" required></label>
+                <label>Specialty / category<input id="healthSpecialistSpecialty" type="text" maxlength="160" placeholder="e.g. General Practice, Paediatrics" required></label>
+                <label>Consultation / service fee (KSh)<input id="healthSpecialistConsultationFee" type="number" min="0" step="0.01" required></label>
+                <label>Duration (minutes)<input id="healthSpecialistDuration" type="number" min="5" max="480" step="5" value="30" required></label>
+                <label>Service mode<select id="healthSpecialistServiceMode" required><option value="in_person">In Person</option><option value="online">Online</option><option value="both">In Person or Online</option></select></label>
+                <label>Listing status<select id="healthSpecialistListingStatus" required><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+                <label class="wide">Service description<textarea id="healthSpecialistServiceDescription" rows="3" maxlength="1800" placeholder="Describe the consultation or professional Health service."></textarea></label>
+                <label class="wide">Availability notes<textarea id="healthSpecialistAvailabilityNotes" rows="2" maxlength="800" placeholder="e.g. Monday–Friday 8 AM–5 PM; appointments subject to confirmation."></textarea></label>
+                <label class="wide">Service image <small>Optional. If omitted, your approved Health profile photo is used on the customer side.</small><input id="healthSpecialistServiceImage" type="file" accept="image/jpeg,image/png,image/webp"></label>
+              </div>
+              <div class="health-specialist-fee-note">The consultation/service fee belongs to your professional service. The LEOGO booking fee is separate, is paid to LEOGO by the customer, and is set by Admin.</div>
+              <div class="product-actions"><button id="resetHealthSpecialistService" class="secondary" type="button">Clear</button><button type="submit">Save &amp; Send to Admin</button></div>
+              <p id="healthSpecialistServiceStatus" class="status"></p>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="section-title"><span>MY SERVICES</span><h3>Service approval status</h3></div>
+            <div id="healthSpecialistServiceList" class="health-specialist-service-list"><div class="empty-card">No Health Specialist services submitted yet.</div></div>
+          </section>
+        </section>
+
+        <section class="seller-view" data-health-content="bookings">
+          <section class="panel">
+            <div class="section-title"><span>SERVICE BOOKINGS</span><h3>Customer Health Specialist bookings</h3><p>Bookings are sent to you only after LEOGO receives the request. Do not accept or start a booking until the LEOGO booking fee has been verified.</p></div>
+            <div id="healthSpecialistBookingList" class="health-specialist-booking-list"><div class="empty-card">No Health Specialist bookings yet.</div></div>
+            <p id="healthSpecialistBookingStatus" class="status"></p>
           </section>
         </section>
 
@@ -1807,7 +1851,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
 <script src="partner.js?v=health-otc-cart-v2" defer></script>
-<script src="health.js?v=health-otc-cart-v2" defer></script>
+<script src="health.js?v=health-specialist-v1" defer></script>
+<script src="health-specialist.js?v=health-specialist-v1" defer></script>
 <script src="cyber.js?v=premium-cyber-subscription-v1" defer></script>
 <script src="shipping-moq.js?v=auth-timing-2" defer></script>
 </body></html>
