@@ -99,7 +99,11 @@ begin
     'status',case when v_status>0 then v_status else null end,
     'method',nullif(left(upper(coalesce(p_metadata->>'method','')),12),''),
     'host',nullif(left(lower(coalesce(p_metadata->>'host','')),120),''),
-    'failed_count',case when coalesce(p_metadata->>'failed_count','') ~ '^[0-9]{1,3}
+    'failed_count',case
+      when coalesce(p_metadata->>'failed_count','') ~ '^[0-9]{1,3}$'
+        then least(500,greatest(1,(p_metadata->>'failed_count')::integer))
+      else null
+    end
   ));
 
   insert into private.system_runtime_issues(
