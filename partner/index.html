@@ -145,6 +145,7 @@
         <nav>
           <button class="active" data-health-view="overview" type="button"><span>▦</span>Overview</button>
           <button data-health-view="products" type="button"><span>💊</span>Health Products <b id="healthMedicineProductBadge" hidden>0</b></button>
+          <button data-health-view="orders" type="button"><span>▤</span>Orders <b id="healthMedicineOrderBadge" hidden>0</b></button>
           <button data-health-view="notifications" type="button"><span>🔔</span>Notifications <b id="healthMedicineNotificationBadge" hidden>0</b></button>
         </nav>
         <div class="seller-sidebar-footer"><button id="healthMedicineBackToPartnerships" class="secondary" type="button">← Partnerships</button></div>
@@ -162,10 +163,11 @@
             <article><span>Business Type</span><strong id="healthMedicineBusinessTypeCard">—</strong><small>Separate Health &amp; Medicine classification</small></article>
             <article><span>Products</span><strong id="healthMedicineProductCount">0</strong><small>Submitted Health listings</small></article>
             <article><span>Approved Products</span><strong id="healthMedicineApprovedCount">0</strong><small>Visible to customers</small></article>
+            <article><span>Active Orders</span><strong id="healthMedicineActiveOrders">0</strong><small>OTC / non-prescription orders</small></article>
             <article><span>Account Status</span><strong id="healthMedicineAccountStatus">Approved</strong><small>Admin verified partner</small></article>
           </section>
           <section class="panel health-safety-panel">
-            <div class="section-title"><span>REGULATED MARKETPLACE</span><h3>Health items stay separate from ordinary Seller products</h3><p>Pharmaceutical items can only be submitted by an approved Pharmacy profile. Prescription-required products are clearly marked and are not connected to ordinary checkout in this V1 foundation.</p></div>
+            <div class="section-title"><span>REGULATED MARKETPLACE</span><h3>Medicine sellers classify each medicine before approval</h3><p>Pharmaceutical items can only be submitted by an approved Pharmacy profile. Mark each medicine as OTC or Prescription Required. Approved OTC medicine can use the cart and normal Health checkout; Prescription Required medicine remains enquiry-only.</p></div>
           </section>
         </section>
 
@@ -178,11 +180,10 @@
               <div class="form-grid">
                 <label>Product name<input id="healthMedicineProductName" type="text" maxlength="160" required></label>
                 <label>Product type<select id="healthMedicineProductKind" required></select></label>
-                <label id="healthMedicineClassificationLabel" hidden>Medicine classification
+                <label id="healthMedicineClassificationLabel" hidden>Does this medicine require a prescription?
                   <select id="healthMedicineClassification">
-                    <option value="otc">General / OTC</option>
+                    <option value="otc">OTC — No prescription required</option>
                     <option value="prescription_required">Prescription Required</option>
-                    <option value="pharmacy_only">Pharmacy-only</option>
                   </select>
                 </label>
                 <label>Brand <small>Optional</small><input id="healthMedicineBrand" type="text" maxlength="120"></label>
@@ -193,7 +194,7 @@
                 <label class="wide">Product description<textarea id="healthMedicineProductDescription" rows="3" maxlength="1800"></textarea></label>
                 <label class="wide">Product image <small>JPG, PNG or WEBP. Required for new products.</small><input id="healthMedicineProductImage" type="file" accept="image/jpeg,image/png,image/webp"></label>
               </div>
-              <div class="health-prescription-note" id="healthPrescriptionNote" hidden>Prescription-required medicines are clearly flagged for customers and are not connected to ordinary Seller checkout.</div>
+              <div class="health-prescription-note" id="healthPrescriptionNote" hidden>Prescription-required medicines are clearly flagged for customers and remain enquiry-only. OTC medicines can be added to the Health cart after Admin approval.</div>
               <div class="product-actions"><button id="resetHealthMedicineProduct" class="secondary" type="button">Clear</button><button type="submit">Save &amp; Send to Admin</button></div>
               <p id="healthMedicineProductStatus" class="status"></p>
             </form>
@@ -201,6 +202,14 @@
           <section class="panel">
             <div class="section-title"><span>MY HEALTH PRODUCTS</span><h3>Product approval status</h3></div>
             <div id="healthMedicineProductList" class="health-product-list"><div class="empty-card">No Health &amp; Medicine products submitted yet.</div></div>
+          </section>
+        </section>
+
+        <section class="seller-view" data-health-content="orders">
+          <section class="panel">
+            <div class="section-title"><span>HEALTH ORDERS</span><h3>OTC &amp; Non-Prescription Orders</h3><p>Orders appear here after a customer checks out an approved cart-eligible Health product. Till/Paybill orders must be verified by LEOGO Admin before preparation. COD orders can be accepted immediately.</p></div>
+            <div id="healthMedicineOrderList" class="health-order-list"><div class="empty-card">No Health &amp; Medicine orders yet.</div></div>
+            <p id="healthMedicineOrderStatus" class="status"></p>
           </section>
         </section>
 
