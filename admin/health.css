@@ -1,0 +1,13 @@
+/* LEOGO Admin — Health & Medicine V1 */
+[data-admin-panel="health"] .seller-admin-summary article{border-top:3px solid #17826f}
+[data-admin-panel="health"] .content-card{margin-top:16px}
+[data-admin-panel="health"] .status-chip{display:inline-flex;align-items:center;border-radius:999px;padding:5px 8px;background:#edf3f7;color:#34485a;font-size:8px;font-weight:900;text-transform:capitalize}
+[data-admin-panel="health"] .status-chip.approved{background:#e7f7ef;color:#17633d}
+[data-admin-panel="health"] .status-chip.submitted,
+[data-admin-panel="health"] .status-chip.pending,
+[data-admin-panel="health"] .status-chip.under_review{background:#edf3ff;color:#31598f}
+[data-admin-panel="health"] .status-chip.changes_requested{background:#fff5df;color:#8b5a08}
+[data-admin-panel="health"] .status-chip.rejected{background:#ffe9e9;color:#8c2d2d}
+.admin-health-prescription{display:inline-flex;border-radius:999px;padding:4px 7px;background:#fff0e3;color:#9c4c08;font-size:7px;font-weight:900}
+.admin-health-type{font-size:8px;font-weight:900;color:#177967}
+.admin-health-note{font-size:7.5px;color:#6d7a87}
