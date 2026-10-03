@@ -15,19 +15,9 @@
 
   const searchForm = document.getElementById('searchForm');
   const searchInput = document.getElementById('searchInput');
-
-  if (searchForm && searchInput) {
-    searchForm.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const term = searchInput.value.trim();
-      if (!term) {
-        searchInput.focus();
-        return;
-      }
-      // Catalogue/search functionality will be connected to Supabase in the approved later phase.
-      window.location.hash = 'catalogue';
-    });
-  }
+  const headerSearch = document.getElementById('headerSearch');
+  const headerSearchInput = document.getElementById('headerSearchInput');
+  const globalSearchResults = document.getElementById('globalSearchResults');
   const requestModal = document.getElementById('requestModal');
   const openRequestForm = document.getElementById('openRequestForm');
   const requestForm = document.getElementById('customerRequestForm');
