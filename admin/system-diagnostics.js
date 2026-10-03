@@ -4,7 +4,7 @@
   const db=window.leogoAdminDb;
   const $=(selector,root=document)=>root.querySelector(selector);
   const $$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
-  const state={configured:false,lastResult:null,latestRun:null,runtimeHours:24,currentFinding:null};
+  const state={configured:false,lastResult:null,latestRun:null,runtimeHours:24,currentFinding:null,monitoring:null};
 
   const escapeHtml=(value)=>String(value??'').replace(/[&<>"']/g,(char)=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -326,6 +326,177 @@
     }
   };
 
+
+  const monitoringStatusLabel=(status)=>({
+    healthy:'Healthy',warning:'Warning',critical:'Critical',
+    maintenance:'Maintenance',disabled:'Disabled',failed:'Failed',not_run:'Not run'
+  }[status]||humanizeKey(status||'unknown'));
+
+  const toLocalInputValue=(value)=>{
+    if(!value)return '';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return '';
+    const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);
+    return local.toISOString().slice(0,16);
+  };
+
+  const renderSystemMonitoring=(snapshot)=>{
+    state.monitoring=snapshot||{};
+    const settings=snapshot?.settings||{};
+    const summary=snapshot?.summary||{};
+    const incidents=Array.isArray(snapshot?.incidents)?snapshot.incidents:[];
+    const runs=Array.isArray(snapshot?.recent_runs)?snapshot.recent_runs:[];
+
+    const monitoringState=$('#diagnosticsMonitoringState');
+    const paused=!settings.enabled;
+    const maintenance=Boolean(settings.maintenance_mode);
+    const stateText=paused?'DISABLED':maintenance?'MAINTENANCE':'ACTIVE';
+    if(monitoringState){
+      monitoringState.textContent=stateText;
+      monitoringState.className='diagnostics-state '+(paused||maintenance?'warning':'healthy');
+    }
+
+    const score=summary.health_score;
+    $('#monitoringHealthScore').textContent=score===null||score===undefined?'—':Number(score)+'%';
+    $('#monitoringHealthLabel').textContent=monitoringStatusLabel(summary.status);
+    $('#monitoringCriticalCount').textContent=Number(summary.active_critical??summary.critical_count??0);
+    $('#monitoringWarningCount').textContent=Number(summary.active_warnings??summary.warning_count??0);
+    $('#monitoringRecoveredToday').textContent=Number(summary.recovered_today||0);
+    $('#monitoringLastScan').textContent=summary.last_scan_at?formatWhen(summary.last_scan_at):'Not run';
+    $('#monitoringNextScan').textContent=paused||maintenance?'Paused':summary.next_scan_at?formatWhen(summary.next_scan_at):'Pending';
+
+    const enabled=$('#monitoringEnabled');
+    const maintenanceBox=$('#monitoringMaintenance');
+    if(enabled)enabled.checked=settings.enabled!==false;
+    if(maintenanceBox)maintenanceBox.checked=maintenance;
+    const until=$('#monitoringMaintenanceUntil');
+    if(until)until.value=toLocalInputValue(settings.maintenance_until);
+    const reason=$('#monitoringMaintenanceReason');
+    if(reason)reason.value=settings.maintenance_reason||'';
+
+    const incidentHost=$('#diagnosticsMonitoringIncidents');
+    if(incidentHost){
+      incidentHost.innerHTML=incidents.length?incidents.map((incident)=>`
+        <article class="diagnostics-monitoring-incident ${escapeHtml(incident.status||'active')} ${escapeHtml(incident.severity||'warning')}">
+          <header>
+            <div><span>${escapeHtml((incident.module||'system').toUpperCase())}</span><h4>${escapeHtml(incident.title||incident.check_id||'Monitoring incident')}</h4></div>
+            <div class="diagnostics-runtime-badges"><b class="${escapeHtml(incident.severity||'warning')}">${escapeHtml(String(incident.severity||'warning').toUpperCase())}</b><b>${escapeHtml(String(incident.status||'active').toUpperCase())}</b></div>
+          </header>
+          <p>${escapeHtml(incident.summary||'')}</p>
+          <div class="diagnostics-runtime-meta">
+            <span><strong>Occurrences:</strong> ${Number(incident.occurrence_count||0)}</span>
+            <span><strong>Consecutive:</strong> ${Number(incident.consecutive_failures||0)}</span>
+            <span><strong>${incident.status==='recovered'?'Recovered':'Last seen'}:</strong> ${escapeHtml(formatWhen(incident.status==='recovered'?incident.recovered_at:incident.last_detected_at))}</span>
+          </div>
+          ${incident.evidence?`<div class="diagnostic-evidence"><strong>Evidence</strong><span>${escapeHtml(incident.evidence)}</span></div>`:''}
+          <div class="diagnostics-phase3-actions"><button type="button" data-monitoring-open-check="${escapeHtml(incident.check_id||'')}">Open in Diagnosis</button></div>
+        </article>
+      `).join(''):'<div class="diagnostics-repair-empty"><strong>No active monitoring incidents.</strong><span>Preventive monitoring has no current Critical or Warning findings.</span></div>';
+    }
+
+    const trendHost=$('#diagnosticsMonitoringTrend');
+    if(trendHost){
+      trendHost.innerHTML=runs.length?runs.map((run)=>{
+        const scoreValue=run.health_score===null||run.health_score===undefined?null:Number(run.health_score);
+        const width=scoreValue===null?0:Math.max(0,Math.min(100,scoreValue));
+        return `
+          <article class="diagnostics-monitoring-trend-row">
+            <div><strong>${escapeHtml(monitoringStatusLabel(run.run_status))}</strong><small>${escapeHtml(formatWhen(run.completed_at||run.started_at))} · ${escapeHtml(run.trigger_source||'cron')}</small></div>
+            <div class="diagnostics-monitoring-trend-score"><span><i style="width:${width}%"></i></span><b>${scoreValue===null?'—':scoreValue+'%'}</b></div>
+          </article>
+        `;
+      }).join(''):'<div class="empty-mini">No preventive monitoring runs yet.</div>';
+    }
+
+    document.dispatchEvent(new CustomEvent('leogo:system-monitoring-updated',{detail:snapshot||{}}));
+  };
+
+  const loadSystemMonitoring=async()=>{
+    if(!db)return;
+    const {data,error}=await db.rpc('admin_get_system_monitoring_snapshot');
+    if(error)throw error;
+    renderSystemMonitoring(data||{});
+    return data;
+  };
+
+  const saveSystemMonitoringSettings=async()=>{
+    const pin=$('#monitoringPin')?.value.trim()||'';
+    if(!validatePin(pin)){
+      setStatus($('#diagnosticsMonitoringStatus'),'Enter the 6-digit System Diagnosis PIN to change monitoring settings.','error');
+      return;
+    }
+    const enabled=Boolean($('#monitoringEnabled')?.checked);
+    const maintenance=Boolean($('#monitoringMaintenance')?.checked);
+    const untilValue=$('#monitoringMaintenanceUntil')?.value||'';
+    let until=null;
+    if(maintenance&&untilValue){
+      const parsed=new Date(untilValue);
+      if(Number.isNaN(parsed.getTime())){
+        setStatus($('#diagnosticsMonitoringStatus'),'Enter a valid maintenance end time.','error');
+        return;
+      }
+      until=parsed.toISOString();
+    }
+    const button=$('#saveMonitoringSettings');
+    const original=button.textContent;
+    button.disabled=true;
+    button.textContent='Saving…';
+    try{
+      const {data,error}=await db.rpc('admin_update_system_monitoring_settings',{
+        p_pin:pin,
+        p_enabled:enabled,
+        p_maintenance_mode:maintenance,
+        p_maintenance_until:until,
+        p_reason:$('#monitoringMaintenanceReason')?.value.trim()||null
+      });
+      if(error)throw error;
+      if(!data?.ok){
+        setStatus($('#diagnosticsMonitoringStatus'),parseAuthFailure(data)||data?.message||'Monitoring settings were not changed.','error');
+        return;
+      }
+      $('#monitoringPin').value='';
+      setStatus($('#diagnosticsMonitoringStatus'),'Preventive monitoring settings updated.','success');
+      await loadSystemMonitoring();
+    }catch(error){
+      setStatus($('#diagnosticsMonitoringStatus'),friendly(error),'error');
+    }finally{
+      button.disabled=false;
+      button.textContent=original;
+    }
+  };
+
+  const runSystemMonitoringNow=async()=>{
+    const pin=$('#monitoringPin')?.value.trim()||'';
+    if(!validatePin(pin)){
+      setStatus($('#diagnosticsMonitoringStatus'),'Enter the 6-digit System Diagnosis PIN to run a manual preventive scan.','error');
+      return;
+    }
+    const button=$('#runMonitoringNow');
+    const original=button.textContent;
+    button.disabled=true;
+    button.textContent='Scanning…';
+    try{
+      const {data,error}=await db.rpc('admin_run_system_monitoring_now',{p_pin:pin});
+      if(error)throw error;
+      if(!data?.ok){
+        setStatus($('#diagnosticsMonitoringStatus'),parseAuthFailure(data)||data?.message||'Preventive scan did not complete.','error');
+        return;
+      }
+      $('#monitoringPin').value='';
+      setStatus(
+        $('#diagnosticsMonitoringStatus'),
+        `Quick monitoring scan complete — ${Number(data.critical_count||0)} Critical, ${Number(data.warning_count||0)} Warning.`,
+        Number(data.critical_count||0)>0?'error':'success'
+      );
+      await Promise.all([loadSystemMonitoring(),loadRuntimeIssues()]);
+    }catch(error){
+      setStatus($('#diagnosticsMonitoringStatus'),friendly(error),'error');
+    }finally{
+      button.disabled=false;
+      button.textContent=original;
+    }
+  };
+
   const loadStatus=async()=>{
     if(!db)throw new Error('Secure connection unavailable.');
     const {data,error}=await db.rpc('admin_system_diagnostics_status');
@@ -529,21 +700,32 @@
       if(repair)applySafeRepair(repair.dataset.repairTarget,repair.dataset.repairAction,repair);
     });
     $('#diagnosticsVerifyCheck')?.addEventListener('click',verifyCurrentFinding);
+    $('#refreshSystemMonitoring')?.addEventListener('click',()=>loadSystemMonitoring().catch((error)=>setStatus($('#diagnosticsMonitoringStatus'),friendly(error),'error')));
+    $('#saveMonitoringSettings')?.addEventListener('click',saveSystemMonitoringSettings);
+    $('#runMonitoringNow')?.addEventListener('click',runSystemMonitoringNow);
+    $('#diagnosticsMonitoringIncidents')?.addEventListener('click',(event)=>{
+      const button=event.target.closest('[data-monitoring-open-check]');
+      if(button?.dataset.monitoringOpenCheck)loadFindingDetails(button.dataset.monitoringOpenCheck,false);
+    });
+    document.addEventListener('leogo:system-monitoring-snapshot',(event)=>{
+      if(event.detail)renderSystemMonitoring(event.detail);
+    });
   };
 
   window.leogoDiagnostics={
     activate:async()=>{
       try{
         await loadStatus();
-        await Promise.all([loadRuntimeIssues(),loadLatestDiagnosticRun(),loadRepairHistory()]);
+        await Promise.all([loadRuntimeIssues(),loadLatestDiagnosticRun(),loadRepairHistory(),loadSystemMonitoring()]);
       }catch(error){
         setStatus($('#diagnosticsRunStatus'),friendly(error),'error');
         setStatus($('#diagnosticsRuntimeStatus'),friendly(error),'error');
+        setStatus($('#diagnosticsMonitoringStatus'),friendly(error),'error');
       }
     },
     refresh:async()=>{
       await loadStatus();
-      await Promise.all([loadRuntimeIssues(),loadLatestDiagnosticRun(),loadRepairHistory()]);
+      await Promise.all([loadRuntimeIssues(),loadLatestDiagnosticRun(),loadRepairHistory(),loadSystemMonitoring()]);
     }
   };
 
