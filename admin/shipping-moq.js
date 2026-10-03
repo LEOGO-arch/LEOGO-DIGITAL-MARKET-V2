@@ -56,6 +56,24 @@ function render(error){const host=$('#adminGroupOrderList');if(!host)return;if(e
 async function manage(id,action){let value=null,notes='';if(action==='extend'){value=prompt('New closing date/time (example 2026-10-15T18:00:00+03:00):');if(!value)return;}notes=prompt('Admin note (optional):')||'';if(['cancel','start_refund','close'].includes(action)&&!confirm('Confirm '+action.replaceAll('_',' ')+' for this campaign?'))return;const {error}=await client.rpc('admin_manage_group_order',{p_campaign_id:id,p_action:action,p_value:value,p_notes:notes});if(error)alert(error.message);await loadGroups();}
 async function reviewPayment(id,decision){const notes=prompt('Payment review note (optional):')||'';const {error}=await client.rpc('admin_review_group_order_payment',{p_participation_id:id,p_decision:decision,p_notes:notes});if(error)alert(error.message);await loadGroups();}
 async function refund(id){const reference=prompt('Enter refund transaction/reference:');if(!reference)return;const notes=prompt('Refund note (optional):')||'';const {error}=await client.rpc('admin_complete_group_order_refund',{p_participation_id:id,p_reference:reference,p_notes:notes});if(error)alert(error.message);await loadGroups();}
-const init=()=>{loadStyle();ensureUI();loadDefaults();loadGroups();document.addEventListener('click',e=>{const a=e.target.closest('[data-admin-campaign]');if(a)manage(a.dataset.adminCampaign,a.dataset.action);const p=e.target.closest('[data-payment]');if(p)reviewPayment(p.dataset.payment,p.dataset.decision);const r=e.target.closest('[data-refund]');if(r)refund(r.dataset.refund);});};
+let authLoaded=false;
+async function loadAuthenticatedData(){
+  if(authLoaded)return true;
+  const {data,error}=await client.auth.getSession();
+  if(error||!data?.session?.user)return false;
+  authLoaded=true;
+  await Promise.all([loadDefaults(),loadGroups()]);
+  return true;
+}
+function watchAdminAuth(){
+  loadAuthenticatedData().catch(()=>{});
+  client.auth.onAuthStateChange((event,session)=>{
+    if(session?.user&&!authLoaded){
+      setTimeout(()=>loadAuthenticatedData().catch(()=>{}),0);
+    }
+    if(!session?.user&&event==='SIGNED_OUT')authLoaded=false;
+  });
+}
+const init=()=>{loadStyle();ensureUI();watchAdminAuth();document.addEventListener('click',e=>{const a=e.target.closest('[data-admin-campaign]');if(a)manage(a.dataset.adminCampaign,a.dataset.action);const p=e.target.closest('[data-payment]');if(p)reviewPayment(p.dataset.payment,p.dataset.decision);const r=e.target.closest('[data-refund]');if(r)refund(r.dataset.refund);});};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

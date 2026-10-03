@@ -58,4 +58,37 @@ if(!fixMigration.includes("nullif(btrim(coalesce(p.main_image_path,'')),\'\') is
   throw new Error('static product-image diagnostic check missing');
 }
 
+
+const shippingAdmin=fs.readFileSync('admin/shipping-moq.js','utf8');
+const securityRepair=fs.readFileSync('supabase/migrations/20261003114500_revoke_anon_admin_rpc_access.sql','utf8');
+const premiumEmailRepair=fs.readFileSync('supabase/migrations/20261003120500_repair_premium_expiry_and_email_health.sql','utf8');
+const resolvedRuntimeRepair=fs.readFileSync('supabase/migrations/20261003122500_resolved_runtime_health.sql','utf8');
+
+new vm.Script(shippingAdmin,{filename:'admin/shipping-moq.js'});
+
+if(!shippingAdmin.includes('client.auth.getSession()')||!shippingAdmin.includes('client.auth.onAuthStateChange')){
+  throw new Error('Group Orders must wait for restored Admin authentication');
+}
+if(shippingAdmin.includes('const init=()=>{loadStyle();ensureUI();loadDefaults();loadGroups();')){
+  throw new Error('Group Orders still loads privileged RPCs before Admin auth restore');
+}
+
+const revokeCount=(securityRepair.match(/revoke execute on function public\.admin_/g)||[]).length;
+if(revokeCount!==13)throw new Error('Expected 13 anonymous Admin RPC revocations, found '+revokeCount);
+if(!securityRepair.includes('from public,anon'))throw new Error('Admin RPC repair must revoke PUBLIC and anon');
+if(!securityRepair.includes('to authenticated'))throw new Error('Admin RPC repair must preserve authenticated Admin access');
+
+for(const required of [
+  "membership_status='expired'",
+  "leogo-premium-membership-expiry",
+  "event_key not like 'admin_test_%'",
+  "select max(s.sent_at)"
+]){
+  if(!premiumEmailRepair.includes(required))throw new Error('Premium/email repair missing: '+required);
+}
+
+if(!resolvedRuntimeRepair.includes("status not in ('ignored','resolved')")){
+  throw new Error('Resolved runtime errors still lower active health');
+}
+
 console.log('system diagnostics Phase 2 regression checks passed');
