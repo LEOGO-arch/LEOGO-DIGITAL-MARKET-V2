@@ -556,6 +556,7 @@
           <article><span>Approved</span><strong id="adminHealthPartnerApproved">0</strong><small>Verified Health businesses</small></article>
           <article><span>Pending Review</span><strong id="adminHealthPartnerPending">0</strong><small>Health applications needing action</small></article>
           <article><span>Health Products</span><strong id="adminHealthProductTotal">0</strong><small>Separate from Seller products</small></article>
+          <article><span>Health Orders</span><strong id="adminHealthOrderTotal">0</strong><small>OTC / non-prescription checkout</small></article>
         </div>
         <section class="content-card">
           <div class="card-head"><div><span>HEALTH PARTNER NETWORK</span><h3>Registered Health &amp; Medicine Partners</h3><p>Pharmacy regulatory documents and other verification records remain private to authorized Admin users and are reviewed through Approval Center.</p></div></div>
@@ -565,7 +566,12 @@
           <div class="card-head"><div><span>HEALTH PRODUCT CATALOGUE</span><h3>Health &amp; Medicine Products</h3><p>Products are kept separate from ordinary Seller catalogue records. Prescription-required items are flagged clearly.</p></div><select id="adminHealthProductFilter"><option value="all">All product statuses</option><option value="pending">Pending</option><option value="under_review">Under Review</option><option value="changes_requested">Changes Requested</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
           <div class="responsive-table"><table><thead><tr><th>Product</th><th>Provider</th><th>Type</th><th>Classification</th><th>Price</th><th>Status</th></tr></thead><tbody id="adminHealthProductTable"><tr><td colspan="6">Loading Health products…</td></tr></tbody></table></div>
         </section>
-        <div class="approval-safety-note">Health &amp; Medicine V1 is browse/enquiry only. It is intentionally not connected to ordinary Seller checkout until dedicated prescription and medicine-order controls are added.</div>
+        <section class="content-card">
+          <div class="card-head"><div><span>HEALTH ORDERS</span><h3>OTC &amp; Non-Prescription Orders</h3><p>Verify Till/Paybill payments before the Health Partner prepares the order. Prescription-required medicines never enter this queue.</p></div><select id="adminHealthOrderFilter"><option value="all">All orders</option><option value="payment_pending">Payment verification</option><option value="active">Active orders</option><option value="closed">Closed orders</option></select></div>
+          <div id="adminHealthOrderList" class="admin-health-order-list"><div class="loading-card">Loading Health &amp; Medicine orders…</div></div>
+          <div class="form-status" id="adminHealthOrderStatus"></div>
+        </section>
+        <div class="approval-safety-note">Approved OTC medicines and non-prescription Health products use their own Health order records. Prescription-required medicines remain enquiry-only and never enter normal cart checkout.</div>
       </section>
       <section class="admin-panel" data-admin-panel="settlements">
         <div class="section-head"><div><span>PARTNER FINANCE</span><h2>Partner Settlement Accounts</h2><p>Verify Seller, Service Provider and Transport Provider payout destinations, process requested payouts, or record an Admin-initiated settlement.</p></div><button id="refreshSellerSettlements" class="primary-button" type="button">↻ Refresh</button></div>
