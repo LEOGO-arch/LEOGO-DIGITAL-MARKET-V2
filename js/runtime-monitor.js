@@ -135,16 +135,36 @@
     }).catch(()=>{});
   };
 
+  const confirmSameOriginResourceFailure=async(resourceUrl)=>{
+    try{
+      const url=new URL(String(resourceUrl||''),window.location.href);
+      if(url.origin!==window.location.origin)return true;
+      const response=await nativeFetch(url.href,{
+        method:'GET',
+        cache:'no-store',
+        credentials:'same-origin'
+      });
+      return !response.ok;
+    }catch{
+      return true;
+    }
+  };
+
   window.addEventListener('error',(event)=>{
     const target=event.target;
     if(target&&target!==window&&(target.src||target.href)){
-      report({
-        errorType:'resource_error',
-        message:'Resource failed to load',
-        operation:operationFromUrl(target.src||target.href),
-        source:target.src||target.href,
-        severity:'warning'
-      });
+      const resourceUrl=target.src||target.href;
+      setTimeout(async()=>{
+        const stillFailing=await confirmSameOriginResourceFailure(resourceUrl);
+        if(!stillFailing)return;
+        report({
+          errorType:'resource_error',
+          message:'Resource failed to load after retry',
+          operation:operationFromUrl(resourceUrl),
+          source:resourceUrl,
+          severity:'warning'
+        });
+      },800);
       return;
     }
     report({
