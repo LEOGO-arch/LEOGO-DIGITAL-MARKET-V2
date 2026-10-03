@@ -97,9 +97,43 @@ if(!runtime.includes("Resource failed to load after retry"))throw new Error('res
 
 for(const path of ['index.html','partner/index.html','staff/index.html','pickup/index.html','admin/index.html']){
   const html=fs.readFileSync(path,'utf8');
-  if(!html.includes('runtime-monitor.js?v=resource-retry-1')){
+  if(!html.includes('runtime-monitor.js?v=network-storm-fix-1')){
     throw new Error('Resource-retry runtime monitor cache version missing from '+path);
   }
+}
+
+const adminJs=fs.readFileSync('admin/admin.js','utf8');
+const connectivityMigration=fs.readFileSync('supabase/migrations/20261003141000_runtime_connectivity_aggregation.sql','utf8');
+
+new vm.Script(adminJs,{filename:'admin/admin.js'});
+
+for(const required of [
+  'const connectivityBurst=',
+  'queueConnectivityFailure',
+  'flushConnectivityBurst',
+  "connectivity:supabase_api",
+  "errorType:'connectivity_error'",
+  'probeSupabaseReachability'
+]){
+  if(!runtime.includes(required))throw new Error('Network storm aggregation missing: '+required);
+}
+if(runtime.includes("message:'Network request failed: '+cleanText(error?.message||error,300),\n            operation:operationFromUrl(url),\n            source:url,\n            method,\n            severity:'critical'")){
+  throw new Error('Supabase network failures are still emitted as per-request critical errors');
+}
+for(const required of [
+  "'connectivity_error'",
+  "'failed_count'",
+  "to anon,authenticated"
+]){
+  if(!connectivityMigration.includes(required))throw new Error('Connectivity migration missing: '+required);
+}
+if(!adminJs.includes('settleLoadersWithConcurrency'))throw new Error('Bounded Admin loader helper missing');
+if(!adminJs.includes('settleLoadersWithConcurrency(loaders, 2)'))throw new Error('Admin startup concurrency is not capped at 2');
+if(adminJs.includes('Promise.allSettled(loaders.map((load) => load()))')){
+  throw new Error('Admin startup still launches all permitted loaders simultaneously');
+}
+if(!fs.readFileSync('admin/index.html','utf8').includes('admin.js?v=network-storm-fix-1')){
+  throw new Error('Admin cache version missing for network storm fix');
 }
 
 console.log('system diagnostics Phase 2 regression checks passed');

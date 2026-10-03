@@ -123,7 +123,8 @@
       p_metadata:{
         status:Number.isFinite(Number(input.status))?Number(input.status):null,
         method:cleanText(input.method||'',12)||null,
-        host:window.location.hostname
+        host:window.location.hostname,
+        failed_count:Number.isFinite(Number(input.failedCount))?Math.max(1,Math.min(500,Number(input.failedCount))):null
       }
     };
 
@@ -188,6 +189,80 @@
     });
   });
 
+  const connectivityBurst={
+    operations:new Set(),
+    timer:null,
+    flushing:false,
+    firstFailureAt:0
+  };
+
+  const isSupabaseApiUrl=(value)=>{
+    try{return new URL(String(value||''),window.location.href).origin===new URL(PROJECT_URL).origin;}
+    catch{return false;}
+  };
+
+  const isNetworkFetchFailure=(error)=>{
+    const message=String(error?.message||error||'').toLowerCase();
+    return message.includes('failed to fetch')
+      ||message.includes('networkerror')
+      ||message.includes('network request failed')
+      ||message.includes('load failed');
+  };
+
+  const probeSupabaseReachability=async()=>{
+    try{
+      const response=await nativeFetch(PROJECT_URL+'/rest/v1/',{
+        method:'GET',
+        headers:{apikey:PUBLISHABLE_KEY},
+        cache:'no-store'
+      });
+      return response.status>0;
+    }catch{
+      return false;
+    }
+  };
+
+  const flushConnectivityBurst=async()=>{
+    connectivityBurst.timer=null;
+    if(connectivityBurst.flushing||!connectivityBurst.operations.size)return;
+    connectivityBurst.flushing=true;
+    const reachable=await probeSupabaseReachability();
+    connectivityBurst.flushing=false;
+
+    if(!reachable){
+      connectivityBurst.timer=setTimeout(flushConnectivityBurst,4000);
+      return;
+    }
+
+    const affectedCount=connectivityBurst.operations.size;
+    connectivityBurst.operations.clear();
+    connectivityBurst.firstFailureAt=0;
+
+    report({
+      errorType:'connectivity_error',
+      message:'Temporary network interruption while contacting LEOGO backend',
+      operation:'connectivity:supabase_api',
+      source:PROJECT_URL+'/rest/v1/',
+      severity:'warning',
+      failedCount:affectedCount
+    });
+  };
+
+  const queueConnectivityFailure=(url)=>{
+    const operation=operationFromUrl(url)||'backend request';
+    connectivityBurst.operations.add(operation);
+    if(!connectivityBurst.firstFailureAt)connectivityBurst.firstFailureAt=Date.now();
+    if(!connectivityBurst.timer){
+      connectivityBurst.timer=setTimeout(flushConnectivityBurst,1500);
+    }
+  };
+
+  window.addEventListener('online',()=>{
+    if(connectivityBurst.operations.size){
+      setTimeout(flushConnectivityBurst,250);
+    }
+  });
+
   window.fetch=async(...args)=>{
     const request=args[0];
     const init=args[1]||{};
@@ -210,14 +285,18 @@
       return response;
     }catch(error){
       if(!String(url).includes('/record_system_runtime_error')){
-        report({
-          errorType:'http_error',
-          message:'Network request failed: '+cleanText(error?.message||error,300),
-          operation:operationFromUrl(url),
-          source:url,
-          method,
-          severity:'critical'
-        });
+        if(isSupabaseApiUrl(url)&&isNetworkFetchFailure(error)){
+          queueConnectivityFailure(url);
+        }else{
+          report({
+            errorType:'http_error',
+            message:'Network request failed: '+cleanText(error?.message||error,300),
+            operation:operationFromUrl(url),
+            source:url,
+            method,
+            severity:'warning'
+          });
+        }
       }
       throw error;
     }
