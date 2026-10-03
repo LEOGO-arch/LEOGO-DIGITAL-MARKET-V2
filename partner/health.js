@@ -224,7 +224,7 @@
       return '<article class="health-product-card">'+
         '<div class="health-product-card-photo">'+(image?'<img src="'+escapeHtml(image)+'" alt="'+escapeHtml(row.product_name)+'">':'⚕️')+'</div>'+
         '<div class="health-product-card-copy"><span>'+escapeHtml(productKindLabel(row.product_kind))+'</span><strong>'+escapeHtml(row.product_name)+'</strong>'+
-          '<small>'+escapeHtml(classification)+' · '+escapeHtml(String(row.availability_status||'').replaceAll('_',' '))+'</small>'+
+          '<small>'+escapeHtml(classification)+' · '+escapeHtml(String(row.availability_status||'').replaceAll('_',' '))+' · '+(row.order_mode==='cart'?'Cart checkout':'Enquiry only')+'</small>'+
           (row.requires_prescription?'<em>Prescription required</em>':'')+
           (row.admin_notes?'<small>Admin note: '+escapeHtml(row.admin_notes)+'</small>':'')+
         '</div>'+
