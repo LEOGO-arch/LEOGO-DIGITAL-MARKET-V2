@@ -4075,6 +4075,8 @@
     accommodation:{label:'Accommodation',icon:'🏨'},
     cyber_service:{label:'Cyber Service',icon:'🖥️'},
     cyber_product:{label:'Cyber Shop Item',icon:'🖨️'},
+    health_product:{label:'Health Product',icon:'⚕️'},
+    health_partner:{label:'Health Partner',icon:'⚕️'},
     personal_sale:{label:'Personal Sale',icon:'🏷️'}
   };
   let globalSearchRows=[];
@@ -4197,6 +4199,19 @@
       return;
     }
 
+    if(row.type==='health_product'||row.type==='health_partner'){
+      const section=document.getElementById('health-medicine');
+      section?.scrollIntoView({behavior:'smooth',block:'start'});
+      window.setTimeout(()=>{
+        const selector=row.type==='health_product'
+          ? '[data-health-product-id="'+CSS.escape(String(row.id))+'"]'
+          : '[data-health-provider-id="'+CSS.escape(String(row.provider_id||row.id))+'"]';
+        const target=document.querySelector(selector);
+        markGlobalSearchTarget(target||section);
+      },180);
+      return;
+    }
+
     if(row.type==='cyber_service'||row.type==='cyber_product'){
       const section=document.getElementById('cyberMarketplace');
       section?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -4244,10 +4259,28 @@
     try{
       const client=window.leogoAuth?.client;
       if(!client)throw new Error('Search connection is not ready.');
-      const {data,error}=await client.rpc('customer_global_search',{p_query:query,p_limit:24});
-      if(error)throw error;
+      const [mainResult,healthResult]=await Promise.all([
+        client.rpc('customer_global_search',{p_query:query,p_limit:24}),
+        client.rpc('public_search_health_medicine',{p_query:query,p_limit:12})
+      ]);
+      if(mainResult.error)throw mainResult.error;
+      if(healthResult.error)throw healthResult.error;
       if(serial!==globalSearchSerial)return;
-      const rows=Array.isArray(data)?data:[];
+      const mainRows=Array.isArray(mainResult.data)?mainResult.data:[];
+      const healthRows=Array.isArray(healthResult.data)?healthResult.data:[];
+      const queryLower=query.toLowerCase();
+      const score=(row)=>{
+        const title=String(row.title||'').toLowerCase();
+        const location=String(row.location||'').toLowerCase();
+        if(title===queryLower)return 120;
+        if(title.startsWith(queryLower))return 110;
+        if(title.includes(queryLower))return 100;
+        if(location.includes(queryLower))return 90;
+        return Number(row.score||70);
+      };
+      const rows=[...mainRows,...healthRows]
+        .sort((a,b)=>score(b)-score(a))
+        .slice(0,30);
       globalSearchCache.set(key,rows);
       if(globalSearchCache.size>30)globalSearchCache.delete(globalSearchCache.keys().next().value);
       renderGlobalSearchResults(rows,query);
