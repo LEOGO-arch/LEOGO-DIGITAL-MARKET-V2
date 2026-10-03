@@ -11,3 +11,25 @@
 .admin-health-prescription{display:inline-flex;border-radius:999px;padding:4px 7px;background:#fff0e3;color:#9c4c08;font-size:7px;font-weight:900}
 .admin-health-type{font-size:8px;font-weight:900;color:#177967}
 .admin-health-note{font-size:7.5px;color:#6d7a87}
+
+.admin-health-order-list{display:grid;gap:12px}
+.admin-health-order-card{border:1px solid #dbe5e8;border-radius:14px;padding:14px;background:#fff;display:grid;gap:11px}
+.admin-health-order-card>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.admin-health-order-card>header>div{display:grid;gap:3px}
+.admin-health-order-card>header span{font-size:8px;font-weight:950;color:#147964}
+.admin-health-order-card>header strong{font-size:12px;color:#102d3d}
+.admin-health-order-card>header small{font-size:8px;color:#73818b}
+.admin-health-order-card>header b{font-size:12px;color:#102d3d}
+.admin-health-order-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.admin-health-order-meta span{background:#f5f8f9;border-radius:9px;padding:8px;display:grid;gap:2px}
+.admin-health-order-meta small,.admin-health-payment-message small{font-size:7px;color:#74838d;text-transform:uppercase;font-weight:900}
+.admin-health-order-meta strong{font-size:8.5px;color:#243d49}
+.admin-health-order-items{display:grid;gap:5px;border-top:1px dashed #dce4e6;padding-top:8px}
+.admin-health-order-items span{font-size:8.5px;color:#425662}
+.admin-health-order-items b{float:right;color:#102d3d}
+.admin-health-payment-message{background:#f7f9fb;border-radius:10px;padding:9px}
+.admin-health-payment-message p{margin:4px 0 0;font-size:8.5px;white-space:pre-wrap}
+.admin-health-order-actions{display:flex;gap:8px;flex-wrap:wrap}
+.admin-health-order-actions button{border:0;border-radius:8px;padding:8px 10px;background:#176c5d;color:#fff;font-size:8px;font-weight:900}
+.admin-health-order-actions button.danger{background:#a13232}
+@media(max-width:720px){.admin-health-order-meta{grid-template-columns:1fr 1fr}.admin-health-order-card>header{display:grid}}
