@@ -2584,14 +2584,13 @@
     const items=Array.isArray(detail.items)?detail.items:[];
     const sellers=Array.isArray(detail.sellers)?detail.sellers:[];
     const delivery=detail.delivery||null;
-    const qr=await buildDeliveryQrCanvas(deliveryQrTarget(order),260);
+    const qr=await buildDeliveryQrCanvas(deliveryQrTarget(order),300);
     const qrDataUrl=qr.toDataURL('image/png');
     const logoUrl=new URL('../assets/images/leogo-official-logo.jpg',window.location.href).href;
     const codDue=String(order.payment_status||'').toLowerCase()==='cod_due';
     const sellerNames=sellers.map((seller)=>seller.business_name).filter(Boolean).join(', ');
     const printedAt=formatDate(new Date().toISOString(),true);
     const orderDate=formatDate(order.created_at,true);
-    const itemCount=items.length;
 
     const itemRows=items.length
       ? items.map((item)=>{
@@ -2599,7 +2598,7 @@
             ? String(item.product_name||'Item')+' - '+String(item.variant_name)
             : String(item.product_name||'Item');
           return '<div class="receipt-item">'+
-            '<div class="receipt-item-main"><b>'+escapeHtml(String(Number(item.quantity||0)))+'x</b><span>'+escapeHtml(name)+'</span></div>'+
+            '<div class="receipt-item-main"><b>'+escapeHtml(String(Number(item.quantity||0)))+' x</b><span>'+escapeHtml(name)+'</span></div>'+
             '<strong>'+escapeHtml(formatMoney(item.line_total_kes))+'</strong>'+
           '</div>';
         }).join('')
@@ -2623,71 +2622,61 @@
         '*{box-sizing:border-box;}'+
         'html,body{width:80mm;min-width:80mm;max-width:80mm;margin:0;padding:0;background:#fff;color:#000;}'+
         'body{font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'+
-        '.receipt{width:74mm;margin:0 auto;padding:1.2mm 0 1.8mm;font-size:8.6pt;line-height:1.08;font-weight:800;color:#000;}'+
-        '.receipt-header{display:grid;grid-template-columns:10mm minmax(0,1fr);gap:2mm;align-items:start;text-align:left;}'+
-        '.receipt-logo{width:9mm;height:9mm;object-fit:contain;display:block;filter:grayscale(1) contrast(1.25);}'+
-        '.receipt-brand{min-width:0;}'+
-        '.receipt-header h1{margin:0;font-size:10.8pt;line-height:1;font-weight:900;letter-spacing:.1px;}'+
-        '.receipt-header h2{margin:.55mm 0 0;font-size:8.2pt;line-height:1.05;font-weight:900;}'+
-        '.receipt-header p{margin:.45mm 0 0;font-size:7pt;line-height:1;font-weight:800;}'+
+        '.receipt{width:72mm;margin:0 auto;padding:1.2mm 0 1.5mm;font-size:7.4pt;line-height:1.08;font-weight:800;color:#000;}'+
+        '.receipt-header{display:grid;grid-template-columns:10.5mm minmax(0,1fr);gap:2mm;align-items:center;}'+
+        '.receipt-logo{display:block;width:9.5mm;height:9.5mm;object-fit:contain;filter:grayscale(1) contrast(1.35);mix-blend-mode:multiply;}'+
+        '.receipt-brand{text-align:left;min-width:0;}'+
+        '.receipt-header h1{margin:0;font-size:10.2pt;line-height:1;font-weight:900;letter-spacing:.05px;}'+
+        '.receipt-header h2{margin:.45mm 0 0;font-size:7.2pt;line-height:1.05;font-weight:900;}'+
+        '.receipt-header p{margin:.35mm 0 0;font-size:6.3pt;line-height:1.05;font-weight:800;}'+
         '.receipt-rule{border:0;border-top:1px dashed #000;margin:.9mm 0;}'+
-        '.receipt-reference{display:grid;grid-template-columns:20mm minmax(0,1fr);gap:1mm;align-items:baseline;margin:.3mm 0;}'+
-        '.receipt-reference small{font-size:7.2pt;font-weight:900;}'+
-        '.receipt-reference strong{font-size:10.2pt;line-height:1.02;font-weight:900;word-break:break-word;text-align:right;}'+
-        '.receipt-status{display:grid;grid-template-columns:1fr;gap:.2mm;text-align:left;font-size:8pt;}'+
+        '.receipt-reference{text-align:center;margin:.2mm 0 .45mm;}'+
+        '.receipt-reference small{display:block;font-size:6.2pt;font-weight:900;letter-spacing:.25px;}'+
+        '.receipt-reference strong{display:block;margin-top:.2mm;font-size:9.2pt;line-height:1.02;font-weight:900;word-break:break-word;}'+
+        '.receipt-status{display:grid;grid-template-columns:1fr;gap:.2mm;text-align:left;font-size:7pt;line-height:1.08;}'+
         '.receipt-status div{display:flex;justify-content:space-between;gap:2mm;}'+
         '.receipt-status span{font-weight:800;}'+
         '.receipt-status strong{text-align:right;font-weight:900;}'+
         '.receipt-section{margin:0;}'+
-        '.receipt-section h3{margin:0 0 .35mm;font-size:8.5pt;line-height:1;font-weight:900;letter-spacing:.25px;}'+
-        '.receipt-section p{margin:.2mm 0;font-size:8.6pt;font-weight:800;line-height:1.08;overflow-wrap:anywhere;}'+
-        '.receipt-section .primary{font-size:9.6pt;font-weight:900;}'+
+        '.receipt-section h3{margin:0 0 .35mm;font-size:6.9pt;line-height:1;font-weight:900;letter-spacing:.3px;}'+
+        '.receipt-section p{margin:.15mm 0;font-size:7.25pt;font-weight:800;line-height:1.08;overflow-wrap:anywhere;}'+
+        '.receipt-section .primary{font-size:8.4pt;font-weight:900;}'+
         '.receipt-items{display:grid;gap:0;}'+
-        '.receipt-item{display:grid;grid-template-columns:minmax(0,1fr) 18mm;gap:1.2mm;padding:.55mm 0;border-bottom:1px dotted #000;align-items:start;break-inside:avoid;}'+
+        '.receipt-item{display:grid;grid-template-columns:minmax(0,1fr) 18mm;gap:1.2mm;padding:.55mm 0;border-bottom:.8px dotted #000;align-items:start;break-inside:avoid;}'+
         '.receipt-item:last-child{border-bottom:0;}'+
-        '.receipt-item-main{display:grid;grid-template-columns:6.5mm minmax(0,1fr);gap:.6mm;min-width:0;}'+
-        '.receipt-item-main b{font-size:8.6pt;font-weight:900;}'+
-        '.receipt-item-main span{font-size:8.6pt;font-weight:800;line-height:1.08;overflow-wrap:anywhere;}'+
-        '.receipt-item>strong{text-align:right;font-size:8.6pt;font-weight:900;white-space:nowrap;}'+
-        '.receipt-empty{padding:.5mm 0;font-size:8.4pt;font-weight:800;}'+
-        '.receipt-money{display:grid;gap:.2mm;}'+
-        '.receipt-money-row{display:flex;justify-content:space-between;gap:2mm;font-size:8.6pt;line-height:1.08;}'+
+        '.receipt-item-main{display:grid;grid-template-columns:7mm minmax(0,1fr);gap:.55mm;min-width:0;}'+
+        '.receipt-item-main b{font-size:7.3pt;line-height:1.06;font-weight:900;}'+
+        '.receipt-item-main span{font-size:7.35pt;font-weight:800;line-height:1.08;overflow-wrap:anywhere;}'+
+        '.receipt-item>strong{text-align:right;font-size:7.4pt;line-height:1.06;font-weight:900;white-space:nowrap;}'+
+        '.receipt-empty{padding:.55mm 0;font-size:7.2pt;font-weight:800;}'+
+        '.receipt-money{display:grid;gap:.18mm;}'+
+        '.receipt-money-row{display:flex;justify-content:space-between;gap:2mm;font-size:7.2pt;line-height:1.08;}'+
         '.receipt-money-row span{font-weight:800;}'+
         '.receipt-money-row strong{font-weight:900;white-space:nowrap;}'+
-        '.receipt-total{margin-top:.35mm;padding-top:.55mm;border-top:1.5px solid #000;font-size:11.4pt;line-height:1;font-weight:900;}'+
+        '.receipt-total{margin-top:.35mm;padding-top:.45mm;border-top:1.4px solid #000;font-size:9.8pt;line-height:1.02;font-weight:900;}'+
         '.receipt-total span,.receipt-total strong{font-weight:900;}'+
-        '.receipt-note{margin-top:.6mm;}'+
-        '.receipt-note p{font-size:8pt;line-height:1.08;font-weight:800;}'+
-        '.receipt-meta{display:grid;gap:.2mm;font-size:8pt;}'+
-        '.receipt-meta div{display:grid;grid-template-columns:13mm minmax(0,1fr);gap:1mm;}'+
+        '.receipt-note{margin-top:.55mm;}'+
+        '.receipt-note p{font-size:6.9pt;line-height:1.08;font-weight:800;}'+
+        '.receipt-meta{display:grid;gap:.2mm;font-size:6.9pt;line-height:1.08;}'+
+        '.receipt-meta div{display:grid;grid-template-columns:14mm minmax(0,1fr);gap:1mm;}'+
         '.receipt-meta b{font-weight:900;}'+
         '.receipt-meta span{font-weight:800;overflow-wrap:anywhere;}'+
-        '.receipt-qr{text-align:center;margin-top:.2mm;break-inside:avoid;}'+
-        '.receipt-qr img{display:block;width:20mm;height:20mm;margin:0 auto;image-rendering:pixelated;image-rendering:crisp-edges;}'+
-        '.receipt-qr strong{display:block;margin-top:.3mm;font-size:7.8pt;font-weight:900;}'+
-        '.receipt-qr small{display:block;margin-top:.2mm;font-size:6.7pt;font-weight:800;overflow-wrap:anywhere;}'+
-        '.receipt-footer{text-align:center;font-size:6.7pt;font-weight:800;line-height:1.1;}'+
-        '.receipt.single-item{padding-top:1mm;padding-bottom:1.2mm;}'+
-        '.receipt.single-item .receipt-rule{margin:.75mm 0;}'+
-        '.receipt.single-item.tight-single{font-size:8pt;padding-top:.7mm;padding-bottom:.9mm;}'+
-        '.receipt.single-item.tight-single .receipt-header{grid-template-columns:8.5mm minmax(0,1fr);gap:1.2mm;}'+
-        '.receipt.single-item.tight-single .receipt-logo{width:8mm;height:8mm;}'+
-        '.receipt.single-item.tight-single .receipt-header h1{font-size:10pt;}'+
-        '.receipt.single-item.tight-single .receipt-header h2{font-size:7.6pt;margin-top:.3mm;}'+
-        '.receipt.single-item.tight-single .receipt-header p{font-size:6.5pt;margin-top:.25mm;}'+
-        '.receipt.single-item.tight-single .receipt-rule{margin:.55mm 0;}'+
-        '.receipt.single-item.tight-single .receipt-section p,.receipt.single-item.tight-single .receipt-item-main b,.receipt.single-item.tight-single .receipt-item-main span,.receipt.single-item.tight-single .receipt-item>strong,.receipt.single-item.tight-single .receipt-money-row{font-size:8pt;}'+
-        '.receipt.single-item.tight-single .receipt-section .primary{font-size:9pt;}'+
-        '.receipt.single-item.tight-single .receipt-item{padding:.35mm 0;}'+
-        '.receipt.single-item.tight-single .receipt-total{font-size:10.7pt;}'+
-        '.receipt.single-item.tight-single .receipt-qr img{width:18mm;height:18mm;}'+
-        '.receipt.single-item.tight-single .receipt-footer{font-size:6.2pt;}'+
-        '@media print{html,body{width:80mm!important;height:auto!important;overflow:visible!important;color:#000!important;background:#fff!important;}.receipt{width:74mm!important;page-break-after:auto;}.receipt-section,.receipt-item,.receipt-qr{break-inside:avoid;}}'+
+        '.receipt-bottom{display:grid;grid-template-columns:20mm minmax(0,1fr);gap:2mm;align-items:center;break-inside:avoid;}'+
+        '.receipt-qr{text-align:center;margin:0;}'+
+        '.receipt-qr img{display:block;width:19mm;height:19mm;margin:0 auto;image-rendering:pixelated;image-rendering:crisp-edges;}'+
+        '.receipt-qr strong{display:block;margin-top:.25mm;font-size:6.6pt;line-height:1;font-weight:900;}'+
+        '.receipt-footer{text-align:left;font-size:6.1pt;font-weight:800;line-height:1.12;}'+
+        '.receipt-footer div+div{margin-top:.45mm;}'+
+        '@media print{html,body{width:80mm!important;height:auto!important;overflow:visible!important;color:#000!important;background:#fff!important;}.receipt{width:72mm!important;page-break-after:auto;}.receipt-section,.receipt-item,.receipt-bottom{break-inside:avoid;}}'+
       '</style></head><body>'+
-        '<main class="receipt '+(itemCount<=1?'single-item':'multi-item')+'" data-item-count="'+String(itemCount)+'">'+
+        '<main class="receipt" data-item-count="'+escapeHtml(String(items.length))+'">'+
           '<header class="receipt-header">'+
             '<img class="receipt-logo" src="'+escapeHtml(logoUrl)+'" alt="LEOGO">'+
-            '<div class="receipt-brand"><h1>LEOGO DIGITAL MARKET</h1><h2>ORDER SUMMARY / DELIVERY RECEIPT</h2><p>Any market to your Door Step</p></div>'+
+            '<div class="receipt-brand">'+
+              '<h1>LEOGO DIGITAL MARKET</h1>'+
+              '<h2>ORDER SUMMARY / DELIVERY RECEIPT</h2>'+
+              '<p>Any market to your Door Step</p>'+
+            '</div>'+
           '</header>'+
           '<hr class="receipt-rule">'+
           '<div class="receipt-reference"><small>ORDER REFERENCE</small><strong>'+escapeHtml(order.order_reference||'ORDER')+'</strong></div>'+
@@ -2731,22 +2720,24 @@
           noteBlock('STAFF / RIDER INSTRUCTIONS',delivery?.admin_notes)+
           noteBlock('RIDER UPDATE',delivery?.rider_notes)+
           '<hr class="receipt-rule">'+
-          '<div class="receipt-qr">'+
-            '<img src="'+qrDataUrl+'" alt="Order QR">'+
-            '<strong>SCAN ORDER</strong>'+
-            '<small>'+escapeHtml(order.order_reference||'LEOGO ORDER')+'</small>'+
+          '<div class="receipt-bottom">'+
+            '<div class="receipt-qr">'+
+              '<img src="'+qrDataUrl+'" alt="Order QR">'+
+              '<strong>SCAN ORDER</strong>'+
+            '</div>'+
+            '<footer class="receipt-footer">'+
+              '<div><strong>'+escapeHtml(order.order_reference||'LEOGO ORDER')+'</strong></div>'+
+              '<div>Authorized LEOGO order summary.</div>'+
+              '<div>Printed '+escapeHtml(printedAt)+'</div>'+
+              '<div>Keep with the order until final handover.</div>'+
+            '</footer>'+
           '</div>'+
-          '<hr class="receipt-rule">'+
-          '<footer class="receipt-footer">'+
-            '<div>Authorized LEOGO order summary · Printed '+escapeHtml(printedAt)+'</div>'+
-            '<div>Keep with the order until final handover.</div>'+
-          '</footer>'+
         '</main>'+
-        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var measure=function(){var px=receipt?Math.max(receipt.scrollHeight,receipt.getBoundingClientRect().height):0;return Math.max(38,Math.ceil(px/pxPerMm+2))};var heightMm=measure();var itemCount=Number(receipt&&receipt.dataset?receipt.dataset.itemCount:0);if(receipt&&itemCount<=1&&heightMm>118){receipt.classList.add("tight-single");heightMm=measure()}var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";setTimeout(function(){window.print();},180)})})});<\/script>'+
+        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var heightPx=receipt?Math.max(receipt.scrollHeight,receipt.getBoundingClientRect().height):0;var heightMm=Math.max(42,Math.ceil(heightPx/pxPerMm+1.2));var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";setTimeout(function(){window.print();},180)})})});<\/script>'+
       '</body></html>';
   };
 
-  const printOrderDeliverySummary = async () => {
+    const printOrderDeliverySummary = async () => {
     const detail=state.activeMarketplaceOrderDetail;
     if(!detail?.order) return;
 
