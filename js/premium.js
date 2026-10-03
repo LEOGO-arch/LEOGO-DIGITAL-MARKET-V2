@@ -361,6 +361,9 @@
   const premiumPeerChatForm = document.getElementById('premiumPeerChatForm');
   const premiumPeerChatMessage = document.getElementById('premiumPeerChatMessage');
   const premiumPeerChatStatus = document.getElementById('premiumPeerChatStatus');
+  const premiumPeerPhotoButton = document.getElementById('premiumPeerPhotoButton');
+  const premiumPeerPhotoInput = document.getElementById('premiumPeerPhotoInput');
+  const premiumPeerPhotoName = document.getElementById('premiumPeerPhotoName');
 
   const premiumPeerTime = (value) => {
     if (!value) return '';
@@ -372,17 +375,30 @@
     } catch (_error) { return ''; }
   };
 
-  const renderPremiumPeerMessages = (messages=[]) => {
+  const premiumPeerSignedChatPhoto = async (path) => {
+    if (!path) return '';
+    const { data, error } = await client.storage.from('premium-chat-media').createSignedUrl(path, 600);
+    return error ? '' : (data?.signedUrl || '');
+  };
+
+  const renderPremiumPeerMessages = async (messages=[]) => {
     if (!premiumPeerMessageList) return;
     if (!messages.length) {
       premiumPeerMessageList.innerHTML = '<div class="premium-peer-chat-empty"><span>💬</span><strong>Start the conversation</strong><small>You can chat here before the meetup request is accepted.</small></div>';
       return;
     }
-    premiumPeerMessageList.innerHTML = messages.map((message) => {
+    const enriched=await Promise.all(messages.map(async(message)=>({
+      ...message,
+      photo_url:message.photo_path?await premiumPeerSignedChatPhoto(message.photo_path):''
+    })));
+    premiumPeerMessageList.innerHTML = enriched.map((message) => {
       const mine = message.sender_role === 'customer';
+      const body=String(message.body||'');
+      const bodyHtml=body&&body!=='[Photo]'?'<p>'+escapeHtml(body).replace(/\n/g,'<br>')+'</p>':'';
+      const photoHtml=message.photo_url?'<img class="premium-peer-message-photo" src="'+escapeHtml(message.photo_url)+'" alt="Private chat photo">':'';
       return '<article class="premium-peer-message '+(mine?'mine':'theirs')+'">'+
         '<div><strong>'+(mine?'You':escapeHtml(premiumPeerChatProfile?.display_name||'Premium Profile'))+'</strong><span>'+escapeHtml(premiumPeerTime(message.created_at))+'</span></div>'+
-        '<p>'+escapeHtml(message.body||'').replace(/\n/g,'<br>')+'</p>'+
+        photoHtml+bodyHtml+
       '</article>';
     }).join('');
   };
@@ -405,7 +421,7 @@
           ? 'Meetup accepted · Contact access is available under your Premium access rules.'
           : 'Awaiting acceptance · Contact details remain hidden.';
       }
-      renderPremiumPeerMessages(Array.isArray(messageResult.data)?messageResult.data:[]);
+      await renderPremiumPeerMessages(Array.isArray(messageResult.data)?messageResult.data:[]);
       await client.rpc('premium_mark_chat_read',{p_request_id:premiumPeerChatRequestId});
       if (premiumPeerChatStatus) premiumPeerChatStatus.textContent='';
       if (scroll && premiumPeerMessageList) {
@@ -422,6 +438,8 @@
     if (premiumPeerChatTimer) { clearInterval(premiumPeerChatTimer); premiumPeerChatTimer=null; }
     premiumPeerChatRequestId=null;
     premiumPeerChatProfile=null;
+    if(premiumPeerPhotoInput)premiumPeerPhotoInput.value='';
+    if(premiumPeerPhotoName){premiumPeerPhotoName.hidden=true;premiumPeerPhotoName.textContent='';}
     if (premiumPeerChatModal) {
       premiumPeerChatModal.hidden=true;
       premiumPeerChatModal.setAttribute('aria-hidden','true');
@@ -456,24 +474,67 @@
     },4000);
   };
 
+  const premiumChatPhotoExtension=(file)=>{
+    if(file?.type==='image/png')return 'png';
+    if(file?.type==='image/webp')return 'webp';
+    return 'jpg';
+  };
+  const validatePremiumChatPhoto=(file)=>{
+    if(!file)return '';
+    if(!['image/jpeg','image/png','image/webp'].includes(file.type))return 'Choose one JPG, PNG or WEBP photo.';
+    if(file.size>5*1024*1024)return 'The photo must be 5 MB or smaller.';
+    return '';
+  };
+
   document.getElementById('closePremiumPeerChat')?.addEventListener('click',closePremiumPeerChat);
   premiumPeerChatModal?.querySelectorAll('[data-close-premium-chat]').forEach((node)=>node.addEventListener('click',closePremiumPeerChat));
+  premiumPeerPhotoButton?.addEventListener('click',()=>premiumPeerPhotoInput?.click());
+  premiumPeerPhotoInput?.addEventListener('change',()=>{
+    const file=premiumPeerPhotoInput.files?.[0]||null;
+    const error=validatePremiumChatPhoto(file);
+    if(error){
+      premiumPeerPhotoInput.value='';
+      if(premiumPeerPhotoName){premiumPeerPhotoName.hidden=true;premiumPeerPhotoName.textContent='';}
+      if(premiumPeerChatStatus)premiumPeerChatStatus.textContent=error;
+      return;
+    }
+    if(premiumPeerPhotoName){
+      premiumPeerPhotoName.hidden=!file;
+      premiumPeerPhotoName.textContent=file?'📷 One photo selected: '+file.name:'';
+    }
+    if(premiumPeerChatStatus)premiumPeerChatStatus.textContent='';
+  });
   premiumPeerChatForm?.addEventListener('submit',async(event)=>{
     event.preventDefault();
     const text=premiumPeerChatMessage?.value.trim()||'';
-    if (!text || !premiumPeerChatRequestId) return;
+    const photo=premiumPeerPhotoInput?.files?.[0]||null;
+    if((!text&&!photo)||!premiumPeerChatRequestId)return;
+    const photoError=validatePremiumChatPhoto(photo);
+    if(photoError){if(premiumPeerChatStatus)premiumPeerChatStatus.textContent=photoError;return;}
     const button=document.getElementById('sendPremiumPeerMessage');
     const original=button?.textContent||'Send';
-    if (button){button.disabled=true;button.textContent='Sending…';}
+    let uploadedPath='';
+    if (button){button.disabled=true;button.textContent=photo?'Uploading…':'Sending…';}
     try{
+      if(photo){
+        uploadedPath=currentUser.id+'/'+premiumPeerChatRequestId+'/'+Date.now()+'-'+crypto.randomUUID()+'.'+premiumChatPhotoExtension(photo);
+        const upload=await client.storage.from('premium-chat-media').upload(uploadedPath,photo,{upsert:false,contentType:photo.type,cacheControl:'3600'});
+        if(upload.error)throw upload.error;
+        if(button)button.textContent='Sending…';
+      }
       const {error}=await client.rpc('premium_send_chat_message',{
         p_request_id:premiumPeerChatRequestId,
-        p_body:text
+        p_body:text,
+        p_photo_path:uploadedPath||null,
+        p_photo_mime:photo?.type||null
       });
       if(error)throw error;
       if(premiumPeerChatMessage)premiumPeerChatMessage.value='';
+      if(premiumPeerPhotoInput)premiumPeerPhotoInput.value='';
+      if(premiumPeerPhotoName){premiumPeerPhotoName.hidden=true;premiumPeerPhotoName.textContent='';}
       await loadPremiumPeerChat({scroll:true,silent:true});
     }catch(error){
+      if(uploadedPath)await client.storage.from('premium-chat-media').remove([uploadedPath]).catch(()=>{});
       if(premiumPeerChatStatus)premiumPeerChatStatus.textContent=error?.message||'Message could not be sent.';
     }finally{
       if(button){button.disabled=false;button.textContent=original;}
