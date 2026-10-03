@@ -665,6 +665,40 @@ async function removeFromGroup(button){
   }
 }
 
+let authenticatedDataLoaded=false;
+
+const loadAuthenticatedSellerData=async()=>{
+  if(authenticatedDataLoaded)return true;
+  const {data,error}=await client.auth.getSession();
+  if(error||!data?.session?.user)return false;
+
+  authenticatedDataLoaded=true;
+  try{
+    await Promise.all([loadProducts(),loadCampaigns(),loadDeliveryRates()]);
+    return true;
+  }catch(error){
+    authenticatedDataLoaded=false;
+    const status=$('#productShippingStatus');
+    if(status)status.textContent=error?.message||'Product settings could not finish loading.';
+    return false;
+  }
+};
+
+const watchSellerAuth=()=>{
+  loadAuthenticatedSellerData().catch(()=>{});
+  client.auth.onAuthStateChange((event,session)=>{
+    if(session?.user&&!authenticatedDataLoaded){
+      window.setTimeout(()=>loadAuthenticatedSellerData().catch(()=>{}),0);
+    }
+    if(!session?.user&&event==='SIGNED_OUT'){
+      authenticatedDataLoaded=false;
+      products=[];
+      campaigns=[];
+      deliveryRates=null;
+    }
+  });
+};
+
 const init=async()=>{
   loadStyle();
   ensureProductFields();
@@ -676,7 +710,7 @@ const init=async()=>{
     const productId=event?.detail?.productId;
     if(!productId)return;
     try{
-      if(!products.some(product=>product.id===productId))await loadProducts();
+      if(!products.some(product=>product.id===productId))await loadAuthenticatedSellerData();
       applyProductExtension(products.find(product=>product.id===productId));
     }catch(error){
       const status=$('#productShippingStatus');
@@ -687,12 +721,7 @@ const init=async()=>{
   $('#showSellerProductForm')?.addEventListener('click',()=>window.setTimeout(resetProductExtension,0));
   $('#cancelProductEdit')?.addEventListener('click',()=>window.setTimeout(resetProductExtension,0));
 
-  try{
-    await Promise.all([loadProducts(),loadCampaigns(),loadDeliveryRates()]);
-  }catch(error){
-    const status=$('#productShippingStatus');
-    if(status)status.textContent=error?.message||'Product settings could not finish loading.';
-  }
+  watchSellerAuth();
 
   document.addEventListener('click',event=>{
     const stage=event.target.closest('[data-campaign][data-stage]');
