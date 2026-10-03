@@ -228,7 +228,11 @@
           (row.requires_prescription?'<em>Prescription required</em>':'')+
           (row.admin_notes?'<small>Admin note: '+escapeHtml(row.admin_notes)+'</small>':'')+
         '</div>'+
-        '<div class="health-product-card-actions"><b>KSh '+Number(row.price_kes||0).toLocaleString('en-KE')+'</b><span class="status-chip '+escapeHtml(row.approval_status)+'">'+escapeHtml(String(row.approval_status||'').replaceAll('_',' '))+'</span><button type="button" data-edit-health-product="'+escapeHtml(row.id)+'">Edit & Resubmit</button></div>'+
+        '<div class="health-product-card-actions"><b>KSh '+Number(row.price_kes||0).toLocaleString('en-KE')+'</b><span class="status-chip '+escapeHtml(row.approval_status)+'">'+escapeHtml(String(row.approval_status||'').replaceAll('_',' '))+'</span>'+
+          (row.approval_status==='under_review'
+            ? '<button type="button" class="secondary" disabled>Locked while under review</button>'
+            : '<button type="button" data-edit-health-product="'+escapeHtml(row.id)+'">Edit & Resubmit</button>')+
+        '</div>'+
       '</article>';
     }).join('');
     $$('[data-edit-health-product]',target).forEach((button)=>button.addEventListener('click',()=>{
