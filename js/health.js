@@ -30,9 +30,8 @@
     other_health:'Other Health Item'
   }[value]||String(value||'').replaceAll('_',' '));
   const classificationLabel=(value)=>({
-    otc:'General / OTC',
+    otc:'OTC — No prescription required',
     prescription_required:'Prescription Required',
-    pharmacy_only:'Pharmacy-only',
     non_medicine:'Non-medicine'
   }[value]||String(value||'').replaceAll('_',' '));
   const money=(value)=>'KSh '+Number(value||0).toLocaleString('en-KE');
@@ -91,14 +90,35 @@
           (row.description?'<p>'+esc(row.description)+'</p>':'')+
           '<div class="health-public-badges"><em>'+esc(classification)+'</em>'+
             (row.requires_prescription?'<em class="prescription">Prescription required</em>':'')+
-            (row.medicine_classification==='pharmacy_only'?'<em class="pharmacy-only">Pharmacy-only</em>':'')+
+            (row.medicine_classification==='otc'?'<em>Can add to cart</em>':'')+
           '</div><b>'+money(row.price_kes)+'</b>'+
-          '<button class="health-public-enquiry" type="button" data-health-enquiry="'+esc(row.id)+'">Ask LEOGO about this item</button></div>'+
+          (row.cart_eligible
+            ? '<button class="health-public-enquiry health-public-cart" type="button" data-health-add-cart="'+esc(row.id)+'">Add to Cart</button>'
+            : '<button class="health-public-enquiry" type="button" data-health-enquiry="'+esc(row.id)+'">Ask LEOGO about this item</button>')+
+          '</div>'+
         '</article>';
       }).join(''):'<div class="health-market-empty">No approved Health & Medicine products match this filter yet.</div>';
     }
 
-    $$('[data-health-enquiry]',productGrid).forEach((button)=>button.addEventListener('click',()=>{
+    $('[data-health-add-cart]',productGrid).forEach((button)=>button.addEventListener('click',()=>{
+      const item=products.find((row)=>String(row.id)===String(button.dataset.healthAddCart));
+      if(!item||!item.cart_eligible)return;
+      if(typeof window.leogoAddHealthOtcToCart!=='function'){
+        const status=$('#healthMarketStatus');
+        if(status)status.textContent='Cart is still loading. Try again in a moment.';
+        return;
+      }
+      const result=window.leogoAddHealthOtcToCart(item);
+      const status=$('#healthMarketStatus');
+      if(status&&result?.message)status.textContent=result.message;
+      if(result?.ok){
+        const original=button.textContent;
+        button.textContent='✓ Added';
+        window.setTimeout(()=>{if(button.isConnected)button.textContent=original;},900);
+      }
+    }));
+
+    $('[data-health-enquiry]',productGrid).forEach((button)=>button.addEventListener('click',()=>{
       const item=products.find((row)=>String(row.id)===String(button.dataset.healthEnquiry));
       if(!item)return;
       const user=window.leogoAuth?.getUser?.()||null;
