@@ -97,7 +97,7 @@ if(!runtime.includes("Resource failed to load after retry"))throw new Error('res
 
 for(const path of ['index.html','partner/index.html','staff/index.html','pickup/index.html','admin/index.html']){
   const html=fs.readFileSync(path,'utf8');
-  if(!html.includes('runtime-monitor.js?v=network-storm-fix-1')){
+  if(!html.includes('runtime-monitor.js?v=network-storm-fix-2')){
     throw new Error('Resource-retry runtime monitor cache version missing from '+path);
   }
 }
@@ -113,6 +113,8 @@ for(const required of [
   'flushConnectivityBurst',
   "connectivity:supabase_api",
   "errorType:'connectivity_error'",
+  "module:'connectivity'",
+  'failedCount:affectedCount',
   'probeSupabaseReachability'
 ]){
   if(!runtime.includes(required))throw new Error('Network storm aggregation missing: '+required);
@@ -134,6 +136,13 @@ if(adminJs.includes('Promise.allSettled(loaders.map((load) => load()))')){
 }
 if(!fs.readFileSync('admin/index.html','utf8').includes('admin.js?v=network-storm-fix-1')){
   throw new Error('Admin cache version missing for network storm fix');
+}
+if(!diagnostics.includes('host.innerHTML=activeRows.length?activeRows.map')){
+  throw new Error('Resolved runtime history should not clutter the live error list');
+}
+const connectivityHealth=fs.readFileSync('supabase/migrations/20261003144000_connectivity_health_scoring.sql','utf8');
+if(!connectivityHealth.includes("event_count>=3")){
+  throw new Error('Isolated connectivity incidents should not lower overall system health');
 }
 
 console.log('system diagnostics Phase 2 regression checks passed');
