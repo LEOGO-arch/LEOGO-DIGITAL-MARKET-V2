@@ -102,4 +102,21 @@ for(const path of ['index.html','partner/index.html','staff/index.html','pickup/
   }
 }
 
+if(!runtime.includes("errorType:'network_error'"))throw new Error('network_error should be grouped as connectivity warning');
+if(!runtime.includes("module:'connectivity'"))throw new Error('network failures should be reported under connectivity module');
+if(!runtime.includes("operation:'connectivity:'"))throw new Error('network failures should be grouped by backend host');
+if(!runtime.includes("severity:'warning'"))throw new Error('network failures must not be classified as critical code failures');
+if(runtime.includes("message:'Network request failed: '+cleanText(error?.message||error,300)"))throw new Error('per-RPC network failure flood path still exists');
+
+for(const path of ['index.html','partner/index.html','staff/index.html','pickup/index.html','admin/index.html']){
+  const html=fs.readFileSync(path,'utf8');
+  if(!html.includes('runtime-monitor.js?v=network-burst-fix-1')){
+    throw new Error('Network-burst runtime monitor cache version missing from '+path);
+  }
+}
+
+const networkMigration=fs.readFileSync('supabase/migrations/20261003142000_runtime_network_incident_grouping.sql','utf8');
+if(!networkMigration.includes("'resource_error','network_error'"))throw new Error('network_error missing from backend reporter allowlist');
+if(!diagnostics.includes("host.innerHTML=activeRows.length?activeRows.map"))throw new Error('Resolved runtime history should not clutter live runtime list');
+
 console.log('system diagnostics Phase 2 regression checks passed');
