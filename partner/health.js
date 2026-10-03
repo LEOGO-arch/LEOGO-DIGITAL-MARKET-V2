@@ -32,6 +32,7 @@
     medical_supplies:'Medical Equipment & Supplies',
     orthopaedic_rehab:'Orthopaedic & Rehabilitation',
     laboratory_diagnostics:'Laboratory / Diagnostics',
+    health_specialist:'Health Specialist / Doctor',
     other_health:'Other Health & Medicine'
   }[value]||String(value||'').replaceAll('_',' '));
   const productKindLabel=(value)=>({
@@ -103,9 +104,15 @@
     const other=$('#healthOtherBusinessType');
     if(other)other.required=value==='other_health';
     const regulatory=$('#healthRegulatoryLicence');
-    if(regulatory)regulatory.required=value==='pharmacy'&&!account?.regulatory_licence_path;
+    if(regulatory)regulatory.required=['pharmacy','health_specialist'].includes(value)&&!account?.regulatory_licence_path;
+    const professional=$('#healthProfessionalCertificate');
+    if(professional)professional.required=value==='health_specialist'&&!account?.professional_certificate_path;
     const help=$('#healthRegulatoryLicenceHelp');
-    if(help)help.textContent=value==='pharmacy'?'Required for Pharmacy / pharmaceuticals':'Upload the relevant regulator / professional licence when applicable';
+    if(help)help.textContent=value==='pharmacy'
+      ?'Required for Pharmacy / pharmaceuticals'
+      : value==='health_specialist'
+        ?'Required: current professional / regulatory licence for the Health Specialist'
+        :'Upload the relevant regulator / professional licence when applicable';
   };
 
   const uploadFile=async(file,bucket,prefix,max=8388608)=>{
@@ -361,6 +368,11 @@
     $('#healthMedicineBusinessTypeCard').textContent=typeLabel(account.business_type);
     $('#healthMedicineAccountStatus').textContent='Approved';
     productKindOptions();
+    document.dispatchEvent(new CustomEvent('leogo:health-account-ready',{detail:{
+      businessType:account.business_type,
+      applicationStatus:account.application_status,
+      businessName:account.business_name
+    }}));
     await Promise.allSettled([loadProducts(),loadOrders(),loadNotifications()]);
     openHealthView(activeView);
   };
@@ -396,14 +408,16 @@
   window.leogoOpenHealthMedicinePartner=openHealthRole;
 
   function openHealthView(view='overview'){
-    activeView=['overview','products','orders','notifications'].includes(view)?view:'overview';
+    activeView=['overview','products','orders','services','bookings','notifications'].includes(view)?view:'overview';
     $$('[data-health-view]',shell).forEach((button)=>button.classList.toggle('active',button.dataset.healthView===activeView));
     $$('[data-health-content]',shell).forEach((panel)=>panel.classList.toggle('active',panel.dataset.healthContent===activeView));
     $('#healthMedicineViewDescription').textContent={
       overview:'Approved Health & Medicine partner overview.',
       products:'Manage Health products and Admin approval status.',
       orders:'Receive and prepare approved OTC / non-prescription Health orders.',
-      notifications:'Application, product and order approval notifications.'
+      services:'Manage Health Specialist services and Admin approval status.',
+      bookings:'Receive and respond to verified Health Specialist service bookings.',
+      notifications:'Application, product, service and booking approval notifications.'
     }[activeView];
     $('#healthMedicineSidebar')?.classList.remove('open');
     document.body.classList.remove('seller-menu-open');
@@ -454,6 +468,8 @@
       const permitFiles=Array.from($('#healthOtherPermits').files||[]).slice(0,5);
       if(!businessIdFile&&!account?.business_id_document_path)throw new Error('Business ID / identification document is required.');
       if(businessType==='pharmacy'&&!regulatoryFile&&!account?.regulatory_licence_path)throw new Error('Pharmacy / pharmaceuticals requires a regulatory licence document.');
+      if(businessType==='health_specialist'&&!regulatoryFile&&!account?.regulatory_licence_path)throw new Error('Health Specialist / Doctor requires a current professional / regulatory licence.');
+      if(businessType==='health_specialist'&&!professionalFile&&!account?.professional_certificate_path)throw new Error('Health Specialist / Doctor requires a professional qualification certificate.');
 
       const [
         profilePath,businessIdPath,businessLicencePath,regulatoryPath,professionalPath,registrationPath,permitPaths

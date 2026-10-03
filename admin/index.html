@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="admin.css?v=admin-security-v1">
   <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-phase4-1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
-  <link rel="stylesheet" href="health.css?v=health-otc-cart-v2">
+  <link rel="stylesheet" href="health.css?v=health-specialist-v1">
   <link rel="stylesheet" href="flash-sales.css?v=flash-sale-v1">
 <style>
 .service-operations-card{margin-top:18px}.service-fee-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.service-fee-form label{display:grid;gap:6px;font-weight:800}.service-fee-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px;width:180px}.service-fee-form button,.admin-service-request-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.service-fee-form small{width:100%;font-weight:800}.admin-service-request-list{display:grid;gap:14px}.admin-service-request-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.admin-service-request-card header{display:flex;justify-content:space-between;gap:12px}.admin-service-request-card header strong,.admin-service-request-card header small{display:block}.admin-service-request-card header b{font-size:11px;text-transform:capitalize;background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;height:max-content}.admin-service-request-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.admin-service-request-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.admin-service-request-grid small,.admin-service-request-grid strong{display:block}.admin-service-request-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-service-request-actions .verify{background:#157f3d}.admin-service-request-actions .reject,.admin-service-request-actions .cancel{background:#a42832}.admin-service-request-actions .dispatch{background:#ff7200}.admin-service-request-card p{margin:0;color:#526177}.service-request-summary-grid{margin:14px 0}@media(max-width:720px){.admin-service-request-grid{grid-template-columns:1fr}.admin-service-request-card header{display:grid}}
@@ -548,30 +548,55 @@
       </section>
       <section class="admin-panel" data-admin-panel="health">
         <div class="section-head">
-          <div><span>REGULATED HEALTH MARKETPLACE</span><h2>Health &amp; Medicine</h2><p>Separate partner administration for Pharmacy, Optics, Medical Supplies, Orthopaedic / Rehabilitation, Laboratory / Diagnostics and other approved Health businesses.</p></div>
+          <div><span>REGULATED HEALTH MARKETPLACE</span><h2>Health &amp; Medicine</h2><p>Separate partner administration for Pharmacy, Optics, Medical Supplies, Orthopaedic / Rehabilitation, Laboratory / Diagnostics, verified Health Specialists / Doctors and other approved Health businesses.</p></div>
           <div class="section-head-actions"><button data-open-view="approvals" data-filter-target="health" class="secondary-button">Open Health Approvals</button><button id="refreshHealthMedicineAdmin" class="primary-button" type="button">↻ Refresh</button></div>
         </div>
         <div class="seller-admin-summary">
           <article><span>Health Partners</span><strong id="adminHealthPartnerTotal">0</strong><small>All retained registrations</small></article>
-          <article><span>Approved</span><strong id="adminHealthPartnerApproved">0</strong><small>Verified Health businesses</small></article>
+          <article><span>Approved</span><strong id="adminHealthPartnerApproved">0</strong><small>Verified Health partners</small></article>
           <article><span>Pending Review</span><strong id="adminHealthPartnerPending">0</strong><small>Health applications needing action</small></article>
           <article><span>Health Products</span><strong id="adminHealthProductTotal">0</strong><small>Separate from Seller products</small></article>
           <article><span>Health Orders</span><strong id="adminHealthOrderTotal">0</strong><small>OTC / non-prescription checkout</small></article>
+          <article><span>Specialist Services</span><strong id="adminHealthSpecialistServiceTotal">0</strong><small>Doctor / Health professional listings</small></article>
+          <article><span>Specialist Bookings</span><strong id="adminHealthSpecialistBookingTotal">0</strong><small>Customer appointment requests</small></article>
+          <article><span>Booking Fee Pending</span><strong id="adminHealthSpecialistPaymentPending">0</strong><small>LEOGO fee verification</small></article>
         </div>
+
+        <section class="content-card health-specialist-fee-settings">
+          <div class="card-head"><div><span>HEALTH SPECIALIST BOOKING FEE</span><h3>LEOGO Booking Fee</h3><p>Set the platform booking fee customers must pay before a Health Specialist / Doctor receives the booking. This fee is separate from the specialist's consultation/service fee.</p></div></div>
+          <form id="adminHealthSpecialistFeeForm" class="compact-settings-form">
+            <label><span>Booking fee (KSh)</span><input id="adminHealthSpecialistBookingFeeInput" type="number" min="0" max="100000" step="0.01" required></label>
+            <button class="primary-button" type="submit">Save Booking Fee</button>
+          </form>
+          <div class="form-status" id="adminHealthSpecialistFeeStatus"></div>
+        </section>
+
         <section class="content-card">
-          <div class="card-head"><div><span>HEALTH PARTNER NETWORK</span><h3>Registered Health &amp; Medicine Partners</h3><p>Pharmacy regulatory documents and other verification records remain private to authorized Admin users and are reviewed through Approval Center.</p></div></div>
-          <div class="responsive-table"><table><thead><tr><th>Business</th><th>Type</th><th>Location</th><th>Status</th><th>Products</th><th>Contact</th></tr></thead><tbody id="adminHealthPartnerTable"><tr><td colspan="6">Loading Health &amp; Medicine partners…</td></tr></tbody></table></div>
+          <div class="card-head"><div><span>HEALTH PARTNER NETWORK</span><h3>Registered Health &amp; Medicine Partners</h3><p>Pharmacy, specialist regulatory documents and other verification records remain private to authorized Admin users and are reviewed through Approval Center.</p></div></div>
+          <div class="responsive-table"><table><thead><tr><th>Business / Professional</th><th>Type</th><th>Location</th><th>Status</th><th>Products</th><th>Contact</th></tr></thead><tbody id="adminHealthPartnerTable"><tr><td colspan="6">Loading Health &amp; Medicine partners…</td></tr></tbody></table></div>
         </section>
         <section class="content-card">
           <div class="card-head"><div><span>HEALTH PRODUCT CATALOGUE</span><h3>Health &amp; Medicine Products</h3><p>Products are kept separate from ordinary Seller catalogue records. Prescription-required items are flagged clearly.</p></div><select id="adminHealthProductFilter"><option value="all">All product statuses</option><option value="pending">Pending</option><option value="under_review">Under Review</option><option value="changes_requested">Changes Requested</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
           <div class="responsive-table"><table><thead><tr><th>Product</th><th>Provider</th><th>Type</th><th>Classification</th><th>Price</th><th>Status</th></tr></thead><tbody id="adminHealthProductTable"><tr><td colspan="6">Loading Health products…</td></tr></tbody></table></div>
         </section>
+
+        <section class="content-card">
+          <div class="card-head"><div><span>HEALTH SPECIALIST SERVICES</span><h3>Doctor &amp; Health Professional Services</h3><p>Service listings are reviewed through Approval Center before customers can book them.</p></div><select id="adminHealthSpecialistServiceFilter"><option value="all">All service statuses</option><option value="pending">Pending</option><option value="under_review">Under Review</option><option value="changes_requested">Changes Requested</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
+          <div class="responsive-table"><table><thead><tr><th>Service</th><th>Specialist</th><th>Mode</th><th>Duration</th><th>Provider Fee</th><th>Status</th></tr></thead><tbody id="adminHealthSpecialistServiceTable"><tr><td colspan="6">Loading Health Specialist services…</td></tr></tbody></table></div>
+        </section>
+
+        <section class="content-card">
+          <div class="card-head"><div><span>HEALTH SPECIALIST BOOKINGS</span><h3>Booking Fee Verification &amp; Appointments</h3><p>Verify the LEOGO booking fee before the Health Specialist receives the appointment request. The specialist's own consultation/service fee is not collected here.</p></div><select id="adminHealthSpecialistBookingFilter"><option value="all">All bookings</option><option value="payment_pending">Booking fee verification</option><option value="requested">Sent to specialist</option><option value="accepted">Accepted</option><option value="completed">Completed</option><option value="closed">Declined / Cancelled</option></select></div>
+          <div id="adminHealthSpecialistBookingList" class="admin-health-specialist-booking-list"><div class="loading-card">Loading Health Specialist bookings…</div></div>
+          <div class="form-status" id="adminHealthSpecialistBookingStatus"></div>
+        </section>
+
         <section class="content-card">
           <div class="card-head"><div><span>HEALTH ORDERS</span><h3>OTC &amp; Non-Prescription Orders</h3><p>Verify Till/Paybill payments before the Health Partner prepares the order. Prescription-required medicines never enter this queue.</p></div><select id="adminHealthOrderFilter"><option value="all">All orders</option><option value="payment_pending">Payment verification</option><option value="active">Active orders</option><option value="closed">Closed orders</option></select></div>
           <div id="adminHealthOrderList" class="admin-health-order-list"><div class="loading-card">Loading Health &amp; Medicine orders…</div></div>
           <div class="form-status" id="adminHealthOrderStatus"></div>
         </section>
-        <div class="approval-safety-note">Approved OTC medicines and non-prescription Health products use their own Health order records. Prescription-required medicines remain enquiry-only and never enter normal cart checkout.</div>
+        <div class="approval-safety-note">Health Specialist services stay inside the regulated Health &amp; Medicine module. Approved OTC/non-prescription product orders keep their existing Health order records, and prescription-required medicines remain enquiry-only.</div>
       </section>
       <section class="admin-panel" data-admin-panel="settlements">
         <div class="section-head"><div><span>PARTNER FINANCE</span><h2>Partner Settlement Accounts</h2><p>Verify Seller, Service Provider and Transport Provider payout destinations, process requested payouts, or record an Admin-initiated settlement.</p></div><button id="refreshSellerSettlements" class="primary-button" type="button">↻ Refresh</button></div>
@@ -1585,14 +1610,15 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
-  <script src="admin.js?v=xprinter-80mm-compact-6" defer></script>
+  <script src="admin.js?v=health-specialist-v1" defer></script>
   <script src="system-diagnostics.js?v=diagnostics-phase4-1" defer></script>
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
   <script src="loyalty-rewards.js?v=loyalty-rewards-v2" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
-  <script src="health.js?v=health-otc-cart-v2" defer></script>
+  <script src="health.js?v=health-specialist-v1" defer></script>
+  <script src="health-specialist.js?v=health-specialist-v1" defer></script>
 <script src="flash-sales.js?v=flash-sale-v1" defer></script>
   <script src="shipping-moq.js?v=diagnostics-repair-1" defer></script>
 <script src="loans.js?v=sidebar-action-badges-2" defer></script>

@@ -14,6 +14,7 @@
     medical_supplies:'Medical Equipment & Supplies',
     orthopaedic_rehab:'Orthopaedic & Rehabilitation',
     laboratory_diagnostics:'Laboratory / Diagnostics',
+    health_specialist:'Health Specialist / Doctor',
     other_health:'Other Health & Medicine'
   }[value]||String(value||'').replaceAll('_',' '));
   const productTypeLabel=(value)=>({
@@ -47,7 +48,9 @@
         '<td><span class="admin-health-type">'+esc(typeLabel(row.business_type))+'</span></td>'+
         '<td><strong>'+esc([row.town,row.sub_county,row.county].filter(Boolean).join(' · ')||'—')+'</strong><small>'+esc(row.location_details||'')+'</small></td>'+
         '<td><span class="status-chip '+esc(row.application_status)+'">'+esc(String(row.application_status||'').replaceAll('_',' '))+'</span></td>'+
-        '<td>'+Number(row.product_count||0)+'</td>'+
+        '<td>'+(row.business_type==='health_specialist'
+          ? Number(row.service_count||0)+' service'+(Number(row.service_count||0)===1?'':'s')
+          : Number(row.product_count||0)+' product'+(Number(row.product_count||0)===1?'':'s'))+'</td>'+
         '<td><strong>'+esc(row.phone||'')+'</strong><small>'+esc(row.email||'')+'</small></td>'+
       '</tr>').join(''):'<tr><td colspan="6">No Health & Medicine partners registered yet.</td></tr>';
     }
