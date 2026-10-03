@@ -76,12 +76,12 @@ async function mountPartnerSubscription(partnerType,shell){
   if(!currentUser||!shell)return;
   const {data,error}=await client.rpc('partner_get_billing_status',{p_partner_type:partnerType});
   if(error){console.warn('Partner subscription status unavailable:',error);return;}
-  shell.querySelector('.partner-subscription-panel')?.remove();
+  shell.querySelectorAll('.partner-subscription-panel,.premium-acceptance-panel').forEach(node=>node.remove());
   const panel=document.createElement('section');
   panel.className='partner-subscription-panel';
   const latest=data.latest_payment||{},active=Boolean(data.active);
   const endCopy=active&&data.ends_at?'Active until '+new Date(data.ends_at).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short'}):latest.payment_status==='pending'?'Payment awaiting Admin verification':'Subscription required';
-  panel.innerHTML='<header><div><span>PARTNER SUBSCRIPTION</span><h3>'+escapeHtml(partnerTypeLabel(partnerType))+' access</h3><p>'+escapeHtml(endCopy)+'</p></div><b class="'+(active?'active':'')+'">'+(active?'ACTIVE':latest.payment_status==='pending'?'PENDING':'INACTIVE')+'</b></header><div class="partner-subscription-grid"><form data-partner-subscription-form><label>Plan<select name="period"><option value="monthly">Monthly — KSh '+Number(data.monthly_amount_kes||0).toLocaleString('en-KE')+'</option><option value="yearly">Yearly — KSh '+Number(data.yearly_amount_kes||0).toLocaleString('en-KE')+'</option></select></label><label>Payment reference<input name="reference" minlength="4" maxlength="80" required placeholder="M-Pesa / payment code"></label><small>Pay to '+escapeHtml(partnerPaymentDestination(data.payment_destination))+'. Admin must confirm the payment before activation.</small><button type="submit">Submit subscription payment</button><p class="status" data-partner-subscription-status></p></form>'+(partnerType==='premium'?'<form data-premium-credit-form><strong>Need another acceptance now?</strong><small>One acceptance is free per rolling 24 hours. Extra acceptances cost KSh '+Number(data.extra_acceptance_amount_kes||0).toLocaleString('en-KE')+' each. Approved credits available: '+Number(data.acceptance_credits||0)+'.</small><label>Extra acceptances<input name="quantity" type="number" min="1" max="100" value="1" required></label><label>Payment reference<input name="reference" minlength="4" maxlength="80" required></label><button type="submit">Submit extra acceptance payment</button><p class="status" data-premium-credit-status></p></form>':'')+'</div>';
+  panel.innerHTML='<header><div><span>PARTNER SUBSCRIPTION</span><h3>'+escapeHtml(partnerTypeLabel(partnerType))+' access</h3><p>'+escapeHtml(endCopy)+'</p></div><b class="'+(active?'active':'')+'">'+(active?'ACTIVE':latest.payment_status==='pending'?'PENDING':'INACTIVE')+'</b></header><div class="partner-subscription-grid"><form data-partner-subscription-form><label>Plan<select name="period"><option value="monthly">Monthly — KSh '+Number(data.monthly_amount_kes||0).toLocaleString('en-KE')+'</option><option value="yearly">Yearly — KSh '+Number(data.yearly_amount_kes||0).toLocaleString('en-KE')+'</option></select></label><label>Payment reference<input name="reference" minlength="4" maxlength="80" required placeholder="M-Pesa / payment code"></label><small>Pay to '+escapeHtml(partnerPaymentDestination(data.payment_destination))+'. Admin must confirm the payment before activation.</small><button type="submit">Submit subscription payment</button><p class="status" data-partner-subscription-status></p></form></div>';
   const subscriptionSlot=shell.querySelector('[data-partner-subscription-slot]');
   if(subscriptionSlot){
     subscriptionSlot.replaceChildren(panel);
@@ -90,13 +90,29 @@ async function mountPartnerSubscription(partnerType,shell){
     const head=workspace.querySelector(':scope > header');
     if(head)head.insertAdjacentElement('afterend',panel);else workspace.prepend(panel);
   }
+
+  let acceptancePanel=null;
+  if(partnerType==='premium'){
+    const acceptanceSlot=shell.querySelector('[data-premium-acceptance-slot]');
+    if(acceptanceSlot){
+      if(active){
+        acceptancePanel=document.createElement('section');
+        acceptancePanel.className='premium-acceptance-panel';
+        acceptancePanel.innerHTML='<div class="premium-acceptance-head"><div><span>EXTRA ACCEPTANCE</span><h3>Need another acceptance now?</h3><p>Your subscription is already active. Use this only when you need extra acceptance credit.</p></div><b>Credits '+Number(data.acceptance_credits||0)+'</b></div><form data-premium-credit-form><small>One acceptance is free per rolling 24 hours. Extra acceptances cost KSh '+Number(data.extra_acceptance_amount_kes||0).toLocaleString('en-KE')+' each.</small><label>Extra acceptances<input name="quantity" type="number" min="1" max="100" value="1" required></label><label>Payment reference<input name="reference" minlength="4" maxlength="80" required placeholder="M-Pesa / payment code"></label><button type="submit">Submit extra acceptance payment</button><p class="status" data-premium-credit-status></p></form>';
+        acceptanceSlot.replaceChildren(acceptancePanel);
+      }else{
+        acceptanceSlot.innerHTML='<div class="empty-card">Extra acceptance payment becomes available after your Premium Partner subscription is active.</div>';
+      }
+    }
+  }
+
   panel.querySelector('[data-partner-subscription-form]')?.addEventListener('submit',async(event)=>{
     event.preventDefault();const formElement=event.currentTarget;const button=event.submitter;button.disabled=true;const original=button.textContent;button.textContent='Submitting…';const output=panel.querySelector('[data-partner-subscription-status]');
     try{const form=new FormData(formElement),result=await client.rpc('partner_submit_subscription_payment',{p_partner_type:partnerType,p_billing_period:form.get('period'),p_payment_reference:String(form.get('reference')||'').trim()});if(result.error)throw result.error;formElement.reset();status(output,'Payment submitted. Admin verification is required before activation.','success');}
     catch(err){status(output,err?.message||'Payment could not be submitted.','error');}finally{button.disabled=false;button.textContent=original;}
   });
-  panel.querySelector('[data-premium-credit-form]')?.addEventListener('submit',async(event)=>{
-    event.preventDefault();const formElement=event.currentTarget;const button=event.submitter;button.disabled=true;const original=button.textContent;button.textContent='Submitting…';const output=panel.querySelector('[data-premium-credit-status]');
+  acceptancePanel?.querySelector('[data-premium-credit-form]')?.addEventListener('submit',async(event)=>{
+    event.preventDefault();const formElement=event.currentTarget;const button=event.submitter;button.disabled=true;const original=button.textContent;button.textContent='Submitting…';const output=acceptancePanel.querySelector('[data-premium-credit-status]');
     try{const form=new FormData(formElement),result=await client.rpc('premium_submit_extra_acceptance_payment',{p_quantity:Number(form.get('quantity')),p_payment_reference:String(form.get('reference')||'').trim()});if(result.error)throw result.error;formElement.reset();status(output,'Extra acceptance payment submitted for Admin verification.','success');}
     catch(err){status(output,err?.message||'Payment could not be submitted.','error');}finally{button.disabled=false;button.textContent=original;}
   });
@@ -2885,15 +2901,16 @@ function premiumStatusCopy(value){
   return 'Create your Premium Profile application.';
 }
 function premiumViewDescription(view){
-  return {overview:'Manage Premium Profile status and availability.',requests:'Incoming Premium Customer meetup requests.',profile:'Your approved public Premium Profile.',notifications:'Admin decisions and Premium activity.'}[view]||'Premium Partner Portal';
+  return {overview:'Manage Premium Profile status and availability.',requests:'Incoming Premium Customer meetup requests.',profile:'Your approved public Premium Profile.',subscription:'Review your Premium Partner subscription, renewal plan and payment status.',notifications:'Admin decisions and Premium activity.'}[view]||'Premium Partner Portal';
 }
 function openPremiumView(view='overview'){
-  const allowed=['overview','requests','profile','notifications'];
+  const allowed=['overview','requests','profile','subscription','notifications'];
   const resolved=allowed.includes(view)?view:'overview';
   [...document.querySelectorAll('[data-premium-content]')].forEach(panel=>panel.classList.toggle('active',panel.dataset.premiumContent===resolved));
   [...document.querySelectorAll('[data-premium-view]')].forEach(button=>button.classList.toggle('active',button.dataset.premiumView===resolved));
   if($('#premiumViewDescription'))$('#premiumViewDescription').textContent=premiumViewDescription(resolved);
   if(resolved==='requests')loadPremiumMeetupRequests().catch(error=>status($('#premiumRequestStatus'),error?.message||'Premium requests could not load.','error'));
+  if(resolved==='subscription')mountPartnerSubscription('premium',premiumDashboard).catch(error=>console.warn('Premium subscription refresh failed:',error));
   if(resolved==='notifications')loadPremiumNotifications().catch(console.warn);
   closePremiumSidebar();
 }
