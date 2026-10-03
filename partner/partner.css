@@ -687,3 +687,13 @@
 
 /* Service Provider Flash Sale */
 .provider-flash-sale-panel{border-color:#ffd3a9;background:#fffaf4}.provider-flash-sale-panel .private-doc-note{background:#fff1df;color:#7c470e}.provider-service-card .badge.flash,.provider-service-card .status-chip.approved{font-weight:900}
+
+
+/* Premium private chat single-photo attachment */
+.premium-partner-compose{grid-template-columns:auto minmax(0,1fr) auto}
+.premium-partner-photo-button{width:42px;min-width:42px;padding:0!important;background:#eef3f8!important;color:#071b3d!important;font-size:18px!important}
+.premium-partner-photo-name{grid-column:1/-1;display:block;padding:6px 8px;border-radius:8px;background:#fff6ec;color:#8a4a12;font-size:8px;font-weight:800;overflow-wrap:anywhere}
+.premium-partner-photo-name[hidden]{display:none!important}
+.premium-partner-message-photo{display:block;width:min(280px,100%);max-height:320px;object-fit:cover;border-radius:9px;margin-top:6px;background:#e9eef5}
+.premium-partner-message.mine .premium-partner-message-photo{border:1px solid rgba(255,255,255,.18)}
+@media(max-width:650px){.premium-partner-compose{grid-template-columns:auto minmax(0,1fr) auto}.premium-partner-message-photo{max-height:260px}}
