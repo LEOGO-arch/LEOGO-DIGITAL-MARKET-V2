@@ -33,3 +33,28 @@
 .admin-health-order-actions button{border:0;border-radius:8px;padding:8px 10px;background:#176c5d;color:#fff;font-size:8px;font-weight:900}
 .admin-health-order-actions button.danger{background:#a13232}
 @media(max-width:720px){.admin-health-order-meta{grid-template-columns:1fr 1fr}.admin-health-order-card>header{display:grid}}
+
+
+/* Health Specialist / Doctor Admin extension V1 */
+.health-specialist-fee-settings .compact-settings-form{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.health-specialist-fee-settings .compact-settings-form label{display:grid;gap:5px;min-width:180px;font-size:8px;font-weight:900;color:#425c67}
+.health-specialist-fee-settings .compact-settings-form input{border:1px solid #d5e0e3;border-radius:9px;padding:9px 10px;font:inherit;min-width:160px}
+.admin-health-specialist-booking-list{display:grid;gap:12px}
+.admin-health-specialist-booking-card{border:1px solid #dae5e8;border-radius:14px;background:#fff;padding:14px;display:grid;gap:11px}
+.admin-health-specialist-booking-card>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.admin-health-specialist-booking-card>header>div{display:grid;gap:3px}
+.admin-health-specialist-booking-card>header span{font-size:8px;font-weight:950;color:#0f8a73}
+.admin-health-specialist-booking-card>header strong{font-size:13px;color:#0a2941}
+.admin-health-specialist-booking-card>header small{font-size:8px;color:#70818a}
+.admin-health-specialist-booking-card>header b{font-size:9px;color:#325e56;text-align:right}
+.admin-health-specialist-booking-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.admin-health-specialist-booking-meta span{background:#f5f8f9;border-radius:9px;padding:9px;display:grid;gap:2px}
+.admin-health-specialist-booking-meta small{font-size:7px;color:#75858d;text-transform:uppercase;font-weight:900}
+.admin-health-specialist-booking-meta strong{font-size:8.5px;color:#173746;overflow-wrap:anywhere}
+.admin-health-specialist-booking-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.admin-health-specialist-booking-actions button{border:0;border-radius:8px;background:#0f8a73;color:#fff;padding:8px 11px;font-size:8px;font-weight:900;cursor:pointer}
+.admin-health-specialist-booking-actions button.danger{background:#b42318}
+@media(max-width:760px){
+  .admin-health-specialist-booking-meta{grid-template-columns:1fr 1fr}
+  .admin-health-specialist-booking-card>header{display:grid}
+}
