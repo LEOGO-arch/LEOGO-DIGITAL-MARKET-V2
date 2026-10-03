@@ -49,3 +49,24 @@
   .health-product-card-actions{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between}
   .health-medicine-sidebar{width:min(78vw,270px)!important;max-width:270px!important;height:100dvh!important;overflow-y:auto}
 }
+
+.health-order-list{display:grid;gap:12px}
+.health-order-card{border:1px solid #dce6e9;border-radius:14px;background:#fff;padding:14px;display:grid;gap:12px}
+.health-order-card>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.health-order-card>header>div{display:grid;gap:3px}
+.health-order-card>header span{font-size:8px;font-weight:950;color:#0f8a73}
+.health-order-card>header strong{font-size:13px;color:#0a2941}
+.health-order-card>header small{font-size:8px;color:#778790}
+.health-order-card>header b{font-size:12px;color:#0a2941}
+.health-order-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.health-order-meta span{background:#f5f8f9;border-radius:10px;padding:9px;display:grid;gap:2px}
+.health-order-meta small{font-size:7px;color:#73848d;text-transform:uppercase;font-weight:900}
+.health-order-meta strong{font-size:8.5px;color:#173746}
+.health-order-items{display:grid;gap:6px}
+.health-order-items>span{display:flex;justify-content:space-between;gap:10px;border-top:1px dashed #dce5e7;padding-top:7px}
+.health-order-items strong{font-size:9px;color:#0a2941}
+.health-order-items small{font-size:8px;color:#657983}
+@media(max-width:700px){
+  .health-order-meta{grid-template-columns:1fr 1fr}
+  .health-order-card>header{display:grid}
+}
