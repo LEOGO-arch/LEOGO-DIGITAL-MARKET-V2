@@ -2303,3 +2303,13 @@ body.advertisement-lightbox-open{overflow:hidden}
 .customer-order-points-summary strong{font-size:10px;color:#17263c}
 .customer-order-compact-body>div>span{display:block;margin-top:3px;font-size:7px;color:#a35a1d}
 @media(max-width:560px){.customer-order-points-summary{grid-template-columns:1fr}}
+
+
+/* Premium private chat single-photo attachment */
+.premium-peer-compose{grid-template-columns:auto minmax(0,1fr) auto}
+.premium-peer-photo-button{width:42px;min-width:42px;padding:0!important;background:#eef3f8!important;color:#071b3d!important;font-size:18px!important}
+.premium-peer-photo-name{grid-column:1/-1;display:block;padding:6px 8px;border-radius:8px;background:#fff6ec;color:#8a4a12;font-size:7px;font-weight:800;overflow-wrap:anywhere}
+.premium-peer-photo-name[hidden]{display:none!important}
+.premium-peer-message-photo{display:block;width:min(280px,100%);max-height:320px;object-fit:cover;border-radius:9px;margin-top:6px;background:#e9eef5}
+.premium-peer-message.mine .premium-peer-message-photo{border:1px solid rgba(255,255,255,.18)}
+@media(max-width:600px){.premium-peer-compose{grid-template-columns:auto minmax(0,1fr) auto}.premium-peer-message-photo{max-height:260px}}
