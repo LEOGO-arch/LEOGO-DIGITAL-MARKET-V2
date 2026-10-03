@@ -102,9 +102,11 @@ for(const path of ['index.html','partner/index.html','staff/index.html','pickup/
   }
 }
 
-if(!runtime.includes("errorType:'network_error'"))throw new Error('network_error should be grouped as connectivity warning');
+if(!runtime.includes("errorType:'connectivity_error'"))throw new Error('connectivity_error should be grouped as connectivity warning');
 if(!runtime.includes("module:'connectivity'"))throw new Error('network failures should be reported under connectivity module');
 if(!runtime.includes("operation:'connectivity:'"))throw new Error('network failures should be grouped by backend host');
+if(!runtime.includes('failedCount:burst.count'))throw new Error('network burst size should be preserved as failed_count metadata');
+if(!runtime.includes('setTimeout(()=>flushConnectivityBurst(host),1200)'))throw new Error('network burst debounce missing');
 if(!runtime.includes("severity:'warning'"))throw new Error('network failures must not be classified as critical code failures');
 if(runtime.includes("message:'Network request failed: '+cleanText(error?.message||error,300)"))throw new Error('per-RPC network failure flood path still exists');
 
@@ -116,7 +118,9 @@ for(const path of ['index.html','partner/index.html','staff/index.html','pickup/
 }
 
 const networkMigration=fs.readFileSync('supabase/migrations/20261003142000_runtime_network_incident_grouping.sql','utf8');
-if(!networkMigration.includes("'resource_error','network_error'"))throw new Error('network_error missing from backend reporter allowlist');
+if(!networkMigration.includes("'resource_error','connectivity_error'"))throw new Error('network_error missing from backend reporter allowlist');
 if(!diagnostics.includes("host.innerHTML=activeRows.length?activeRows.map"))throw new Error('Resolved runtime history should not clutter live runtime list');
+const connectivityHealth=fs.readFileSync('supabase/migrations/20261003144000_connectivity_health_scoring.sql','utf8');
+if(!connectivityHealth.includes("event_count>=3"))throw new Error('isolated connectivity incidents should not lower overall health');
 
 console.log('system diagnostics Phase 2 regression checks passed');
