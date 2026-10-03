@@ -137,6 +137,7 @@ const openView=(view='overview')=>{
   if(view==='services')loadServices().catch(console.warn);
   if(view==='flashsale'){loadServices().then(renderFlashSale).catch(console.warn);}
   if(view==='products')loadProducts().catch(console.warn);
+  if(view==='subscription')window.leogoMountPartnerSubscription?.('cyber',shell)?.catch?.(console.warn);
   if(view==='notifications')loadCyberNotifications().catch(console.warn);
   if(view==='chat')loadCyberChatThreads().catch(console.warn);
   if(view==='profile')renderProfile();
