@@ -145,4 +145,16 @@ if(!connectivityHealth.includes("event_count>=3")){
   throw new Error('Isolated connectivity incidents should not lower overall system health');
 }
 
+const partnerShipping=fs.readFileSync('partner/shipping-moq.js','utf8');
+new vm.Script(partnerShipping,{filename:'partner/shipping-moq.js'});
+if(!partnerShipping.includes('client.auth.getSession()')||!partnerShipping.includes('client.auth.onAuthStateChange')){
+  throw new Error('Partner Seller shipping data must wait for auth');
+}
+if(partnerShipping.includes('await Promise.all([loadProducts(),loadCampaigns(),loadDeliveryRates()]);\n  }catch(error){')){
+  throw new Error('Partner Seller shipping data still loads directly during DOM init');
+}
+if(!fs.readFileSync('partner/index.html','utf8').includes('shipping-moq.js?v=auth-timing-2')){
+  throw new Error('Partner shipping auth-timing cache version missing');
+}
+
 console.log('system diagnostics Phase 2 regression checks passed');
