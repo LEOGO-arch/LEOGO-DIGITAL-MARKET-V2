@@ -2577,12 +2577,163 @@
     }
   };
 
+  const buildOrderThermalReceiptHtml = async (detail) => {
+    if(!detail?.order) throw new Error('Open an order before printing its delivery summary.');
+
+    const order=detail.order;
+    const items=Array.isArray(detail.items)?detail.items:[];
+    const sellers=Array.isArray(detail.sellers)?detail.sellers:[];
+    const delivery=detail.delivery||null;
+    const qr=await buildDeliveryQrCanvas(deliveryQrTarget(order),300);
+    const qrDataUrl=qr.toDataURL('image/png');
+    const codDue=String(order.payment_status||'').toLowerCase()==='cod_due';
+    const sellerNames=sellers.map((seller)=>seller.business_name).filter(Boolean).join(', ');
+    const printedAt=formatDate(new Date().toISOString(),true);
+    const orderDate=formatDate(order.created_at,true);
+
+    const itemRows=items.length
+      ? items.map((item)=>{
+          const name=item.variant_name
+            ? String(item.product_name||'Item')+' - '+String(item.variant_name)
+            : String(item.product_name||'Item');
+          return '<div class="receipt-item">'+
+            '<div class="receipt-item-main"><b>'+escapeHtml(String(Number(item.quantity||0)))+' x</b><span>'+escapeHtml(name)+'</span></div>'+
+            '<strong>'+escapeHtml(formatMoney(item.line_total_kes))+'</strong>'+
+          '</div>';
+        }).join('')
+      : '<div class="receipt-empty">No order items found.</div>';
+
+    const feeRow=(label,value,always=false)=>{
+      const amount=Number(value||0);
+      if(!always&&amount===0)return '';
+      return '<div class="receipt-money-row"><span>'+escapeHtml(label)+'</span><strong>'+escapeHtml(formatMoney(amount))+'</strong></div>';
+    };
+
+    const noteBlock=(title,value)=>value
+      ? '<section class="receipt-section receipt-note"><h3>'+escapeHtml(title)+'</h3><p>'+escapeHtml(value)+'</p></section>'
+      : '';
+
+    return '<!doctype html><html><head><meta charset="utf-8">'+
+      '<meta name="viewport" content="width=device-width,initial-scale=1">'+
+      '<title>'+escapeHtml(order.order_reference||'LEOGO Order Summary')+'</title>'+
+      '<style>'+
+        '@page{size:80mm auto;margin:0;}'+
+        '*{box-sizing:border-box;}'+
+        'html,body{width:80mm;min-width:80mm;max-width:80mm;margin:0;padding:0;background:#fff;color:#000;}'+
+        'body{font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'+
+        '.receipt{width:72mm;margin:0 auto;padding:3mm 0 4mm;font-size:10.5pt;line-height:1.28;font-weight:500;}'+
+        '.receipt-header{text-align:center;}'+
+        '.receipt-header h1{margin:0;font-size:16pt;line-height:1.05;font-weight:900;letter-spacing:.2px;}'+
+        '.receipt-header h2{margin:1.5mm 0 0;font-size:10.5pt;font-weight:800;}'+
+        '.receipt-header p{margin:1mm 0 0;font-size:8.5pt;font-weight:600;}'+
+        '.receipt-rule{border:0;border-top:1px dashed #000;margin:2.2mm 0;}'+
+        '.receipt-reference{text-align:center;margin:1mm 0;}'+
+        '.receipt-reference small{display:block;font-size:8pt;font-weight:800;}'+
+        '.receipt-reference strong{display:block;margin-top:.7mm;font-size:13pt;font-weight:900;word-break:break-word;}'+
+        '.receipt-status{display:grid;grid-template-columns:1fr;gap:.7mm;text-align:left;font-size:9.5pt;}'+
+        '.receipt-status div{display:flex;justify-content:space-between;gap:3mm;}'+
+        '.receipt-status span{font-weight:700;}'+
+        '.receipt-status strong{text-align:right;font-weight:900;}'+
+        '.receipt-section{margin:0;}'+
+        '.receipt-section h3{margin:0 0 1.2mm;font-size:9pt;font-weight:900;letter-spacing:.5px;}'+
+        '.receipt-section p{margin:.5mm 0;font-size:10.5pt;font-weight:600;overflow-wrap:anywhere;}'+
+        '.receipt-section .primary{font-size:12pt;font-weight:900;}'+
+        '.receipt-items{display:grid;gap:0;}'+
+        '.receipt-item{display:grid;grid-template-columns:minmax(0,1fr) 20mm;gap:2mm;padding:1.5mm 0;border-bottom:1px dotted #555;align-items:start;break-inside:avoid;}'+
+        '.receipt-item:last-child{border-bottom:0;}'+
+        '.receipt-item-main{display:grid;grid-template-columns:8mm minmax(0,1fr);gap:1mm;min-width:0;}'+
+        '.receipt-item-main b{font-size:10pt;font-weight:900;}'+
+        '.receipt-item-main span{font-size:10.5pt;font-weight:700;overflow-wrap:anywhere;}'+
+        '.receipt-item>strong{text-align:right;font-size:10pt;font-weight:900;white-space:nowrap;}'+
+        '.receipt-empty{padding:1.5mm 0;font-size:10pt;}'+
+        '.receipt-money{display:grid;gap:.8mm;}'+
+        '.receipt-money-row{display:flex;justify-content:space-between;gap:3mm;font-size:10pt;}'+
+        '.receipt-money-row span{font-weight:600;}'+
+        '.receipt-money-row strong{font-weight:900;white-space:nowrap;}'+
+        '.receipt-total{margin-top:1mm;padding-top:1.2mm;border-top:2px solid #000;font-size:13pt;font-weight:900;}'+
+        '.receipt-total span,.receipt-total strong{font-weight:900;}'+
+        '.receipt-note p{font-size:9.5pt;line-height:1.3;}'+
+        '.receipt-meta{display:grid;gap:.7mm;font-size:9.5pt;}'+
+        '.receipt-meta div{display:grid;grid-template-columns:18mm minmax(0,1fr);gap:1.5mm;}'+
+        '.receipt-meta b{font-weight:900;}'+
+        '.receipt-meta span{font-weight:600;overflow-wrap:anywhere;}'+
+        '.receipt-qr{text-align:center;margin-top:1mm;break-inside:avoid;}'+
+        '.receipt-qr img{display:block;width:34mm;height:34mm;margin:0 auto;image-rendering:pixelated;}'+
+        '.receipt-qr strong{display:block;margin-top:1mm;font-size:9pt;font-weight:900;}'+
+        '.receipt-qr small{display:block;margin-top:.6mm;font-size:7.5pt;font-weight:700;overflow-wrap:anywhere;}'+
+        '.receipt-footer{text-align:center;font-size:7.5pt;font-weight:700;line-height:1.3;}'+
+        '@media print{html,body{height:auto!important;overflow:visible!important;}.receipt{page-break-after:auto;}.receipt-section,.receipt-qr{break-inside:avoid;}}'+
+      '</style></head><body>'+
+        '<main class="receipt">'+
+          '<header class="receipt-header">'+
+            '<h1>LEOGO DIGITAL MARKET</h1>'+
+            '<h2>ORDER SUMMARY / DELIVERY RECEIPT</h2>'+
+            '<p>Any market to your Door Step</p>'+
+          '</header>'+
+          '<hr class="receipt-rule">'+
+          '<div class="receipt-reference"><small>ORDER REFERENCE</small><strong>'+escapeHtml(order.order_reference||'ORDER')+'</strong></div>'+
+          '<div class="receipt-status">'+
+            '<div><span>Order</span><strong>'+escapeHtml(orderStatusLabel(order.order_status))+'</strong></div>'+
+            '<div><span>Delivery</span><strong>'+escapeHtml(deliveryStatusLabel(delivery?.status||'awaiting_assignment'))+'</strong></div>'+
+            '<div><span>Date</span><strong>'+escapeHtml(orderDate)+'</strong></div>'+
+          '</div>'+
+          '<hr class="receipt-rule">'+
+          '<section class="receipt-section">'+
+            '<h3>DELIVER TO</h3>'+
+            '<p class="primary">'+escapeHtml(order.receiver_name||'Receiver')+'</p>'+
+            '<p>'+escapeHtml(order.contact_number||'No phone')+'</p>'+
+            '<p>'+escapeHtml(orderDeliveryAddress(order))+'</p>'+
+          '</section>'+
+          '<hr class="receipt-rule">'+
+          '<section class="receipt-section">'+
+            '<h3>ORDER ITEMS</h3>'+
+            '<div class="receipt-items">'+itemRows+'</div>'+
+          '</section>'+
+          '<hr class="receipt-rule">'+
+          '<section class="receipt-section receipt-money">'+
+            '<h3>PAYMENT</h3>'+
+            feeRow('Items subtotal',order.items_subtotal_kes,true)+
+            feeRow('Service fee',order.service_fee_kes)+
+            feeRow('Pickup fee',order.pickup_fee_kes)+
+            feeRow('Delivery fee',order.delivery_fee_kes)+
+            (Number(order.reward_points_redeemed_kes||0)>0?feeRow('LEOGO Points used',order.reward_points_redeemed_kes,true):'')+
+            '<div class="receipt-money-row receipt-total"><span>TOTAL</span><strong>'+escapeHtml(formatMoney(order.grand_total_kes))+'</strong></div>'+
+            '<div class="receipt-money-row"><span>Method</span><strong>'+escapeHtml(String(order.payment_method||'').replaceAll('_',' ').toUpperCase())+'</strong></div>'+
+            '<div class="receipt-money-row"><span>Status</span><strong>'+escapeHtml(codDue?'COLLECT ON DELIVERY':paymentStatusLabel(order.payment_status).toUpperCase())+'</strong></div>'+
+            (codDue?'<div class="receipt-money-row"><span>Amount to collect</span><strong>'+escapeHtml(formatMoney(order.external_amount_due_kes??order.grand_total_kes))+'</strong></div>':'')+
+          '</section>'+
+          '<hr class="receipt-rule">'+
+          '<section class="receipt-section receipt-meta">'+
+            '<h3>FULFILMENT</h3>'+
+            '<div><b>Rider</b><span>'+escapeHtml(delivery?.rider_name||'Not yet assigned')+'</span></div>'+
+            (delivery?.rider_phone?'<div><b>Phone</b><span>'+escapeHtml(delivery.rider_phone)+'</span></div>':'')+
+            '<div><b>Seller(s)</b><span>'+escapeHtml(sellerNames||'Seller details available in Admin')+'</span></div>'+
+          '</section>'+
+          noteBlock('STAFF / RIDER INSTRUCTIONS',delivery?.admin_notes)+
+          noteBlock('RIDER UPDATE',delivery?.rider_notes)+
+          '<hr class="receipt-rule">'+
+          '<div class="receipt-qr">'+
+            '<img src="'+qrDataUrl+'" alt="Order QR">'+
+            '<strong>SCAN ORDER</strong>'+
+            '<small>'+escapeHtml(order.order_reference||'LEOGO ORDER')+'</small>'+
+          '</div>'+
+          '<hr class="receipt-rule">'+
+          '<footer class="receipt-footer">'+
+            '<div>Authorized LEOGO order summary.</div>'+
+            '<div>Printed '+escapeHtml(printedAt)+'</div>'+
+            '<div>Keep this receipt with the order until final handover.</div>'+
+          '</footer>'+
+        '</main>'+
+        '<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},180)});<\/script>'+
+      '</body></html>';
+  };
+
   const printOrderDeliverySummary = async () => {
     const detail=state.activeMarketplaceOrderDetail;
     if(!detail?.order) return;
 
     const paperSize=$('#orderSummaryPaperSize')?.value||'a6';
-    const popup=window.open('','_blank',paperSize==='80mm'?'width=420,height=760':'width=900,height=1100');
+    const popup=window.open('','_blank',paperSize==='80mm'?'width=430,height=820':'width=900,height=1100');
     if(!popup){
       setFormStatus($('#adminOrderDetailStatus'),'Your browser blocked the print window. Allow pop-ups for LEOGO Admin and try again.','error');
       return;
@@ -2593,16 +2744,23 @@
     try{
       if(button){button.disabled=true;button.textContent='Preparing…';}
       popup.document.write('<!doctype html><title>Preparing LEOGO Delivery Summary</title><body style="font-family:Arial;padding:24px">Preparing delivery summary…</body>');
+
+      if(paperSize==='80mm'){
+        const receiptHtml=await buildOrderThermalReceiptHtml(detail);
+        popup.document.open();
+        popup.document.write(receiptHtml);
+        popup.document.close();
+        setFormStatus($('#adminOrderDetailStatus'),'80 mm thermal receipt opened. Length will follow the full order summary.','success');
+        return;
+      }
+
       const canvas=await buildOrderDeliverySummaryCanvas(detail);
       const dataUrl=canvas.toDataURL('image/png');
-      const pageCss=paperSize==='80mm'
-        ? '@page{size:80mm 113mm;margin:0}html,body{width:80mm;height:113mm;margin:0;padding:0;background:#fff}img{width:80mm;height:113mm;object-fit:contain;display:block;margin:0}'
-        : '@page{size:A6 portrait;margin:0}html,body{width:105mm;height:148mm;margin:0;padding:0;background:#fff}img{width:105mm;height:148mm;object-fit:contain;display:block;margin:0}';
-      const paperLabel=paperSize==='80mm'?'80 mm thermal':'A6';
+      const pageCss='@page{size:A6 portrait;margin:0}html,body{width:105mm;height:148mm;margin:0;padding:0;background:#fff}img{width:105mm;height:148mm;object-fit:contain;display:block;margin:0}';
       popup.document.open();
       popup.document.write('<!doctype html><html><head><title>'+escapeHtml(detail.order.order_reference||'LEOGO Order Summary')+'</title><style>'+pageCss+'</style></head><body><img id="label" src="'+dataUrl+'" alt="LEOGO Order Summary"><script>document.getElementById("label").onload=function(){setTimeout(function(){window.print();},120)};<\/script></body></html>');
       popup.document.close();
-      setFormStatus($('#adminOrderDetailStatus'),'Order summary opened for '+paperLabel+' printing.','success');
+      setFormStatus($('#adminOrderDetailStatus'),'Order summary opened for A6 printing.','success');
     }catch(error){
       popup.close();
       setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
