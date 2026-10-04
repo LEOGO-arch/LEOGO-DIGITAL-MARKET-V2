@@ -52,6 +52,10 @@ begin
     return jsonb_build_object('ok',false,'reason','invalid_error_type');
   end if;
 
+  if octet_length(v_message)>8192 then
+    return jsonb_build_object('ok',false,'reason','invalid_message');
+  end if;
+
   if char_length(v_message)<2 then
     return jsonb_build_object('ok',false,'reason','empty_error');
   end if;
@@ -63,6 +67,7 @@ begin
   v_module:=private.sanitize_runtime_diagnostic(v_module,80);
   v_error_code:=private.sanitize_runtime_diagnostic(v_error_code,80);
   v_operation:=private.sanitize_runtime_diagnostic(v_operation,180);
+  v_source:=private.sanitize_runtime_diagnostic(v_source,260);
   v_error_code:=case when v_error_code ~ '^[A-Za-z0-9_-]{1,40}$' then v_error_code else null end;
   v_operation:=case when v_operation ~ '^(rpc|edge):[A-Za-z0-9_-]+$' or v_operation ~ '^storage:object/[A-Za-z0-9_-]+$'
     or v_operation='connectivity:supabase_api' then v_operation else null end;

@@ -21,6 +21,13 @@ begin
  select * into e from private.system_runtime_error_events where fingerprint=r->>'fingerprint' order by recorded_at desc limit 1;
  assert e.message !~ 'artificial@example|254700000000|SECRET_A|AB1234567|900123|12345678|eyJabcdefgh|private.pdf';
  assert e.error_code is null; assert e.operation is null; assert e.source is null; assert e.metadata->>'status'='401'; assert not e.metadata ? 'secret';
+ r:=public.record_system_runtime_error('customer','health','http_error','phase1 oversized',null,null,null,null,null,null,null,null,null,jsonb_build_object('data',repeat('x',9000)));
+ assert r->>'reason'='invalid_metadata';
+ r:=public.record_system_runtime_error('customer','health','http_error',repeat('x',9000),null,null,null,null,null,null,null,null,null,'{}');
+ assert r->>'reason'='invalid_message';
+ r:=public.record_system_runtime_error('customer','health','http_error','phase1 source redaction',null,null,'/','/rest/v1/rpc/sb_secret_FAKE',null,null,null,null,null,'{}');
+ select * into e from private.system_runtime_error_events where fingerprint=r->>'fingerprint' order by recorded_at desc limit 1;
+ assert e.source is null;
  r:=public.record_system_runtime_error('invalid','health','http_error','phase1 malformed',null,null,null,null,null,null,null,null,null,'{}');
  assert r->>'reason'='invalid_portal';
  r:=public.record_system_runtime_error('customer','health','http_error','phase1 malformed',null,null,null,null,null,null,null,null,null,'[]');
