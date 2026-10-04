@@ -668,9 +668,13 @@ async function removeFromGroup(button){
 let authenticatedDataLoaded=false;
 
 const loadAuthenticatedSellerData=async()=>{
-  if(authenticatedDataLoaded)return true;
   const {data,error}=await client.auth.getSession();
   if(error||!data?.session?.user)return false;
+  if(authenticatedDataLoaded)return true;
+
+  // Partner sessions also belong to non-Sellers and pending Seller applicants.
+  const {data:account,error:accountError}=await client.rpc('seller_get_own_account');
+  if(accountError||account?.application_status!=='approved')return false;
 
   authenticatedDataLoaded=true;
   try{
