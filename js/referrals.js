@@ -245,6 +245,7 @@
     }
     window.leogoOpenCustomerView?.('wallet');
     window.setTimeout(()=>{
+      document.querySelector('[data-wallet-tab="rewards"]')?.click();
       elements.card?.scrollIntoView({behavior:'smooth',block:'start'});
       load();
     },120);
@@ -264,6 +265,7 @@
   };
 
   captureLandingCode();
+  document.querySelector('[data-wallet-tab="rewards"]')?.addEventListener('click',()=>window.setTimeout(load,30));
   document.addEventListener('leogo:authchange',()=>window.setTimeout(load,60));
   document.addEventListener('leogo:walletrefresh',()=>window.setTimeout(load,60));
 
