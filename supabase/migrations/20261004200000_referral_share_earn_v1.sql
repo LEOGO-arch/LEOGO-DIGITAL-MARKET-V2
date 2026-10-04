@@ -425,6 +425,13 @@ begin
     return jsonb_build_object('success',false,'code','no_pending_referral');
   end if;
 
+  -- Serialize reward-limit checks per referrer so two friends completing
+  -- orders at the same time cannot both pass the Admin-set maximum.
+  perform 1
+  from public.customer_referral_codes
+  where user_id=v_referral.referrer_user_id
+  for update;
+
   select count(*) into v_rewarded_count
   from public.customer_referrals
   where referrer_user_id=v_referral.referrer_user_id
