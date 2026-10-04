@@ -1140,6 +1140,7 @@
           <div class="wallet-tabs-shell">
             <div class="wallet-tabs" role="tablist" aria-label="My LEOGO Savings Wallet sections">
               <button class="active" type="button" role="tab" aria-selected="true" aria-controls="walletTabOverview" data-wallet-tab="overview"><span>⌂</span>Overview</button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="walletTabRewards" data-wallet-tab="rewards"><span>🎁</span>Rewards</button>
               <button type="button" role="tab" aria-selected="false" aria-controls="walletTabSave" data-wallet-tab="save"><span>💵</span>Save Money</button>
               <button type="button" role="tab" aria-selected="false" aria-controls="walletTabChallenge" data-wallet-tab="challenge"><span>📅</span>Daily Challenge</button>
               <button type="button" role="tab" aria-selected="false" aria-controls="walletTabWithdraw" data-wallet-tab="withdraw"><span>🏧</span>Withdraw</button>
@@ -1157,7 +1158,10 @@
               <button type="button" data-wallet-tab-target="challenge"><span>📅</span><strong>Daily Challenge</strong><small>Save daily or recover missed days</small></button>
               <button type="button" data-wallet-tab-target="withdraw"><span>🏧</span><strong>Withdraw</strong><small>Request settlement securely</small></button>
               <button type="button" data-wallet-tab-target="transactions"><span>🧾</span><strong>Transactions</strong><small>Review wallet activity</small></button>
+              <button type="button" data-wallet-tab-target="rewards"><span>🎁</span><strong>Share &amp; Earn</strong><small>Referral Shopping Vouchers</small></button>
             </div>
+            </section>
+            <section class="wallet-tab-panel" id="walletTabRewards" role="tabpanel" data-wallet-tab-panel="rewards" hidden>
             <section class="referral-share-card" id="referralShareEarnCard" aria-labelledby="referralShareEarnTitle">
               <div class="referral-share-head">
                 <span class="referral-share-icon">🎁</span>
