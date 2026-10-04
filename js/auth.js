@@ -2,9 +2,9 @@
 (() => {
   'use strict';
 
-  const PROJECT_URL = 'https://dzdciuqkqixwutvtfotj.supabase.co';
-  const PUBLISHABLE_KEY = 'sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
-  const PRODUCTION_URL = 'https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/';
+  const PROJECT_URL = 'https://uxikemfrzqatsbqutida.supabase.co';
+  const PUBLISHABLE_KEY = 'sb_publishable_4eMZCkb3NOGEtR664VOpXQ_IkWgDRM1';
+  const PRODUCTION_URL = 'https://leogo-phase1-staging.vincentozzomondi1997.chatgpt.site/';
   const supabaseFactory = window.supabase?.createClient;
 
   const statusBox = document.getElementById('authPreviewStatus');

@@ -1,8 +1,8 @@
 (() => {
 'use strict';
-const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
-const PUBLISHABLE_KEY='sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
-const PARTNER_URL='https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/partner/';
+const PROJECT_URL='https://uxikemfrzqatsbqutida.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_4eMZCkb3NOGEtR664VOpXQ_IkWgDRM1';
+const PARTNER_URL='https://leogo-phase1-staging.vincentozzomondi1997.chatgpt.site/partner/';
 const INITIAL_PARTNER_URL=new URL(window.location.href);
 const INITIAL_PARTNER_HASH=new URLSearchParams(INITIAL_PARTNER_URL.hash.replace(/^#/,''));
 let passwordRecoveryMode=

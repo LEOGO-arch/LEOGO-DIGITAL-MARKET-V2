@@ -1,8 +1,8 @@
 (() => {
 'use strict';
 
-const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
-const PUBLISHABLE_KEY='sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
+const PROJECT_URL='https://uxikemfrzqatsbqutida.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_4eMZCkb3NOGEtR664VOpXQ_IkWgDRM1';
 const client=window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 if(!client)return;
 

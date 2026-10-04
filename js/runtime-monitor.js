@@ -1,8 +1,8 @@
 (() => {
   'use strict';
 
-  const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
-  const PUBLISHABLE_KEY='sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
+  const PROJECT_URL='https://uxikemfrzqatsbqutida.supabase.co';
+  const PUBLISHABLE_KEY='sb_publishable_4eMZCkb3NOGEtR664VOpXQ_IkWgDRM1';
   const ENDPOINT=PROJECT_URL+'/rest/v1/rpc/record_system_runtime_error';
   const nativeFetch=window.fetch.bind(window);
   const recent=new Map();
@@ -17,18 +17,30 @@
   })();
 
   const cleanText=(value,max=600)=>{
-    let text=String(value??'').slice(0,max);
+    let text=String(value??'');
+    text=text.replace(/https?:\/\/[^\s<>"']+/gi,'[url]');
+    text=text.replace(/\b(password|passwd|authorization|refresh[_ -]?token|access[_ -]?token|api[_ -]?key|service[_ -]?role|national[_ -]?id|passport|account[_ -]?(?:number|no))\s*[:=]\s*[^\s,;]+/gi,'$1=[redacted]');
     text=text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,'[email]');
     text=text.replace(/\+?\d[\d ()-]{7,}\d/g,'[number]');
     text=text.replace(/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g,'[token]');
     text=text.replace(/sb_(publishable|secret)_[A-Za-z0-9_-]+/gi,'[key]');
-    return text;
+    text=text.replace(/\b[A-Za-z0-9_-]{64,}\b/g,'[token]');
+    return text.slice(0,max);
   };
 
   const stripUrl=(value,max=260)=>{
     try{
       const url=new URL(String(value||''),window.location.origin);
-      return (url.origin===window.location.origin?'':url.origin)+url.pathname;
+      if(url.origin===new URL(PROJECT_URL).origin){
+        const rpc=url.pathname.match(/^\/rest\/v1\/rpc\/([a-z0-9_]+)\/?$/i);
+        const edge=url.pathname.match(/^\/functions\/v1\/([a-z0-9_-]+)\/?$/i);
+        const storage=url.pathname.match(/^\/storage\/v1\/(?:object|render\/image)(?:\/(?:public|sign|authenticated))?\/([a-z0-9_-]+)/i);
+        if(rpc)return '/rest/v1/rpc/'+rpc[1];
+        if(edge)return '/functions/v1/'+edge[1];
+        if(storage)return '/storage/v1/object/'+storage[1];
+        return cleanText(url.pathname.split('/').slice(0,4).join('/'),max);
+      }
+      return cleanText(url.origin===window.location.origin?url.pathname:'External resource',max);
     }catch{
       return cleanText(String(value||'').split(/[?#]/)[0],max);
     }
@@ -113,7 +125,7 @@
       p_message:message,
       p_operation:operation,
       p_error_code:cleanText(input.errorCode||'',80)||null,
-      p_page_path:window.location.pathname,
+      p_page_path:cleanText(window.location.pathname,220),
       p_source:stripUrl(input.source||'',260)||null,
       p_line_no:Number.isFinite(Number(input.line))?Number(input.line):null,
       p_column_no:Number.isFinite(Number(input.column))?Number(input.column):null,
@@ -124,16 +136,23 @@
         status:Number.isFinite(Number(input.status))?Number(input.status):null,
         method:cleanText(input.method||'',12)||null,
         host:cleanText(input.host||window.location.hostname,120)||null,
-        failed_count:Number.isFinite(Number(input.failedCount))?Math.max(1,Math.min(500,Number(input.failedCount))):null
+        failed_count:Number.isFinite(Number(input.failedCount))?Math.max(1,Math.min(500,Number(input.failedCount))):null,
+        observed_at:new Date().toISOString()
       }
     };
 
-    nativeFetch(ENDPOINT,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':PUBLISHABLE_KEY},
-      body:JSON.stringify(payload),
-      keepalive:true
-    }).catch(()=>{});
+    (async()=>{
+      const headers={'Content-Type':'application/json','apikey':PUBLISHABLE_KEY};
+      const authClient=window.leogoAuth?.client||window.leogoAdminDb||window.leogoPartnerClient||window.leogoPickupDb;
+      try{
+        const sessionResult=await authClient?.auth?.getSession?.();
+        const token=sessionResult?.data?.session?.access_token;
+        if(token)headers.Authorization='Bearer '+token;
+      }catch{/* Guest reporting still works when session lookup fails. */}
+      await nativeFetch(ENDPOINT,{
+        method:'POST',headers,body:JSON.stringify(payload),keepalive:true
+      });
+    })().catch(()=>{});
   };
 
   const confirmSameOriginResourceFailure=async(resourceUrl)=>{
@@ -274,7 +293,7 @@
       const response=await nativeFetch(...args);
       if(shouldReportHttp(url,response.status)){
         const operation=operationFromUrl(url);
-        report({
+        const failure={
           errorType:'http_error',
           message:'HTTP '+response.status+' '+(response.statusText||'request failed'),
           operation,
@@ -282,7 +301,20 @@
           status:response.status,
           method,
           severity:response.status>=500?'critical':'warning'
-        });
+        };
+        // Inspect a clone asynchronously; never consume or delay the caller's response.
+        (async()=>{
+          try{
+            const detail=await response.clone().json();
+            const code=detail?.code||detail?.error_code;
+            if(typeof code==='string'&&/^[A-Z0-9_-]{1,40}$/i.test(code))failure.errorCode=code;
+            if(typeof detail?.message==='string'){
+              const message=cleanText(detail.message.replace(/"[^"]*"|'[^']*'/g,'[value]'),400);
+              failure.message+=': '+message;
+            }
+          }catch{/* Non-JSON failures retain the status-only diagnostic. */}
+          report(failure);
+        })().catch(()=>{});
       }
       return response;
     }catch(error){

@@ -1,9 +1,9 @@
 (() => {
 'use strict';
 
-const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
-const PUBLISHABLE_KEY='sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
-const STAFF_PORTAL_URL='https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/staff/';
+const PROJECT_URL='https://uxikemfrzqatsbqutida.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_4eMZCkb3NOGEtR664VOpXQ_IkWgDRM1';
+const STAFF_PORTAL_URL='https://leogo-phase1-staging.vincentozzomondi1997.chatgpt.site/staff/';
 const STAFF_AUTH_STORAGE_KEY='leogo-staff-auth-v2';
 const client=window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{
   auth:{

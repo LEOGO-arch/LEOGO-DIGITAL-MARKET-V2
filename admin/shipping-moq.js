@@ -1,7 +1,7 @@
 (() => {
 'use strict';
-const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
-const PUBLISHABLE_KEY='sb_publishable_ZErMMEhxPlldeMNGbyEVFA_SdGUmQjF';
+const PROJECT_URL='https://uxikemfrzqatsbqutida.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_4eMZCkb3NOGEtR664VOpXQ_IkWgDRM1';
 const STAFF_AUTH_STORAGE_KEY=window.leogoStaffAuthStorageKey||'leogo-staff-auth-v2';
 const client=window.leogoAdminDb||window.supabase?.createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:STAFF_AUTH_STORAGE_KEY}});
 if(!client)return;
