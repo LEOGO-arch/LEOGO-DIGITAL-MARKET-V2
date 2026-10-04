@@ -4,7 +4,7 @@
   const db=window.leogoAdminDb;
   const $=(selector,root=document)=>root.querySelector(selector);
   const $$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
-  const state={configured:false,lastResult:null,latestRun:null,runtimeHours:24,currentFinding:null,monitoring:null};
+  const state={configured:false,lastResult:null,latestRun:null,runtimeHours:24,currentFinding:null,monitoring:null,monitoringTrendVisible:4};
 
   const escapeHtml=(value)=>String(value??'').replace(/[&<>"']/g,(char)=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -396,7 +396,15 @@
 
     const trendHost=$('#diagnosticsMonitoringTrend');
     if(trendHost){
-      trendHost.innerHTML=runs.length?runs.map((run)=>{
+      const initialVisible=4;
+      if(!Number.isFinite(Number(state.monitoringTrendVisible))||state.monitoringTrendVisible<initialVisible){
+        state.monitoringTrendVisible=initialVisible;
+      }
+      state.monitoringTrendVisible=Math.min(state.monitoringTrendVisible,Math.max(initialVisible,runs.length||initialVisible));
+      const visibleRuns=runs.slice(0,state.monitoringTrendVisible);
+      const remaining=Math.max(0,runs.length-visibleRuns.length);
+
+      const rowsHtml=visibleRuns.map((run)=>{
         const scoreValue=run.health_score===null||run.health_score===undefined?null:Number(run.health_score);
         const width=scoreValue===null?0:Math.max(0,Math.min(100,scoreValue));
         return `
@@ -405,7 +413,27 @@
             <div class="diagnostics-monitoring-trend-score"><span><i style="width:${width}%"></i></span><b>${scoreValue===null?'—':scoreValue+'%'}</b></div>
           </article>
         `;
-      }).join(''):'<div class="empty-mini">No preventive monitoring runs yet.</div>';
+      }).join('');
+
+      const controls=runs.length>initialVisible?`
+        <div class="diagnostics-monitoring-trend-actions">
+          ${remaining>0?`<button type="button" data-monitoring-trend-more>Show ${Math.min(4,remaining)} more</button>`:''}
+          ${visibleRuns.length>initialVisible?`<button class="secondary-button" type="button" data-monitoring-trend-less>Show less</button>`:''}
+          <small>Showing ${visibleRuns.length} of ${runs.length} checks</small>
+        </div>
+      `:'';
+
+      trendHost.innerHTML=runs.length?rowsHtml+controls:'<div class="empty-mini">No preventive monitoring runs yet.</div>';
+
+      $('[data-monitoring-trend-more]',trendHost)?.addEventListener('click',()=>{
+        state.monitoringTrendVisible=Math.min(runs.length,state.monitoringTrendVisible+4);
+        renderSystemMonitoring(state.monitoring);
+      });
+      $('[data-monitoring-trend-less]',trendHost)?.addEventListener('click',()=>{
+        state.monitoringTrendVisible=initialVisible;
+        renderSystemMonitoring(state.monitoring);
+        trendHost.scrollIntoView({behavior:'smooth',block:'nearest'});
+      });
     }
 
     document.dispatchEvent(new CustomEvent('leogo:system-monitoring-updated',{detail:snapshot||{}}));
