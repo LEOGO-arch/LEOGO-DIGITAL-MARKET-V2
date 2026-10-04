@@ -37,6 +37,7 @@ for(const needle of [
 ]) must(migration.includes(needle),'Missing referral safety/database behavior: '+needle);
 
 must(migration.includes("'shopping_reward','credit'"),'Referral vouchers must reuse the non-withdrawable LEOGO Points ledger class.');
+must(migration.includes("Referral rewards are additive. A referral-side failure must never"),'Referral trigger must not block the locked marketplace order flow.');
 must(migration.includes('admin_update_referral_reward_settings'),'Admin referral reward settings RPC missing.');
 must(migration.includes("private.is_leogo_admin('settings.manage')"),'Admin settings permission guard missing.');
 must(migration.includes("private.write_admin_audit"),'Referral settings changes must be audited.');
