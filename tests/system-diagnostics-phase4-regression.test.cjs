@@ -105,10 +105,10 @@ for(const forbidden of [
   }
 }
 
-if(!html.includes('system-diagnostics.js?v=diagnostics-phase4-1')||
-   !html.includes('system-diagnostics.css?v=diagnostics-phase4-1')||
-   !html.includes('admin.js?v=diagnostics-phase4-1')){
-  throw new Error('Phase 4 cache versions missing');
+if(!html.includes('system-diagnostics.js?v=diagnostics-trend-collapse-1')||
+   !html.includes('system-diagnostics.css?v=diagnostics-trend-collapse-1')||
+   !html.includes('admin.js?v=')){
+  throw new Error('Phase 4 / trend-collapse cache versions missing');
 }
 if(!css.includes('.diagnostics-monitoring-center')||!css.includes('.diagnostics-monitoring-trend')){
   throw new Error('Phase 4 responsive styles missing');
