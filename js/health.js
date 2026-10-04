@@ -73,7 +73,9 @@
   const render=()=>{
     const rows=filtered();
     const status=$('#healthMarketStatus');
-    if(status)status.textContent=rows.providers.length+' approved Health partner'+(rows.providers.length===1?'':'s')+' · '+rows.products.length+' approved product'+(rows.products.length===1?'':'s');
+    if(status)status.textContent=!providers.length&&!products.length
+      ?'No approved Health & Medicine listings are available yet.'
+      :rows.providers.length+' approved Health partner'+(rows.providers.length===1?'':'s')+' · '+rows.products.length+' approved product'+(rows.products.length===1?'':'s');
 
     const partnerGrid=$('#healthPartnerGrid');
     if(partnerGrid){
@@ -115,7 +117,7 @@
       }).join(''):'<div class="health-market-empty">No approved Health & Medicine products match this filter yet.</div>';
     }
 
-    $('[data-health-add-cart]',productGrid).forEach((button)=>button.addEventListener('click',()=>{
+    $$('[data-health-add-cart]',productGrid).forEach((button)=>button.addEventListener('click',()=>{
       const item=products.find((row)=>String(row.id)===String(button.dataset.healthAddCart));
       if(!item||!item.cart_eligible)return;
       if(typeof window.leogoAddHealthOtcToCart!=='function'){
@@ -133,7 +135,7 @@
       }
     }));
 
-    $('[data-health-enquiry]',productGrid).forEach((button)=>button.addEventListener('click',()=>{
+    $$('[data-health-enquiry]',productGrid).forEach((button)=>button.addEventListener('click',()=>{
       const item=products.find((row)=>String(row.id)===String(button.dataset.healthEnquiry));
       if(!item)return;
       const user=window.leogoAuth?.getUser?.()||null;
