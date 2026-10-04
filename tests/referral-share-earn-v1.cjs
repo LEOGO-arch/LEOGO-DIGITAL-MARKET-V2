@@ -42,6 +42,8 @@ must(migration.includes("private.is_leogo_admin('settings.manage')"),'Admin sett
 must(migration.includes("private.write_admin_audit"),'Referral settings changes must be audited.');
 
 must(customerHtml.includes('id="referralShareEarnCard"'),'Customer Share & Earn card missing.');
+must(customerHtml.includes('id="walletTabRewards"'),'Dedicated customer Rewards tab missing.');
+must(customerHtml.includes('data-wallet-tab="rewards"'),'Customer Rewards tab navigation missing.');
 must(customerHtml.includes('data-open-referral-rewards'),'Customer Dashboard Share & Earn shortcut missing.');
 must(customerHtml.includes('id="registerReferralCode"'),'Optional registration referral field missing.');
 must(customerHtml.includes('js/referrals.js?v=referral-share-earn-v1'),'Referral customer asset missing.');
