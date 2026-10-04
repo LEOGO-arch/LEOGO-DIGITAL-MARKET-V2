@@ -1062,3 +1062,27 @@
 .admin-security-email small{font-size:8px;color:#718095;text-transform:uppercase;letter-spacing:.05em}
 .admin-security-email strong{font-size:11px;color:#17243a;overflow-wrap:anywhere}
 @media(max-width:900px){.admin-security-grid{grid-template-columns:1fr}.admin-security-card:first-child{grid-row:auto}.admin-security-heading{align-items:flex-start}.admin-security-heading>b{white-space:normal}}
+
+
+/* Share & Earn referral Admin V1 */
+.referral-admin-settings-card{margin-bottom:14px}
+.referral-admin-settings-form{display:grid;grid-template-columns:1.3fr repeat(4,minmax(130px,1fr)) auto;gap:9px;align-items:end}
+.referral-admin-settings-form label{display:grid;gap:5px;font-size:8px;font-weight:850;color:#25344a}
+.referral-admin-settings-form input[type="number"]{width:100%;box-sizing:border-box;border:1px solid #dce3eb;border-radius:9px;padding:9px;background:#fff;font:inherit;font-size:9px}
+.referral-admin-toggle{display:flex!important;gap:9px;align-items:flex-start;padding:10px;border:1px solid #e6c989;border-radius:10px;background:#fffaf0}
+.referral-admin-toggle input{margin-top:2px}
+.referral-admin-toggle span{display:grid;gap:2px}
+.referral-admin-toggle strong{font-size:9px;color:#182a42}
+.referral-admin-toggle small{font-size:7px;color:#7a8797;line-height:1.4}
+.referral-admin-settings-form>button{min-height:36px}
+.referral-admin-summary{margin-top:0}
+.referral-admin-history-card{margin-bottom:14px}
+.referral-admin-row>div:last-child strong{color:#19713b}
+@media(max-width:1200px){
+  .referral-admin-settings-form{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .referral-admin-toggle{grid-column:1/-1}
+}
+@media(max-width:620px){
+  .referral-admin-settings-form{grid-template-columns:1fr}
+  .referral-admin-toggle{grid-column:auto}
+}

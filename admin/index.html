@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-security-v1">
+  <link rel="stylesheet" href="admin.css?v=referral-share-earn-v1">
   <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-trend-collapse-1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
   <link rel="stylesheet" href="health.css?v=health-specialist-v1">
@@ -952,6 +952,29 @@
           <article><small>Points Used</small><strong id="loyaltyPointsUsed">KSh 0</strong><span>Checkout redemption history</span></article>
         </div>
         <div id="loyaltyRewardsStatus" class="form-status" aria-live="polite"></div>
+        <section class="content-card referral-admin-settings-card">
+          <div class="card-head"><div><span>SHARE &amp; EARN</span><h3>Referral Shopping Voucher Rules</h3><p>Set the Shopping Voucher amounts and qualifying order rule. Referral rewards are credited as non-withdrawable LEOGO Points.</p></div></div>
+          <form id="referralRewardsSettingsForm" class="referral-admin-settings-form">
+            <label class="referral-admin-toggle"><input id="referralProgramEnabled" type="checkbox"><span><strong>Enable Share &amp; Earn</strong><small>Pause this to stop new referral qualifications without deleting existing codes or history.</small></span></label>
+            <label><span>Referrer reward (KSh)</span><input id="referralReferrerReward" type="number" min="0" max="1000000" step="1" required></label>
+            <label><span>New customer welcome reward (KSh)</span><input id="referralWelcomeReward" type="number" min="0" max="1000000" step="1" required></label>
+            <label><span>Minimum first qualifying order (KSh)</span><input id="referralMinimumQualifyingOrder" type="number" min="0" max="100000000" step="1" required></label>
+            <label><span>Max rewarded referrals per customer</span><input id="referralMaxRewarded" type="number" min="1" max="100000" step="1" required></label>
+            <button class="primary-button" type="submit">Save Share &amp; Earn Rules</button>
+          </form>
+          <div id="referralRewardsSettingsStatus" class="form-status" aria-live="polite"></div>
+        </section>
+        <div class="loyalty-admin-summary referral-admin-summary">
+          <article><small>Referral Codes</small><strong id="referralCodesIssued">0</strong><span>Customer codes issued</span></article>
+          <article><small>Share Actions</small><strong id="referralShareActions">0</strong><span>Share button activity</span></article>
+          <article><small>Pending Referrals</small><strong id="referralPendingAdmin">0</strong><span>Waiting for first qualifying order</span></article>
+          <article><small>Successful Referrals</small><strong id="referralSuccessfulAdmin">0</strong><span>Rewarded referrals</span></article>
+          <article><small>Referral Vouchers Issued</small><strong id="referralVoucherIssuedAdmin">KSh 0</strong><span>Referrer + welcome vouchers</span></article>
+        </div>
+        <section class="content-card referral-admin-history-card">
+          <div class="card-head"><div><span>REFERRAL ACTIVITY</span><h3>Recent Share &amp; Earn Referrals</h3><p>See pending, rewarded and reward-limit referrals without exposing customer contact details.</p></div></div>
+          <div id="loyaltyRecentReferrals" class="loyalty-activity-list"><div class="loading-card">Loading referral activity…</div></div>
+        </section>
         <div class="loyalty-admin-columns">
           <section class="content-card">
             <div class="card-head"><div><span>RECENT EARNINGS</span><h3>Automatic Reward Credits</h3><p>Rewards are calculated from eligible product spend only after an order is paid and delivered.</p></div></div>
@@ -1613,7 +1636,7 @@
   <script src="admin.js?v=financial-service-accommodation-1" defer></script>
   <script src="system-diagnostics.js?v=diagnostics-trend-collapse-1" defer></script>
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
-  <script src="loyalty-rewards.js?v=loyalty-rewards-v2" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
+  <script src="loyalty-rewards.js?v=referral-share-earn-v1" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=email-notifications-1" defer></script>
   <script src="advertisements.js?v=advert-popup-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
