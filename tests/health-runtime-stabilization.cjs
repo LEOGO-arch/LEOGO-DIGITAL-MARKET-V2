@@ -17,7 +17,7 @@ function harness(file,responder){
   const elements=new Map();const get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
   const navigation=[new Element(),new Element()];const timers=[];const calls=[];
   const document={querySelector:s=>s.startsWith('#')?get(s.slice(1)):navigation[0],querySelectorAll:s=>s.includes('data-admin-view')?navigation:[],getElementById:get,dispatchEvent(){},addEventListener(){}};
-  const client={rpc:async(name,args)=>{calls.push({name,args});return responder(name,args);},storage:{from:()=>({getPublicUrl:()=>({data:{publicUrl:'https://example.invalid/image.jpg'}})})},auth:{getSession:async()=>({data:{session:null},error:null})}};
+  const client={rpc:async(name,args)=>{calls.push({name,args});return responder(name,args);},storage:{from:()=>({getPublicUrl:()=>({data:{publicUrl:'https://example.invalid/image.jpg'}})})},auth:{getSession:async()=>({data:{session:{user:{id:"artificial-admin"}}},error:null})}};
   const window={leogoAuth:{client,getUser:()=>null},leogoAdminDb:client,setTimeout:fn=>timers.push(fn),prompt:()=> 'Artificial test rejection'};
   vm.runInNewContext(read(file),{window,document,console:{warn(){}},CustomEvent:class{},setTimeout:window.setTimeout,Date,Number,String,Boolean,Set,Array,Promise});
   return {get,navigation,timers,calls,window,flush:async()=>{for(const f of timers.splice(0))await f();await new Promise(resolve=>setImmediate(resolve));}};
