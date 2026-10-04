@@ -50,7 +50,7 @@ must(partner.includes('health_specialist_update_booking_status'),'Partner bookin
 
 must(adminIndex.includes('adminHealthSpecialistFeeForm'),'Admin specialist fee control missing.');
 must(adminIndex.includes('adminHealthSpecialistBookingList'),'Admin specialist bookings UI missing.');
-must(adminIndex.includes('health-specialist.js?v=health-specialist-v1'),'Admin specialist script missing.');
+must(/health-specialist\.js\?v=[\w-]+/.test(adminIndex),'Admin specialist script missing.');
 must(admin.includes('admin_health_specialist_set_booking_fee'),'Admin fee-save RPC missing.');
 must(admin.includes('admin_review_health_specialist_booking_payment'),'Admin payment verification missing.');
 must(!admin.includes("$('[data-admin-view=\"health\"]').forEach"),'Admin Health navigation must not call forEach on querySelector.');

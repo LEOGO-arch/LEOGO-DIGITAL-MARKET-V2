@@ -144,6 +144,9 @@
   };
 
   const load=async()=>{
+    // This module also initializes on the public Admin sign-in screen.
+    const {data,error}=await db.auth.getSession();
+    if(error||!data?.session?.user)return;
     const [settingsResult,operationsResult]=await Promise.allSettled([loadSettings(),loadOperations()]);
     if(settingsResult.status==='rejected'){
       console.warn('Health Specialist booking-fee settings could not load:',settingsResult.reason);
