@@ -13,6 +13,7 @@ const partner=read('partner/health-specialist.js');
 const partnerHealth=read('partner/health.js');
 const partnerIndex=read('partner/index.html');
 const admin=read('admin/health-specialist.js');
+const adminHealth=read('admin/health.js');
 const adminCore=read('admin/admin.js');
 const adminIndex=read('admin/index.html');
 
@@ -54,11 +55,13 @@ must(admin.includes('admin_health_specialist_set_booking_fee'),'Admin fee-save R
 must(admin.includes('admin_review_health_specialist_booking_payment'),'Admin payment verification missing.');
 must(!admin.includes("$('[data-admin-view=\"health\"]').forEach"),'Admin Health navigation must use the multi-element selector helper before forEach.');
 must(admin.includes("$('[data-admin-view=\"health\"]').forEach"),'Admin Health navigation listener binding missing.');
+must(!adminHealth.includes("$('[data-health-payment-action]',orderList).forEach"),'Admin Health payment actions must use the multi-element selector helper before forEach.');
+must(adminHealth.includes("$('[data-health-payment-action]',orderList).forEach"),'Admin Health payment action listener binding missing.');
 must(adminCore.includes("db.rpc('admin_list_health_specialist_approvals')"),'Approval Center does not load specialist services.');
 must(adminCore.includes("'admin_review_health_specialist_service'"),'Approval Center does not review specialist services.');
 must(count(adminCore,"health_medicine_service")>=4,'Health Specialist approval kind is not fully integrated.');
 
-for(const [name,source] of [['customer specialist',customer],['partner specialist',partner],['partner health',partnerHealth],['admin specialist',admin],['admin health',read('admin/health.js')]]){
+for(const [name,source] of [['customer specialist',customer],['partner specialist',partner],['partner health',partnerHealth],['admin specialist',admin],['admin health',adminHealth]]){
   new Function(source);
 }
 
