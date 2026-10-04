@@ -52,6 +52,8 @@ must(adminIndex.includes('adminHealthSpecialistBookingList'),'Admin specialist b
 must(adminIndex.includes('health-specialist.js?v=health-specialist-v1'),'Admin specialist script missing.');
 must(admin.includes('admin_health_specialist_set_booking_fee'),'Admin fee-save RPC missing.');
 must(admin.includes('admin_review_health_specialist_booking_payment'),'Admin payment verification missing.');
+must(!admin.includes("$('[data-admin-view=\"health\"]').forEach"),'Admin Health navigation must use the multi-element selector helper before forEach.');
+must(admin.includes("$('[data-admin-view=\"health\"]').forEach"),'Admin Health navigation listener binding missing.');
 must(adminCore.includes("db.rpc('admin_list_health_specialist_approvals')"),'Approval Center does not load specialist services.');
 must(adminCore.includes("'admin_review_health_specialist_service'"),'Approval Center does not review specialist services.');
 must(count(adminCore,"health_medicine_service")>=4,'Health Specialist approval kind is not fully integrated.');
