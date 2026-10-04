@@ -87,7 +87,7 @@
           (row.payment_status==='submitted'?'<div class="admin-health-order-actions"><button type="button" data-health-payment-action="verify" data-health-payment-order="'+esc(row.id)+'">Verify Payment</button><button type="button" class="danger" data-health-payment-action="reject" data-health-payment-order="'+esc(row.id)+'">Reject Payment</button></div>':'')+
         '</article>';
       }).join(''):'<div class="loading-card">No Health & Medicine orders match this filter.</div>';
-      $('[data-health-payment-action]',orderList).forEach((button)=>button.addEventListener('click',async()=>{
+      orderList.querySelectorAll('[data-health-payment-action]').forEach((button)=>button.addEventListener('click',async()=>{
         const decision=button.dataset.healthPaymentAction;
         let notes=null;
         if(decision==='reject'){
