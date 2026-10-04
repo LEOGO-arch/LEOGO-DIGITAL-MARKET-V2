@@ -5561,22 +5561,45 @@
     await premiumCustomerMediaPreview(customer);
   };
 
+  const premiumProfileInitials = (name='') => {
+    const parts=String(name||'Premium Profile').trim().split(/\s+/).filter(Boolean);
+    return (parts.slice(0,2).map((part)=>part.charAt(0)).join('')||'PP').toUpperCase();
+  };
+
+  const loadPremiumProfileAvatar = async (profile) => {
+    if(!profile?.profile_picture_path)return;
+    const host=$('[data-premium-profile-avatar]').find((item)=>item.dataset.premiumProfileAvatar===String(profile.user_id));
+    if(!host)return;
+    try{
+      const {data,error}=await db.storage.from('premium-profile-media').createSignedUrl(String(profile.profile_picture_path),900);
+      if(error)throw error;
+      const url=data?.signedUrl||'';
+      if(!url)throw new Error('No secure profile image URL was returned.');
+      host.innerHTML=`<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${escapeHtml(profile.display_name||'Premium Profile')} profile picture"><img src="${escapeHtml(url)}" alt="${escapeHtml(profile.display_name||'Premium Profile')} profile picture"></a>`;
+      $('img',host)?.addEventListener('error',()=>{host.innerHTML=`<span>${escapeHtml(premiumProfileInitials(profile.display_name))}</span>`;},{once:true});
+    }catch(_error){
+      host.innerHTML=`<span>${escapeHtml(premiumProfileInitials(profile.display_name))}</span>`;
+    }
+  };
+
   const loadPremiumProfiles = async () => {
     const { data, error } = await db.from('premium_profiles')
-      .select('user_id,display_name,gender,general_location,application_status,submitted_at,approved_at,created_at')
+      .select('user_id,display_name,profile_picture_path,gender,general_location,application_status,submitted_at,approved_at,created_at')
       .order('created_at', { ascending: false });
     if (error) throw error;
     state.premiumProfiles = data || [];
     const body = $('#premiumProfileTableBody');
     if (!body) return;
     body.innerHTML = state.premiumProfiles.length ? state.premiumProfiles.map((profile) => `<tr class="premium-profile-row">
-      <td data-label="Profile"><strong>${escapeHtml(profile.display_name || 'Premium Profile')}</strong><small>${escapeHtml(profile.user_id)}</small></td>
+      <td data-label="Profile" class="premium-profile-cell"><div class="premium-profile-identity"><div class="premium-profile-avatar" data-premium-profile-avatar="${escapeHtml(profile.user_id)}"><span>${escapeHtml(premiumProfileInitials(profile.display_name))}</span></div><div class="premium-profile-name"><strong>${escapeHtml(profile.display_name || 'Premium Profile')}</strong><small>Verified Premium Profile</small></div></div></td>
       <td data-label="Gender">${escapeHtml(profile.gender || '—')}</td>
       <td data-label="Location">${escapeHtml(profile.general_location || '—')}</td>
       <td data-label="Status"><span class="status-chip">${escapeHtml(profile.application_status || '—')}</span></td>
       <td data-label="Submitted">${formatDate(profile.submitted_at || profile.created_at, true)}</td>
       <td data-label="Approved">${formatDate(profile.approved_at, true)}</td>
     </tr>`).join('') : '<tr><td colspan="6">No Premium Profiles have been registered yet.</td></tr>';
+
+    await Promise.all(state.premiumProfiles.map((profile)=>loadPremiumProfileAvatar(profile)));
   };
 
   const loadPremiumPlans = async () => {
