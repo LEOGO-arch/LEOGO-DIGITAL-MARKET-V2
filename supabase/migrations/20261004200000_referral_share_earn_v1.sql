@@ -552,7 +552,13 @@ begin
        old.order_status is distinct from new.order_status
        or old.payment_status is distinct from new.payment_status
      ) then
-    perform private.process_referral_qualification(new.id);
+    begin
+      perform private.process_referral_qualification(new.id);
+    exception when others then
+      -- Referral rewards are additive. A referral-side failure must never
+      -- block the locked marketplace delivery/payment status transition.
+      raise warning 'Referral qualification failed for marketplace order %: %',new.id,sqlerrm;
+    end;
   end if;
   return new;
 end
