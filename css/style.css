@@ -2660,3 +2660,104 @@ body.advertisement-lightbox-open{overflow:hidden}
     aspect-ratio:4 / 3;
   }
 }
+
+
+/* Assisted Shopping discovery shortcuts */
+.assisted-shopping-feature-shortcut{
+  max-width:1240px;
+  margin:18px auto 0;
+  padding:0 30px;
+}
+.assisted-shopping-feature-shortcut>button{
+  width:100%;
+  border:1px solid #ffd2ad;
+  border-radius:18px;
+  background:linear-gradient(105deg,#fff8f1,#ffffff);
+  box-shadow:0 8px 24px rgba(255,120,0,.08);
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:13px;
+  align-items:center;
+  padding:15px 17px;
+  text-align:left;
+  cursor:pointer;
+}
+.assisted-shopping-feature-icon{
+  width:48px;
+  height:48px;
+  border-radius:13px;
+  display:grid;
+  place-items:center;
+  background:#ff7800;
+  color:#fff;
+  font-size:24px;
+}
+.assisted-shopping-feature-copy{
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+.assisted-shopping-feature-copy small{
+  color:#d25f00;
+  font-size:8px;
+  font-weight:950;
+  letter-spacing:.08em;
+}
+.assisted-shopping-feature-copy strong{
+  color:#07152f;
+  font-size:15px;
+  line-height:1.2;
+}
+.assisted-shopping-feature-copy em{
+  color:#687386;
+  font-size:9px;
+  line-height:1.45;
+  font-style:normal;
+}
+.assisted-shopping-feature-action{
+  border-radius:10px;
+  background:#07152f;
+  color:#fff;
+  padding:9px 12px;
+  font-size:9px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.dashboard-quick-grid button.dashboard-assisted-shopping-shortcut{
+  border-color:#ffc18b;
+  background:#fff8f1;
+}
+.dashboard-quick-grid button.dashboard-assisted-shopping-shortcut>span{
+  background:#ff7800;
+  color:#fff;
+}
+@media(max-width:600px){
+  .assisted-shopping-feature-shortcut{
+    margin-top:10px;
+    padding:0 12px;
+  }
+  .assisted-shopping-feature-shortcut>button{
+    grid-template-columns:42px minmax(0,1fr);
+    gap:10px;
+    padding:12px;
+    border-radius:14px;
+  }
+  .assisted-shopping-feature-icon{
+    width:42px;
+    height:42px;
+    border-radius:11px;
+    font-size:21px;
+  }
+  .assisted-shopping-feature-copy strong{
+    font-size:12px;
+  }
+  .assisted-shopping-feature-copy em{
+    font-size:8px;
+  }
+  .assisted-shopping-feature-action{
+    grid-column:2;
+    justify-self:start;
+    padding:7px 9px;
+    font-size:8px;
+  }
+}

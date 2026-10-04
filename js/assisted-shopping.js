@@ -3,9 +3,11 @@
   'use strict';
 
   const modal=document.getElementById('assistedShoppingModal');
-  const openButton=document.getElementById('openAssistedShopping');
+  const legacyOpenButton=document.getElementById('openAssistedShopping');
+  const openButtons=[...document.querySelectorAll('[data-open-assisted-shopping]')];
+  if(legacyOpenButton&&!openButtons.includes(legacyOpenButton))openButtons.push(legacyOpenButton);
   const form=document.getElementById('assistedShoppingForm');
-  if(!modal||!openButton||!form)return;
+  if(!modal||!openButtons.length||!form)return;
 
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -484,10 +486,10 @@
     }
   });
 
-  openButton.addEventListener('click',(event)=>{
+  openButtons.forEach((button)=>button.addEventListener('click',(event)=>{
     event.preventDefault();
     openModal('new').catch(()=>{});
-  });
+  }));
   $$('[data-close-assisted-shopping]',modal).forEach((button)=>button.addEventListener('click',closeModal));
   $$('[data-assisted-tab]',modal).forEach((button)=>button.addEventListener('click',()=>{
     selectTab(button.dataset.assistedTab);
