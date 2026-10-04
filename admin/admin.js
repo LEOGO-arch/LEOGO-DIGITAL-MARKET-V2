@@ -749,8 +749,42 @@
   const dashboardLabel = () => state.dashboardRange === 'today' ? 'Today' : state.dashboardRange === 'custom' ? `${state.dashboardFrom} to ${state.dashboardTo}` : `Last ${state.dashboardRange} days`;
   const loadDashboard = async () => {
     const range = dashboardDates();
-    const { data, error } = await db.rpc('admin_production_dashboard', { p_from: range.from, p_to: range.to });
+    const [dashboardResult,connectedRevenueResult] = await Promise.all([
+      db.rpc('admin_production_dashboard', { p_from: range.from, p_to: range.to }),
+      db.rpc('admin_financial_overview_service_accommodation', { p_from: range.from, p_to: range.to })
+    ]);
+    const { data, error } = dashboardResult;
     if (error) throw error;
+
+    // Service Provider and Accommodation earnings are connected through a
+    // small additive RPC so the existing marketplace/order dashboard remains
+    // untouched. If the additive RPC is temporarily unavailable, keep the
+    // existing "Not connected" fallback instead of breaking the Dashboard.
+    if (!connectedRevenueResult.error && connectedRevenueResult.data) {
+      const connected=connectedRevenueResult.data;
+      const serviceRevenue=Number(connected.service?.leogo_revenue_kes||0);
+      const accommodationRevenue=Number(connected.accommodation?.leogo_revenue_kes||0);
+      data.revenue.service_commission={
+        supported:true,
+        value:serviceRevenue,
+        request_fees_kes:Number(connected.service?.request_fees_kes||0),
+        referral_commission_kes:Number(connected.service?.referral_commission_kes||0),
+        referral_commission_rate:Number(connected.service?.referral_commission_rate||0)
+      };
+      data.revenue.accommodation_commission={
+        supported:true,
+        value:accommodationRevenue,
+        hotel_commission_kes:Number(connected.accommodation?.hotel_commission_kes||0),
+        customer_service_fee_kes:Number(connected.accommodation?.customer_service_fee_kes||0)
+      };
+      data.revenue.total_leogo=
+        Number(data.revenue.total_leogo||0)+serviceRevenue+accommodationRevenue;
+      if(data.top?.leogo_revenue){
+        data.top.leogo_revenue.supported=true;
+        data.top.leogo_revenue.value=data.revenue.total_leogo;
+      }
+    }
+
     state.dashboard = data;
     $('#statOrders').textContent = metricValue(data.top.orders);
     $('#statSales').textContent = metricValue(data.top.gross_sales, true);
@@ -804,8 +838,8 @@
     $('#financialOverview').innerHTML = [
       ['Gross Order Sales', data.revenue.gross_order_sales, true], ['Platform / Service Fees', data.revenue.platform_fees, true],
       ['Delivery Fees Earned', data.revenue.delivery_fees, true], ['Pickup Station Fees', data.revenue.pickup_fees, true],
-      ['Premium Revenue', data.revenue.premium, true], ['Service Commission', data.revenue.service_commission, true],
-      ['Accommodation Commission', data.revenue.accommodation_commission, true], ['Other LEOGO Revenue', data.revenue.other, true]
+      ['Premium Revenue', data.revenue.premium, true], ['Service Fees & Commission', data.revenue.service_commission, true],
+      ['Accommodation Revenue', data.revenue.accommodation_commission, true], ['Other LEOGO Revenue', data.revenue.other, true]
     ].map(([label, value, money]) => `<div><span>${label}</span><strong class="${value.supported ? '' : 'not-connected'}">${metricValue(value, money)}</strong><small>${value.supported ? '' : 'Not connected'}</small></div>`).join('') + `<div class="metric-total"><span>Total LEOGO Revenue</span><strong>${formatMoney(data.revenue.total_leogo)}</strong><small>${escapeHtml(dashboardLabel())}</small></div>`;
     const wallet = data.wallet;
     $('#walletSnapshot').innerHTML = [
@@ -5953,7 +5987,7 @@
   const exportRows = async (report, scope, format, rows, filters={}) => { await auditExport(report,scope,format,rows.length,filters); const filename=`leogo-${report}-${new Date().toISOString().slice(0,10)}.${format}`; downloadBlob(format==='xlsx'?xlsxBlob(`LEOGO DIGITAL MARKET — ${report}`,rows):pdfBlob(`LEOGO DIGITAL MARKET — ${report}`,rows),filename); await loadAuditLog(); };
   const exportDashboard = async (format) => {
     if (!state.dashboard) return;
-    const d=state.dashboard, rows=[['Metric','Value'],['Reporting Period',dashboardLabel()],['Today / Range Orders',metricValue(d.top.orders)],['Gross Order Sales',metricValue(d.revenue.gross_order_sales,true)],['LEOGO Revenue',formatMoney(d.revenue.total_leogo)],['Pending Approvals',metricValue(d.top.pending_approvals)],['Active Deliveries',metricValue(d.top.active_deliveries)],[],['LEOGO Earnings','Amount'],['Premium Revenue',formatMoney(d.revenue.premium.value)],['Other LEOGO Revenue',formatMoney(d.revenue.other.value)],[],['Wallet/SACCO Activity (not revenue)','Value'],['Deposits',formatMoney(d.wallet.deposits)],['Withdrawals',formatMoney(d.wallet.withdrawals)],['Savings Deposits',formatMoney(d.wallet.savings_deposits)],['Pending Deposits',d.wallet.pending_deposits],['Pending Withdrawals',d.wallet.pending_withdrawals]];
+    const d=state.dashboard, rows=[['Metric','Value'],['Reporting Period',dashboardLabel()],['Today / Range Orders',metricValue(d.top.orders)],['Gross Order Sales',metricValue(d.revenue.gross_order_sales,true)],['LEOGO Revenue',formatMoney(d.revenue.total_leogo)],['Pending Approvals',metricValue(d.top.pending_approvals)],['Active Deliveries',metricValue(d.top.active_deliveries)],[],['LEOGO Earnings','Amount'],['Premium Revenue',formatMoney(d.revenue.premium.value)],['Service Fees & Commission',metricValue(d.revenue.service_commission,true)],['Accommodation Revenue',metricValue(d.revenue.accommodation_commission,true)],['Other LEOGO Revenue',formatMoney(d.revenue.other.value)],[],['Wallet/SACCO Activity (not revenue)','Value'],['Deposits',formatMoney(d.wallet.deposits)],['Withdrawals',formatMoney(d.wallet.withdrawals)],['Savings Deposits',formatMoney(d.wallet.savings_deposits)],['Pending Deposits',d.wallet.pending_deposits],['Pending Withdrawals',d.wallet.pending_withdrawals]];
     await exportRows('dashboard','dashboard',format,rows,{range:dashboardLabel(),from:d.range.from,to:d.range.to});
     globalStatus(`Dashboard ${format.toUpperCase()} report downloaded and audited.`);
   };
