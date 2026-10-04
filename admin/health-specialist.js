@@ -183,6 +183,6 @@
   $('#adminHealthSpecialistServiceFilter')?.addEventListener('change',renderServices);
   $('#adminHealthSpecialistBookingFilter')?.addEventListener('change',renderBookings);
   $('#refreshHealthMedicineAdmin')?.addEventListener('click',()=>load().catch(()=>{}));
-  $('[data-admin-view="health"]').forEach((button)=>button.addEventListener('click',()=>window.setTimeout(()=>load().catch(()=>{}),70)));
+  document.querySelectorAll('[data-admin-view="health"]').forEach((button)=>button.addEventListener('click',()=>window.setTimeout(()=>load().catch(()=>{}),70)));
   window.setTimeout(()=>load().catch(()=>{}),900);
 })();
