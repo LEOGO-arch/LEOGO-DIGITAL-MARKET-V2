@@ -1077,6 +1077,7 @@
     cyber_product_image_path: { label: 'Cyber Product Picture', bucket: 'cyber-public-media', publicBucket: true },
     health_product_image_path: { label: 'Health Product Picture', bucket: 'health-medicine-public-media', publicBucket: true },
     health_service_image_path: { label: 'Health Specialist Service Picture', bucket: 'health-medicine-public-media', publicBucket: true },
+    hire_item_image_path: { label: 'Hire Item Picture', bucket: 'service-provider-public-media', publicBucket: true },
 
     cover_image_url: { label: 'Property Cover Image', directUrl: true },
     gallery_image_urls: { label: 'Property Gallery Image', directUrl: true, multiple: true },
@@ -4862,7 +4863,15 @@
     });
   };
 
+  const serviceHireBasisText=(value)=>value==='hour'?'hour':value==='day'?'day':value==='24_hour'?'24 hours':'hire period';
+  const serviceHireLatePenaltyText=(item)=>{
+    const amount=Number(item?.hire_late_penalty_kes||item?.hire_late_penalty_kes_snapshot||0);
+    if(!amount)return 'No late-return penalty';
+    const basis=item?.hire_late_penalty_basis||item?.hire_late_penalty_basis_snapshot;
+    return basis==='fixed'?formatMoney(amount)+' fixed':formatMoney(amount)+' / late '+serviceHireBasisText(basis);
+  };
   const serviceListingPriceText=(item)=>{
+    if(item.service_type==='item_hire')return formatMoney(item.hire_rate_kes)+' / '+serviceHireBasisText(item.hire_charge_basis);
     if(item.pricing_model==='quote')return 'Quote after request';
     const from=Number(item.price_from_kes||0);
     const to=Number(item.price_to_kes||0);
@@ -5049,9 +5058,11 @@
             '</div>'
           : '<button type="button" data-view-service-provider="'+escapeHtml(item.provider_id)+'">View Provider</button>';
       return '<tr>'+
-        '<td data-label="Service"><strong>'+escapeHtml(item.service_name||'Service')+'</strong><small>'+escapeHtml(item.category_name||'Uncategorised')+'</small></td>'+
+        '<td data-label="Service"><strong>'+escapeHtml(item.service_name||'Service')+'</strong><small>'+escapeHtml(item.category_name||'Uncategorised')+(item.service_type==='item_hire'?' · ITEM FOR HIRE':'')+'</small></td>'+
         '<td data-label="Provider"><strong>'+escapeHtml(item.provider_name||'Service Provider')+'</strong><small>'+escapeHtml(item.provider_email||'')+'</small></td>'+
-        '<td data-label="Pricing"><strong>'+escapeHtml(serviceListingPriceText(item))+'</strong><small>'+escapeHtml(String(item.pricing_model||'').replaceAll('_',' '))+'</small></td>'+
+        '<td data-label="Pricing"><strong>'+escapeHtml(serviceListingPriceText(item))+'</strong><small>'+(item.service_type==='item_hire'
+          ? 'Deposit '+escapeHtml(formatMoney(item.hire_security_deposit_kes||0))+' / item · '+escapeHtml(serviceHireLatePenaltyText(item))
+          : escapeHtml(String(item.pricing_model||'').replaceAll('_',' ')))+'</small></td>'+
         '<td data-label="Area"><strong>'+escapeHtml(item.service_area||'—')+'</strong><small>'+escapeHtml(item.availability_notes||'')+'</small></td>'+
         '<td data-label="Availability"><span class="status-chip">'+(item.is_available?'Available':'Unavailable')+'</span></td>'+
         '<td data-label="Approval"><span class="status-chip">'+escapeHtml(String(item.approval_status||'').replaceAll('_',' '))+'</span><small>'+escapeHtml(formatDate(item.approved_at||item.submitted_at,true))+'</small></td>'+
@@ -5133,6 +5144,7 @@
     if(filter==='closed')rows=rows.filter(r=>['completed','cancelled','declined','quote_rejected','payment_rejected'].includes(r.request_status));
     const target=$('#adminServiceRequestList');if(!target)return;
     target.innerHTML=rows.length?rows.map(item=>{
+      const hire=item.request_type==='hire';
       const actions=[];
       if(item.request_status==='awaiting_payment_verification'){
         actions.push('<button class="verify" type="button" data-service-payment="'+escapeHtml(item.id)+'" data-approved="true">Verify Fee</button>');
@@ -5140,14 +5152,24 @@
       }
       if(['submitted','payment_verified'].includes(item.request_status))actions.push('<button class="dispatch" type="button" data-dispatch-service-request="'+escapeHtml(item.id)+'">Dispatch to Provider</button>');
       if(!['completed','cancelled'].includes(item.request_status))actions.push('<button class="cancel" type="button" data-cancel-service-request="'+escapeHtml(item.id)+'">Cancel</button>');
-      const feeAmount=item.request_type==='direct'?Number(item.direct_request_fee_kes||0):Number(item.quotation_fee_kes||0);
-      const feeLabel=item.request_type==='direct'?'Direct request fee':'Quotation fee';
-      return '<article class="admin-service-request-card"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at,true))+' · '+escapeHtml(item.service_name||'Service')+'</small></div><b>'+escapeHtml(serviceRequestStatusText(item.request_status))+'</b></header>'+
-        '<div class="admin-service-request-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>PROVIDER</small><strong>'+escapeHtml(item.business_name||'Provider')+'</strong><span>'+escapeHtml(item.provider_phone||'—')+'</span></div><div><small>REQUEST</small><strong>'+(item.request_type==='quotation'?'Paid quotation':'Direct service')+'</strong><span>'+escapeHtml(item.service_location||'—')+'</span></div></div>'+
-        '<p><strong>Job details:</strong> '+escapeHtml(item.request_details||'—')+'</p>'+
-        '<p><strong>Preferred schedule:</strong> '+escapeHtml((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+(item.nearest_landmark?' · Landmark: '+escapeHtml(item.nearest_landmark):'')+'</p>'+
+      const feeAmount=(hire||item.request_type==='direct')?Number(item.direct_request_fee_kes||0):Number(item.quotation_fee_kes||0);
+      const feeLabel=hire?'Item hire request fee':item.request_type==='direct'?'Direct request fee':'Quotation fee';
+      const hireInfo=hire
+        ? '<div class="admin-service-request-grid"><div><small>HIRE CHARGE</small><strong>'+escapeHtml(formatMoney(item.hire_charge_kes||0))+'</strong><span>'+Number(item.hire_quantity||1)+' item(s) · '+Number(item.hire_units||1)+' '+escapeHtml(serviceHireBasisText(item.hire_charge_basis_snapshot))+'</span></div><div><small>REFUNDABLE DEPOSIT</small><strong>'+escapeHtml(formatMoney(item.hire_security_deposit_total_kes||0))+'</strong><span>'+escapeHtml(formatMoney(item.hire_security_deposit_kes||0))+' / item</span></div><div><small>HIRE PERIOD</small><strong>'+escapeHtml(formatDate(item.hire_start_at,true))+'</strong><span>Return '+escapeHtml(formatDate(item.hire_expected_return_at,true))+'</span></div></div>'+
+          '<p><strong>Owner-set penalties:</strong> Damage charge max '+escapeHtml(formatMoney(item.hire_damage_penalty_kes_snapshot||0))+' · Late return '+escapeHtml(serviceHireLatePenaltyText(item))+' · '+escapeHtml(String(item.hire_fulfilment_method||'').replaceAll('_',' '))+'</p>'+
+          (item.hire_terms_snapshot?'<p><strong>Hiring terms:</strong> '+escapeHtml(item.hire_terms_snapshot)+'</p>':'')+
+          (item.hire_damage_terms_snapshot?'<p><strong>Damage terms:</strong> '+escapeHtml(item.hire_damage_terms_snapshot)+'</p>':'')+
+          (item.request_status==='completed'
+            ? '<p><strong>Return settlement:</strong> Damage '+escapeHtml(formatMoney(item.hire_damage_penalty_applied_kes||0))+' · Late '+escapeHtml(formatMoney(item.hire_late_penalty_applied_kes||0))+' · Deposit refund due '+escapeHtml(formatMoney(item.hire_deposit_refund_due_kes||0))+' · Additional penalty due '+escapeHtml(formatMoney(item.hire_additional_penalty_due_kes||0))+'</p>'
+            : '')
+        : '';
+      return '<article class="admin-service-request-card"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at,true))+' · '+escapeHtml(item.service_name||'Service')+(hire?' · ITEM FOR HIRE':'')+'</small></div><b>'+escapeHtml(serviceRequestStatusText(item.request_status))+'</b></header>'+
+        '<div class="admin-service-request-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>PROVIDER</small><strong>'+escapeHtml(item.business_name||'Provider')+'</strong><span>'+escapeHtml(item.provider_phone||'—')+'</span></div><div><small>REQUEST</small><strong>'+(hire?'Item hire':item.request_type==='quotation'?'Paid quotation':'Direct service')+'</strong><span>'+escapeHtml(item.service_location||'—')+'</span></div></div>'+
+        hireInfo+
+        '<p><strong>'+(hire?'Hire details':'Job details')+':</strong> '+escapeHtml(item.request_details||'—')+'</p>'+
+        '<p><strong>'+(hire?'Requested start':'Preferred schedule')+':</strong> '+escapeHtml((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+(item.nearest_landmark?' · Landmark: '+escapeHtml(item.nearest_landmark):'')+'</p>'+
         (feeAmount>0?'<p><strong>'+escapeHtml(feeLabel)+':</strong> '+escapeHtml(formatMoney(feeAmount))+' · '+escapeHtml(String(item.payment_status||'').replaceAll('_',' '))+(item.payment_reference?' · Ref '+escapeHtml(item.payment_reference):'')+'</p>':'')+
-        (item.provider_quote_kes?'<p><strong>Provider quotation:</strong> '+escapeHtml(formatMoney(item.provider_quote_kes))+(item.provider_quote_notes?' · '+escapeHtml(item.provider_quote_notes):'')+'</p>':'')+
+        (!hire&&item.provider_quote_kes?'<p><strong>Provider quotation:</strong> '+escapeHtml(formatMoney(item.provider_quote_kes))+(item.provider_quote_notes?' · '+escapeHtml(item.provider_quote_notes):'')+'</p>':'')+
         (item.admin_notes?'<p><strong>Admin note:</strong> '+escapeHtml(item.admin_notes)+'</p>':'')+
         '<div class="admin-service-request-actions">'+actions.join('')+'</div></article>';
     }).join(''):'<div class="reserved-module slim"><span>🛠️</span><h3>No matching service requests</h3><p>Requests in this status will appear here.</p></div>';
