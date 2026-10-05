@@ -77,3 +77,22 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
 .arrival-pending-note{display:grid;gap:4px;margin-top:9px;padding:10px 11px;border:1px solid #f2c287;border-radius:10px;background:#fff8ed;color:#7f480f}
 .arrival-pending-note strong{font-size:10px}
 .arrival-pending-note span{font-size:9px;line-height:1.45}
+
+.metrics .metric-link{
+  appearance:none;
+  display:block;
+  width:100%;
+  text-align:left;
+  font:inherit;
+  color:inherit;
+  cursor:pointer;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:16px;
+  min-width:0;
+}
+.metrics .metric-link:hover{border-color:#f3a336;box-shadow:0 6px 18px rgba(7,21,47,.08)}
+.metrics .metric-link:focus-visible{outline:3px solid #f3a336;outline-offset:2px}
+.metrics .metric-link span{line-height:1.45}
+.metrics .metric-link.pending-arrival-metric{border-color:#f2c287;background:#fff9ef}
