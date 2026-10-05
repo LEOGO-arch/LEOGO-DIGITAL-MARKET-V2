@@ -2847,6 +2847,7 @@ function resetProviderServiceForm(){
   $('#providerServiceId').value='';
   $('#providerHireItemImageExisting').value='';
   $('#providerServiceType').value='normal';
+  $('#providerServiceType').disabled=false;
   $('#providerHireMinimumUnits').value='1';
   $('#providerHireQuantity').value='1';
   $('#providerHireSecurityDeposit').value='0';
@@ -2867,6 +2868,7 @@ function editProviderService(id){
   editingProviderService=item;
   $('#providerServiceId').value=item.id;
   $('#providerServiceType').value=item.service_type||'normal';
+  $('#providerServiceType').disabled=true;
   $('#providerServiceName').value=item.service_name||'';
   $('#providerServiceCategoryName').value=item.category_name||'';
   $('#providerServiceDescription').value=item.description||'';
@@ -2968,11 +2970,29 @@ $('#providerServiceForm')?.addEventListener('submit',async(event)=>{
       hire_terms:serviceType==='item_hire'?$('#providerHireTerms').value.trim():null
     };
 
-    const {error}=await client.rpc('service_provider_save_service_v2',{
-      p_service_id:$('#providerServiceId').value||null,
-      p_payload:payload
-    });
-    if(error)throw error;
+    let saveResult;
+    if(serviceType==='item_hire'){
+      saveResult=await client.rpc('service_provider_save_service_v2',{
+        p_service_id:$('#providerServiceId').value||null,
+        p_payload:payload
+      });
+    }else{
+      // Preserve the existing Normal Service save path exactly as before.
+      saveResult=await client.rpc('service_provider_save_service',{
+        p_service_id:$('#providerServiceId').value||null,
+        p_service_name:$('#providerServiceName').value.trim(),
+        p_category_name:$('#providerServiceCategoryName').value.trim()||null,
+        p_description:$('#providerServiceDescription').value.trim()||null,
+        p_pricing_model:$('#providerPricingModel').value,
+        p_price_from_kes:$('#providerPriceFrom').value===''?null:Number($('#providerPriceFrom').value),
+        p_price_to_kes:$('#providerPriceTo').value===''?null:Number($('#providerPriceTo').value),
+        p_unit_label:$('#providerUnitLabel').value.trim()||null,
+        p_service_area:$('#providerServiceArea').value.trim()||null,
+        p_availability_notes:$('#providerAvailabilityNotes').value.trim()||null,
+        p_is_available:$('#providerIsAvailable').checked
+      });
+    }
+    if(saveResult.error)throw saveResult.error;
 
     if(oldHireImage&&oldHireImage!==hireImagePath){
       await client.storage.from('service-provider-public-media').remove([oldHireImage]).catch(()=>{});
