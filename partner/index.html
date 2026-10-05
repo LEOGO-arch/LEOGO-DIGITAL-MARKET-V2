@@ -111,9 +111,15 @@
         <label>Sub-County<select id="healthSubCounty" required disabled><option value="">Choose a county first</option></select></label>
         <label>Town<input id="healthTown" type="text" maxlength="100" required></label>
         <label class="wide">Shop / business location<input id="healthLocationDetails" type="text" maxlength="180" placeholder="Estate, building, road or landmark" required></label>
-        <label>Latitude <small>Optional</small><input id="healthLatitude" type="number" step="0.0000001"></label>
-        <label>Longitude <small>Optional</small><input id="healthLongitude" type="number" step="0.0000001"></label>
-        <label class="wide">Map link <small>Optional</small><input id="healthMapLink" type="url" placeholder="Google Maps link"></label>
+        <div class="wide seller-shop-pin-box">
+          <div class="section-title compact"><span>📍 BUSINESS LOCATION PIN</span><h4>Pin the exact Health &amp; Medicine business</h4><p>Stand at the shop, pharmacy, clinic, laboratory or business location and tap the button, or paste a Google Maps/shared-location link.</p></div>
+          <div class="seller-shop-pin-actions"><button id="pinHealthLocation" type="button">📍 Pin Current Location</button><span id="healthPinStatus">Business location not pinned yet.</span></div>
+          <label class="wide">Google Maps / shared location link <small>(optional)</small><input id="healthMapLink" type="text" maxlength="1000" placeholder="Paste Google Maps link or coordinates"></label>
+          <div class="form-grid">
+            <label>Latitude <small>Auto-filled when pinned</small><input id="healthLatitude" type="number" step="0.0000001" min="-90" max="90"></label>
+            <label>Longitude <small>Auto-filled when pinned</small><input id="healthLongitude" type="number" step="0.0000001" min="-180" max="180"></label>
+          </div>
+        </div>
         <label class="wide">Business description<textarea id="healthBusinessDescription" rows="3" maxlength="1500" placeholder="Describe your Health & Medicine business and the products you handle."></textarea></label>
         <label>Public profile picture <small>Shown to customers only after approval.</small><input id="healthProfilePicture" type="file" accept="image/jpeg,image/png,image/webp"></label>
         <label>Business ID / identification document <small>Required · Admin only</small><input id="healthBusinessIdDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
@@ -295,6 +301,15 @@
         <label>Sub-County<select id="providerSubCounty" required disabled><option value="">Choose a county first</option></select></label>
         <label>Town<input id="providerTown" type="text" maxlength="80" required></label>
         <label class="wide">Business location / landmark<input id="providerLocation" type="text" maxlength="180" required></label>
+        <div class="wide seller-shop-pin-box">
+          <div class="section-title compact"><span>📍 SERVICE BASE PIN</span><h4>Pin your service business base</h4><p>Recommended for Admin verification and accurate service-area records. Mobile providers can leave this blank and continue using the written service areas.</p></div>
+          <div class="seller-shop-pin-actions"><button id="pinProviderLocation" type="button">📍 Pin Current Location</button><span id="providerPinStatus">Service base not pinned yet.</span></div>
+          <label class="wide">Google Maps / shared location link <small>(optional)</small><input id="providerMapLink" type="text" maxlength="1000" placeholder="Paste Google Maps link or coordinates"></label>
+          <div class="form-grid">
+            <label>Latitude <small>Optional</small><input id="providerLatitude" type="number" step="0.0000001" min="-90" max="90"></label>
+            <label>Longitude <small>Optional</small><input id="providerLongitude" type="number" step="0.0000001" min="-180" max="180"></label>
+          </div>
+        </div>
         <label class="wide">About your service<textarea id="providerDescription" rows="3" maxlength="1500" placeholder="Describe your skills, equipment, team or service experience."></textarea></label>
         <label class="wide">Service areas / coverage<textarea id="providerServiceAreaNotes" rows="2" maxlength="800" placeholder="Where can you provide this service?"></textarea></label>
         <label>Profile picture <small>1 image. This is the picture customers will see after your account is approved.</small><input id="providerProfilePictureInitial" type="file" accept="image/jpeg,image/png,image/webp"></label>
@@ -1850,8 +1865,8 @@
   <script src="../js/runtime-monitor.js?v=network-storm-fix-2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=health-otc-cart-v2" defer></script>
-<script src="health.js?v=health-specialist-v1" defer></script>
+<script src="partner.js?v=location-pin-expansion-1" defer></script>
+<script src="health.js?v=location-pin-expansion-1" defer></script>
 <script src="health-specialist.js?v=health-specialist-v1" defer></script>
 <script src="cyber.js?v=premium-cyber-subscription-v1" defer></script>
 <script src="shipping-moq.js?v=runtime-auth-guard-1" defer></script>
