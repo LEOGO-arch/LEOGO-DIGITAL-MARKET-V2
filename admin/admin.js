@@ -2315,6 +2315,82 @@
     }catch{return '';}
   };
 
+  const renderPickupStationHandoverEvidence = async ({loadToken,orderId}={}) => {
+    const card=$('#adminOrderPickupHandoverEvidenceCard');
+    const host=$('#adminOrderPickupHandoverEvidence');
+    const detail=state.activeMarketplaceOrderDetail;
+    const order=detail?.order;
+    if(!card||!host||!order) return;
+
+    if(String(order.delivery_zone||'').toLowerCase()!=='pickup'){
+      card.hidden=true;
+      host.innerHTML='';
+      return;
+    }
+
+    card.hidden=false;
+    const evidence=detail.pickup_station_handover||null;
+    const evidenceError=detail.pickup_station_handover_error||'';
+
+    if(evidenceError){
+      host.innerHTML='<div class="review-media-error">'+escapeHtml(evidenceError)+'</div>';
+      return;
+    }
+
+    if(!evidence){
+      host.innerHTML='<div class="loading-card"><strong>No Pickup Station parcel record yet.</strong><p>The handover evidence will appear here after this order enters the Pickup Station workflow.</p></div>';
+      return;
+    }
+
+    const statusLabel=String(evidence.parcel_status||'pending').replaceAll('_',' ');
+    const summary=
+      '<div class="admin-order-delivery-summary">'+
+        '<span><small>Pickup Station</small><strong>'+escapeHtml(evidence.pickup_station_name||order.pickup_station_name||'Pickup Station')+'</strong></span>'+
+        '<span><small>Parcel status</small><strong>'+escapeHtml(statusLabel)+'</strong></span>'+
+        '<span><small>Handed over</small><strong>'+escapeHtml(evidence.handed_over_at?formatDate(evidence.handed_over_at,true):'Not yet')+'</strong></span>'+
+      '</div>';
+
+    if(!evidence.handover_photo_path){
+      host.innerHTML=summary+
+        '<div class="loading-card"><strong>Handover image not captured yet.</strong><p>Once the Pickup Station completes customer handover with the required photo, the evidence will be shown here automatically.</p></div>';
+      return;
+    }
+
+    host.innerHTML=summary+
+      '<div class="review-media">'+
+        '<div class="review-media-heading"><span>HANDOVER PHOTO</span><strong>Pickup Station collection evidence</strong><small>Secure Admin-only preview of the image captured when the parcel was released to the customer.</small></div>'+
+        '<div class="review-media-grid"><article class="review-media-card" id="adminOrderHandoverEvidenceMedia">'+
+          '<div class="review-media-card-head"><strong>Customer Handover Evidence</strong><span>Secure file</span></div>'+
+          '<div class="review-media-loading">Loading handover image…</div>'+
+        '</article></div>'+
+      '</div>';
+
+    try{
+      const {data,error}=await db.storage.from('pickup-station-proof').createSignedUrl(String(evidence.handover_photo_path),900);
+      if(error) throw error;
+      const url=data?.signedUrl||'';
+      if(!url) throw new Error('No secure handover image URL was returned.');
+
+      if(loadToken!==state.orderDetailLoadToken || state.activeMarketplaceOrderId!==orderId) return;
+      const media=$('#adminOrderHandoverEvidenceMedia');
+      if(!media) return;
+      media.innerHTML=
+        '<div class="review-media-card-head"><strong>Customer Handover Evidence</strong><span>Secure preview</span></div>'+
+        '<a class="review-media-image-link" href="'+escapeHtml(url)+'" target="_blank" rel="noopener noreferrer">'+
+          '<img src="'+escapeHtml(url)+'" alt="Pickup Station customer handover evidence">'+
+        '</a>'+
+        '<div class="review-media-actions"><a href="'+escapeHtml(url)+'" target="_blank" rel="noopener noreferrer">View full handover image ↗</a></div>';
+    }catch(error){
+      if(loadToken!==state.orderDetailLoadToken || state.activeMarketplaceOrderId!==orderId) return;
+      const media=$('#adminOrderHandoverEvidenceMedia');
+      if(media){
+        media.innerHTML=
+          '<div class="review-media-card-head"><strong>Customer Handover Evidence</strong><span>Preview unavailable</span></div>'+
+          '<div class="review-media-error">'+escapeHtml(friendlyError(error))+'</div>';
+      }
+    }
+  };
+
   const orderDeliveryAddress=(order)=>{
     if(order.delivery_zone==='pickup'){
       return order.pickup_station_name
@@ -3125,14 +3201,17 @@
       $('#adminOrderItemList').innerHTML='<div class="loading-card">Loading items…</div>';
       $('#adminOrderSellerList').innerHTML='<div class="loading-card">Loading Seller fulfilment…</div>';
       $('#adminOrderDeliveryDetail').innerHTML='<div class="loading-card">Loading delivery state…</div>';
+      if($('#adminOrderPickupHandoverEvidenceCard')) $('#adminOrderPickupHandoverEvidenceCard').hidden=true;
+      if($('#adminOrderPickupHandoverEvidence')) $('#adminOrderPickupHandoverEvidence').innerHTML='';
     }
 
     renderMarketplaceOrders();
 
-    const [detailResult,riderResult,sortingResult]=await Promise.all([
+    const [detailResult,riderResult,sortingResult,handoverResult]=await Promise.all([
       db.rpc('admin_get_marketplace_order_detail',{p_order_id:orderId}),
       db.rpc('admin_list_riders'),
-      db.rpc('admin_get_delivery_sorting_state',{p_order_id:orderId})
+      db.rpc('admin_get_delivery_sorting_state',{p_order_id:orderId}),
+      db.rpc('admin_get_pickup_handover_evidence',{p_order_id:orderId})
     ]);
     if(loadToken!==state.orderDetailLoadToken || state.activeMarketplaceOrderId!==orderId) return;
     if(detailResult.error){
@@ -3142,7 +3221,11 @@
     }
     if(!riderResult.error) state.riders=Array.isArray(riderResult.data)?riderResult.data:[];
 
-    state.activeMarketplaceOrderDetail=detailResult.data;
+    state.activeMarketplaceOrderDetail={
+      ...(detailResult.data||{}),
+      pickup_station_handover:handoverResult.error?null:(handoverResult.data||null),
+      pickup_station_handover_error:handoverResult.error?friendlyError(handoverResult.error):''
+    };
     if(!sortingResult.error&&sortingResult.data&&state.activeMarketplaceOrderDetail?.delivery){
       state.activeMarketplaceOrderDetail.delivery={
         ...state.activeMarketplaceOrderDetail.delivery,
@@ -3150,6 +3233,7 @@
       };
     }
     renderMarketplaceOrderDetail();
+    await renderPickupStationHandoverEvidence({loadToken,orderId});
 
     if(scroll) panel?.scrollIntoView({behavior:'smooth',block:'start'});
   };
@@ -3159,6 +3243,8 @@
     state.activeMarketplaceOrderId=null;
     state.activeMarketplaceOrderDetail=null;
     if($('#adminOrderDetailPanel')) $('#adminOrderDetailPanel').hidden=true;
+    if($('#adminOrderPickupHandoverEvidenceCard')) $('#adminOrderPickupHandoverEvidenceCard').hidden=true;
+    if($('#adminOrderPickupHandoverEvidence')) $('#adminOrderPickupHandoverEvidence').innerHTML='';
     if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=true;
     if($('#printOrderDeliverySummary')) $('#printOrderDeliverySummary').disabled=true;
     renderMarketplaceOrders();
