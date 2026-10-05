@@ -2824,3 +2824,51 @@ body.advertisement-lightbox-open{overflow:hidden}
   .referral-share-actions{justify-content:flex-start}
   .referral-claim-form{grid-template-columns:1fr}
 }
+
+
+/* Service Provider Item Hiring — Customer Front */
+.leogo-hire-card .leogo-compact-approved{background:#fff1df!important;color:#9b4a00!important}
+.leogo-hire-card .leogo-compact-partner-photo{background:#fff8ef!important}
+.leogo-hire-deposit{display:block;color:#8a5317;font-size:8px;font-weight:800;line-height:1.3}
+.leogo-compact-actions.hire-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.service-hire-booking[hidden]{display:none!important}
+.service-hire-booking{display:grid;gap:13px;padding:15px;border:1px solid #ffd5a6;border-radius:16px;background:#fff9f1}
+.service-hire-booking-head span,.service-hire-booking-head strong,.service-hire-booking-head small{display:block}
+.service-hire-booking-head span{color:#e86700;font-size:9px;font-weight:1000;letter-spacing:.12em}
+.service-hire-booking-head strong{margin-top:3px;color:#071a3a;font-size:18px}
+.service-hire-booking-head small{margin-top:4px;color:#65738a;font-size:10px;line-height:1.45}
+.service-hire-terms-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.service-hire-terms-grid>div{padding:10px;border:1px solid #e4e8ef;border-radius:11px;background:#fff}
+.service-hire-terms-grid small,.service-hire-terms-grid strong{display:block}
+.service-hire-terms-grid small{color:#7b8799;font-size:7.5px;font-weight:1000;line-height:1.2}
+.service-hire-terms-grid strong{margin-top:4px;color:#071a3a;font-size:11px;line-height:1.3}
+.service-hire-calculation{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:11px;border-radius:12px;background:#071a3a;color:#fff}
+.service-hire-calculation>div{min-width:0}
+.service-hire-calculation small,.service-hire-calculation strong{display:block}
+.service-hire-calculation small{color:#aebbd0;font-size:7px;font-weight:900}
+.service-hire-calculation strong{margin-top:3px;font-size:11px;overflow-wrap:anywhere}
+.service-hire-calculation p{grid-column:1/-1;margin:3px 0 0;color:#d1dae8;font-size:9px;line-height:1.45}
+.service-hire-owner-terms{padding:11px 12px;border:1px solid #e3e8f0;border-radius:11px;background:#fff}
+.service-hire-owner-terms strong{display:block;color:#071a3a;font-size:11px}
+.service-hire-owner-terms p{margin:5px 0 0;color:#5f6c80;font-size:10px;line-height:1.45;white-space:pre-line}
+.service-hire-accept{display:flex!important;grid-template-columns:none!important;align-items:flex-start;gap:9px!important;padding:11px;border:1px solid #ffd3a0;border-radius:11px;background:#fff!important}
+.service-hire-accept input{flex:0 0 auto;width:17px!important;height:17px;margin-top:1px}
+.service-hire-accept span{font-size:10px;line-height:1.45;color:#4b5563}
+.customer-hire-request-card{border-color:#ffd6aa}
+.customer-hire-activity-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.customer-hire-activity-summary>div{padding:9px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}
+.customer-hire-activity-summary small,.customer-hire-activity-summary strong,.customer-hire-activity-summary span{display:block}
+.customer-hire-activity-summary small{color:#7a8798;font-size:7px;font-weight:1000}
+.customer-hire-activity-summary strong{margin-top:3px;color:#071a3a;font-size:10.5px}
+.customer-hire-activity-summary span{margin-top:2px;color:#65738a;font-size:8px}
+.customer-hire-terms-summary{padding:8px 10px;border-radius:9px;background:#fff8ef;color:#87501d}
+.customer-hire-terms-summary small{font-size:9px;line-height:1.4}
+.customer-hire-return-summary{display:flex;flex-wrap:wrap;gap:6px 10px;padding:10px;border:1px solid #cfe9d7;border-radius:10px;background:#f1fbf4}
+.customer-hire-return-summary strong{width:100%;color:#166534}
+.customer-hire-return-summary span{font-size:9px;color:#41624c}
+@media(max-width:700px){
+  .service-hire-terms-grid,.service-hire-calculation,.customer-hire-activity-summary{grid-template-columns:1fr 1fr}
+}
+@media(max-width:420px){
+  .service-hire-terms-grid,.service-hire-calculation,.customer-hire-activity-summary{grid-template-columns:1fr}
+}
