@@ -2997,7 +2997,13 @@ async function deleteProviderService(id,button){
   const item=providerServices.find((row)=>row.id===id);
   if(!item||!window.confirm('Delete "'+item.service_name+'"?'))return;
   const original=button.textContent;button.disabled=true;button.textContent='Deleting…';
-  try{const {data,error}=await client.rpc('service_provider_delete_service',{p_service_id:id});if(error)throw error;if(!data)throw new Error('Service could not be deleted.');await loadProviderServices();}
+  try{
+    const {data,error}=await client.rpc('service_provider_delete_service',{p_service_id:id});
+    if(error)throw error;
+    if(!data)throw new Error('Service could not be deleted.');
+    if(item.hire_item_image_path)await client.storage.from('service-provider-public-media').remove([item.hire_item_image_path]).catch(()=>{});
+    await loadProviderServices();
+  }
   catch(error){status($('#providerServiceFormStatus'),error?.message||'Service could not be deleted.','error');}
   finally{button.disabled=false;button.textContent=original;}
 }
