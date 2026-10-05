@@ -657,49 +657,79 @@ const decodeQrWithJsQr=(video)=>{
   const sourceHeight=Number(video.videoHeight||0);
   if(!sourceWidth||!sourceHeight)return '';
 
-  // Keep enough detail for the dense LEOGO order QR while avoiding an
-  // unnecessarily huge frame on lower-powered Android devices.
-  const maxWidth=1280;
-  const scale=Math.min(1,maxWidth/sourceWidth);
-  const width=Math.max(1,Math.round(sourceWidth*scale));
-  const height=Math.max(1,Math.round(sourceHeight*scale));
-  if(scannerCanvas.width!==width)scannerCanvas.width=width;
-  if(scannerCanvas.height!==height)scannerCanvas.height=height;
+  // Scan the same central region shown inside the orange guide first. This
+  // makes a printed LEOGO QR larger for decoding on mobile cameras. Fall back
+  // to the full frame for codes held outside the guide.
+  const crops=[
+    {left:.08,top:.14,width:.84,height:.72},
+    {left:0,top:0,width:1,height:1}
+  ];
+  for(const crop of crops){
+    const sx=Math.round(sourceWidth*crop.left);
+    const sy=Math.round(sourceHeight*crop.top);
+    const sw=Math.max(1,Math.round(sourceWidth*crop.width));
+    const sh=Math.max(1,Math.round(sourceHeight*crop.height));
+    const scale=Math.min(1,1600/sw);
+    const width=Math.max(1,Math.round(sw*scale));
+    const height=Math.max(1,Math.round(sh*scale));
+    if(scannerCanvas.width!==width)scannerCanvas.width=width;
+    if(scannerCanvas.height!==height)scannerCanvas.height=height;
 
-  scannerContext.drawImage(video,0,0,width,height);
-  const frame=scannerContext.getImageData(0,0,width,height);
-  const result=window.jsQR(frame.data,width,height,{inversionAttempts:'attemptBoth'});
-  return result?.data||'';
+    scannerContext.drawImage(video,sx,sy,sw,sh,0,0,width,height);
+    const frame=scannerContext.getImageData(0,0,width,height);
+    const result=window.jsQR(frame.data,width,height,{inversionAttempts:'attemptBoth'});
+    if(result?.data)return result.data;
+  }
+  return '';
 };
 
 const finishQrScan=async(rawValue)=>{
   const code=parseScannedCode(rawValue);
   if(!code)return false;
 
-  $('#scannerStatus').textContent='QR detected. Checking LEOGO order…';
-  const {data,error}=await client.rpc('pickup_partner_lookup_parcel',{p_code:code});
-  if(error||!data?.order_reference){
-    $('#scannerStatus').textContent=error?.message||'QR was read but no matching parcel was found for this Pickup Station.';
-    return false;
-  }
-
   const input=scannerMode==='receive'?$('#receiveCode'):$('#handoverCode');
   const statusEl=scannerMode==='receive'?$('#receiveStatus'):$('#handoverStatus');
+
+  // Preserve the decoded order number immediately, even if the lookup request
+  // is slow or this station cannot match the parcel yet.
+  input.value=code;
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+  $('#lookupCode').value=code;
+  $('#scannerStatus').textContent='QR detected. Checking LEOGO order…';
+
+  let data=null,error=null;
+  try{
+    ({data,error}=await client.rpc('pickup_partner_lookup_parcel',{p_code:code}));
+  }catch(err){
+    error=err;
+  }
+
+  if(error||!data?.order_reference){
+    stopScanner();
+    const reason=error?.message||'No matching parcel was found for this Pickup Station.';
+    setStatus(statusEl,'QR scanned and order number filled ('+code+'), but parcel lookup failed: '+reason,'error');
+    window.setTimeout(()=>{
+      input.scrollIntoView({behavior:'smooth',block:'center'});
+      input.focus({preventScroll:true});
+    },120);
+    return true;
+  }
+
   input.value=data.order_reference;
   input.dispatchEvent(new Event('input',{bubbles:true}));
   $('#lookupCode').value=data.order_reference;
-
   stopScanner();
 
   if(scannerMode==='receive'){
-    setStatus(statusEl,'✓ QR scanned: '+data.order_reference+'. Add the required parcel photo, then tap Receive Parcel.','success');
+    setStatus(statusEl,'✓ QR scanned: '+data.order_reference+'. Take the parcel photo, then tap Receive Parcel.','success');
   }else{
     setStatus(statusEl,'✓ QR scanned: '+data.order_reference+'. Enter the customer ID, add the handover photo, then tap Hand Over.','success');
   }
 
   window.setTimeout(()=>{
-    input.scrollIntoView({behavior:'smooth',block:'center'});
-    input.focus({preventScroll:true});
+    const next=scannerMode==='receive'?$('#receivePhoto'):$('#handoverIdNumber');
+    next.scrollIntoView({behavior:'smooth',block:'center'});
+    next.focus({preventScroll:true});
   },120);
   return true;
 };
@@ -731,8 +761,11 @@ const scanLoop=async(detector)=>{
         if(complete)return;
       }
 
-      if(Date.now()-scannerStartedAt>3500){
-        $('#scannerStatus').textContent='Scanning… hold the QR steady inside the orange box and move it slightly closer if needed.';
+      const elapsed=Date.now()-scannerStartedAt;
+      if(elapsed>12000){
+        $('#scannerStatus').textContent='Still unable to read the QR. Flatten the label, improve the light, move closer, or enter the order number manually below.';
+      }else if(elapsed>3500){
+        $('#scannerStatus').textContent='Looking for QR… keep it inside the orange frame and hold the phone steady.';
       }
     }
   }catch(_error){}
