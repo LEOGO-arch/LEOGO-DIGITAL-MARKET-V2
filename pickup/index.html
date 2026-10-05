@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07152f">
   <title>LEOGO Pickup Station Partner</title>
-  <link rel="stylesheet" href="pickup.css?v=pickup-arrival-pending-1">
+  <link rel="stylesheet" href="pickup.css?v=pickup-flow-oct05-1">
 </head>
 <body>
 <header class="topbar">
@@ -76,14 +76,14 @@
     </section>
 
     <div class="metrics">
-      <article><small>Booked for Station</small><strong id="bookedCount">0</strong><span>Not yet delivered by Rider</span></article>
-      <article class="pending-arrival-metric"><small>Pending Arrival Receipt</small><strong id="pendingArrivalCount">0</strong><span>Rider delivered — station must confirm receipt</span></article>
-      <article><small>At Station</small><strong id="atStationCount">0</strong><span>Received and ready for collection</span></article>
-      <article><small>Received Today</small><strong id="receivedToday">0</strong><span>Parcel receipts</span></article>
-      <article><small>Handed Over Today</small><strong id="handedToday">0</strong><span>Customer collections</span></article>
-      <article><small>This Month</small><strong id="monthEarnings">KSh 0</strong><span>Station earnings</span></article>
-      <article><small>Available Balance</small><strong id="availableBalance">KSh 0</strong><span>Available to withdraw</span></article>
-      <article><small>Earning / Handled Parcel</small><strong id="handledParcelRate">KSh 20</strong><span>From LEOGO delivery fee</span></article>
+      <button type="button" class="metric-link" data-metric-view="parcels" data-metric-filter="booked"><small>Booked for Station</small><strong id="bookedCount">0</strong><span>Not yet delivered by Rider · View list</span></button>
+      <button type="button" class="metric-link pending-arrival-metric" data-metric-view="parcels" data-metric-filter="arrived_pending_receipt"><small>Pending Arrival Receipt</small><strong id="pendingArrivalCount">0</strong><span>Rider delivered · View list</span></button>
+      <button type="button" class="metric-link" data-metric-view="parcels" data-metric-filter="received"><small>Pending Handover</small><strong id="atStationCount">0</strong><span>Ready for customer collection · View list</span></button>
+      <button type="button" class="metric-link" data-metric-view="history" data-metric-range="today"><small>Received Today</small><strong id="receivedToday">0</strong><span>Parcel receipts · View history</span></button>
+      <button type="button" class="metric-link" data-metric-view="history" data-metric-range="today"><small>Handed Over Today</small><strong id="handedToday">0</strong><span>Customer collections · View history</span></button>
+      <button type="button" class="metric-link" data-metric-view="earnings"><small>This Month</small><strong id="monthEarnings">KSh 0</strong><span>Station earnings · View report</span></button>
+      <button type="button" class="metric-link" data-metric-view="earnings"><small>Available Balance</small><strong id="availableBalance">KSh 0</strong><span>Available to withdraw · View report</span></button>
+      <button type="button" class="metric-link" data-metric-view="earnings"><small>Earning / Handled Parcel</small><strong id="handledParcelRate">KSh 20</strong><span>From LEOGO delivery fee · View report</span></button>
     </div>
 
     <nav class="portal-nav" id="pickupNav">
@@ -102,7 +102,7 @@
             <label>Order / waybill number<input id="receiveCode" name="code" autocomplete="off" placeholder="Full number or last 4+ characters, e.g. BO1A" required></label>
             <label class="proof-field">Parcel photo <small>Required. Take a clear photo of the parcel as it is received at the station.</small><input id="receivePhoto" name="receive_photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required></label>
             <label>Receiving note <textarea id="receiveNotes" name="notes" rows="2" placeholder="Optional condition / storage note"></textarea></label>
-            <div class="action-row"><button class="scan-button" type="button" data-scan-mode="receive">▣ Scan to Receive</button><button class="primary" type="submit">Receive Parcel</button></div>
+            <div class="action-row"><button class="scan-button" type="button" data-scan-mode="receive">▣ Scan to Receive</button><button class="primary" type="submit">Arrive Parcel</button></div>
           </form>
           <p class="status" id="receiveStatus"></p>
         </article>
@@ -213,8 +213,8 @@
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
   <script src="../js/runtime-monitor.js?v=network-storm-fix-2" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
-<script src="pickup.js?v=pickup-qr-capture-2" defer></script>
-<script src="tracker-any.js?v=pickup-arrival-pending-1" defer></script>
+<script src="pickup.js?v=pickup-flow-oct05-1" defer></script>
+<script src="tracker-any.js?v=pickup-flow-oct05-1" defer></script>
 <script src="loan-assets.js?v=loan-assets-3" defer></script>
 </body>
 </html>
