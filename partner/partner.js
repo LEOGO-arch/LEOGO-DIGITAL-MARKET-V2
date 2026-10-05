@@ -2236,6 +2236,16 @@ async function uploadProviderPublicPhoto(file){
   if(error)throw error;
   return path;
 }
+async function uploadProviderHireItemPhoto(file){
+  if(!file)return null;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Hire item photo must be JPG, PNG or WEBP.');
+  if(file.size>5242880)throw new Error('Hire item photo must be 5 MB or smaller.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/hire-item-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from('service-provider-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+}
 async function uploadProviderPassportPhoto(file){
   if(!file)return null;
   if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Passport photo must be JPG, PNG or WEBP.');
@@ -2498,6 +2508,19 @@ async function loadProviderJobs(){
   providerJobs=Array.isArray(data)?data:[];
   renderProviderJobs();
 }
+function providerHireJobStatusText(item){
+  if(item.request_type!=='hire')return providerJobStatusText(item.request_status);
+  return ({
+    dispatched:'New hire request',
+    accepted:'Availability confirmed',
+    declined:'Hire declined',
+    in_progress:'Item handed over · Hire active',
+    completed:'Item returned · Hire completed',
+    cancelled:'Hire cancelled',
+    awaiting_payment_verification:'Hire request fee verification',
+    payment_verified:'Hire fee verified'
+  }[item.request_status]||providerJobStatusText(item.request_status));
+}
 function renderProviderJobs(){
   const list=$('#providerJobList');if(!list)return;
   const open=providerJobs.filter(item=>!['completed','declined','quote_rejected','cancelled'].includes(item.request_status));
@@ -2512,7 +2535,7 @@ function renderProviderJobs(){
   const priorityList=$('#providerPriorityJobList');
   if(priorityList){
     priorityList.innerHTML=newJobs.length?newJobs.slice(0,3).map((item)=>
-      '<button type="button" data-priority-provider-job="'+escapeHtml(item.id)+'"><span><strong>'+escapeHtml(item.service_name||'Service Request')+'</strong><small>'+escapeHtml(item.request_reference)+' · '+escapeHtml(formatDate(item.created_at))+'</small></span><b>'+escapeHtml(item.request_type==='quotation'?'Quotation':'Direct Job')+' →</b></button>'
+      '<button type="button" data-priority-provider-job="'+escapeHtml(item.id)+'"><span><strong>'+escapeHtml(item.service_name||'Service Request')+'</strong><small>'+escapeHtml(item.request_reference)+' · '+escapeHtml(formatDate(item.created_at))+'</small></span><b>'+escapeHtml(item.request_type==='hire'?'Item Hire':item.request_type==='quotation'?'Quotation':'Direct Job')+' →</b></button>'
     ).join(''):'<div class="empty-card">No new customer jobs waiting for your response.</div>';
     $$('[data-priority-provider-job]').forEach((button)=>button.addEventListener('click',()=>{
       openProviderView('jobs');
@@ -2527,8 +2550,15 @@ function renderProviderJobs(){
   if(filter==='completed')rows=rows.filter(item=>item.request_status==='completed');
   if(filter==='closed')rows=rows.filter(item=>['declined','quote_rejected','cancelled'].includes(item.request_status));
   list.innerHTML=rows.length?rows.map(item=>{
+    const hire=item.request_type==='hire';
     let actions='';
-    if(item.request_status==='dispatched'&&item.request_type==='direct'){
+    if(hire&&item.request_status==='dispatched'){
+      actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-hire-action="accept" data-job-id="'+escapeHtml(item.id)+'">Confirm Availability</button><button class="danger" type="button" data-provider-hire-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline Hire</button></div>';
+    }else if(hire&&item.request_status==='accepted'){
+      actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-hire-action="handover" data-job-id="'+escapeHtml(item.id)+'">Item Handed Over</button></div>';
+    }else if(hire&&item.request_status==='in_progress'){
+      actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-hire-action="return" data-job-id="'+escapeHtml(item.id)+'">Item Returned / Complete Hire</button></div>';
+    }else if(item.request_status==='dispatched'&&item.request_type==='direct'){
       actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="accept" data-job-id="'+escapeHtml(item.id)+'">Accept Job</button><button class="danger" type="button" data-provider-job-action="decline" data-job-id="'+escapeHtml(item.id)+'">Decline</button></div>';
     }else if(item.request_status==='dispatched'&&item.request_type==='quotation'){
       const quoteMax=item.service_flash_sale_applied&&Number(item.service_price_snapshot_kes||0)>0?Number(item.service_price_snapshot_kes):100000000;
@@ -2538,14 +2568,29 @@ function renderProviderJobs(){
     }else if(item.request_status==='in_progress'){
       actions='<div class="provider-job-actions"><button class="primary" type="button" data-provider-job-action="complete" data-job-id="'+escapeHtml(item.id)+'">Mark Completed</button></div>';
     }
-    return '<article class="provider-job-card"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at))+' · '+escapeHtml(item.service_name||'Service')+'</small></div><b>'+escapeHtml(providerJobStatusText(item.request_status))+'</b></header>'+
-      '<div class="provider-job-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>LOCATION</small><strong>'+escapeHtml(item.service_location||'—')+'</strong><span>'+escapeHtml([item.service_town_estate,item.service_sub_county,item.service_county].filter(Boolean).join(', ')||item.nearest_landmark||'No detailed location supplied')+'</span></div><div><small>REQUEST TYPE</small><strong>'+(item.request_type==='quotation'?'Quotation':'Direct service')+'</strong><span>'+escapeHtml((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+'</span></div></div>'+
+
+    const hireDetails=hire
+      ? '<div class="provider-hire-job-summary">'+
+          '<div><small>HIRE CHARGE</small><strong>'+escapeHtml(money(item.hire_charge_kes))+'</strong><span>'+Number(item.hire_quantity||1)+' item(s) · '+Number(item.hire_units||1)+' '+escapeHtml(providerHireBasisLabel(item.hire_charge_basis_snapshot))+(Number(item.hire_units||1)===1?'':' units')+'</span></div>'+
+          '<div><small>REFUNDABLE DEPOSIT</small><strong>'+escapeHtml(money(item.hire_security_deposit_total_kes))+'</strong><span>'+escapeHtml(money(item.hire_security_deposit_kes))+' per item</span></div>'+
+          '<div><small>HIRE PERIOD</small><strong>'+escapeHtml(formatDate(item.hire_start_at,true))+'</strong><span>Return by '+escapeHtml(formatDate(item.hire_expected_return_at,true))+'</span></div>'+
+          '<div><small>FULFILMENT</small><strong>'+escapeHtml(String(item.hire_fulfilment_method||'').replaceAll('_',' '))+'</strong><span>Owner-approved booking terms</span></div>'+
+        '</div>'+
+        '<div class="provider-hire-terms-note"><strong>Owner terms locked for this booking</strong><small>Damage charge maximum: '+escapeHtml(money(item.hire_damage_penalty_kes_snapshot||0))+' · Late return: '+escapeHtml(Number(item.hire_late_penalty_kes_snapshot||0)?(money(item.hire_late_penalty_kes_snapshot)+' '+(item.hire_late_penalty_basis_snapshot==='fixed'?'fixed':('/ '+providerHireBasisLabel(item.hire_late_penalty_basis_snapshot)))):'No late penalty')+'</small><p>'+escapeHtml(item.hire_terms_snapshot||'—')+'</p>'+(item.hire_damage_terms_snapshot?'<p><b>Damage terms:</b> '+escapeHtml(item.hire_damage_terms_snapshot)+'</p>':'')+'</div>'+
+        (item.request_status==='completed'
+          ? '<div class="provider-hire-completion"><strong>Hire settlement summary</strong><span>Damage penalty applied: '+escapeHtml(money(item.hire_damage_penalty_applied_kes||0))+'</span><span>Late penalty applied: '+escapeHtml(money(item.hire_late_penalty_applied_kes||0))+'</span><span>Deposit refund due: '+escapeHtml(money(item.hire_deposit_refund_due_kes||0))+'</span><span>Additional penalty due: '+escapeHtml(money(item.hire_additional_penalty_due_kes||0))+'</span></div>'
+          : '')
+      : '';
+
+    return '<article class="provider-job-card" data-job-id="'+escapeHtml(item.id)+'"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at))+' · '+escapeHtml(item.service_name||'Service')+'</small></div><b>'+escapeHtml(providerHireJobStatusText(item))+'</b></header>'+
+      '<div class="provider-job-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>LOCATION</small><strong>'+escapeHtml(item.service_location||'—')+'</strong><span>'+escapeHtml([item.service_town_estate,item.service_sub_county,item.service_county].filter(Boolean).join(', ')||item.nearest_landmark||'No detailed location supplied')+'</span></div><div><small>REQUEST TYPE</small><strong>'+(hire?'Item Hire':item.request_type==='quotation'?'Quotation':'Direct service')+'</strong><span>'+escapeHtml((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+'</span></div></div>'+
+      hireDetails+
       (item.location_description?'<p><strong>Location description:</strong> '+escapeHtml(item.location_description)+'</p>':'')+
       (item.nearest_landmark?'<p><strong>Nearest landmark:</strong> '+escapeHtml(item.nearest_landmark)+'</p>':'')+
       ((item.latitude!=null&&item.longitude!=null)?'<p><strong>Pinned coordinates:</strong> '+escapeHtml(String(item.latitude))+', '+escapeHtml(String(item.longitude))+' · <a href="https://www.google.com/maps?q='+encodeURIComponent(String(item.latitude)+','+String(item.longitude))+'" target="_blank" rel="noopener">Open in Google Maps ↗</a></p>':(item.map_link?'<p><a href="'+escapeHtml(item.map_link)+'" target="_blank" rel="noopener">Open customer location ↗</a></p>':''))+
       '<p><strong>Customer details:</strong> '+escapeHtml(item.request_details||'—')+'</p>'+
-      (item.service_flash_sale_applied?'<div class="restricted-notice">⚡ Flash Sale price locked at '+escapeHtml(money(item.service_price_snapshot_kes))+' for this customer request. Do not quote or complete this service above that amount.</div>':'')+
-      (item.provider_quote_kes?'<p><strong>Your quotation:</strong> '+escapeHtml(money(item.provider_quote_kes))+(item.provider_quote_notes?' · '+escapeHtml(item.provider_quote_notes):'')+'</p>':'')+
+      (!hire&&item.service_flash_sale_applied?'<div class="restricted-notice">⚡ Flash Sale price locked at '+escapeHtml(money(item.service_price_snapshot_kes))+' for this customer request. Do not quote or complete this service above that amount.</div>':'')+
+      (!hire&&item.provider_quote_kes?'<p><strong>Your quotation:</strong> '+escapeHtml(money(item.provider_quote_kes))+(item.provider_quote_notes?' · '+escapeHtml(item.provider_quote_notes):'')+'</p>':'')+
       actions+'</article>';
   }).join(''):'<div class="empty-card">No service jobs match this filter.</div>';
 }
@@ -2562,8 +2607,57 @@ async function updateProviderJob(id,action,quote=null,notes=null,button=null,quo
   }catch(error){status($('#providerJobStatus'),error?.message||'Service job could not be updated.','error');}
   finally{if(button){button.disabled=false;button.textContent=original;}}
 }
+async function updateProviderHireJob(id,action,damagePenalty=0,notes=null,button=null){
+  const original=button?.textContent;
+  if(button){button.disabled=true;button.textContent='Saving…';}
+  status($('#providerJobStatus'),'');
+  try{
+    if(action==='decline'&&!notes)notes=window.prompt('Why are you declining this item hire request?','')||'';
+    if(action==='decline'&&String(notes||'').trim().length<3)return;
+    const {data,error}=await client.rpc('service_provider_update_hire_job',{
+      p_request_id:id,
+      p_action:action,
+      p_damage_penalty_kes:Number(damagePenalty||0),
+      p_notes:notes||null
+    });
+    if(error)throw error;
+    const message=action==='return'
+      ? 'Hire completed. Deposit refund due: '+money(data?.deposit_refund_due_kes||0)+(Number(data?.additional_penalty_due_kes||0)>0?' · Additional penalty due: '+money(data.additional_penalty_due_kes):'')
+      : 'Item hire updated successfully.';
+    status($('#providerJobStatus'),message,'success');
+    await Promise.all([loadProviderJobs(),loadProviderNotifications(),loadProviderEarnings()]);
+  }catch(error){
+    status($('#providerJobStatus'),error?.message||'Item hire could not be updated.','error');
+  }finally{
+    if(button){button.disabled=false;button.textContent=original;}
+  }
+}
 $('#providerJobFilter')?.addEventListener('change',renderProviderJobs);
 $('#providerJobList')?.addEventListener('click',(event)=>{
+  const hireButton=event.target.closest?.('[data-provider-hire-action]');
+  if(hireButton){
+    const action=hireButton.dataset.providerHireAction;
+    const item=providerJobs.find((row)=>row.id===hireButton.dataset.jobId);
+    if(!item)return;
+    if(action==='handover'&&!window.confirm('Confirm that the item has been physically handed over to the customer? This starts the active hire period.'))return;
+    if(action==='return'){
+      const maxDamage=Number(item.hire_damage_penalty_kes_snapshot||0);
+      const answer=window.prompt('Enter the actual damage penalty to apply (KSh). Enter 0 if the item was returned without charge. Maximum agreed damage charge: '+money(maxDamage),'0');
+      if(answer===null)return;
+      const damage=Number(answer);
+      if(!Number.isFinite(damage)||damage<0||damage>maxDamage){
+        status($('#providerJobStatus'),'Damage penalty must be between KSh 0 and '+money(maxDamage)+'.','error');
+        return;
+      }
+      const notes=window.prompt('Return / condition notes (optional). Late-return penalty is calculated automatically from the agreed booking terms.','')||'';
+      if(!window.confirm('Complete this hire as returned? The system will calculate any late-return penalty and the refundable balance of the security deposit.'))return;
+      updateProviderHireJob(item.id,'return',damage,notes,hireButton);
+      return;
+    }
+    updateProviderHireJob(item.id,action,0,null,hireButton);
+    return;
+  }
+
   const button=event.target.closest?.('[data-provider-job-action]');if(!button)return;
   const action=button.dataset.providerJobAction;
   const item=providerJobs.find((row)=>row.id===button.dataset.jobId);
@@ -2599,7 +2693,7 @@ function renderProviderFlashSales(){
   const list=$('#providerFlashSaleList');
   if(!select||!list)return;
   const eligible=providerServices.filter((item)=>
-    item.approval_status==='approved'&&item.is_available&&item.pricing_model==='fixed'&&Number(item.price_from_kes||0)>0
+    item.service_type!=='item_hire'&&item.approval_status==='approved'&&item.is_available&&item.pricing_model==='fixed'&&Number(item.price_from_kes||0)>0
   );
   const current=select.value;
   select.innerHTML='<option value="">Choose approved fixed-price service…</option>'+
@@ -2659,7 +2753,20 @@ $('#providerFlashSaleForm')?.addEventListener('submit',async(event)=>{
     status($('#providerFlashSaleStatus'),error?.message||'Flash Sale request could not be sent.','error');
   }finally{button.disabled=false;button.textContent=original;}
 });
+function providerHireBasisLabel(value){
+  return value==='hour'?'hour':value==='day'?'day':value==='24_hour'?'24 hours':'hire period';
+}
+function providerHireLateText(item){
+  const amount=Number(item?.hire_late_penalty_kes||0);
+  if(!amount)return 'No late-return penalty';
+  const basis=item?.hire_late_penalty_basis;
+  if(basis==='fixed')return money(amount)+' fixed late penalty';
+  return money(amount)+' / late '+providerHireBasisLabel(basis);
+}
 function providerPriceText(item){
+  if(item.service_type==='item_hire'){
+    return money(item.hire_rate_kes)+' / '+providerHireBasisLabel(item.hire_charge_basis);
+  }
   if(item.pricing_model==='quote')return 'Quote after request';
   const from=Number(item.price_from_kes||0);
   if(item.pricing_model==='fixed')return money(from)+(item.unit_label?' · '+item.unit_label:'');
@@ -2667,63 +2774,223 @@ function providerPriceText(item){
   if(item.pricing_model==='from')return 'From '+money(from)+(item.unit_label?' · '+item.unit_label:'');
   return money(from);
 }
+function updateProviderHireImagePreview(path='',file=null){
+  const preview=$('#providerHireItemImagePreview');
+  const state=$('#providerHireItemImageState');
+  if(!preview)return;
+  if(file){
+    const url=URL.createObjectURL(file);
+    preview.innerHTML='<img src="'+escapeHtml(url)+'" alt="Selected hire item photo">';
+    preview.querySelector('img')?.addEventListener('load',()=>URL.revokeObjectURL(url),{once:true});
+    if(state)state.textContent='New item photo selected. It will replace the current photo after saving and Admin approval.';
+    return;
+  }
+  const url=providerPublicPhotoUrl(path);
+  preview.innerHTML=url?'<img src="'+escapeHtml(url)+'" alt="Hire item photo">':'<b>📷</b>';
+  if(state)state.textContent=path?'Current item photo retained unless you select a replacement.':'Upload one clear JPG, PNG or WEBP image. This image is customer-visible after Admin approval.';
+}
+function toggleProviderServiceType(){
+  const hire=$('#providerServiceType')?.value==='item_hire';
+  if($('#providerHireFields'))$('#providerHireFields').hidden=!hire;
+  if($('#providerNormalServicePricing'))$('#providerNormalServicePricing').hidden=hire;
+  if($('#providerServiceTypeHelp'))$('#providerServiceTypeHelp').innerHTML=hire
+    ? '<strong>Item for Hire</strong><small>List a tool, machine, equipment or other item customers can hire for a defined period.</small>'
+    : '<strong>Normal Service</strong><small>Use the existing service workflow for work such as plumbing, cleaning, repair, photography and other professional services.</small>';
+  if($('#providerServiceNameLabel'))$('#providerServiceNameLabel').textContent=hire?'Hire listing name':'Service name';
+  if($('#providerServiceDescriptionLabel'))$('#providerServiceDescriptionLabel').textContent=hire?'Item description / condition':'Service description';
+
+  const normalRequired=['providerPricingModel'];
+  normalRequired.forEach((id)=>{const node=$('#'+id);if(node)node.required=!hire;});
+  const hireRequired=['providerHireItemName','providerHireChargeBasis','providerHireRate','providerHireMinimumUnits','providerHireQuantity','providerHireFulfilment','providerHireTerms'];
+  hireRequired.forEach((id)=>{const node=$('#'+id);if(node)node.required=hire;});
+
+  const daily=$('#providerHireChargeBasis')?.value==='day';
+  if($('#providerHireDailyReturnTimeWrap'))$('#providerHireDailyReturnTimeWrap').hidden=!(hire&&daily);
+  if($('#providerHireDailyReturnTime'))$('#providerHireDailyReturnTime').required=hire&&daily;
+
+  const damage=Number($('#providerHireDamagePenalty')?.value||0)>0;
+  if($('#providerHireDamageTerms'))$('#providerHireDamageTerms').required=hire&&damage;
+  const late=Number($('#providerHireLatePenalty')?.value||0)>0;
+  if($('#providerHireLatePenaltyBasis'))$('#providerHireLatePenaltyBasis').required=hire&&late;
+
+  const existing=$('#providerHireItemImageExisting')?.value||'';
+  if($('#providerHireItemImage'))$('#providerHireItemImage').required=hire&&!existing;
+}
 function renderProviderServices(){
   const list=$('#providerServiceList');
   if(!list)return;
   $('#providerServiceTotal').textContent=providerServices.length;
   $('#providerServiceApproved').textContent=providerServices.filter((item)=>item.approval_status==='approved').length;
   $('#providerServicePending').textContent=providerServices.filter((item)=>['pending','under_review','changes_requested'].includes(item.approval_status)).length;
-  list.innerHTML=providerServices.length?providerServices.map((item)=>
-    '<article class="provider-service-card">'+
-      '<div class="provider-service-card-main"><div><span class="status-chip">'+escapeHtml(String(item.approval_status||'pending').replaceAll('_',' '))+'</span><h4>'+escapeHtml(item.service_name)+'</h4><p>'+escapeHtml(item.description||'No description added.')+'</p></div><strong>'+escapeHtml(providerPriceText(item))+'</strong></div>'+
+  list.innerHTML=providerServices.length?providerServices.map((item)=>{
+    const hire=item.service_type==='item_hire';
+    const hireInfo=hire
+      ? '<div class="provider-hire-summary"><span>ITEM FOR HIRE</span><small>Stock: '+Number(item.hire_quantity_available||1)+' · Deposit '+money(item.hire_security_deposit_kes||0)+' / item · Damage max '+money(item.hire_damage_penalty_kes||0)+' · '+escapeHtml(providerHireLateText(item))+'</small></div>'
+      : '';
+    return '<article class="provider-service-card">'+
+      '<div class="provider-service-card-main"><div><span class="status-chip">'+escapeHtml(String(item.approval_status||'pending').replaceAll('_',' '))+'</span>'+(hire?'<span class="provider-hire-badge">ITEM FOR HIRE</span>':'')+'<h4>'+escapeHtml(item.service_name)+'</h4><p>'+escapeHtml(item.description||'No description added.')+'</p></div><strong>'+escapeHtml(providerPriceText(item))+'</strong></div>'+
       '<div class="provider-service-meta"><span>'+escapeHtml(item.category_name||provider?.primary_service||'Service')+'</span><span>'+(item.is_available?'Available':'Unavailable')+'</span><span>'+escapeHtml(item.service_area||provider?.town||'')+'</span></div>'+
+      hireInfo+
       (item.admin_notes?'<div class="restricted-notice">Admin note: '+escapeHtml(item.admin_notes)+'</div>':'')+
       '<div class="product-actions"><button class="secondary" type="button" data-provider-edit-service="'+escapeHtml(item.id)+'">Edit</button><button class="danger-data-button" type="button" data-provider-delete-service="'+escapeHtml(item.id)+'">Delete</button></div>'+
-    '</article>'
-  ).join(''):'<div class="empty-card">No services added yet. Use the form above to create your first service.</div>';
+    '</article>';
+  }).join(''):'<div class="empty-card">No services added yet. Use the form above to create your first service.</div>';
   $$('[data-provider-edit-service]').forEach((button)=>button.addEventListener('click',()=>editProviderService(button.dataset.providerEditService)));
   $('[data-provider-delete-service]').forEach((button)=>button.addEventListener('click',()=>deleteProviderService(button.dataset.providerDeleteService,button)));
   renderProviderFlashSales();
 }
 function resetProviderServiceForm(){
   editingProviderService=null;
-  $('#providerServiceForm').reset();
+  const form=$('#providerServiceForm');
+  form?.reset();
   $('#providerServiceId').value='';
+  $('#providerHireItemImageExisting').value='';
+  $('#providerServiceType').value='normal';
+  $('#providerHireMinimumUnits').value='1';
+  $('#providerHireQuantity').value='1';
+  $('#providerHireSecurityDeposit').value='0';
+  $('#providerHireDamagePenalty').value='0';
+  $('#providerHireLatePenalty').value='0';
+  $('#providerHireLatePenaltyBasis').value='';
+  $('#providerHireFulfilment').value='both';
   $('#providerIsAvailable').checked=true;
   $('#providerServiceFormTitle').textContent='Add a Service';
   $('#providerServiceReset').hidden=true;
-  $('#providerServiceForm').hidden=true;
+  updateProviderHireImagePreview();
+  toggleProviderServiceType();
+  form.hidden=true;
 }
 function editProviderService(id){
   const item=providerServices.find((row)=>row.id===id);
   if(!item)return;
   editingProviderService=item;
-  $('#providerServiceId').value=item.id;$('#providerServiceName').value=item.service_name||'';
-  $('#providerServiceCategoryName').value=item.category_name||'';$('#providerServiceDescription').value=item.description||'';
-  $('#providerPricingModel').value=item.pricing_model||'quote';$('#providerPriceFrom').value=item.price_from_kes??'';
-  $('#providerPriceTo').value=item.price_to_kes??'';$('#providerUnitLabel').value=item.unit_label||'';
-  $('#providerServiceArea').value=item.service_area||'';$('#providerAvailabilityNotes').value=item.availability_notes||'';
-  $('#providerIsAvailable').checked=item.is_available!==false;$('#providerServiceFormTitle').textContent='Edit Service';
-  $('#providerServiceReset').hidden=false;openProviderView('services');$('#providerServiceForm').hidden=false;$('#providerServiceForm').scrollIntoView({behavior:'smooth'});
+  $('#providerServiceId').value=item.id;
+  $('#providerServiceType').value=item.service_type||'normal';
+  $('#providerServiceName').value=item.service_name||'';
+  $('#providerServiceCategoryName').value=item.category_name||'';
+  $('#providerServiceDescription').value=item.description||'';
+  $('#providerPricingModel').value=item.pricing_model||'quote';
+  $('#providerPriceFrom').value=item.price_from_kes??'';
+  $('#providerPriceTo').value=item.price_to_kes??'';
+  $('#providerUnitLabel').value=item.unit_label||'';
+  $('#providerServiceArea').value=item.service_area||'';
+  $('#providerAvailabilityNotes').value=item.availability_notes||'';
+  $('#providerIsAvailable').checked=item.is_available!==false;
+
+  $('#providerHireItemName').value=item.hire_item_name||'';
+  $('#providerHireChargeBasis').value=item.hire_charge_basis||'hour';
+  $('#providerHireRate').value=item.hire_rate_kes??'';
+  $('#providerHireMinimumUnits').value=item.hire_minimum_units??1;
+  $('#providerHireQuantity').value=item.hire_quantity_available??1;
+  $('#providerHireFulfilment').value=item.hire_fulfilment||'both';
+  $('#providerHireDailyReturnTime').value=item.hire_daily_return_time?String(item.hire_daily_return_time).slice(0,5):'';
+  $('#providerHireSecurityDeposit').value=item.hire_security_deposit_kes??0;
+  $('#providerHireDamagePenalty').value=item.hire_damage_penalty_kes??0;
+  $('#providerHireDamageTerms').value=item.hire_damage_terms||'';
+  $('#providerHireLatePenaltyBasis').value=item.hire_late_penalty_basis||'';
+  $('#providerHireLatePenalty').value=item.hire_late_penalty_kes??0;
+  $('#providerHireTerms').value=item.hire_terms||'';
+  $('#providerHireItemImageExisting').value=item.hire_item_image_path||'';
+  $('#providerHireItemImage').value='';
+  updateProviderHireImagePreview(item.hire_item_image_path||'');
+
+  $('#providerServiceFormTitle').textContent=item.service_type==='item_hire'?'Edit Item for Hire':'Edit Service';
+  $('#providerServiceReset').hidden=false;
+  toggleProviderServiceType();
+  openProviderView('services');
+  $('#providerServiceForm').hidden=false;
+  $('#providerServiceForm').scrollIntoView({behavior:'smooth'});
 }
 $('#providerServiceReset')?.addEventListener('click',resetProviderServiceForm);
+$('#providerServiceType')?.addEventListener('change',()=>{
+  if($('#providerServiceType').value==='item_hire'&&!$('#providerHireItemName').value.trim()&&$('#providerServiceName').value.trim()){
+    $('#providerHireItemName').value=$('#providerServiceName').value.trim();
+  }
+  toggleProviderServiceType();
+});
+$('#providerHireChargeBasis')?.addEventListener('change',toggleProviderServiceType);
+$('#providerHireDamagePenalty')?.addEventListener('input',toggleProviderServiceType);
+$('#providerHireLatePenalty')?.addEventListener('input',toggleProviderServiceType);
+$('#providerHireItemImage')?.addEventListener('change',(event)=>updateProviderHireImagePreview($('#providerHireItemImageExisting').value||'',event.currentTarget.files?.[0]||null));
 $('#providerServiceForm')?.addEventListener('submit',async(event)=>{
-  event.preventDefault();const form=event.currentTarget;if(!form.reportValidity())return;
-  const button=form.querySelector('button[type="submit"]');const original=button.textContent;button.disabled=true;button.textContent='Saving…';
+  event.preventDefault();
+  const form=event.currentTarget;
+  toggleProviderServiceType();
+  if(!form.reportValidity())return;
+  const button=form.querySelector('button[type="submit"]');
+  const original=button.textContent;
+  button.disabled=true;
+  button.textContent='Saving…';
+
+  const serviceType=$('#providerServiceType').value;
+  const oldHireImage=$('#providerHireItemImageExisting').value||'';
+  let hireImagePath=serviceType==='item_hire'?oldHireImage:'';
+  let uploadedHireImage='';
+
   try{
-    const {error}=await client.rpc('service_provider_save_service',{
-      p_service_id:$('#providerServiceId').value||null,p_service_name:$('#providerServiceName').value.trim(),
-      p_category_name:$('#providerServiceCategoryName').value.trim()||null,p_description:$('#providerServiceDescription').value.trim()||null,
-      p_pricing_model:$('#providerPricingModel').value,p_price_from_kes:$('#providerPriceFrom').value===''?null:Number($('#providerPriceFrom').value),
-      p_price_to_kes:$('#providerPriceTo').value===''?null:Number($('#providerPriceTo').value),
-      p_unit_label:$('#providerUnitLabel').value.trim()||null,p_service_area:$('#providerServiceArea').value.trim()||null,
-      p_availability_notes:$('#providerAvailabilityNotes').value.trim()||null,p_is_available:$('#providerIsAvailable').checked
+    if(serviceType==='item_hire'){
+      const file=$('#providerHireItemImage').files?.[0]||null;
+      if(file){
+        button.textContent='Uploading item photo…';
+        uploadedHireImage=await uploadProviderHireItemPhoto(file);
+        hireImagePath=uploadedHireImage;
+        button.textContent='Saving…';
+      }
+      if(!hireImagePath)throw new Error('Upload a clear photo of the item being offered for hire.');
+    }
+
+    const payload={
+      service_type:serviceType,
+      service_name:$('#providerServiceName').value.trim(),
+      category_name:$('#providerServiceCategoryName').value.trim()||null,
+      description:$('#providerServiceDescription').value.trim()||null,
+      pricing_model:$('#providerPricingModel').value,
+      price_from_kes:$('#providerPriceFrom').value===''?null:Number($('#providerPriceFrom').value),
+      price_to_kes:$('#providerPriceTo').value===''?null:Number($('#providerPriceTo').value),
+      unit_label:$('#providerUnitLabel').value.trim()||null,
+      service_area:$('#providerServiceArea').value.trim()||null,
+      availability_notes:$('#providerAvailabilityNotes').value.trim()||null,
+      is_available:$('#providerIsAvailable').checked,
+      hire_item_name:serviceType==='item_hire'?$('#providerHireItemName').value.trim():null,
+      hire_item_image_path:serviceType==='item_hire'?hireImagePath:null,
+      hire_charge_basis:serviceType==='item_hire'?$('#providerHireChargeBasis').value:null,
+      hire_rate_kes:serviceType==='item_hire'?Number($('#providerHireRate').value):null,
+      hire_minimum_units:serviceType==='item_hire'?Number($('#providerHireMinimumUnits').value||1):1,
+      hire_quantity_available:serviceType==='item_hire'?Number($('#providerHireQuantity').value||1):1,
+      hire_fulfilment:serviceType==='item_hire'?$('#providerHireFulfilment').value:null,
+      hire_daily_return_time:serviceType==='item_hire'&&$('#providerHireChargeBasis').value==='day'?$('#providerHireDailyReturnTime').value:null,
+      hire_security_deposit_kes:serviceType==='item_hire'?Number($('#providerHireSecurityDeposit').value||0):0,
+      hire_damage_penalty_kes:serviceType==='item_hire'?Number($('#providerHireDamagePenalty').value||0):0,
+      hire_damage_terms:serviceType==='item_hire'?$('#providerHireDamageTerms').value.trim()||null:null,
+      hire_late_penalty_basis:serviceType==='item_hire'?$('#providerHireLatePenaltyBasis').value||null:null,
+      hire_late_penalty_kes:serviceType==='item_hire'?Number($('#providerHireLatePenalty').value||0):0,
+      hire_terms:serviceType==='item_hire'?$('#providerHireTerms').value.trim():null
+    };
+
+    const {error}=await client.rpc('service_provider_save_service_v2',{
+      p_service_id:$('#providerServiceId').value||null,
+      p_payload:payload
     });
     if(error)throw error;
-    resetProviderServiceForm();await loadProviderServices();
-    status($('#providerServiceFormStatus'),'Service saved and sent to LEOGO Admin for approval.','success');
-  }catch(error){status($('#providerServiceFormStatus'),error?.message||'Service could not be saved.','error');}
-  finally{button.disabled=false;button.textContent=original;}
+
+    if(oldHireImage&&oldHireImage!==hireImagePath){
+      await client.storage.from('service-provider-public-media').remove([oldHireImage]).catch(()=>{});
+    }
+
+    resetProviderServiceForm();
+    await loadProviderServices();
+    status($('#providerServiceFormStatus'),serviceType==='item_hire'
+      ? 'Item-for-hire listing saved and sent to LEOGO Admin for approval.'
+      : 'Service saved and sent to LEOGO Admin for approval.','success');
+  }catch(error){
+    if(uploadedHireImage){
+      await client.storage.from('service-provider-public-media').remove([uploadedHireImage]).catch(()=>{});
+    }
+    status($('#providerServiceFormStatus'),error?.message||'Service could not be saved.','error');
+  }finally{
+    button.disabled=false;
+    button.textContent=original;
+  }
 });
 async function deleteProviderService(id,button){
   const item=providerServices.find((row)=>row.id===id);
