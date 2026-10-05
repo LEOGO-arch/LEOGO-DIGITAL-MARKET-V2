@@ -36,6 +36,8 @@
   const pickupSelect=$('#assistedPickupStation');
   const submitButton=$('#submitAssistedShopping');
   const loginNote=$('#assistedShoppingLoginNote');
+  const pinLocationButton=$('#pinAssistedLocation');
+  const pinLocationStatus=$('#assistedPinStatus');
 
   let currentUser=null;
   let requests=[];
@@ -77,11 +79,39 @@
     const pickup=fulfilment.value==='pickup';
     deliveryZoneLabel.hidden=pickup;
     pickupLabel.hidden=!pickup;
-    $$('[data-assisted-delivery-field]',modal).forEach((el)=>el.hidden=pickup);
+    $('[data-assisted-delivery-field]',modal).forEach((el)=>el.hidden=pickup);
     $('#assistedDeliveryZone').required=!pickup;
     pickupSelect.required=pickup;
     ['assistedCounty'].forEach((id)=>{$('#'+id).required=!pickup;});
+    if(pickup&&pinLocationStatus)pinLocationStatus.textContent='';
   };
+
+  pinLocationButton?.addEventListener('click',()=>{
+    if(!navigator.geolocation){
+      if(pinLocationStatus)pinLocationStatus.textContent='Location pinning is not supported on this device. Paste a Google Maps link instead.';
+      return;
+    }
+    pinLocationButton.disabled=true;
+    if(pinLocationStatus)pinLocationStatus.textContent='Getting your current delivery location…';
+    navigator.geolocation.getCurrentPosition(
+      ({coords})=>{
+        const latitude=coords.latitude.toFixed(7);
+        const longitude=coords.longitude.toFixed(7);
+        $('#assistedLocationLink').value='https://www.google.com/maps?q='+latitude+','+longitude;
+        if(pinLocationStatus)pinLocationStatus.textContent='✓ Delivery location pinned and the Google Maps link was added automatically.';
+        pinLocationButton.disabled=false;
+      },
+      (error)=>{
+        if(pinLocationStatus){
+          pinLocationStatus.textContent=error.code===1
+            ?'Location permission was not granted. Allow location access or paste a Google Maps link.'
+            :'The delivery location could not be detected. Try again or paste a Google Maps link.';
+        }
+        pinLocationButton.disabled=false;
+      },
+      {enableHighAccuracy:true,timeout:15000,maximumAge:15000}
+    );
+  });
 
   const renderSelectedFiles=()=>{
     const files=[...(fileInput.files||[])];
@@ -403,6 +433,7 @@
       setStatus('✓ '+(data?.request_reference||'Shopping List')+' received. LEOGO will prepare the quotation for your approval.','success');
       form.reset();
       fileList.innerHTML='';
+      if(pinLocationStatus)pinLocationStatus.textContent='';
       updateFulfilment();
       await prefillProfile();
       await loadRequests();

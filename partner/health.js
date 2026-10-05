@@ -127,6 +127,54 @@
     return path;
   };
 
+  const healthCoordinatesFromText=(value='')=>{
+    const text=String(value||'').trim();
+    const direct=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+    if(direct)return {lat:Number(direct[1]),lng:Number(direct[2])};
+    const maps=text.match(/(?:@|q=|query=)(-?\d{1,2}(?:\.\d+)?)[,%2C\s]+(-?\d{1,3}(?:\.\d+)?)/i);
+    return maps?{lat:Number(maps[1]),lng:Number(maps[2])}:null;
+  };
+  const setHealthCoordinates=(lat,lng,label='Business location pinned')=>{
+    const latitude=Number(lat),longitude=Number(lng);
+    const target=$('#healthPinStatus');
+    if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+      status(target,'Invalid business coordinates. Pin the location again or enter valid coordinates.','error');
+      return false;
+    }
+    $('#healthLatitude').value=latitude.toFixed(7);
+    $('#healthLongitude').value=longitude.toFixed(7);
+    if(!$('#healthMapLink').value.trim())$('#healthMapLink').value='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
+    status(target,'✓ '+label+': '+latitude.toFixed(7)+', '+longitude.toFixed(7),'success');
+    return true;
+  };
+  $('#pinHealthLocation')?.addEventListener('click',()=>{
+    const target=$('#healthPinStatus');
+    if(!navigator.geolocation){
+      status(target,'This browser cannot access location. Paste a Google Maps link or enter coordinates instead.','error');
+      return;
+    }
+    status(target,'Getting the Health & Medicine business location…');
+    navigator.geolocation.getCurrentPosition(
+      position=>setHealthCoordinates(position.coords.latitude,position.coords.longitude,'Business location pinned'),
+      error=>status(
+        target,
+        error.code===1
+          ? 'Location permission was not granted. Allow location access while at the business, or paste a Maps link/coordinates.'
+          : 'The business location could not be detected. Try again or paste a Maps link/coordinates.',
+        'error'
+      ),
+      {enableHighAccuracy:true,timeout:15000,maximumAge:15000}
+    );
+  });
+  $('#healthMapLink')?.addEventListener('change',event=>{
+    const coords=healthCoordinatesFromText(event.currentTarget.value);
+    if(coords)setHealthCoordinates(coords.lat,coords.lng,'Coordinates detected from shared location');
+  });
+  ['healthLatitude','healthLongitude'].forEach(id=>$('#'+id)?.addEventListener('change',()=>{
+    const lat=$('#healthLatitude').value,lng=$('#healthLongitude').value;
+    if(lat!==''&&lng!=='')setHealthCoordinates(lat,lng,'Coordinates confirmed');
+  }));
+
   const fillRegistrationFromAccount=async()=>{
     if(!account)return;
     await loadLocationDirectory();
@@ -143,6 +191,11 @@
     $('#healthLatitude').value=account.shop_latitude??'';
     $('#healthLongitude').value=account.shop_longitude??'';
     $('#healthMapLink').value=account.shop_map_link||'';
+    if(account.shop_latitude!=null&&account.shop_longitude!=null){
+      status($('#healthPinStatus'),'✓ Saved business pin: '+Number(account.shop_latitude).toFixed(7)+', '+Number(account.shop_longitude).toFixed(7),'success');
+    }else{
+      status($('#healthPinStatus'),'Business location not pinned yet.');
+    }
     $('#healthBusinessDescription').value=account.business_description||'';
     $('#healthBusinessIdDocument').required=!account.business_id_document_path;
     updateBusinessTypeFields();
@@ -482,6 +535,11 @@
         registrationFile?uploadFile(registrationFile,'health-medicine-verification','registration-certificate'):Promise.resolve(account?.registration_certificate_path||''),
         Promise.all(permitFiles.map((file,index)=>uploadFile(file,'health-medicine-verification','permit-'+(index+1)))).then((fresh)=>fresh.length?fresh:(account?.other_permit_paths||[]))
       ]);
+
+      const healthLat=$('#healthLatitude').value.trim();
+      const healthLng=$('#healthLongitude').value.trim();
+      if((healthLat&&!healthLng)||(!healthLat&&healthLng))throw new Error('Enter both latitude and longitude, or clear both fields.');
+      if(healthLat&&healthLng&&!setHealthCoordinates(healthLat,healthLng,'Coordinates confirmed'))throw new Error('Enter valid business coordinates.');
 
       const {data,error}=await client.rpc('health_medicine_submit_application',{
         p_business_name:$('#healthBusinessName').value.trim(),
