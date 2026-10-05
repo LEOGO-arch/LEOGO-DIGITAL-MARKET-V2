@@ -697,3 +697,44 @@
 .premium-partner-message-photo{display:block;width:min(280px,100%);max-height:320px;object-fit:cover;border-radius:9px;margin-top:6px;background:#e9eef5}
 .premium-partner-message.mine .premium-partner-message-photo{border:1px solid rgba(255,255,255,.18)}
 @media(max-width:650px){.premium-partner-compose{grid-template-columns:auto minmax(0,1fr) auto}.premium-partner-message-photo{max-height:260px}}
+
+
+/* Service Provider Item Hiring */
+.service-type-picker{display:grid;grid-template-columns:minmax(210px,.65fr) minmax(0,1.35fr);gap:14px;align-items:end;margin:16px 0;padding:15px;border:1px solid #dce4ef;border-radius:16px;background:#f8fafc}
+.service-type-picker label{display:grid;gap:7px;font-weight:900;color:#132441}
+.service-type-picker select{min-height:44px;border:1px solid #ccd7e5;border-radius:11px;padding:10px 12px;background:#fff;color:#132441;font:inherit}
+#providerServiceTypeHelp{padding:11px 13px;border-radius:12px;background:#fff;border:1px solid #e2e8f0}
+#providerServiceTypeHelp strong,#providerServiceTypeHelp small{display:block}
+#providerServiceTypeHelp strong{color:#071a3a;font-size:13px}
+#providerServiceTypeHelp small{margin-top:4px;color:#64748b;line-height:1.45}
+.provider-normal-service-fields[hidden],.provider-hire-fields[hidden]{display:none!important}
+.provider-hire-fields{grid-column:1/-1;margin:3px 0 6px;padding:16px;border:1px solid #ffd7ad;border-radius:16px;background:#fffaf3}
+.provider-hire-heading{margin-bottom:14px}
+.provider-hire-heading span,.provider-hire-heading strong,.provider-hire-heading small{display:block}
+.provider-hire-heading span{color:#f06d00;font-size:10px;font-weight:1000;letter-spacing:.12em}
+.provider-hire-heading strong{margin-top:3px;color:#071a3a;font-size:17px}
+.provider-hire-heading small{margin-top:4px;color:#64748b;line-height:1.45}
+.provider-hire-image-field input[type=file]{padding:9px;background:#fff}
+.provider-hire-image-preview{display:grid;place-items:center;width:min(100%,320px);min-height:160px;margin-top:8px;overflow:hidden;border:1px dashed #cbd5e1;border-radius:13px;background:#fff;color:#64748b;font-size:40px}
+.provider-hire-image-preview img{display:block;width:100%;height:200px;object-fit:cover}
+.provider-hire-badge{display:inline-flex;margin-left:6px;padding:4px 7px;border-radius:999px;background:#fff1df;color:#a64b00;font-size:8px;font-weight:1000;vertical-align:middle}
+.provider-hire-summary{display:grid;gap:4px;margin:9px 0;padding:10px 12px;border:1px solid #ffe0bd;border-radius:11px;background:#fff9f2}
+.provider-hire-summary span{width:max-content;padding:3px 7px;border-radius:999px;background:#ff7800;color:#fff;font-size:8px;font-weight:1000}
+.provider-hire-summary small{color:#6b7280;font-weight:700;line-height:1.45}
+.provider-hire-job-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+.provider-hire-job-summary>div{padding:10px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}
+.provider-hire-job-summary small,.provider-hire-job-summary strong,.provider-hire-job-summary span{display:block}
+.provider-hire-job-summary small{color:#7c8798;font-size:8px;font-weight:1000}
+.provider-hire-job-summary strong{margin-top:3px;color:#071a3a;font-size:12px}
+.provider-hire-job-summary span{margin-top:3px;color:#64748b;font-size:9px;line-height:1.35}
+.provider-hire-terms-note,.provider-hire-completion{display:grid;gap:5px;margin:10px 0;padding:12px;border-radius:12px;background:#fff8ef;border:1px solid #ffd7ad}
+.provider-hire-terms-note strong,.provider-hire-completion strong{color:#9a4a00}
+.provider-hire-terms-note small,.provider-hire-terms-note p,.provider-hire-completion span{margin:0;color:#59677d;font-size:10px;line-height:1.45}
+@media(max-width:760px){
+  .service-type-picker{grid-template-columns:1fr}
+  .provider-hire-job-summary{grid-template-columns:1fr 1fr}
+}
+@media(max-width:480px){
+  .provider-hire-fields{padding:12px}
+  .provider-hire-job-summary{grid-template-columns:1fr}
+}
