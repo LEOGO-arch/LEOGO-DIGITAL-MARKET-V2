@@ -442,19 +442,62 @@
 
           <form id="providerServiceForm" class="panel" hidden>
             <input id="providerServiceId" type="hidden">
-            <div class="section-title"><span>SERVICES</span><h3 id="providerServiceFormTitle">Add a Service</h3><p>Each new or edited service is sent to LEOGO Admin for review before it becomes customer-facing.</p></div>
+            <input id="providerHireItemImageExisting" type="hidden">
+            <div class="section-title"><span>SERVICES</span><h3 id="providerServiceFormTitle">Add a Service</h3><p>Choose whether you are offering a normal service or an item for hire. Every new or edited listing is sent to LEOGO Admin for review before it becomes customer-facing.</p></div>
+
+            <div class="service-type-picker">
+              <label>Service type
+                <select id="providerServiceType" required>
+                  <option value="normal">Normal Service</option>
+                  <option value="item_hire">Item for Hire</option>
+                </select>
+              </label>
+              <div id="providerServiceTypeHelp"><strong>Normal Service</strong><small>Use the existing service workflow for work such as plumbing, cleaning, repair, photography and other professional services.</small></div>
+            </div>
+
             <div class="form-grid">
-              <label>Service name<input id="providerServiceName" type="text" maxlength="140" required></label>
-              <label>Category / group<input id="providerServiceCategoryName" type="text" maxlength="120" placeholder="e.g. Plumbing"></label>
-              <label>Pricing model<select id="providerPricingModel" required><option value="quote">Price after quote</option><option value="fixed">Fixed price</option><option value="from">Starting from</option><option value="hourly">Per hour</option></select></label>
-              <label>Price from / fixed (KSh)<input id="providerPriceFrom" type="number" min="0" step="0.01"></label>
-              <label>Maximum price (KSh)<input id="providerPriceTo" type="number" min="0" step="0.01"></label>
-              <label>Unit label<input id="providerUnitLabel" type="text" maxlength="80" placeholder="e.g. per visit, per room"></label>
-              <label class="wide">Service description<textarea id="providerServiceDescription" rows="4" maxlength="2500" required></textarea></label>
-              <label class="wide">Service area<input id="providerServiceArea" type="text" maxlength="300" placeholder="e.g. Siaya Town and nearby estates"></label>
+              <label><span id="providerServiceNameLabel">Service name</span><input id="providerServiceName" type="text" maxlength="140" required></label>
+              <label>Category / group<input id="providerServiceCategoryName" type="text" maxlength="120" placeholder="e.g. Plumbing, Tools & Equipment"></label>
+
+              <div id="providerNormalServicePricing" class="provider-normal-service-fields wide">
+                <div class="form-grid">
+                  <label>Pricing model<select id="providerPricingModel" required><option value="quote">Price after quote</option><option value="fixed">Fixed price</option><option value="from">Starting from</option><option value="hourly">Per hour</option></select></label>
+                  <label>Price from / fixed (KSh)<input id="providerPriceFrom" type="number" min="0" step="0.01"></label>
+                  <label>Maximum price (KSh)<input id="providerPriceTo" type="number" min="0" step="0.01"></label>
+                  <label>Unit label<input id="providerUnitLabel" type="text" maxlength="80" placeholder="e.g. per visit, per room"></label>
+                </div>
+              </div>
+
+              <section id="providerHireFields" class="provider-hire-fields wide" hidden>
+                <div class="provider-hire-heading"><span>ITEM HIRING DETAILS</span><strong>Set the rate, refundable deposit and owner terms</strong><small>These terms will be shown to the customer before they submit a hire request.</small></div>
+                <div class="form-grid">
+                  <label>Item name<input id="providerHireItemName" type="text" maxlength="140" placeholder="e.g. Pressure Washer"></label>
+                  <label>Hiring charge basis<select id="providerHireChargeBasis"><option value="hour">Per Hour</option><option value="day">Per Day</option><option value="24_hour">Per 24 Hours</option></select></label>
+                  <label>Hiring price (KSh)<input id="providerHireRate" type="number" min="1" step="0.01" placeholder="e.g. 500"></label>
+                  <label>Minimum hire period<input id="providerHireMinimumUnits" type="number" min="1" max="365" step="1" value="1"></label>
+                  <label>Quantity available<input id="providerHireQuantity" type="number" min="1" max="100000" step="1" value="1"></label>
+                  <label>Pickup / delivery<select id="providerHireFulfilment"><option value="both">Customer pickup or Provider delivery</option><option value="pickup">Customer pickup only</option><option value="delivery">Provider delivery only</option></select></label>
+                  <label id="providerHireDailyReturnTimeWrap" hidden>Daily return time<input id="providerHireDailyReturnTime" type="time" step="900"><small>Required for Per Day hiring. Example: return by 6:00 PM on the final hire day.</small></label>
+                  <label>Refundable security deposit per item (KSh)<input id="providerHireSecurityDeposit" type="number" min="0" step="0.01" value="0"></label>
+                  <label>Damage penalty / maximum damage charge (KSh)<input id="providerHireDamagePenalty" type="number" min="0" step="0.01" value="0"></label>
+                  <label>Late return penalty basis<select id="providerHireLatePenaltyBasis"><option value="">No late-return penalty</option><option value="fixed">Fixed penalty if late</option><option value="hour">Per late hour</option><option value="day">Per late day</option><option value="24_hour">Per late 24 hours</option></select></label>
+                  <label>Late return penalty (KSh)<input id="providerHireLatePenalty" type="number" min="0" step="0.01" value="0"></label>
+                  <label class="wide">Damage penalty terms<textarea id="providerHireDamageTerms" rows="2" maxlength="1000" placeholder="Explain what damage may attract the stated charge."></textarea></label>
+                  <label class="wide">Hiring terms<textarea id="providerHireTerms" rows="4" maxlength="2500" placeholder="State return condition, fuel/operator rules, prohibited use, deposit refund conditions and any other owner terms."></textarea></label>
+                  <label class="wide provider-hire-image-field">Item photo
+                    <input id="providerHireItemImage" type="file" accept="image/jpeg,image/png,image/webp">
+                    <small id="providerHireItemImageState">Upload one clear JPG, PNG or WEBP image. This image is customer-visible after Admin approval.</small>
+                    <span id="providerHireItemImagePreview" class="provider-hire-image-preview"><b>📷</b></span>
+                  </label>
+                </div>
+                <div class="private-doc-note">The security deposit, damage penalty and late-return penalty are set by the item owner / Service Provider and are shown to the customer before booking. The security deposit is refundable subject to the agreed return condition. LEOGO's request fee and referral commission remain separate.</div>
+              </section>
+
+              <label class="wide"><span id="providerServiceDescriptionLabel">Service description</span><textarea id="providerServiceDescription" rows="4" maxlength="2500" required></textarea></label>
+              <label class="wide">Service / hire area<input id="providerServiceArea" type="text" maxlength="300" placeholder="e.g. Siaya Town and nearby estates"></label>
               <label class="wide">Availability notes<input id="providerAvailabilityNotes" type="text" maxlength="300" placeholder="e.g. Mon-Sat, 8am-6pm"></label>
             </div>
-            <div class="toggle-card"><label><input id="providerIsAvailable" type="checkbox" checked><span><strong>Currently available</strong><small>Turn this off temporarily without deleting the service.</small></span></label></div>
+            <div class="toggle-card"><label><input id="providerIsAvailable" type="checkbox" checked><span><strong>Currently available</strong><small>Turn this off temporarily without deleting the service or hire listing.</small></span></label></div>
             <div class="product-actions"><button id="providerServiceReset" class="secondary" type="button">Close Form</button><button type="submit">Save & Send for Approval</button></div>
             <p id="providerServiceFormStatus" class="status"></p>
           </form>
@@ -1865,7 +1908,7 @@
   <script src="../js/runtime-monitor.js?v=network-storm-fix-2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=location-pin-expansion-1" defer></script>
+<script src="partner.js?v=item-hire-1" defer></script>
 <script src="health.js?v=location-pin-expansion-1" defer></script>
 <script src="health-specialist.js?v=health-specialist-v1" defer></script>
 <script src="cyber.js?v=premium-cyber-subscription-v1" defer></script>
