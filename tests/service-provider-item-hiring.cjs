@@ -27,7 +27,9 @@ for(const id of [
   'providerHireLatePenaltyBasis','providerHireLatePenalty','providerHireTerms'
 ]) must(partnerHtml.includes('id="'+id+'"'),'Partner hire field missing: '+id);
 
-must(partnerJs.includes("client.rpc('service_provider_save_service_v2'"),'Partner must save through the additive v2 service RPC.');
+must(partnerJs.includes("client.rpc('service_provider_save_service_v2'"),'Item for Hire must save through the additive v2 service RPC.');
+must(partnerJs.includes("saveResult=await client.rpc('service_provider_save_service'"),'Normal Service must keep the existing save RPC.');
+must(partnerJs.includes("$('#providerServiceType').disabled=true"),'Existing listing service type must be locked during edit so Normal and Hire workflows cannot be silently converted.');
 must(partnerJs.includes("client.rpc('service_provider_update_hire_job'"),'Provider hire lifecycle RPC missing.');
 must(partnerJs.includes("uploadProviderHireItemPhoto"),'Hire item photo upload missing.');
 must(partnerJs.includes("item.service_type!=='item_hire'&&item.approval_status==='approved'"),'Item hire must stay out of the existing Service Flash Sale workflow.');
