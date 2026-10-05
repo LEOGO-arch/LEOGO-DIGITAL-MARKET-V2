@@ -571,17 +571,20 @@ function partnerRangeDates(range='today'){
   const fromDate=new Date(today.getTime()-(days-1)*86400000);
   return {from:nairobiDateISO(fromDate),to};
 }
+function partnerEarningSourceLabel(entry){
+  return String(entry?.reference||'').startsWith('HR-')?'Item hire':(entry?.source||'Earning');
+}
 function earningsTableRows(report){
   const rows=Array.isArray(report?.entries)?report.entries:[];
   return rows.length?rows.map(entry=>
-    '<tr><td>'+escapeHtml(entry.earning_date||'—')+'</td><td><strong>'+escapeHtml(entry.reference||'—')+'</strong></td><td>'+escapeHtml(entry.source||'Earning')+'</td><td>'+escapeHtml(money(entry.gross_kes))+'</td><td>'+escapeHtml(money(entry.commission_kes))+'</td><td><strong>'+escapeHtml(money(entry.net_kes))+'</strong></td></tr>'
+    '<tr><td>'+escapeHtml(entry.earning_date||'—')+'</td><td><strong>'+escapeHtml(entry.reference||'—')+'</strong></td><td>'+escapeHtml(partnerEarningSourceLabel(entry))+'</td><td>'+escapeHtml(money(entry.gross_kes))+'</td><td>'+escapeHtml(money(entry.commission_kes))+'</td><td><strong>'+escapeHtml(money(entry.net_kes))+'</strong></td></tr>'
   ).join(''):'<tr><td colspan="6">No earnings found for the selected dates.</td></tr>';
 }
 function downloadPartnerEarningsCsv(partnerType,report,businessName='partner'){
   const rows=Array.isArray(report?.entries)?report.entries:[];
   const lines=[
     ['Date','Reference','Source','Gross KSh','LEOGO Commission KSh','Net Earnings KSh'],
-    ...rows.map(entry=>[entry.earning_date||'',entry.reference||'',entry.source||'',Number(entry.gross_kes||0),Number(entry.commission_kes||0),Number(entry.net_kes||0)])
+    ...rows.map(entry=>[entry.earning_date||'',entry.reference||'',partnerEarningSourceLabel(entry),Number(entry.gross_kes||0),Number(entry.commission_kes||0),Number(entry.net_kes||0)])
   ];
   const csv=lines.map(row=>row.map(value=>'"'+String(value??'').replaceAll('"','""')+'"').join(',')).join('\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
