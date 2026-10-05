@@ -36,6 +36,7 @@ must(partnerJs.includes("item.service_type!=='item_hire'&&item.approval_status==
 must(partnerJs.includes('Confirm Availability'),'Provider hire Confirm Availability action missing.');
 must(partnerJs.includes('Item Handed Over'),'Provider hire handover action missing.');
 must(partnerJs.includes('Item Returned / Complete Hire'),'Provider hire return/completion action missing.');
+must(partnerJs.includes("startsWith('HR-')?'Item hire'"),'Item hire earnings must be labelled correctly in Provider statements.');
 must(partnerCss.includes('/* Service Provider Item Hiring */'),'Partner hire styling missing.');
 
 // Customer: dedicated hire request with transparent owner-set terms.
@@ -69,6 +70,8 @@ must(migration.includes('hire_damage_penalty_kes_snapshot'),'Damage penalty snap
 must(migration.includes('hire_late_penalty_kes_snapshot'),'Late penalty snapshot missing.');
 must(migration.includes('hire_terms_snapshot'),'Hire terms snapshot missing.');
 must(migration.includes('for update of s;'),'Hire availability check must serialize on the service row.');
+must(migration.includes("r.request_status in ('accepted','in_progress') and r.hire_actual_return_at is null"),'Confirmed or active hires must keep inventory reserved until the item is returned.');
+must(migration.includes("'New item hire request'"),'Admin dispatch must use item-hire wording for the provider.');
 must(migration.includes("request_type in ('direct','quotation','hire')"),'Hire request type extension missing.');
 must(migration.includes('v_refund_due:=greatest'),'Deposit refund calculation missing.');
 must(migration.includes('v_additional_due:=greatest'),'Additional penalty calculation missing.');
