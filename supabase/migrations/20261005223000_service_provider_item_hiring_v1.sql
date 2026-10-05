@@ -512,7 +512,7 @@ begin
     and p.application_status='approved'
     and p.availability_status<>'offline'
     and private.partner_has_active_subscription(p.user_id,'service_provider')
-  for share of s;
+  for update of s;
 
   if not found then raise exception 'This item is not currently available for hire'; end if;
   if p_hire_units<v_service.hire_minimum_units then
