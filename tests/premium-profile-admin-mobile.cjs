@@ -14,8 +14,16 @@ must(admin.includes('premium-profile-identity'),'Premium profile identity layout
 must(css.includes('.premium-profile-avatar'),'Premium profile avatar styles missing.');
 must(css.includes('.premium-profile-name strong'),'Premium profile readable-name styles missing.');
 must(css.includes('overflow-wrap:normal'),'Premium profile name must not break letter-by-letter on mobile.');
-must(css.includes('.premium-profile-row .premium-profile-cell{grid-template-columns:1fr!important'),'Premium profile mobile first row must have full-width identity layout.');
-must(html.includes('admin.css?v=premium-profile-photo-1'),'Admin Premium CSS cache version missing.');
-must(html.includes('admin.js?v=premium-profile-photo-1'),'Admin Premium JS cache version missing.');
+must(css.includes('.premium-profile-row .premium-profile-cell{grid-column:1/-1;grid-template-columns:1fr!important'),'Premium profile mobile first row must have full-width identity layout.');
+must(html.includes('admin.css?v=premium-profile-card-compact-2'),'Admin Premium CSS cache version missing.');
+must(html.includes('admin.js?v=premium-profile-details-1'),'Admin Premium JS cache version missing.');
+
+
+must(html.includes('<th>Approved</th><th>Action</th>'),'Premium Profiles table must expose an Admin action after approval.');
+must(admin.includes('data-premium-profile-view'),'Premium Profile rows must include View Details actions.');
+must(admin.includes("db.from('premium_profile_details').select('*')"),'Retained Premium profile details query missing.');
+must(admin.includes("db.from('premium_identity_details').select('*')"),'Retained Premium identity query missing.');
+must(admin.includes("db.from('premium_profile_gallery').select('*')"),'Retained Premium gallery query missing.');
+must(html.includes('id="premiumProfileRecordModal"'),'Retained Premium Profile details modal missing.');
 
 console.log('Premium profile Admin mobile/photo regression checks passed.');

@@ -821,8 +821,8 @@
         <div class="premium-admin-content active" data-premium-admin-content="profiles">
           <div class="section-subhead"><div><span>VERIFIED PROFILE ACCOUNTS</span><h3>Premium Profiles</h3><p>People applying to be listed and available in the Premium directory. These are separate from paying Premium Customers.</p></div><button data-open-view="approvals" data-filter-target="premium" class="primary-button">Review Applications</button></div>
           <div class="table-card premium-profile-table-card"><div class="responsive-table"><table class="premium-profile-table">
-            <thead><tr><th>Profile</th><th>Gender</th><th>Location</th><th>Status</th><th>Submitted</th><th>Approved</th></tr></thead>
-            <tbody id="premiumProfileTableBody"><tr><td colspan="6">Loading Premium Profiles…</td></tr></tbody>
+            <thead><tr><th>Profile</th><th>Gender</th><th>Location</th><th>Status</th><th>Submitted</th><th>Approved</th><th>Action</th></tr></thead>
+            <tbody id="premiumProfileTableBody"><tr><td colspan="7">Loading Premium Profiles…</td></tr></tbody>
           </table></div></div>
         </div>
 
@@ -1591,6 +1591,13 @@
     <section class="premium-payment-history"><div class="review-media-heading"><span>SUBSCRIPTION HISTORY</span><strong>Payments &amp; Membership</strong><small>Historical payment records remain visible after approval and expiry.</small></div><div id="premiumCustomerPaymentHistory"></div></section>
   </div><footer><button class="secondary" data-close-modal type="button">Close</button></footer></section></div>
 
+  <div class="modal" id="premiumProfileRecordModal" hidden><button class="modal-backdrop" data-close-modal type="button" aria-label="Close"></button><section class="modal-card wide-modal premium-customer-modal-card"><header><div><span>PREMIUM PROFILE RECORD</span><h2 id="premiumProfileRecordTitle">Premium Profile</h2></div><button data-close-modal type="button">×</button></header><div class="modal-body">
+    <div class="premium-customer-detail-summary" id="premiumProfileRecordSummary"></div>
+    <div class="review-media" id="premiumProfileRecordMedia" hidden></div>
+    <div class="premium-customer-detail-grid" id="premiumProfileRecordGrid"></div>
+    <div class="form-status" id="premiumProfileRecordStatus" aria-live="polite"></div>
+  </div><footer><button class="secondary" data-close-modal type="button">Close</button></footer></section></div>
+
   <div class="modal" id="assistedShoppingAdminModal" hidden>
     <button class="modal-backdrop" data-close-assisted-admin type="button" aria-label="Close"></button>
     <section class="modal-card wide-modal assisted-admin-modal-card">
@@ -1633,7 +1640,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
-  <script src="admin.js?v=premium-profile-photo-fix-2" defer></script>
+  <script src="admin.js?v=premium-profile-details-1" defer></script>
   <script src="system-diagnostics.js?v=diagnostics-trend-collapse-1" defer></script>
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
   <script src="loyalty-rewards.js?v=referral-share-earn-v1" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
