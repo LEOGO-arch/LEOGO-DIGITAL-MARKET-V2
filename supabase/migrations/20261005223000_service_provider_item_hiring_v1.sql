@@ -630,8 +630,8 @@ exception when unique_violation then
 end
 $function$;
 
-revoke all on function public.customer_create_hire_request(uuid,integer,integer,date,time,text,text,text,text,text,text,text,text,text,numeric,numeric,boolean) from public,anon;
-grant execute on function public.customer_create_hire_request(uuid,integer,integer,date,time,text,text,text,text,text,text,text,text,text,numeric,numeric,boolean) to authenticated;
+revoke all on function public.customer_create_hire_request(uuid,integer,integer,date,time without time zone,text,text,text,text,text,text,text,text,text,text,numeric,numeric,boolean) from public,anon;
+grant execute on function public.customer_create_hire_request(uuid,integer,integer,date,time without time zone,text,text,text,text,text,text,text,text,text,text,numeric,numeric,boolean) to authenticated;
 
 create or replace function public.service_provider_update_hire_job(
   p_request_id uuid,
