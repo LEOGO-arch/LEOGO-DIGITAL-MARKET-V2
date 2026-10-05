@@ -5568,7 +5568,7 @@
 
   const loadPremiumProfileAvatar = async (profile) => {
     if(!profile?.profile_picture_path)return;
-    const host=$('[data-premium-profile-avatar]').find((item)=>item.dataset.premiumProfileAvatar===String(profile.user_id));
+    const host=$$('[data-premium-profile-avatar]').find((item)=>item.dataset.premiumProfileAvatar===String(profile.user_id));
     if(!host)return;
     try{
       const {data,error}=await db.storage.from('premium-profile-media').createSignedUrl(String(profile.profile_picture_path),900);
