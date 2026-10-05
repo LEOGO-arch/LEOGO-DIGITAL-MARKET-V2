@@ -539,7 +539,37 @@
     if (restoreFocus) advertisementPoster?.focus({ preventScroll: true });
   }
 
-  const openAdvertisementLightbox = ({autoCloseSeconds=0}={}) => {
+  const waitForAdvertisementImage = async (image,timeoutMs=12000) => {
+    if (!image?.src) return false;
+    if (image.complete && image.naturalWidth > 0) {
+      try { await image.decode?.(); } catch {}
+      return true;
+    }
+
+    const loaded = await new Promise((resolve) => {
+      let settled = false;
+      const finish = (ok) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        image.removeEventListener('load',onLoad);
+        image.removeEventListener('error',onError);
+        resolve(ok);
+      };
+      const onLoad = () => finish(true);
+      const onError = () => finish(false);
+      const timer = window.setTimeout(() => finish(image.complete && image.naturalWidth > 0),timeoutMs);
+      image.addEventListener('load',onLoad,{once:true});
+      image.addEventListener('error',onError,{once:true});
+    });
+
+    if (loaded) {
+      try { await image.decode?.(); } catch {}
+    }
+    return loaded;
+  };
+
+  const openAdvertisementLightbox = async ({autoCloseSeconds=0}={}) => {
     const image = advertisementPoster?.querySelector('img');
     if (!image?.src) return false;
     ensureAdvertisementLightbox();
@@ -549,12 +579,19 @@
       advertisementAutoCloseTimer = null;
     }
 
-    advertisementLightboxImage.src = image.currentSrc || image.src;
+    const source = image.currentSrc || image.src;
+    advertisementLightboxImage.src = source;
     advertisementLightboxImage.alt = image.alt || 'Full advertisement poster';
+
+    // Do not start the visible countdown while the poster is still loading.
+    // The overlay opens only after the full poster image is ready to render.
+    const ready = await waitForAdvertisementImage(advertisementLightboxImage);
+    if (!ready) return false;
+
     advertisementLightbox.hidden = false;
     document.body.classList.add('advertisement-lightbox-open');
 
-    const seconds = Number(autoCloseSeconds) === 3 ? 3 : 0;
+    const seconds = Number(autoCloseSeconds) === 5 ? 5 : 0;
     if (seconds && advertisementLightboxCountdown) {
       let remaining = seconds;
       advertisementLightboxCountdown.hidden = false;
@@ -589,12 +626,15 @@
       if (window.localStorage.getItem(key) === '1') return;
     } catch {}
 
-    window.setTimeout(() => {
-      const autoCloseSeconds = Number(advertisement.popup_auto_close_seconds || 0) === 3 ? 3 : 0;
-      const opened = openAdvertisementLightbox({autoCloseSeconds});
+    // Start almost immediately. The lightbox itself waits for the poster to be
+    // fully loaded before it becomes visible and before the 5-second timer begins.
+    window.setTimeout(async () => {
+      const configuredSeconds = Number(advertisement.popup_auto_close_seconds || 0);
+      const autoCloseSeconds = configuredSeconds === 5 || configuredSeconds === 3 ? 5 : 0;
+      const opened = await openAdvertisementLightbox({autoCloseSeconds});
       if (!opened) return;
       try { window.localStorage.setItem(key,'1'); } catch {}
-    }, 650);
+    }, 75);
   };
 
   advertisementPoster?.addEventListener('click', openAdvertisementLightbox);
@@ -667,7 +707,9 @@
         const image = document.createElement('img');
         image.src = publicUrl;
         image.alt = advertisement.title ? advertisement.title + ' advertisement poster' : 'Advertisement poster';
-        image.loading = 'lazy';
+        image.loading = advertisement.popup_on_entry ? 'eager' : 'lazy';
+        image.decoding = 'async';
+        if (advertisement.popup_on_entry) image.fetchPriority = 'high';
         advertisementPoster.appendChild(image);
         advertisementPoster.classList.add('has-live-poster');
         advertisementPoster.setAttribute('role','button');
