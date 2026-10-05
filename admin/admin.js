@@ -5582,6 +5582,137 @@
     }
   };
 
+  const premiumProfileRecordMediaPreview = async (record = {}) => {
+    const media = $('#premiumProfileRecordMedia');
+    if (!media) return;
+    const profile = record.profile || {};
+    const identity = record.identity || {};
+    const galleryPaths = (Array.isArray(record.gallery) ? record.gallery : [])
+      .map((item) => typeof item === 'string' ? item : item?.media_path)
+      .filter(Boolean);
+    const entries = adminMediaEntries({
+      profile_picture_path: profile.profile_picture_path || '',
+      gallery_paths: galleryPaths,
+      passport_photo_path: identity.passport_photo_path || '',
+      id_document_path: identity.id_document_path || ''
+    }, 'premium_profile');
+
+    if (!entries.length) {
+      media.hidden = true;
+      media.innerHTML = '';
+      return;
+    }
+
+    media.hidden = false;
+    media.innerHTML = '<div class="review-media-heading"><span>RETAINED PROFILE FILES</span><strong>Profile, Gallery & Verification Media</strong><small>These are the retained files linked to this Premium Profile, including records kept after approval.</small></div><div class="review-media-grid" id="premiumProfileRecordMediaGrid"></div>';
+    const grid = $('#premiumProfileRecordMediaGrid');
+    for (const entry of entries) {
+      const card = await renderAdminMediaCard(entry);
+      if (!grid?.isConnected) return;
+      grid.appendChild(card);
+    }
+  };
+
+  const premiumProfileRecordRows = (record = {}) => {
+    const profile = record.profile || {};
+    const details = record.details || {};
+    const identity = record.identity || {};
+    const email = state.customers.find((item) => String(item.user_id) === String(profile.user_id))?.email || '';
+    const idNumber = identity.id_number || identity.id_no || identity.national_id || identity.national_id_number || '';
+    const preferred = [
+      ['Display name', profile.display_name],
+      ['Real name', identity.real_name],
+      ['Email', email],
+      ['Phone', identity.phone],
+      ['ID number', idNumber],
+      ['Gender', profile.gender],
+      ['Age', details.age],
+      ['Orientation', details.orientation],
+      ['Location', profile.general_location],
+      ['About', profile.about],
+      ['Available in Premium directory', profile.is_available],
+      ['Application status', profile.application_status],
+      ['Submitted', formatDate(profile.submitted_at || profile.created_at, true)],
+      ['Approved', formatDate(profile.approved_at, true)],
+      ['Last updated', formatDate(profile.updated_at, true)]
+    ];
+
+    const used = new Set([
+      'display_name','real_name','phone','id_number','id_no','national_id','national_id_number',
+      'gender','age','orientation','general_location','about','is_available','application_status',
+      'submitted_at','approved_at','created_at','updated_at'
+    ]);
+    const skip = new Set([
+      'user_id','profile_picture_path','passport_photo_path','id_document_path',
+      'gallery_paths','withdrawal_pin_hash'
+    ]);
+    const extras = [];
+    const addExtras = (source, values) => {
+      Object.entries(values || {}).forEach(([key, value]) => {
+        if (used.has(key) || skip.has(key) || value === null || value === '' || typeof value === 'object') return;
+        let display = value;
+        if (typeof value === 'boolean') display = value ? 'Yes' : 'No';
+        else if (/(?:_at|_date)$/i.test(key)) display = formatDate(value, true);
+        extras.push([source + ' · ' + key.replaceAll('_', ' '), display]);
+      });
+    };
+    addExtras('Profile', profile);
+    addExtras('Profile details', details);
+    addExtras('Private verification', identity);
+
+    return preferred.concat(extras).filter(([, value]) => value !== null && value !== '' && value !== '—');
+  };
+
+  const openPremiumProfileRecord = async (userId) => {
+    const summary = state.premiumProfiles.find((item) => String(item.user_id) === String(userId));
+    if (!summary) return;
+
+    $('#premiumProfileRecordTitle').textContent = summary.display_name || 'Premium Profile';
+    $('#premiumProfileRecordSummary').innerHTML = `<div><span>Application</span><strong>${escapeHtml(summary.application_status || '—')}</strong></div><div><span>Directory</span><strong>Retained Profile</strong></div><div><span>Location</span><strong>${escapeHtml(summary.general_location || '—')}</strong></div><div><span>Approved</span><strong>${escapeHtml(formatDate(summary.approved_at, true))}</strong></div>`;
+    $('#premiumProfileRecordGrid').innerHTML = '<div><small>Loading</small><strong>Loading retained Premium Profile details…</strong></div>';
+    const media = $('#premiumProfileRecordMedia');
+    if (media) { media.hidden = true; media.innerHTML = ''; }
+    setFormStatus($('#premiumProfileRecordStatus'), 'Loading retained profile and verification details…');
+    $('#premiumProfileRecordModal').hidden = false;
+
+    try {
+      const [profileResult,detailsResult,identityResult,galleryResult] = await Promise.all([
+        db.from('premium_profiles').select('*').eq('user_id', userId).maybeSingle(),
+        db.from('premium_profile_details').select('*').eq('user_id', userId).maybeSingle(),
+        db.from('premium_identity_details').select('*').eq('user_id', userId).maybeSingle(),
+        db.from('premium_profile_gallery').select('*').eq('user_id', userId).order('sort_order', { ascending: true })
+      ]);
+
+      if (profileResult.error) throw profileResult.error;
+      const warnings = [];
+      if (detailsResult.error) warnings.push('additional profile details');
+      if (identityResult.error) warnings.push('private verification details');
+      if (galleryResult.error) warnings.push('gallery metadata');
+
+      const record = {
+        profile: profileResult.data || summary,
+        details: detailsResult.error ? {} : (detailsResult.data || {}),
+        identity: identityResult.error ? {} : (identityResult.data || {}),
+        gallery: galleryResult.error ? [] : (galleryResult.data || [])
+      };
+      const rows = premiumProfileRecordRows(record);
+      $('#premiumProfileRecordTitle').textContent = record.profile.display_name || summary.display_name || 'Premium Profile';
+      $('#premiumProfileRecordSummary').innerHTML = `<div><span>Application</span><strong>${escapeHtml(record.profile.application_status || '—')}</strong></div><div><span>Directory</span><strong>${record.profile.is_available ? 'Available' : 'Not available'}</strong></div><div><span>Location</span><strong>${escapeHtml(record.profile.general_location || '—')}</strong></div><div><span>Approved</span><strong>${escapeHtml(formatDate(record.profile.approved_at, true))}</strong></div>`;
+      $('#premiumProfileRecordGrid').innerHTML = rows.length
+        ? rows.map(([label,value]) => `<div><small>${escapeHtml(label)}</small><strong>${escapeHtml(typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value)}</strong></div>`).join('')
+        : '<div><small>Record</small><strong>No retained detail fields are available.</strong></div>';
+      setFormStatus(
+        $('#premiumProfileRecordStatus'),
+        warnings.length ? 'Profile loaded. Some retained data could not be opened: ' + warnings.join(', ') + '.' : 'Profile details loaded. This record remains viewable after approval.',
+        warnings.length ? 'error' : 'success'
+      );
+      await premiumProfileRecordMediaPreview(record);
+    } catch (error) {
+      $('#premiumProfileRecordGrid').innerHTML = '<div><small>Unable to load</small><strong>The retained Premium Profile details could not be opened.</strong></div>';
+      setFormStatus($('#premiumProfileRecordStatus'), friendlyError(error), 'error');
+    }
+  };
+
   const loadPremiumProfiles = async () => {
     const { data, error } = await db.from('premium_profiles')
       .select('user_id,display_name,profile_picture_path,gender,general_location,application_status,submitted_at,approved_at,created_at')
@@ -5597,8 +5728,10 @@
       <td data-label="Status"><span class="status-chip">${escapeHtml(profile.application_status || '—')}</span></td>
       <td data-label="Submitted">${formatDate(profile.submitted_at || profile.created_at, true)}</td>
       <td data-label="Approved">${formatDate(profile.approved_at, true)}</td>
-    </tr>`).join('') : '<tr><td colspan="6">No Premium Profiles have been registered yet.</td></tr>';
+      <td data-label="Action"><button class="premium-customer-view-button" type="button" data-premium-profile-view="${escapeHtml(profile.user_id)}">View Details →</button></td>
+    </tr>`).join('') : '<tr><td colspan="7">No Premium Profiles have been registered yet.</td></tr>';
 
+    $$('[data-premium-profile-view]', body).forEach((button) => button.addEventListener('click', () => openPremiumProfileRecord(button.dataset.premiumProfileView)));
     await Promise.all(state.premiumProfiles.map((profile)=>loadPremiumProfileAvatar(profile)));
   };
 
