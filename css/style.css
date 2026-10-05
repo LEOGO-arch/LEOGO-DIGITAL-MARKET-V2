@@ -1728,11 +1728,30 @@ body.advertisement-lightbox-open{overflow:hidden}
   box-shadow:0 8px 26px rgba(0,0,0,.35);
   cursor:pointer
 }
+.advertisement-lightbox-countdown{
+  position:fixed;
+  top:calc(16px + env(safe-area-inset-top));
+  left:16px;
+  z-index:4;
+  min-width:112px;
+  border-radius:999px;
+  padding:10px 14px;
+  background:#ff7800;
+  color:#fff;
+  box-shadow:0 8px 26px rgba(0,0,0,.32);
+  font-size:14px;
+  line-height:1;
+  font-weight:900;
+  text-align:center;
+  letter-spacing:.2px
+}
+.advertisement-lightbox-countdown[hidden]{display:none!important}
 @media(max-width:700px){
   .advertisement-poster.has-live-poster:after{right:8px;bottom:8px;padding:6px 8px;font-size:9px}
   .advertisement-lightbox-dialog{width:100vw;padding:64px 8px 20px}
   .advertisement-lightbox-image{width:100%;max-width:100%;border-radius:10px}
   .advertisement-lightbox-close{right:10px;width:42px;height:42px}
+  .advertisement-lightbox-countdown{left:10px;top:calc(14px + env(safe-area-inset-top));min-width:102px;padding:9px 12px;font-size:13px}
 }
 
 
