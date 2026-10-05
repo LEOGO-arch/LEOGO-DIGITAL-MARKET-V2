@@ -549,7 +549,10 @@ begin
     and r.request_type='hire'
     and r.request_status in ('submitted','awaiting_payment_verification','payment_verified','dispatched','accepted','in_progress')
     and r.hire_start_at < v_expected_return_at
-    and r.hire_expected_return_at > v_start_at;
+    and (
+      (r.request_status in ('accepted','in_progress') and r.hire_actual_return_at is null)
+      or r.hire_expected_return_at > v_start_at
+    );
 
   if v_reserved+p_hire_quantity>v_service.hire_quantity_available then
     raise exception 'The requested quantity is not available for the selected hire period. Try another time or reduce the quantity.';
