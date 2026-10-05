@@ -144,6 +144,10 @@
   };
 
   const load=async()=>{
+    // This module is present on the Admin sign-in page too. Do not call
+    // protected Health RPCs until Supabase confirms an authenticated session.
+    const {data:sessionData,error:sessionError}=await db.auth.getSession();
+    if(sessionError||!sessionData?.session?.user)return;
     const [settingsResult,operationsResult]=await Promise.allSettled([loadSettings(),loadOperations()]);
     if(settingsResult.status==='rejected'){
       console.warn('Health Specialist booking-fee settings could not load:',settingsResult.reason);
