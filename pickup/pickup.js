@@ -105,11 +105,18 @@ const removeParcelProof=async(path)=>{
 };
 
 const parseScannedCode=(raw)=>{
-  const text=String(raw||'').trim();
+  const text=String(raw||'').replace(/[\u0000-\u001f]/g,' ').trim();
   if(!text)return '';
   try{
     const u=new URL(text);
-    return (u.searchParams.get('ref')||u.searchParams.get('order')||text).trim();
+    const keys=['ref','order','order_ref','order_reference','order_id','code','waybill'];
+    for(const params of [u.searchParams,new URLSearchParams(String(u.hash||'').replace(/^#\??/,''))]){
+      for(const key of keys){const value=params.get(key);if(value?.trim())return value.trim();}
+    }
+    const segments=decodeURIComponent(u.pathname).split('/').filter(Boolean);
+    const candidate=segments.at(-1)||'';
+    if(candidate.length>=4&&/^[A-Z0-9][A-Z0-9-]*$/i.test(candidate)&&/\d/.test(candidate))return candidate;
+    return text;
   }catch{return text;}
 };
 
@@ -146,6 +153,22 @@ const filteredParcels=()=>{
     return matchesFilter&&(!term||hay.includes(term));
   });
 };
+const openParcelAction=(mode,reference)=>{
+  const receive=mode==='receive';
+  const form=$(receive?'#receiveForm':'#handoverForm');
+  const codeInput=$(receive?'#receiveCode':'#handoverCode');
+  const nextInput=$(receive?'#receivePhoto':'#handoverIdNumber');
+  if(!reference||!form||!codeInput||!nextInput)return;
+  showView('operations');
+  codeInput.value=reference;
+  $('#lookupCode').value=reference;
+  setStatus(receive?$('#receiveStatus'):$('#handoverStatus'),'Order '+reference+' loaded. Complete the required photo and confirmation below.','success');
+  window.setTimeout(()=>{
+    form.scrollIntoView({behavior:'smooth',block:'start'});
+    nextInput.focus({preventScroll:true});
+  },80);
+};
+
 const renderParcels=()=>{
   const rows=filteredParcels();
   $('#parcelList').innerHTML=rows.length?rows.map(p=>`
@@ -156,17 +179,43 @@ const renderParcels=()=>{
       ${p.parcel_status==='arrived_pending_receipt'?'<div class="arrival-pending-note"><strong>⚠ Pending Arrival Receipt</strong><span>The Rider has delivered this parcel. Confirm physical receipt with a parcel photo before it becomes Ready for Collection.</span></div>':''}
       <div class="parcel-actions">
         <button data-track="${esc(p.order_reference)}">Track</button>
-        ${p.parcel_status==='arrived_pending_receipt'?'<button class="primary" data-receive="'+esc(p.order_reference)+'">Confirm Receipt</button>':''}
+        ${p.parcel_status==='arrived_pending_receipt'?'<button class="primary" data-receive="'+esc(p.order_reference)+'">Arrive</button>':''}
         ${p.parcel_status==='received'?'<button class="primary" data-handover="'+esc(p.order_reference)+'">Hand Over</button>':''}
       </div>
     </article>`).join(''):'<div class="compact-row"><strong>No parcels match this view.</strong><p>Refresh or change the filter.</p></div>';
 
   $$('[data-track]').forEach(b=>b.addEventListener('click',()=>{showView('operations');$('#lookupCode').value=b.dataset.track;lookupParcel(b.dataset.track);}));
-  $$('[data-receive]').forEach(b=>b.addEventListener('click',()=>{showView('operations');$('#receiveCode').value=b.dataset.receive;$('#receiveCode').focus();}));
-  $$('[data-handover]').forEach(b=>b.addEventListener('click',()=>{showView('operations');$('#handoverCode').value=b.dataset.handover;$('#handoverCode').focus();}));
+  $$('[data-receive]').forEach(b=>b.addEventListener('click',()=>openParcelAction('receive',b.dataset.receive)));
+  $$('[data-handover]').forEach(b=>b.addEventListener('click',()=>openParcelAction('handover',b.dataset.handover)));
 };
 $('#parcelSearch').addEventListener('input',renderParcels);
 $('#parcelStatusFilter').addEventListener('change',renderParcels);
+$$('[data-metric-view]').forEach(button=>button.addEventListener('click',async()=>{
+  const view=button.dataset.metricView;
+  showView(view);
+  if(view==='parcels'){
+    $('#parcelStatusFilter').value=button.dataset.metricFilter||'active';
+    renderParcels();
+    $('#parcelList').scrollIntoView({behavior:'smooth',block:'start'});
+    return;
+  }
+  if(view==='history'){
+    if(button.dataset.metricRange==='today'){
+      const date=today();
+      $('#historyFrom').value=date;
+      $('#historyTo').value=date;
+    }
+    try{await loadHistory();}catch(error){
+      $('#historyList').innerHTML='<div class="compact-row"><strong>Could not load parcel history.</strong><p>'+esc(error.message||'Please refresh and try again.')+'</p></div>';
+    }
+    $('#historyList').scrollIntoView({behavior:'smooth',block:'start'});
+    return;
+  }
+  if(view==='earnings'){
+    try{await loadEarnings();}catch(error){console.error('Pickup Station earnings could not be loaded',error);}
+    $('#earningsSummary')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+}));
 
 const renderReturns=()=>{
   $('#returnList').innerHTML=returns.length?returns.map(r=>`
@@ -661,7 +710,7 @@ const decodeQrWithJsQr=(video)=>{
   // makes a printed LEOGO QR larger for decoding on mobile cameras. Fall back
   // to the full frame for codes held outside the guide.
   const crops=[
-    {left:.08,top:.14,width:.84,height:.72},
+    {left:.12,top:.18,width:.76,height:.64},
     {left:0,top:0,width:1,height:1}
   ];
   for(const crop of crops){
@@ -669,7 +718,9 @@ const decodeQrWithJsQr=(video)=>{
     const sy=Math.round(sourceHeight*crop.top);
     const sw=Math.max(1,Math.round(sourceWidth*crop.width));
     const sh=Math.max(1,Math.round(sourceHeight*crop.height));
-    const scale=Math.min(1,1600/sw);
+    // Keep small printed codes readable on phone cameras while capping the
+    // frame size so repeated decoding remains responsive.
+    const scale=Math.min(2,2048/sw);
     const width=Math.max(1,Math.round(sw*scale));
     const height=Math.max(1,Math.round(sh*scale));
     if(scannerCanvas.width!==width)scannerCanvas.width=width;
@@ -763,7 +814,12 @@ const scanLoop=async(detector)=>{
 
       const elapsed=Date.now()-scannerStartedAt;
       if(elapsed>12000){
-        $('#scannerStatus').textContent='Still unable to read the QR. Flatten the label, improve the light, move closer, or enter the order number manually below.';
+        stopScanner();
+        const input=scannerMode==='receive'?$('#receiveCode'):$('#handoverCode');
+        const statusEl=scannerMode==='receive'?$('#receiveStatus'):$('#handoverStatus');
+        setStatus(statusEl,'QR could not be read. Enter the order / waybill number below and continue with the required photo.','error');
+        window.setTimeout(()=>{input.scrollIntoView({behavior:'smooth',block:'center'});input.focus({preventScroll:true});},120);
+        return;
       }else if(elapsed>3500){
         $('#scannerStatus').textContent='Looking for QR… keep it inside the orange frame and hold the phone steady.';
       }
