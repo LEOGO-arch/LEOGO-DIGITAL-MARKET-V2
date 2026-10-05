@@ -2110,6 +2110,7 @@ $('#providerProfileButton')?.addEventListener('click',()=>openProviderView('prof
 $('#refreshProviderJobs')?.addEventListener('click',()=>loadProviderJobs());
 $('#showProviderServiceForm')?.addEventListener('click',()=>{
   openProviderView('services');
+  resetProviderServiceForm();
   const form=$('#providerServiceForm');
   if(form){form.hidden=false;form.scrollIntoView({behavior:'smooth',block:'start'});}
 });
