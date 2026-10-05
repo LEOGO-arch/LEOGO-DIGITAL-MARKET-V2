@@ -668,9 +668,15 @@ async function removeFromGroup(button){
 let authenticatedDataLoaded=false;
 
 const loadAuthenticatedSellerData=async()=>{
-  if(authenticatedDataLoaded)return true;
   const {data,error}=await client.auth.getSession();
   if(error||!data?.session?.user)return false;
+  if(authenticatedDataLoaded)return true;
+
+  // Partner Portal sessions can belong to Service Providers, Transporters,
+  // Health partners, Premium profiles and pending Seller applicants. Only an
+  // approved Seller should call protected Seller product/campaign RPCs.
+  const {data:account,error:accountError}=await client.rpc('seller_get_own_account');
+  if(accountError||account?.application_status!=='approved')return false;
 
   authenticatedDataLoaded=true;
   try{
