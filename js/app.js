@@ -4228,8 +4228,16 @@
   let serviceLocationCounties=[];
   let serviceLocationSubCounties=[];
 
-  const serviceFlashActive=(item)=>item?.pricing_model==='fixed'&&Number(item?.flash_sale_price_kes||0)>0;
+  const serviceFlashActive=(item)=>item?.service_type!=='item_hire'&&item?.pricing_model==='fixed'&&Number(item?.flash_sale_price_kes||0)>0;
+  const hireBasisLabel=(value)=>value==='hour'?'hour':value==='day'?'day':value==='24_hour'?'24 hours':'hire period';
+  const hireLatePenaltyText=(item)=>{
+    const amount=Number(item?.hire_late_penalty_kes||item?.hire_late_penalty_kes_snapshot||0);
+    if(!amount)return 'No late-return penalty';
+    const basis=item?.hire_late_penalty_basis||item?.hire_late_penalty_basis_snapshot;
+    return basis==='fixed'?money(amount)+' fixed':money(amount)+' / late '+hireBasisLabel(basis);
+  };
   const servicePriceText=(item)=>{
+    if(item.service_type==='item_hire')return money(item.hire_rate_kes)+' / '+hireBasisLabel(item.hire_charge_basis);
     if(item.pricing_model==='quote')return 'Price after quotation';
     const from=serviceFlashActive(item)?Number(item.flash_sale_price_kes):Number(item.price_from_kes||0);
     const to=Number(item.price_to_kes||0);
@@ -4245,6 +4253,21 @@
     quoted:'Quotation ready',quote_accepted:'Quotation accepted',quote_rejected:'Quotation declined',
     in_progress:'Service in progress',completed:'Completed',cancelled:'Cancelled'
   }[value]||String(value||'').replaceAll('_',' '));
+  const serviceRequestDisplayStatus=(item)=>{
+    if(item?.request_type!=='hire')return serviceRequestStatusText(item?.request_status);
+    return ({
+      submitted:'Waiting for Admin dispatch',
+      awaiting_payment_verification:'Hire request fee verification',
+      payment_verified:'Hire fee verified · ready for dispatch',
+      payment_rejected:'Hire request fee not verified',
+      dispatched:'Sent to item owner',
+      accepted:'Item availability confirmed',
+      declined:'Hire request declined',
+      in_progress:'Item handed over · Hire active',
+      completed:'Item returned · Hire completed',
+      cancelled:'Hire cancelled'
+    }[item.request_status]||serviceRequestStatusText(item.request_status));
+  };
   const serviceReviewStatusText=(value)=>({
     submitted:'Awaiting LEOGO Admin approval',
     approved:'Approved & public',
@@ -4326,27 +4349,33 @@
   });
 
   const createPublicServiceCard=(item)=>{
-    const photo=item.profile_picture_path
-      ? window.leogoAuth?.client?.storage.from('service-provider-public-media').getPublicUrl(item.profile_picture_path)?.data?.publicUrl
+    const hire=item.service_type==='item_hire';
+    const photoPath=hire?item.hire_item_image_path:item.profile_picture_path;
+    const photo=photoPath
+      ? window.leogoAuth?.client?.storage.from('service-provider-public-media').getPublicUrl(photoPath)?.data?.publicUrl
       : '';
     const directFee=Number(customerServiceConfig.direct_request_fee_kes??50);
     const quotationFee=Number(customerServiceConfig.quotation_fee_kes??50);
     const card=document.createElement('article');
-    card.className='leogo-compact-partner-card leogo-compact-service-card';
-    card.innerHTML='<div class="leogo-compact-partner-photo">'+(photo?'<img src="'+receiptEscape(photo)+'" alt="'+receiptEscape(item.business_name||'Service Provider')+'" loading="lazy">':'<span>🛠️</span>')+'</div>'+
+    card.className='leogo-compact-partner-card leogo-compact-service-card'+(hire?' leogo-hire-card':'');
+    card.innerHTML='<div class="leogo-compact-partner-photo">'+(photo?'<img src="'+receiptEscape(photo)+'" alt="'+receiptEscape(hire?(item.hire_item_name||'Item for hire'):(item.business_name||'Service Provider'))+'" loading="lazy">':'<span>'+(hire?'🧰':'🛠️')+'</span>')+'</div>'+
       '<div class="leogo-compact-partner-body">'+
-        '<div class="leogo-compact-partner-top"><span class="leogo-compact-approved">✓ LEOGO Approved</span><span class="leogo-compact-rating">'+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</span></div>'+
-        '<h3>'+receiptEscape(item.service_name||'Professional Service')+'</h3>'+
+        '<div class="leogo-compact-partner-top"><span class="leogo-compact-approved">'+(hire?'✓ ITEM FOR HIRE':'✓ LEOGO Approved')+'</span><span class="leogo-compact-rating">'+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</span></div>'+
+        '<h3>'+receiptEscape(hire?(item.hire_item_name||item.service_name||'Item for Hire'):(item.service_name||'Professional Service'))+'</h3>'+
         '<b>'+receiptEscape(item.business_name||'Service Provider')+'</b>'+
         '<p class="leogo-compact-description">'+receiptEscape(item.description||'Approved professional service available through LEOGO.')+'</p>'+
         '<small class="leogo-compact-location">'+receiptEscape([item.service_area,item.town,item.county].filter(Boolean).join(' · ')||'Kenya')+'</small>'+
+        (hire?'<small class="leogo-compact-services">Available: '+Number(item.hire_quantity_available||1)+' · Min '+Number(item.hire_minimum_units||1)+' '+receiptEscape(hireBasisLabel(item.hire_charge_basis))+(Number(item.hire_minimum_units||1)===1?'':' units')+' · '+receiptEscape(String(item.hire_fulfilment||'both').replaceAll('_',' '))+'</small>':'')+
         (serviceFlashActive(item)?'<span class="service-flash-sale-badge">⚡ FLASH SALE</span>':'')+
         '<strong class="leogo-compact-price">'+receiptEscape(servicePriceText(item))+'</strong>'+
+        (hire?'<small class="leogo-hire-deposit">Refundable deposit: '+receiptEscape(money(item.hire_security_deposit_kes||0))+' / item</small>':'')+
         (serviceFlashActive(item)?'<small class="service-flash-old">Normal '+receiptEscape(money(item.normal_price_kes||item.price_from_kes))+' · Ends '+receiptEscape(customerOrderFormatDate(item.flash_sale_ends_at,true))+'</small>':'')+
-        '<div class="leogo-compact-actions">'+
-          '<button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="direct">Request Service · '+receiptEscape(money(directFee))+'</button>'+
+        '<div class="leogo-compact-actions'+(hire?' hire-actions':'')+'">'+
+          (hire
+            ? '<button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="hire">Hire Item · '+receiptEscape(money(directFee))+'</button>'
+            : '<button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="direct">Request Service · '+receiptEscape(money(directFee))+'</button>')+
           '<button class="reviews" type="button" data-view-public-reviews="service_provider" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-service-id="'+receiptEscape(item.service_id||'')+'" data-review-title="'+receiptEscape(item.business_name||'Service Provider')+'">Reviews</button>'+
-          '<button class="quote" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="quotation">Request Quotation · '+receiptEscape(money(quotationFee))+'</button>'+
+          (hire?'':'<button class="quote" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="quotation">Request Quotation · '+receiptEscape(money(quotationFee))+'</button>')+
         '</div>'+
       '</div>';
     return card;
@@ -4890,6 +4919,49 @@
     serviceRequestModal?.setAttribute('aria-hidden','true');
     document.body.style.overflow='';
   };
+  const activeHireService=()=>customerPublicServices.find((row)=>String(row.service_id)===String(document.getElementById('serviceRequestServiceId')?.value||''))||null;
+  const hireExpectedReturnText=(item,units,dateValue,timeValue)=>{
+    if(!item||!dateValue||!timeValue)return 'Choose a start date and time to see the expected return.';
+    const start=new Date(dateValue+'T'+timeValue+':00');
+    if(Number.isNaN(start.getTime()))return 'Choose a valid start date and time.';
+    const count=Math.max(1,Number(units||1));
+    let end=new Date(start.getTime());
+    if(item.hire_charge_basis==='hour'){
+      end=new Date(start.getTime()+count*60*60*1000);
+    }else if(item.hire_charge_basis==='24_hour'){
+      end=new Date(start.getTime()+count*24*60*60*1000);
+    }else{
+      const parts=String(item.hire_daily_return_time||'18:00').slice(0,5).split(':').map(Number);
+      end=new Date(start);
+      end.setDate(end.getDate()+count-1);
+      end.setHours(parts[0]||0,parts[1]||0,0,0);
+    }
+    return new Intl.DateTimeFormat('en-KE',{dateStyle:'medium',timeStyle:'short'}).format(end);
+  };
+  const updateServiceHireCalculation=()=>{
+    const item=activeHireService();
+    const box=document.getElementById('serviceHireCalculation');
+    if(!item||item.service_type!=='item_hire'||!box)return;
+    const units=Math.max(Number(item.hire_minimum_units||1),Number(document.getElementById('serviceHireUnits')?.value||1));
+    const quantity=Math.max(1,Number(document.getElementById('serviceHireQuantity')?.value||1));
+    const hireCharge=Number(item.hire_rate_kes||0)*units*quantity;
+    const deposit=Number(item.hire_security_deposit_kes||0)*quantity;
+    const expected=hireExpectedReturnText(
+      item,units,
+      document.getElementById('serviceRequestPreferredDate')?.value,
+      document.getElementById('serviceRequestPreferredTime')?.value
+    );
+    box.innerHTML='<div><small>HIRE CHARGE</small><strong>'+receiptEscape(money(hireCharge))+'</strong></div>'+
+      '<div><small>REFUNDABLE SECURITY DEPOSIT</small><strong>'+receiptEscape(money(deposit))+'</strong></div>'+
+      '<div><small>HIRE + DEPOSIT</small><strong>'+receiptEscape(money(hireCharge+deposit))+'</strong></div>'+
+      '<div><small>EXPECTED RETURN</small><strong>'+receiptEscape(expected)+'</strong></div>'+
+      '<p>LEOGO request fee is separate. The security deposit is refundable after return, less any owner-applied damage charge and automatically calculated late-return penalty under the terms shown above.</p>';
+  };
+  ['serviceHireUnits','serviceHireQuantity','serviceHireFulfilment','serviceRequestPreferredDate','serviceRequestPreferredTime'].forEach((id)=>{
+    document.getElementById(id)?.addEventListener('input',updateServiceHireCalculation);
+    document.getElementById(id)?.addEventListener('change',updateServiceHireCalculation);
+  });
+
   const openServiceRequestModal=async(serviceId,requestType)=>{
     let user=window.leogoAuth?.getUser?.()||null;
     if(!user){
@@ -4899,6 +4971,9 @@
     if(!user){openCustomerShell('auth');return;}
     const item=customerPublicServices.find((row)=>row.service_id===serviceId);
     if(!item)return;
+    const hire=item.service_type==='item_hire';
+    if(hire)requestType='hire';
+
     serviceRequestForm?.reset();
     document.getElementById('serviceLocationStatus').textContent='';
     try{
@@ -4916,36 +4991,103 @@
     }catch(error){
       console.warn('Service location directory could not prefill:',error);
     }
+
     document.getElementById('serviceRequestServiceId').value=serviceId;
     document.getElementById('serviceRequestType').value=requestType;
-    document.getElementById('serviceRequestTitle').textContent=requestType==='quotation'?'Request a Quotation':'Request Service';
-    document.getElementById('serviceRequestProvider').textContent=(item.service_name||'Service')+' · '+(item.business_name||'Approved Provider')+
-      (serviceFlashActive(item)?' · FLASH SALE '+money(item.flash_sale_price_kes):'');
+    const hireBox=document.getElementById('serviceHireBookingFields');
+    hireBox.hidden=!hire;
+    document.getElementById('serviceHireTermsAccepted').required=hire;
+    document.getElementById('serviceRequestPreferredDate').required=hire;
+
+    if(hire){
+      document.getElementById('serviceRequestTitle').textContent='Hire Item';
+      document.getElementById('serviceRequestProvider').textContent=(item.hire_item_name||item.service_name||'Item for Hire')+' · '+(item.business_name||'Approved Provider');
+      document.getElementById('serviceRequestDetailsLabel').textContent='How will you use the item?';
+      document.getElementById('serviceRequestDetails').placeholder='Briefly describe the intended use and any details the item owner should know.';
+      document.getElementById('serviceLocationEyebrow').textContent='HIRING LOCATION';
+      document.getElementById('serviceLocationHeadingTitle').textContent='Where will you receive / use the item?';
+      document.getElementById('serviceLocationHeadingHelp').textContent='Provide the pickup/delivery location and pin it where useful.';
+      document.getElementById('serviceRequestLocationLabel').textContent='Pickup / delivery / use address';
+      document.getElementById('serviceRequestDateLabel').textContent='Hire start date';
+      document.getElementById('serviceRequestTimeLabel').textContent='Hire start time';
+
+      document.getElementById('serviceHireItemName').textContent=item.hire_item_name||item.service_name||'Item for Hire';
+      document.getElementById('serviceHireRate').textContent=money(item.hire_rate_kes)+' / '+hireBasisLabel(item.hire_charge_basis);
+      document.getElementById('serviceHireDeposit').textContent=money(item.hire_security_deposit_kes||0);
+      document.getElementById('serviceHireDamagePenalty').textContent=Number(item.hire_damage_penalty_kes||0)>0?money(item.hire_damage_penalty_kes):'No damage charge set';
+      document.getElementById('serviceHireLatePenalty').textContent=hireLatePenaltyText(item);
+      document.getElementById('serviceHireTerms').textContent=item.hire_terms||'No additional owner terms.';
+      const damageTerms=document.getElementById('serviceHireDamageTerms');
+      damageTerms.hidden=!item.hire_damage_terms;
+      damageTerms.textContent=item.hire_damage_terms?'Damage terms: '+item.hire_damage_terms:'';
+
+      const units=document.getElementById('serviceHireUnits');
+      units.min=String(Math.max(1,Number(item.hire_minimum_units||1)));
+      units.value=units.min;
+      document.getElementById('serviceHireUnitsHelp').textContent='Minimum '+units.min+' '+hireBasisLabel(item.hire_charge_basis)+(Number(units.min)===1?'':' units');
+      const quantity=document.getElementById('serviceHireQuantity');
+      quantity.max=String(Math.max(1,Number(item.hire_quantity_available||1)));
+      quantity.value='1';
+
+      const fulfilment=document.getElementById('serviceHireFulfilment');
+      if(item.hire_fulfilment==='pickup')fulfilment.innerHTML='<option value="pickup">Customer pickup</option>';
+      else if(item.hire_fulfilment==='delivery')fulfilment.innerHTML='<option value="delivery">Provider delivery</option>';
+      else fulfilment.innerHTML='<option value="pickup">Customer pickup</option><option value="delivery">Provider delivery</option>';
+
+      if(item.hire_charge_basis==='day'&&item.hire_daily_return_time){
+        document.getElementById('serviceHireUnitsHelp').textContent+=' · Return by '+String(item.hire_daily_return_time).slice(0,5)+' on final day';
+      }
+    }else{
+      document.getElementById('serviceRequestTitle').textContent=requestType==='quotation'?'Request a Quotation':'Request Service';
+      document.getElementById('serviceRequestProvider').textContent=(item.service_name||'Service')+' · '+(item.business_name||'Approved Provider')+
+        (serviceFlashActive(item)?' · FLASH SALE '+money(item.flash_sale_price_kes):'');
+      document.getElementById('serviceRequestDetailsLabel').textContent='Describe what you need';
+      document.getElementById('serviceRequestDetails').placeholder='Give the provider enough details to understand the work.';
+      document.getElementById('serviceLocationEyebrow').textContent='SERVICE LOCATION';
+      document.getElementById('serviceLocationHeadingTitle').textContent='Where should the service be done?';
+      document.getElementById('serviceLocationHeadingHelp').textContent='You can enter the address and also pin your exact position or paste a Google Maps link.';
+      document.getElementById('serviceRequestLocationLabel').textContent='Service location / address';
+      document.getElementById('serviceRequestDateLabel').innerHTML='Preferred date <small>(optional)</small>';
+      document.getElementById('serviceRequestTimeLabel').textContent='Preferred service time';
+    }
+
     const payment=document.getElementById('serviceQuotationPayment');
-    const fee=requestType==='direct'
-      ? Number(customerServiceConfig.direct_request_fee_kes??50)
-      : Number(customerServiceConfig.quotation_fee_kes??50);
+    const fee=requestType==='quotation'
+      ? Number(customerServiceConfig.quotation_fee_kes??50)
+      : Number(customerServiceConfig.direct_request_fee_kes??50);
     const flashPriceNote=serviceFlashActive(item)
       ? ' The approved Flash Sale service price of '+money(item.flash_sale_price_kes)+' is locked into this request while the offer is active.'
       : '';
-    document.getElementById('serviceRequestSummary').textContent=(fee>0
-      ? (requestType==='quotation'
-        ? 'Pay the quotation fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.'
-        : 'Pay the direct service request fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.')
-      : 'No request fee is currently required. LEOGO Admin will review and dispatch your request.')+flashPriceNote;
+
+    document.getElementById('serviceRequestSummary').textContent=hire
+      ? (fee>0
+        ? 'Pay the LEOGO item hire request fee, submit the payment reference, then Admin verifies and dispatches the request to the item owner. The hire charge and refundable security deposit shown below are separate.'
+        : 'No LEOGO request fee is currently required. Admin will review and dispatch the hire request to the item owner.')
+      : (fee>0
+        ? (requestType==='quotation'
+          ? 'Pay the quotation fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.'
+          : 'Pay the direct service request fee, submit the payment reference, then LEOGO Admin verifies and dispatches your request.')
+        : 'No request fee is currently required. LEOGO Admin will review and dispatch your request.')+flashPriceNote;
+
     payment.hidden=fee<=0;
-    document.getElementById('serviceRequestFeeLabel').textContent=requestType==='direct'?'DIRECT REQUEST SERVICE FEE':'REQUEST QUOTATION FEE';
+    document.getElementById('serviceRequestFeeLabel').textContent=hire?'ITEM HIRE REQUEST FEE':requestType==='direct'?'DIRECT REQUEST SERVICE FEE':'REQUEST QUOTATION FEE';
     document.getElementById('serviceRequestFeeAmount').textContent=money(fee);
-    document.getElementById('serviceRequestFeeDescription').textContent=requestType==='direct'
-      ? 'This fee pays for processing and dispatching your direct service request. It is separate from the provider’s service charge.'
-      : 'This fee pays for preparing and processing your quotation. It is separate from the provider’s quoted service price.';
+    document.getElementById('serviceRequestFeeDescription').textContent=hire
+      ? 'This is LEOGO’s processing and dispatch fee for the hire request. It is separate from the owner’s hire charge and refundable security deposit.'
+      : requestType==='direct'
+        ? 'This fee pays for processing and dispatching your direct service request. It is separate from the provider’s service charge.'
+        : 'This fee pays for preparing and processing your quotation. It is separate from the provider’s quoted service price.';
     document.getElementById('serviceQuotationDestination').innerHTML=servicePaymentDestinationHtml(customerServiceConfig.payment_destination);
     document.getElementById('serviceQuotationReference').required=fee>0;
-    document.getElementById('submitServiceRequest').textContent=fee>0
-      ? (requestType==='quotation'?'Submit Paid Quotation Request':'Submit Paid Service Request')
-      : (requestType==='quotation'?'Submit Quotation Request':'Submit Service Request');
+    document.getElementById('submitServiceRequest').textContent=hire
+      ? (fee>0?'Submit Paid Hire Request':'Submit Hire Request')
+      : fee>0
+        ? (requestType==='quotation'?'Submit Paid Quotation Request':'Submit Paid Service Request')
+        : (requestType==='quotation'?'Submit Quotation Request':'Submit Service Request');
+
     const preferred=document.getElementById('serviceRequestPreferredDate');
     preferred.min=new Date().toISOString().slice(0,10);
+    if(hire)updateServiceHireCalculation();
     const status=document.getElementById('serviceRequestStatus');status.textContent='';status.className='service-request-status';
     serviceRequestModal.classList.add('open');serviceRequestModal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
   };
@@ -4965,15 +5107,12 @@
     const target=document.getElementById('serviceRequestStatus');target.textContent='';target.className='service-request-status';
     try{
       const requestType=document.getElementById('serviceRequestType').value;
-      const {data,error}=await window.leogoAuth.client.rpc('customer_create_service_request',{
+      const common={
         p_service_id:document.getElementById('serviceRequestServiceId').value,
-        p_request_type:requestType,
         p_request_details:document.getElementById('serviceRequestDetails').value.trim(),
         p_service_location:document.getElementById('serviceRequestLocation').value.trim(),
         p_nearest_landmark:document.getElementById('serviceRequestLandmark').value.trim()||null,
-        p_preferred_date:document.getElementById('serviceRequestPreferredDate').value||null,
         p_payment_reference:document.getElementById('serviceQuotationReference').value.trim()||null,
-        p_preferred_time:document.getElementById('serviceRequestPreferredTime').value||null,
         p_service_county:document.getElementById('serviceRequestCounty').selectedOptions[0]?.textContent||null,
         p_service_sub_county:document.getElementById('serviceRequestSubCounty').selectedOptions[0]?.textContent||null,
         p_service_town_estate:document.getElementById('serviceRequestTownEstate').value.trim()||null,
@@ -4981,13 +5120,39 @@
         p_map_link:document.getElementById('serviceRequestMapLink').value.trim()||null,
         p_latitude:document.getElementById('serviceRequestLatitude').value===''?null:Number(document.getElementById('serviceRequestLatitude').value),
         p_longitude:document.getElementById('serviceRequestLongitude').value===''?null:Number(document.getElementById('serviceRequestLongitude').value)
-      });
+      };
+
+      let data,error;
+      if(requestType==='hire'){
+        ({data,error}=await window.leogoAuth.client.rpc('customer_create_hire_request',{
+          ...common,
+          p_hire_units:Number(document.getElementById('serviceHireUnits').value),
+          p_hire_quantity:Number(document.getElementById('serviceHireQuantity').value),
+          p_hire_start_date:document.getElementById('serviceRequestPreferredDate').value,
+          p_hire_start_time:document.getElementById('serviceRequestPreferredTime').value,
+          p_fulfilment_method:document.getElementById('serviceHireFulfilment').value,
+          p_terms_accepted:document.getElementById('serviceHireTermsAccepted').checked
+        }));
+      }else{
+        ({data,error}=await window.leogoAuth.client.rpc('customer_create_service_request',{
+          ...common,
+          p_request_type:requestType,
+          p_preferred_date:document.getElementById('serviceRequestPreferredDate').value||null,
+          p_preferred_time:document.getElementById('serviceRequestPreferredTime').value||null
+        }));
+      }
       if(error)throw error;
-      target.textContent='✓ Request '+data.request_reference+' submitted successfully.';target.classList.add('success');
+      target.textContent='✓ '+(requestType==='hire'?'Hire request ':'Request ')+data.request_reference+' submitted successfully.';
+      target.classList.add('success');
       await loadCustomerServiceRequests();
       window.setTimeout(()=>{closeServiceRequestModal();openCustomerShell('orders');},900);
-    }catch(error){target.textContent=error?.message||'Service request could not be submitted.';target.classList.add('error');}
-    finally{submit.disabled=false;submit.textContent=original;}
+    }catch(error){
+      target.textContent=error?.message||(document.getElementById('serviceRequestType').value==='hire'?'Hire request could not be submitted.':'Service request could not be submitted.');
+      target.classList.add('error');
+    }finally{
+      submit.disabled=false;
+      submit.textContent=original;
+    }
   });
 
   const loadCustomerServiceRequests=async()=>{
@@ -5028,18 +5193,35 @@
     const active=customerServiceRequests.filter(r=>!['completed','cancelled','declined','quote_rejected','payment_rejected'].includes(r.request_status)).length;
     const dashCount=document.getElementById('customerServiceRequestDashboardCount');if(dashCount)dashCount.textContent=active;
     const dashText=document.getElementById('customerServiceRequestDashboardText');if(dashText)dashText.textContent=active?active+' open request(s)':'No open requests';
-    if(target)target.innerHTML=rows.map((item)=>
-      '<article class="customer-service-request-card" data-customer-service-request="'+receiptEscape(item.id)+'"><header><div><strong>'+receiptEscape(item.request_reference)+'</strong><small>'+receiptEscape(customerOrderFormatDate(item.created_at))+' · '+receiptEscape(item.service_name||'Service')+'</small></div><b>'+receiptEscape(serviceRequestStatusText(item.request_status))+'</b></header>'+
-      '<div class="customer-service-request-meta"><div><small>PROVIDER</small><strong>'+receiptEscape(item.business_name||'Approved Provider')+'</strong></div><div><small>REQUEST TYPE</small><strong>'+(item.request_type==='quotation'?'Quotation':'Direct service')+'</strong></div><div><small>'+(item.provider_quote_kes?'PROVIDER QUOTE':'LOCATION')+'</small><strong>'+receiptEscape(item.provider_quote_kes?money(item.provider_quote_kes):item.service_location)+'</strong></div></div>'+
-      '<small><strong>Preferred schedule:</strong> '+receiptEscape((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+'</small>'+
-      ((item.request_type==='direct'?Number(item.direct_request_fee_kes||0):Number(item.quotation_fee_kes||0))>0?'<small>'+(item.request_type==='direct'?'Direct request fee: ':'Quotation fee: ')+receiptEscape(money(item.request_type==='direct'?item.direct_request_fee_kes:item.quotation_fee_kes))+' · '+receiptEscape(String(item.payment_status||'').replaceAll('_',' '))+'</small>':'')+
-      (item.provider_quote_notes?'<p>'+receiptEscape(item.provider_quote_notes)+'</p>':'')+
-      (item.admin_notes?'<p><strong>Admin note:</strong> '+receiptEscape(item.admin_notes)+'</p>':'')+
-      (item.provider_quote_kes?'<div class="customer-service-quote-download"><button class="download-quote" type="button" data-download-service-quote="'+receiptEscape(item.id)+'">⬇ Download LEOGO Quotation PDF</button>'+(item.quote_reference?'<small>'+receiptEscape(item.quote_reference)+(item.quote_valid_until?' · Valid until '+receiptEscape(item.quote_valid_until):'')+'</small>':'')+'</div>':'')+
-      (item.request_status==='quoted'?'<div class="customer-service-quote-actions"><button type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="true">Accept '+receiptEscape(money(item.provider_quote_kes))+'</button><button class="reject" type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="false">Reject Quotation</button></div>':'')+
-      customerServiceReviewActionHtml(item)+
-      '</article>'
-    ).join('');
+    if(target)target.innerHTML=rows.map((item)=>{
+      const hire=item.request_type==='hire';
+      const feeAmount=hire||item.request_type==='direct'?Number(item.direct_request_fee_kes||0):Number(item.quotation_fee_kes||0);
+      const feeLabel=hire?'Hire request fee':item.request_type==='direct'?'Direct request fee':'Quotation fee';
+      const hireSummary=hire
+        ? '<div class="customer-hire-activity-summary">'+
+            '<div><small>HIRE CHARGE</small><strong>'+receiptEscape(money(item.hire_charge_kes||0))+'</strong></div>'+
+            '<div><small>REFUNDABLE DEPOSIT</small><strong>'+receiptEscape(money(item.hire_security_deposit_total_kes||0))+'</strong></div>'+
+            '<div><small>HIRE PERIOD</small><strong>'+receiptEscape(customerOrderFormatDate(item.hire_start_at,true))+'</strong><span>Return by '+receiptEscape(customerOrderFormatDate(item.hire_expected_return_at,true))+'</span></div>'+
+            '<div><small>QUANTITY / METHOD</small><strong>'+Number(item.hire_quantity||1)+' item(s)</strong><span>'+receiptEscape(String(item.hire_fulfilment_method||'').replaceAll('_',' '))+'</span></div>'+
+          '</div>'+
+          '<div class="customer-hire-terms-summary"><small>Owner terms: Damage charge max '+receiptEscape(money(item.hire_damage_penalty_kes_snapshot||0))+' · Late return '+receiptEscape(hireLatePenaltyText(item))+'</small></div>'+
+          (item.request_status==='completed'
+            ? '<div class="customer-hire-return-summary"><strong>Return settlement</strong><span>Damage charge: '+receiptEscape(money(item.hire_damage_penalty_applied_kes||0))+'</span><span>Late charge: '+receiptEscape(money(item.hire_late_penalty_applied_kes||0))+'</span><span>Deposit refund due: '+receiptEscape(money(item.hire_deposit_refund_due_kes||0))+'</span><span>Additional penalty due: '+receiptEscape(money(item.hire_additional_penalty_due_kes||0))+'</span></div>'
+            : '')
+        : '';
+
+      return '<article class="customer-service-request-card'+(hire?' customer-hire-request-card':'')+'" data-customer-service-request="'+receiptEscape(item.id)+'"><header><div><strong>'+receiptEscape(item.request_reference)+'</strong><small>'+receiptEscape(customerOrderFormatDate(item.created_at))+' · '+receiptEscape(item.service_name||'Service')+'</small></div><b>'+receiptEscape(serviceRequestDisplayStatus(item))+'</b></header>'+
+        '<div class="customer-service-request-meta"><div><small>PROVIDER</small><strong>'+receiptEscape(item.business_name||'Approved Provider')+'</strong></div><div><small>REQUEST TYPE</small><strong>'+(hire?'Item Hire':item.request_type==='quotation'?'Quotation':'Direct service')+'</strong></div><div><small>'+(hire?'LOCATION':item.provider_quote_kes?'PROVIDER QUOTE':'LOCATION')+'</small><strong>'+receiptEscape(hire?item.service_location:(item.provider_quote_kes?money(item.provider_quote_kes):item.service_location))+'</strong></div></div>'+
+        hireSummary+
+        '<small><strong>'+(hire?'Hire start:':'Preferred schedule:')+'</strong> '+receiptEscape((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+'</small>'+
+        (feeAmount>0?'<small>'+receiptEscape(feeLabel)+': '+receiptEscape(money(feeAmount))+' · '+receiptEscape(String(item.payment_status||'').replaceAll('_',' '))+'</small>':'')+
+        (item.provider_quote_notes?'<p>'+receiptEscape(item.provider_quote_notes)+'</p>':'')+
+        (item.admin_notes?'<p><strong>Admin note:</strong> '+receiptEscape(item.admin_notes)+'</p>':'')+
+        (!hire&&item.provider_quote_kes?'<div class="customer-service-quote-download"><button class="download-quote" type="button" data-download-service-quote="'+receiptEscape(item.id)+'">⬇ Download LEOGO Quotation PDF</button>'+(item.quote_reference?'<small>'+receiptEscape(item.quote_reference)+(item.quote_valid_until?' · Valid until '+receiptEscape(item.quote_valid_until):'')+'</small>':'')+'</div>':'')+
+        (!hire&&item.request_status==='quoted'?'<div class="customer-service-quote-actions"><button type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="true">Accept '+receiptEscape(money(item.provider_quote_kes))+'</button><button class="reject" type="button" data-service-quote-decision="'+receiptEscape(item.id)+'" data-accept="false">Reject Quotation</button></div>':'')+
+        customerServiceReviewActionHtml(item)+
+        '</article>';
+    }).join('');
     const productContainer=document.getElementById('customerMarketplaceOrders');
     const productVisible=productContainer&&productContainer.innerHTML.trim();
     const empty=document.getElementById('customerActivityEmpty');
