@@ -2169,6 +2169,54 @@ async function renderProviderSubcounties(preferredCode=''){
 }
 $('#providerCounty')?.addEventListener('change',()=>renderProviderSubcounties());
 
+function providerCoordinatesFromText(value=''){
+  const text=String(value||'').trim();
+  const direct=text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+  if(direct)return {lat:Number(direct[1]),lng:Number(direct[2])};
+  const maps=text.match(/(?:@|q=|query=)(-?\d{1,2}(?:\.\d+)?)[,%2C\s]+(-?\d{1,3}(?:\.\d+)?)/i);
+  return maps?{lat:Number(maps[1]),lng:Number(maps[2])}:null;
+}
+function setProviderCoordinates(lat,lng,label='Service base pinned'){
+  const latitude=Number(lat),longitude=Number(lng),target=$('#providerPinStatus');
+  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180){
+    if(target){target.textContent='Invalid service-base coordinates. Pin again or enter valid coordinates.';target.className='status error';}
+    return false;
+  }
+  $('#providerLatitude').value=latitude.toFixed(7);
+  $('#providerLongitude').value=longitude.toFixed(7);
+  if(!$('#providerMapLink').value.trim())$('#providerMapLink').value='https://www.google.com/maps?q='+latitude.toFixed(7)+','+longitude.toFixed(7);
+  if(target){target.textContent='✓ '+label+': '+latitude.toFixed(7)+', '+longitude.toFixed(7);target.className='status success';}
+  return true;
+}
+$('#pinProviderLocation')?.addEventListener('click',()=>{
+  const target=$('#providerPinStatus');
+  if(!navigator.geolocation){
+    if(target){target.textContent='Location access is unavailable. Paste a Google Maps link or enter coordinates.';target.className='status error';}
+    return;
+  }
+  if(target){target.textContent='Getting service-base location…';target.className='status';}
+  navigator.geolocation.getCurrentPosition(
+    position=>setProviderCoordinates(position.coords.latitude,position.coords.longitude,'Service base pinned'),
+    error=>{
+      if(target){
+        target.textContent=error.code===1
+          ?'Location permission was not granted. Allow location access or paste a Maps link/coordinates.'
+          :'The service-base location could not be detected. Try again or paste a Maps link/coordinates.';
+        target.className='status error';
+      }
+    },
+    {enableHighAccuracy:true,timeout:15000,maximumAge:15000}
+  );
+});
+$('#providerMapLink')?.addEventListener('change',event=>{
+  const coords=providerCoordinatesFromText(event.currentTarget.value);
+  if(coords)setProviderCoordinates(coords.lat,coords.lng,'Coordinates detected from shared location');
+});
+['providerLatitude','providerLongitude'].forEach(id=>$('#'+id)?.addEventListener('change',()=>{
+  const lat=$('#providerLatitude').value,lng=$('#providerLongitude').value;
+  if(lat!==''&&lng!=='')setProviderCoordinates(lat,lng,'Coordinates confirmed');
+}));
+
 async function uploadProviderVerification(file,prefix){
   if(!file)return null;
   if(file.size>8388608)throw new Error('Each verification document must be 8 MB or smaller.');
@@ -2223,6 +2271,8 @@ function providerSummaryRows(){
     ['Experience',provider.experience_years==null?'—':provider.experience_years+' year(s)'],
     ['Phone',provider.phone],
     ['Location',[provider.town,provider.sub_county,provider.county].filter(Boolean).join(', ')],
+    ['Service Base Pin',(provider.shop_latitude!=null&&provider.shop_longitude!=null)?(provider.shop_latitude+', '+provider.shop_longitude):'Not pinned'],
+    ['Service Base Map Link',provider.shop_map_link||'—'],
     ['Service Area',provider.service_area_notes||'—'],
     ['Application Status',String(provider.application_status||'').replaceAll('_',' ')],
     ['Admin Note',provider.admin_notes||'—']
@@ -2249,6 +2299,16 @@ function populateProviderApplication(){
   $('#providerExperienceYears').value=provider.experience_years??'';
   $('#providerTown').value=provider.town||'';
   $('#providerLocation').value=provider.location_details||'';
+  $('#providerLatitude').value=provider.shop_latitude??'';
+  $('#providerLongitude').value=provider.shop_longitude??'';
+  $('#providerMapLink').value=provider.shop_map_link||'';
+  const providerPinStatus=$('#providerPinStatus');
+  if(providerPinStatus){
+    providerPinStatus.textContent=(provider.shop_latitude!=null&&provider.shop_longitude!=null)
+      ?'✓ Saved service base pin: '+provider.shop_latitude+', '+provider.shop_longitude
+      :'Service base not pinned yet.';
+    providerPinStatus.className=(provider.shop_latitude!=null&&provider.shop_longitude!=null)?'status success':'status';
+  }
   $('#providerDescription').value=provider.business_description||'';
   $('#providerServiceAreaNotes').value=provider.service_area_notes||'';
   $('#providerBusinessIdDocument').required=!provider.business_id_document_path;
@@ -2328,6 +2388,8 @@ function openProviderRegistration(editExisting=false){
   else{
     providerReg.reset();
     $('#providerBusinessIdDocument').required=true;
+    const providerPinStatus=$('#providerPinStatus');
+    if(providerPinStatus){providerPinStatus.textContent='Service base not pinned yet.';providerPinStatus.className='status';}
     ensureProviderLocations().catch(console.warn);
   }
   providerReg.scrollIntoView({behavior:'smooth'});
@@ -2367,6 +2429,15 @@ providerReg?.addEventListener('submit',async(event)=>{
       $('#providerProfilePictureInitial').files[0]?uploadProviderPublicPhoto($('#providerProfilePictureInitial').files[0]):Promise.resolve(provider?.profile_picture_path||null),
       $('#providerPassportPhotoInitial').files[0]?uploadProviderPassportPhoto($('#providerPassportPhotoInitial').files[0]):Promise.resolve(provider?.passport_photo_path||null)
     ]);
+    const providerLatText=$('#providerLatitude').value.trim();
+    const providerLngText=$('#providerLongitude').value.trim();
+    if((providerLatText&&!providerLngText)||(!providerLatText&&providerLngText))throw new Error('Enter both service-base latitude and longitude, or clear both.');
+    let providerLat=null,providerLng=null;
+    if(providerLatText&&providerLngText){
+      if(!setProviderCoordinates(providerLatText,providerLngText,'Coordinates confirmed'))throw new Error('Enter valid service-base coordinates.');
+      providerLat=Number($('#providerLatitude').value);
+      providerLng=Number($('#providerLongitude').value);
+    }
     const providerProfilePayload={
       business_name:$('#providerBusinessName').value.trim(),owner_name:$('#providerOwnerName').value.trim(),
       id_number:$('#providerIdNumber').value.trim(),phone,primary_service:$('#providerPrimaryService').value.trim(),
@@ -2374,21 +2445,25 @@ providerReg?.addEventListener('submit',async(event)=>{
       experience_years:$('#providerExperienceYears').value===''?null:Number($('#providerExperienceYears').value),
       county_code:$('#providerCounty').value,sub_county_code:$('#providerSubCounty').value,town:$('#providerTown').value.trim(),
       location_details:$('#providerLocation').value.trim(),business_description:$('#providerDescription').value.trim()||null,
-      service_area_notes:$('#providerServiceAreaNotes').value.trim()||null,business_id_document_path:businessIdPath,
+      service_area_notes:$('#providerServiceAreaNotes').value.trim()||null,
+      shop_latitude:providerLat,shop_longitude:providerLng,shop_map_link:$('#providerMapLink').value.trim()||null,
+      business_id_document_path:businessIdPath,
       business_licence_path:businessLicencePath,registration_certificate_path:registrationCertificatePath,
       professional_licence_path:professionalLicencePath,other_permit_paths:otherPermitPaths,
       profile_picture_path:profilePicturePath,passport_photo_path:passportPhotoPath
     };
     status($('#providerRegistrationStatus'),provider?.application_status==='approved'?'Sending profile changes to LEOGO Admin…':'Sending application to LEOGO Admin…');
     const {error}=provider?.application_status==='approved'
-      ? await client.rpc('partner_submit_profile_change',{p_partner_type:'service_provider',p_payload:providerProfilePayload})
-      : await client.rpc('submit_service_provider_application',{
+      ? await client.rpc('service_provider_submit_profile_change_v2',{p_payload:providerProfilePayload})
+      : await client.rpc('submit_service_provider_application_v2',{
           p_business_name:providerProfilePayload.business_name,p_owner_name:providerProfilePayload.owner_name,
           p_id_number:providerProfilePayload.id_number,p_phone:phone,p_primary_service:providerProfilePayload.primary_service,
           p_service_category:providerProfilePayload.service_category,p_experience_years:providerProfilePayload.experience_years,
           p_county_code:providerProfilePayload.county_code,p_sub_county_code:providerProfilePayload.sub_county_code,p_town:providerProfilePayload.town,
           p_location_details:providerProfilePayload.location_details,p_business_description:providerProfilePayload.business_description,
-          p_service_area_notes:providerProfilePayload.service_area_notes,p_business_id_document_path:businessIdPath,
+          p_service_area_notes:providerProfilePayload.service_area_notes,
+          p_shop_latitude:providerProfilePayload.shop_latitude,p_shop_longitude:providerProfilePayload.shop_longitude,p_shop_map_link:providerProfilePayload.shop_map_link,
+          p_business_id_document_path:businessIdPath,
           p_business_licence_path:businessLicencePath,p_registration_certificate_path:registrationCertificatePath,
           p_professional_licence_path:professionalLicencePath,p_other_permit_paths:otherPermitPaths
         });
