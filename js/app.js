@@ -489,6 +489,8 @@
   let advertisementLightbox = null;
   let advertisementLightboxImage = null;
   let advertisementLightboxClose = null;
+  let advertisementLightboxCountdown = null;
+  let advertisementAutoCloseTimer = null;
 
   const ensureAdvertisementLightbox = () => {
     if (advertisementLightbox) return advertisementLightbox;
@@ -502,6 +504,7 @@
     overlay.setAttribute('aria-label', 'Full advertisement poster');
 
     overlay.innerHTML = '<button type="button" class="advertisement-lightbox-backdrop" data-close-advert-lightbox aria-label="Close full advertisement poster"></button>'+
+      '<div class="advertisement-lightbox-countdown" aria-live="polite" hidden></div>'+
       '<div class="advertisement-lightbox-dialog">'+
         '<button type="button" class="advertisement-lightbox-close" data-close-advert-lightbox aria-label="Close">×</button>'+
         '<img class="advertisement-lightbox-image" alt="Full advertisement poster">'+
@@ -511,6 +514,7 @@
     advertisementLightbox = overlay;
     advertisementLightboxImage = overlay.querySelector('.advertisement-lightbox-image');
     advertisementLightboxClose = overlay.querySelector('.advertisement-lightbox-close');
+    advertisementLightboxCountdown = overlay.querySelector('.advertisement-lightbox-countdown');
 
     overlay.querySelectorAll('[data-close-advert-lightbox]').forEach((node) => {
       node.addEventListener('click', closeAdvertisementLightbox);
@@ -519,23 +523,57 @@
     return overlay;
   };
 
-  function closeAdvertisementLightbox() {
+  function closeAdvertisementLightbox({restoreFocus=true}={}) {
+    if (advertisementAutoCloseTimer) {
+      window.clearInterval(advertisementAutoCloseTimer);
+      advertisementAutoCloseTimer = null;
+    }
     if (!advertisementLightbox) return;
     advertisementLightbox.hidden = true;
     document.body.classList.remove('advertisement-lightbox-open');
     if (advertisementLightboxImage) advertisementLightboxImage.removeAttribute('src');
-    advertisementPoster?.focus({ preventScroll: true });
+    if (advertisementLightboxCountdown) {
+      advertisementLightboxCountdown.hidden = true;
+      advertisementLightboxCountdown.textContent = '';
+    }
+    if (restoreFocus) advertisementPoster?.focus({ preventScroll: true });
   }
 
-  const openAdvertisementLightbox = () => {
+  const openAdvertisementLightbox = ({autoCloseSeconds=0}={}) => {
     const image = advertisementPoster?.querySelector('img');
     if (!image?.src) return false;
     ensureAdvertisementLightbox();
+
+    if (advertisementAutoCloseTimer) {
+      window.clearInterval(advertisementAutoCloseTimer);
+      advertisementAutoCloseTimer = null;
+    }
+
     advertisementLightboxImage.src = image.currentSrc || image.src;
     advertisementLightboxImage.alt = image.alt || 'Full advertisement poster';
     advertisementLightbox.hidden = false;
     document.body.classList.add('advertisement-lightbox-open');
-    window.setTimeout(() => advertisementLightboxClose?.focus(), 0);
+
+    const seconds = Number(autoCloseSeconds) === 3 ? 3 : 0;
+    if (seconds && advertisementLightboxCountdown) {
+      let remaining = seconds;
+      advertisementLightboxCountdown.hidden = false;
+      advertisementLightboxCountdown.textContent = 'Closing in ' + remaining + 's';
+      advertisementAutoCloseTimer = window.setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          closeAdvertisementLightbox({restoreFocus:false});
+          return;
+        }
+        if (advertisementLightboxCountdown) {
+          advertisementLightboxCountdown.textContent = 'Closing in ' + remaining + 's';
+        }
+      },1000);
+    } else if (advertisementLightboxCountdown) {
+      advertisementLightboxCountdown.hidden = true;
+      advertisementLightboxCountdown.textContent = '';
+      window.setTimeout(() => advertisementLightboxClose?.focus(), 0);
+    }
     return true;
   };
 
@@ -552,7 +590,8 @@
     } catch {}
 
     window.setTimeout(() => {
-      const opened = openAdvertisementLightbox();
+      const autoCloseSeconds = Number(advertisement.popup_auto_close_seconds || 0) === 3 ? 3 : 0;
+      const opened = openAdvertisementLightbox({autoCloseSeconds});
       if (!opened) return;
       try { window.localStorage.setItem(key,'1'); } catch {}
     }, 650);
