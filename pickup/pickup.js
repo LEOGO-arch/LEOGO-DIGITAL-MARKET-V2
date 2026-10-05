@@ -727,8 +727,9 @@ const finishQrScan=async(rawValue)=>{
   }
 
   window.setTimeout(()=>{
-    input.scrollIntoView({behavior:'smooth',block:'center'});
-    input.focus({preventScroll:true});
+    const next=scannerMode==='receive'?$('#receivePhoto'):$('#handoverIdNumber');
+    next.scrollIntoView({behavior:'smooth',block:'center'});
+    next.focus({preventScroll:true});
   },120);
   return true;
 };
@@ -760,8 +761,11 @@ const scanLoop=async(detector)=>{
         if(complete)return;
       }
 
-      if(Date.now()-scannerStartedAt>3500){
-        $('#scannerStatus').textContent='Scanning… hold the QR steady inside the orange box and move it slightly closer if needed.';
+      const elapsed=Date.now()-scannerStartedAt;
+      if(elapsed>12000){
+        $('#scannerStatus').textContent='Still unable to read the QR. Flatten the label, improve the light, move closer, or enter the order number manually below.';
+      }else if(elapsed>3500){
+        $('#scannerStatus').textContent='Looking for QR… keep it inside the orange frame and hold the phone steady.';
       }
     }
   }catch(_error){}
