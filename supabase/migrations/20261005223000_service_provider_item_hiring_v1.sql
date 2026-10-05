@@ -889,3 +889,80 @@ $function$;
 
 revoke all on function public.service_provider_request_flash_sale(uuid,numeric,timestamptz,timestamptz) from public,anon;
 grant execute on function public.service_provider_request_flash_sale(uuid,numeric,timestamptz,timestamptz) to authenticated;
+
+
+create or replace function public.admin_dispatch_service_request(
+  p_request_id uuid,
+  p_notes text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=''
+as $function$
+declare
+  v_request public.service_requests%rowtype;
+  v_service_name text;
+  v_is_hire boolean := false;
+begin
+  if not private.is_leogo_admin('approvals.manage') then raise exception 'Admin dispatch permission required'; end if;
+
+  select r.* into v_request
+  from public.service_requests r
+  where r.id=p_request_id
+  for update of r;
+
+  if not found then raise exception 'Service request not found'; end if;
+
+  select s.service_name into v_service_name
+  from public.service_provider_services s
+  where s.id=v_request.service_id;
+
+  if v_request.request_status not in ('submitted','payment_verified') then
+    raise exception 'This request is not ready for dispatch';
+  end if;
+
+  v_is_hire:=v_request.request_type='hire';
+
+  update public.service_requests
+  set request_status='dispatched',
+      admin_notes=nullif(btrim(coalesce(p_notes,'')),''),
+      dispatched_at=now(),
+      dispatched_by=(select auth.uid()),
+      updated_at=now()
+  where id=p_request_id;
+
+  insert into public.partner_notifications(
+    user_id,partner_type,event_type,title,message,
+    source_type,source_id,action_view,metadata
+  ) values(
+    v_request.provider_id,'service_provider','service_request_dispatched',
+    case when v_is_hire then 'New item hire request' else 'New customer service request' end,
+    v_request.request_reference||' for '||v_service_name||
+      case when v_is_hire then ' is ready for you to confirm item availability.' else ' is ready for your response.' end,
+    'service_request',p_request_id,'provider-jobs',
+    jsonb_build_object('request_type',v_request.request_type)
+  );
+
+  insert into public.customer_notifications(
+    user_id,notification_type,title,message,source_type,source_id,
+    event_key,action_view,metadata
+  ) values(
+    v_request.customer_id,'service_request',
+    case when v_is_hire then 'Item hire request dispatched' else 'Service request dispatched' end,
+    'LEOGO Admin has sent '||v_request.request_reference||' to the approved provider.',
+    'service_request',p_request_id,'service_request_dispatched_'||p_request_id::text,
+    'orders',jsonb_build_object('request_type',v_request.request_type)
+  );
+
+  perform private.write_admin_audit(
+    'service_request.dispatched','service_request',p_request_id::text,to_jsonb(v_request),null,
+    jsonb_build_object('notes',p_notes,'request_type',v_request.request_type)
+  );
+
+  return jsonb_build_object('ok',true,'request_status','dispatched');
+end
+$function$;
+
+revoke all on function public.admin_dispatch_service_request(uuid,text) from public,anon;
+grant execute on function public.admin_dispatch_service_request(uuid,text) to authenticated;
