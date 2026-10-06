@@ -4,6 +4,7 @@ const vm=require('node:vm');
 const read=p=>fs.readFileSync(p,'utf8');
 const migration=read('supabase/migrations/20261006131644_vacant_houses_marketplace_v1.sql');
 const safeDefaults=read('supabase/migrations/20261006133217_vacant_houses_voucher_admin_set_default.sql');
+const hardening=read('supabase/migrations/20261006133848_vacant_houses_security_index_hardening.sql');
 const customer=read('js/vacant-houses.js');
 const customerCss=read('css/vacant-houses.css');
 const admin=read('admin/vacant-houses.js');
@@ -43,6 +44,8 @@ for(const needle of [
 ]) must(migration.includes(needle),'Missing Vacant Houses database behavior: '+needle);
 
 must(safeDefaults.includes('submission_voucher_kes set default 0') && safeDefaults.includes('voucher_enabled set default false'),'Submission voucher must start disabled at KSh 0 until Admin sets it.');
+must(hardening.includes('vacant_house_settings_deny_direct_api') && hardening.includes('vacant_house_listings_deny_direct_api') && hardening.includes('vacant_house_viewing_requests_deny_direct_api'),'Explicit deny-direct-access RLS policies missing.');
+must(hardening.includes('vacant_house_listings_approved_by_idx') && hardening.includes('vacant_house_listings_voucher_reward_idx') && hardening.includes('vacant_house_viewing_verified_by_idx'),'Vacant House FK hardening indexes missing.');
 must(migration.includes("'shopping_reward','credit'"),'House submission voucher must use non-withdrawable LEOGO Points.');
 must(migration.includes("approval_status='approved'") && migration.includes("availability_status='vacant'"),'Public feed must expose only approved vacant houses.');
 must(!/returns table\([\s\S]{0,1200}(contact_phone|exact_address|latitude|longitude)/.test(migration.match(/create or replace function public\.public_list_vacant_houses[\s\S]*?\$function\$;/)?.[0]||''),'Public listing RPC must not return protected location/contact.');
