@@ -251,7 +251,7 @@
   };
 
   const paymentDestination=data=>{
-    if(!data)return '<div class="vh-payment-missing">LEOGO has not assigned a payment account for Vacant House viewing yet.</div>';
+    if(!data)return '<div class="vh-payment-missing">LEOGO has not assigned a payment account for property viewing yet.</div>';
     const primary=data.till_number?['Till',data.till_number]:data.paybill_number?['Paybill',data.paybill_number]:data.account_number?['Account',data.account_number]:['Payment account',data.display_name||'LEOGO'];
     const secondary=data.paybill_number && data.account_number ? '<span>Account: <strong>'+esc(data.account_number)+'</strong></span>' : '';
     return '<div class="vh-payment-box"><span>Pay to '+esc(primary[0])+'</span><strong id="vhPaymentNumber">'+esc(primary[1])+'</strong>'+secondary+
@@ -269,7 +269,7 @@
       (request.landmark?'<p><b>Landmark:</b> '+esc(request.landmark)+'</p>':'')+
       (map?'<a class="vh-map-link" href="'+esc(map)+'" target="_blank" rel="noopener">📍 Open Exact Location</a>':'')+
       ((!map && request.latitude!=null && request.longitude!=null)?'<a class="vh-map-link" href="https://www.google.com/maps?q='+encodeURIComponent(request.latitude+','+request.longitude)+'" target="_blank" rel="noopener">📍 Open Coordinates</a>':'')+
-      '<small>Your payment unlocked viewing information only. It is not rent or a house deposit.</small></div>';
+      '<small>Your payment unlocked viewing information only. It is not rent, a tenancy deposit, or a property purchase payment.</small></div>';
   };
 
   const startAccess=async listing=>{
@@ -298,12 +298,12 @@
     $('vhAccessArea').innerHTML=existingNote+
       '<form id="vhAccessForm" class="vh-access-form">'+
       '<h4>Viewing & Exact Location Access</h4>'+
-      '<p>This <strong>'+esc(money(fee))+'</strong> is a LEOGO viewing/access fee. It is not rent, booking deposit or tenancy deposit.</p>'+
+      '<p>This <strong>'+esc(money(fee))+'</strong> is a LEOGO viewing/access fee. It is not rent, a tenancy deposit, or a property purchase payment.</p>'+
       (fee>0?paymentDestination(account):'<div class="vh-payment-box"><strong>No viewing fee currently required</strong></div>')+
       (fee>0?'<label><span>M-Pesa / payment reference</span><textarea name="payment_reference" minlength="6" maxlength="300" required placeholder="Paste the payment confirmation/reference"></textarea></label>':'')+
       '<label><span>Preferred viewing date & time <small>(optional)</small></span><input name="preferred_viewing_at" type="datetime-local"></label>'+
       '<label><span>Message to landlord/agent <small>(optional)</small></span><textarea name="message" maxlength="1000" rows="2"></textarea></label>'+
-      '<label class="vh-consent"><input name="consent" type="checkbox" required> I understand this payment only unlocks verified viewing contact/location and does not reserve or rent the house.</label>'+
+      '<label class="vh-consent"><input name="consent" type="checkbox" required> I understand this payment only unlocks verified viewing contact/location and does not rent, reserve or purchase the property.</label>'+
       '<div id="vhAccessStatus" class="vh-status"></div>'+
       '<button class="vh-primary" type="submit" '+(fee>0&&!account?'disabled':'')+'>'+esc(fee>0?'Submit Payment for Verification':'Unlock Viewing Details')+'</button></form>';
     const copy=$('vhCopyPayment');
