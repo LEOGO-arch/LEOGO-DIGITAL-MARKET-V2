@@ -15,30 +15,30 @@
   host.className='admin-panel';
   host.dataset.adminPanel='vacant_houses';
   host.innerHTML=`
-    <div class="section-head"><div><span>PROPERTY MARKET</span><h2>Vacant Houses</h2><p>Approve customer house submissions, configure Shopping Vouchers and viewing/access fees, verify payments, and control vacancy status.</p></div><button id="vhAdminRefresh" class="primary-button" type="button">↻ Refresh Vacant Houses</button></div>
+    <div class="section-head"><div><span>PROPERTY MARKET</span><h2>Houses &amp; Property</h2><p>Approve property for rent or sale, configure Shopping Vouchers and viewing/access fees, verify payments, and control listing status.</p></div><button id="vhAdminRefresh" class="primary-button" type="button">↻ Refresh Property</button></div>
     <div class="vh-admin-summary">
       <article><span>Pending Listings</span><strong id="vhAdminPending">0</strong><small>Needs review</small></article>
-      <article><span>Vacant & Live</span><strong id="vhAdminLive">0</strong><small>Public houses</small></article>
-      <article><span>Occupied</span><strong id="vhAdminOccupied">0</strong><small>Hidden from public</small></article>
+      <article><span>Live Listings</span><strong id="vhAdminLive">0</strong><small>Rent + sale</small></article>
+      <article><span>Occupied / Sold</span><strong id="vhAdminOccupied">0</strong><small>Hidden from public</small></article>
       <article><span>Payment Review</span><strong id="vhAdminPayments">0</strong><small>Viewing access fees</small></article>
       <article><span>Access Granted</span><strong id="vhAdminGranted">0</strong><small>Verified/waived</small></article>
     </div>
     <section class="content-card vh-admin-settings">
-      <div class="card-head"><div><span>ADMIN CONTROLS</span><h3>Vacant House Rules</h3><p>The submission reward is credited as non-withdrawable LEOGO Shopping Voucher points only after Admin approves the house.</p></div></div>
+      <div class="card-head"><div><span>ADMIN CONTROLS</span><h3>Property Market Rules</h3><p>The submission reward is credited as non-withdrawable LEOGO Shopping Voucher points only after Admin approves the property.</p></div></div>
       <form id="vhAdminSettingsForm" class="vh-admin-settings-form">
-        <label class="switch-label"><input id="vhAdminEnabled" type="checkbox"><span>Vacant Houses module enabled</span></label>
+        <label class="switch-label"><input id="vhAdminEnabled" type="checkbox"><span>Houses &amp; Property module enabled</span></label>
         <label class="switch-label"><input id="vhAdminVoucherEnabled" type="checkbox"><span>Reward approved customer submissions</span></label>
         <label><span>Submission Shopping Voucher (KSh)</span><input id="vhAdminVoucher" type="number" min="0" max="1000000" step="1" required></label>
         <label><span>Viewing / exact-location access fee (KSh)</span><input id="vhAdminFee" type="number" min="0" max="1000000" step="1" required></label>
         <label><span>Viewing fee payment account</span><select id="vhAdminPaymentAccount"><option value="">Select active payment account</option></select></label>
-        <button class="primary-button" type="submit">Save Vacant House Settings</button>
+        <button class="primary-button" type="submit">Save Property Settings</button>
       </form>
       <div id="vhAdminSettingsStatus" class="form-status"></div>
     </section>
     <div class="vh-admin-columns">
       <section class="content-card">
-        <div class="card-head"><div><span>HOUSE APPROVALS</span><h3>Submitted Houses</h3><p>Exact address and contact are visible here for Admin verification, but never in the public house feed.</p></div><select id="vhAdminListingFilter"><option value="attention">Needs attention</option><option value="all">All listings</option><option value="approved">Approved</option><option value="occupied">Occupied</option><option value="rejected">Rejected</option></select></div>
-        <div id="vhAdminListingList" class="vh-admin-list"><div class="loading-card">Loading house submissions…</div></div>
+        <div class="card-head"><div><span>PROPERTY APPROVALS</span><h3>Submitted Property</h3><p>Exact address and contact are visible here for Admin verification, but never in the public property feed.</p></div><select id="vhAdminListingFilter"><option value="attention">Needs attention</option><option value="all">All listings</option><option value="approved">Approved</option><option value="occupied">Occupied / Sold</option><option value="rejected">Rejected</option></select></div>
+        <div id="vhAdminListingList" class="vh-admin-list"><div class="loading-card">Loading property submissions…</div></div>
       </section>
       <section class="content-card">
         <div class="card-head"><div><span>VIEWING PAYMENTS</span><h3>Exact Location Access</h3><p>Verify the submitted payment reference before the customer can receive landlord/agent contact and exact location.</p></div><select id="vhAdminPaymentFilter"><option value="attention">Needs verification</option><option value="all">All requests</option><option value="verified">Verified</option><option value="rejected">Rejected</option></select></div>
@@ -53,7 +53,7 @@
 
   const renderSummary=()=>{
     const s=state.summary||{};
-    [['vhAdminPending',s.pending_listings],['vhAdminLive',s.vacant_listings],['vhAdminOccupied',s.occupied_listings],['vhAdminPayments',s.pending_payments],['vhAdminGranted',s.verified_access]].forEach(([id,v])=>{const e=$('#'+id);if(e)e.textContent=Number(v||0).toLocaleString('en-KE');});
+    [['vhAdminPending',s.pending_listings],['vhAdminLive',Number(s.vacant_listings||0)+Number(s.sale_listings||0)],['vhAdminOccupied',s.occupied_listings],['vhAdminPayments',s.pending_payments],['vhAdminGranted',s.verified_access]].forEach(([id,v])=>{const e=$('#'+id);if(e)e.textContent=Number(v||0).toLocaleString('en-KE');});
     const badge=$('#sidebarVacantHouseCount');
     if(badge){const n=Number(s.pending_listings||0)+Number(s.pending_payments||0);badge.textContent=n;badge.hidden=false;}
   };
@@ -75,26 +75,37 @@
     const f=$('#vhAdminListingFilter')?.value||'attention';
     if(f==='all')return true;
     if(f==='attention')return ['pending','under_review'].includes(l.approval_status);
-    if(f==='occupied')return l.availability_status==='occupied';
+    if(f==='occupied')return ['occupied','sold'].includes(l.availability_status);
     return l.approval_status===f;
   };
 
   const renderListings=()=>{
     const list=$('#vhAdminListingList');
     const rows=state.listings.filter(listingMatches);
-    if(!rows.length){list.innerHTML='<div class="loading-card">No house submissions in this filter.</div>';return;}
+    if(!rows.length){list.innerHTML='<div class="loading-card">No property submissions in this filter.</div>';return;}
     list.innerHTML=rows.map(l=>{
       const img=photoUrl((l.photo_paths||[])[0]);
       const pending=['pending','under_review'].includes(l.approval_status);
+      const forSale=l.listing_purpose==='sale';
+      const availability=forSale && l.availability_status==='vacant' ? 'Available' : label(l.availability_status);
+      const price=forSale?l.sale_price_kes:l.monthly_rent_kes;
+      const priceLabel=forSale?'Sale Price':'Monthly Rent';
+      const saleDetails=forSale
+        ? (l.property_size_text?'<p><b>Property size:</b> '+esc(l.property_size_text)+'</p>':'')+
+          (l.ownership_note?'<p><b>Ownership / title:</b> '+esc(l.ownership_note)+'</p>':'')
+        : '<p><b>Deposit:</b> '+esc(money(l.deposit_kes))+'</p>';
+      const statusButtons=forSale
+        ? '<button data-vh-status="'+esc(l.id)+'" data-status="vacant">Mark Available</button><button data-vh-status="'+esc(l.id)+'" data-status="sold">Mark Sold</button><button data-vh-status="'+esc(l.id)+'" data-status="archived">Archive</button>'
+        : '<button data-vh-status="'+esc(l.id)+'" data-status="vacant">Mark Vacant</button><button data-vh-status="'+esc(l.id)+'" data-status="occupied">Mark Occupied</button><button data-vh-status="'+esc(l.id)+'" data-status="archived">Archive</button>';
       return '<article class="vh-admin-card">'+
         '<div class="vh-admin-photo">'+(img?'<img src="'+esc(img)+'" alt="'+esc(l.title)+'">':'<span>🏠</span>')+'</div>'+
-        '<div class="vh-admin-copy"><div class="vh-admin-card-head"><div><span>'+esc(l.listing_reference)+'</span><h4>'+esc(l.title)+'</h4></div><b>'+esc(label(l.approval_status))+' · '+esc(label(l.availability_status))+'</b></div>'+
-        '<div class="vh-admin-facts"><span><small>Rent</small>'+esc(money(l.monthly_rent_kes))+'</span><span><small>General area</small>'+esc(l.area_estate+', '+l.sub_county+', '+l.county)+'</span><span><small>Submitter</small>'+esc(l.submitter_name||'Customer')+' · '+esc(label(l.submitter_role))+'</span></div>'+
-        '<details><summary>Private verification details</summary><div class="vh-admin-private"><p><b>Contact:</b> '+esc(l.contact_name||'—')+' · '+esc(l.contact_phone||'—')+'</p><p><b>Exact address:</b> '+esc(l.exact_address||'—')+'</p><p><b>Landmark:</b> '+esc(l.landmark||'—')+'</p><p><b>Coordinates:</b> '+esc(l.latitude??'—')+', '+esc(l.longitude??'—')+'</p>'+(l.maps_link?'<p><a href="'+esc(l.maps_link)+'" target="_blank" rel="noopener">Open submitted map link ↗</a></p>':'')+'<p>'+esc(l.description||'')+'</p></div></details>'+
+        '<div class="vh-admin-copy"><div class="vh-admin-card-head"><div><span>'+esc(l.listing_reference)+' · '+(forSale?'FOR SALE':'FOR RENT')+'</span><h4>'+esc(l.title)+'</h4></div><b>'+esc(label(l.approval_status))+' · '+esc(availability)+'</b></div>'+
+        '<div class="vh-admin-facts"><span><small>'+priceLabel+'</small>'+esc(money(price))+'</span><span><small>General area</small>'+esc(l.area_estate+', '+l.sub_county+', '+l.county)+'</span><span><small>Submitter</small>'+esc(l.submitter_name||'Customer')+' · '+esc(label(l.submitter_role))+'</span></div>'+
+        '<details><summary>Property & private verification details</summary><div class="vh-admin-private">'+saleDetails+'<p><b>Contact:</b> '+esc(l.contact_name||'—')+' · '+esc(l.contact_phone||'—')+'</p><p><b>Exact address:</b> '+esc(l.exact_address||'—')+'</p><p><b>Landmark:</b> '+esc(l.landmark||'—')+'</p><p><b>Coordinates:</b> '+esc(l.latitude??'—')+', '+esc(l.longitude??'—')+'</p>'+(l.maps_link?'<p><a href="'+esc(l.maps_link)+'" target="_blank" rel="noopener">Open submitted map link ↗</a></p>':'')+'<p>'+esc(l.description||'')+'</p></div></details>'+
         (Number(l.voucher_amount_kes)>0?'<div class="vh-admin-voucher">🎁 '+esc(money(l.voucher_amount_kes))+' Shopping Voucher credited</div>':'')+
         '<div class="vh-admin-actions">'+
           (pending?'<button data-vh-review="'+esc(l.id)+'" data-action="approve" class="approve">Approve & Publish</button><button data-vh-review="'+esc(l.id)+'" data-action="under_review">Under Review</button><button data-vh-review="'+esc(l.id)+'" data-action="reject" class="reject">Reject</button>':'')+
-          (l.approval_status==='approved'?'<button data-vh-status="'+esc(l.id)+'" data-status="vacant">Mark Vacant</button><button data-vh-status="'+esc(l.id)+'" data-status="occupied">Mark Occupied</button><button data-vh-status="'+esc(l.id)+'" data-status="archived">Archive</button>':'')+
+          (l.approval_status==='approved'?statusButtons:'')+
         '</div></div></article>';
     }).join('');
   };
@@ -112,7 +123,7 @@
     if(!rows.length){list.innerHTML='<div class="loading-card">No viewing requests in this filter.</div>';return;}
     list.innerHTML=rows.map(r=>
       '<article class="vh-admin-request">'+
-        '<div class="vh-admin-card-head"><div><span>'+esc(r.request_reference)+'</span><h4>'+esc(r.title)+'</h4></div><b>'+esc(label(r.payment_status))+'</b></div>'+
+        '<div class="vh-admin-card-head"><div><span>'+esc(r.request_reference)+' · '+(r.listing_purpose==='sale'?'FOR SALE':'FOR RENT')+'</span><h4>'+esc(r.title)+'</h4></div><b>'+esc(label(r.payment_status))+'</b></div>'+
         '<p><strong>'+esc(r.customer_name||'Customer')+'</strong> · '+esc(r.customer_phone||'No saved phone')+'</p>'+
         '<div class="vh-admin-payment-ref"><small>Expected fee</small><strong>'+esc(money(r.fee_amount_kes))+'</strong><small>Submitted reference</small><code>'+esc(r.payment_reference||'—')+'</code></div>'+
         (r.preferred_viewing_at?'<p>Preferred viewing: '+esc(new Date(r.preferred_viewing_at).toLocaleString('en-KE'))+'</p>':'')+
@@ -128,14 +139,14 @@
   const load=async()=>{
     if(loading)return;
     loading=true;
-    setStatus('Loading Vacant Houses…');
+    setStatus('Loading property marketplace…');
     try{
       const {data,error}=await db.rpc('admin_get_vacant_house_dashboard');
       if(error)throw error;
       state={...state,...(data||{})};
       render();
-      setStatus('Vacant Houses synchronized.','success');
-    }catch(e){setStatus(e.message||'Vacant Houses could not load.','error');}
+      setStatus('Property marketplace synchronized.','success');
+    }catch(e){setStatus(e.message||'Property marketplace could not load.','error');}
     finally{loading=false;}
   };
 
@@ -145,7 +156,7 @@
 
   $('#vhAdminSettingsForm').addEventListener('submit',async ev=>{
     ev.preventDefault();
-    setSettingsStatus('Saving Vacant House settings…');
+    setSettingsStatus('Saving property settings…');
     try{
       const {error}=await db.rpc('admin_save_vacant_house_settings',{
         p_is_enabled:$('#vhAdminEnabled').checked,
@@ -159,7 +170,7 @@
         const assigned=await db.rpc('admin_assign_payment_account',{p_function_code:'vacant_house_viewing',p_account_id:account});
         if(assigned.error)throw assigned.error;
       }
-      setSettingsStatus('Vacant House settings saved.','success');
+      setSettingsStatus('Property settings saved.','success');
       await load();
     }catch(e){setSettingsStatus(e.message||'Could not save settings.','error');}
   });
