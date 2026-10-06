@@ -167,8 +167,8 @@
     $('vhPublicFee').textContent=money(state.settings.viewing_access_fee_kes);
     $('vhMaxPhotos').textContent=state.settings.max_photos||8;
     $('vhRewardBanner').innerHTML=state.settings.voucher_enabled && Number(state.settings.submission_voucher_kes)>0
-      ? '🎁 <strong>List a real vacant house:</strong> when LEOGO Admin approves it, the submitting customer earns a Shopping Voucher worth <strong>'+esc(money(state.settings.submission_voucher_kes))+'</strong> as non-withdrawable LEOGO Points.'
-      : 'Submit a genuine vacant house for LEOGO Admin verification. Shopping Vouchers are currently disabled.';
+      ? '🎁 <strong>List a genuine property:</strong> when LEOGO Admin approves it, the submitting customer earns a Shopping Voucher worth <strong>'+esc(money(state.settings.submission_voucher_kes))+'</strong> as non-withdrawable LEOGO Points.'
+      : 'Submit a genuine property for LEOGO Admin verification. Shopping Vouchers are currently disabled.';
   };
 
   const loadSettings=async()=>{
@@ -353,16 +353,21 @@
 
   const renderMine=()=>{
     const sh=$('vhMySubmissions'),rh=$('vhMyRequests');
-    sh.innerHTML=state.mySubmissions.length?state.mySubmissions.map(l=>
-      '<article><div><span>'+esc(l.listing_reference)+'</span><strong>'+esc(l.title)+'</strong><small>'+esc(statusLabel(l.approval_status))+' · '+esc(statusLabel(l.availability_status))+'</small>'+
-      (Number(l.voucher_amount_kes)>0?'<b>🎁 '+esc(money(l.voucher_amount_kes))+' Shopping Voucher credited</b>':'')+
-      (l.admin_notes?'<em>Admin: '+esc(l.admin_notes)+'</em>':'')+'</div>'+
-      (l.approval_status==='approved'?'<select data-vh-owner-status="'+esc(l.id)+'"><option value="vacant" '+(l.availability_status==='vacant'?'selected':'')+'>Vacant</option><option value="occupied" '+(l.availability_status==='occupied'?'selected':'')+'>Occupied</option><option value="archived" '+(l.availability_status==='archived'?'selected':'')+'>Archive</option></select>':'')+
-      '</article>'
-    ).join(''):'<div class="vh-empty-mini">No house submissions yet.</div>';
+    sh.innerHTML=state.mySubmissions.length?state.mySubmissions.map(l=>{
+      const forSale=l.listing_purpose==='sale';
+      const statusOptions=forSale
+        ? '<option value="vacant" '+(l.availability_status==='vacant'?'selected':'')+'>Available</option><option value="sold" '+(l.availability_status==='sold'?'selected':'')+'>Sold</option><option value="archived" '+(l.availability_status==='archived'?'selected':'')+'>Archive</option>'
+        : '<option value="vacant" '+(l.availability_status==='vacant'?'selected':'')+'>Vacant</option><option value="occupied" '+(l.availability_status==='occupied'?'selected':'')+'>Occupied</option><option value="archived" '+(l.availability_status==='archived'?'selected':'')+'>Archive</option>';
+      const price=forSale?money(l.sale_price_kes):money(l.monthly_rent_kes)+' / month';
+      return '<article><div><span>'+esc(l.listing_reference)+' · '+(forSale?'FOR SALE':'FOR RENT')+'</span><strong>'+esc(l.title)+'</strong><small>'+esc(price)+' · '+esc(statusLabel(l.approval_status))+' · '+esc(forSale&&l.availability_status==='vacant'?'Available':statusLabel(l.availability_status))+'</small>'+
+        (Number(l.voucher_amount_kes)>0?'<b>🎁 '+esc(money(l.voucher_amount_kes))+' Shopping Voucher credited</b>':'')+
+        (l.admin_notes?'<em>Admin: '+esc(l.admin_notes)+'</em>':'')+'</div>'+
+        (l.approval_status==='approved'?'<select data-vh-owner-status="'+esc(l.id)+'">'+statusOptions+'</select>':'')+
+        '</article>';
+    }).join(''):'<div class="vh-empty-mini">No property submissions yet.</div>';
 
     rh.innerHTML=state.myRequests.length?state.myRequests.map(r=>
-      '<article><div><span>'+esc(r.request_reference)+'</span><strong>'+esc(r.title)+'</strong><small>'+esc(statusLabel(r.payment_status))+' · '+esc(money(r.fee_amount_kes))+'</small>'+
+      '<article><div><span>'+esc(r.request_reference)+' · '+(r.listing_purpose==='sale'?'FOR SALE':'FOR RENT')+'</span><strong>'+esc(r.title)+'</strong><small>'+esc(statusLabel(r.payment_status))+' · '+esc(money(r.fee_amount_kes))+'</small>'+
       (r.admin_notes?'<em>Admin: '+esc(r.admin_notes)+'</em>':'')+
       (['verified','waived'].includes(r.payment_status)?showUnlocked(r):'<b>🔒 Exact location and contact remain locked until payment verification.</b>')+
       '</div></article>'
@@ -383,7 +388,7 @@
       const {error}=await client.rpc('customer_set_my_vacant_house_status',{p_listing_id:select.dataset.vhOwnerStatus,p_status:select.value});
       if(error)throw error;
       await Promise.all([loadMine(),loadPublic()]);
-    }catch(e){alert(e.message||'Could not update house status.');}
+    }catch(e){alert(e.message||'Could not update property status.');}
   });
 
   $('vhFilters').addEventListener('submit',ev=>{
@@ -392,6 +397,25 @@
   });
 
   $('vhRefreshMine').addEventListener('click',()=>loadMine().catch(e=>console.error(e)));
+
+  const syncListingPurposeFields=()=>{
+    const form=$('vhSubmitForm');
+    if(!form)return;
+    const forSale=form.elements.listing_purpose.value==='sale';
+    $('#vhRentField').hidden=forSale;
+    $('#vhDepositField').hidden=forSale;
+    $('#vhAvailableFromField').hidden=forSale;
+    $('#vhSalePriceField').hidden=!forSale;
+    $('#vhPropertySizeField').hidden=!forSale;
+    $('#vhOwnershipField').hidden=!forSale;
+    form.elements.monthly_rent_kes.required=!forSale;
+    form.elements.deposit_kes.required=!forSale;
+    form.elements.available_from.required=!forSale;
+    form.elements.sale_price_kes.required=forSale;
+  };
+
+  $('vhListingPurpose').addEventListener('change',syncListingPurposeFields);
+  syncListingPurposeFields();
 
   $('vhOpenSubmit').addEventListener('click',async()=>{
     try{
@@ -424,10 +448,10 @@
       const fd=new FormData(form);
       const files=[...(form.elements.photos.files||[])];
       const max=Number(state.settings.max_photos||8);
-      if(!files.length)throw new Error('Add at least one house photo.');
-      if(files.length>max)throw new Error('Add no more than '+max+' photos.');
+      if(!files.length)throw new Error('Add at least one property photo.');
+      if(files.length>max)throw new Error('Add no more than '+max+' property photos.');
       button.disabled=true;
-      notify(submitStatus,'Uploading house photos…');
+      notify(submitStatus,'Uploading property photos…');
       const draft=crypto.randomUUID();
       for(let i=0;i<files.length;i++){
         const file=files[i];
@@ -437,11 +461,15 @@
         if(error)throw error;
         uploaded.push(path);
       }
-      notify(submitStatus,'Submitting house to LEOGO Admin…');
+      notify(submitStatus,'Submitting property to LEOGO Admin…');
       const payload={
         submitter_role:String(fd.get('submitter_role')||'other'),
+        listing_purpose:String(fd.get('listing_purpose')||'rent'),
         title:String(fd.get('title')||'').trim(),house_type:String(fd.get('house_type')||''),
         monthly_rent_kes:Number(fd.get('monthly_rent_kes')||0),deposit_kes:Number(fd.get('deposit_kes')||0),
+        sale_price_kes:Number(fd.get('sale_price_kes')||0),
+        property_size_text:String(fd.get('property_size_text')||'').trim(),
+        ownership_note:String(fd.get('ownership_note')||'').trim(),
         available_from:String(fd.get('available_from')||''),county:String(fd.get('county')||'').trim(),
         sub_county:String(fd.get('sub_county')||'').trim(),area_estate:String(fd.get('area_estate')||'').trim(),
         bedrooms:Number(fd.get('bedrooms')||0),bathrooms:Number(fd.get('bathrooms')||0),
@@ -461,10 +489,11 @@
         (Number(data.voucher_on_approval_kes)>0?' If approved, '+money(data.voucher_on_approval_kes)+' will be credited as a Shopping Voucher.':''),'success');
       form.reset();
       form.elements.available_from.value=new Date().toISOString().slice(0,10);
+      syncListingPurposeFields();
       await loadMine();
     }catch(e){
       if(uploaded.length)client.storage.from(BUCKET).remove(uploaded).catch(()=>{});
-      notify(submitStatus,e.message||'Could not submit vacant house.','error');
+      notify(submitStatus,e.message||'Could not submit property.','error');
     }finally{button.disabled=false;}
   });
 
@@ -474,7 +503,7 @@
       await loadPublic();
       await loadMine();
     }catch(e){
-      notify(publicStatus,e.message||'Vacant Houses could not load.','error');
+      notify(publicStatus,e.message||'Property marketplace could not load.','error');
     }
   };
 
