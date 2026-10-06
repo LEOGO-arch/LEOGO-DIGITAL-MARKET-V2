@@ -2,7 +2,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 
 const read=p=>fs.readFileSync(p,'utf8');
-const migration=read('supabase/migrations/20261006193000_shopping_voucher_checkout_rule.sql');
+const migration=read('supabase/migrations/20261006192701_shopping_voucher_checkout_rule.sql');
 const app=read('js/app.js');
 const wallet=read('js/wallet.js');
 const property=read('js/vacant-houses.js');
