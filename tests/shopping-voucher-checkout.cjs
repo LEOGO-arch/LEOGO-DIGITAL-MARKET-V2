@@ -6,11 +6,13 @@ const migration=read('supabase/migrations/20261006193000_shopping_voucher_checko
 const app=read('js/app.js');
 const wallet=read('js/wallet.js');
 const property=read('js/vacant-houses.js');
+const assisted=read('js/assisted-shopping.js');
 const html=read('index.html');
 
 new vm.Script(app,{filename:'js/app.js'});
 new vm.Script(wallet,{filename:'js/wallet.js'});
 new vm.Script(property,{filename:'js/vacant-houses.js'});
+new vm.Script(assisted,{filename:'js/assisted-shopping.js'});
 
 const must=(ok,msg)=>{if(!ok)throw new Error(msg);};
 
@@ -40,5 +42,10 @@ must(property.includes('Approved customer property submission can earn LEOGO Sho
 must(!property.includes('id="vhPublicFee">Loading…'),'Property header must not show a permanent fee Loading state.');
 must(!/\$\('#vh(?:Rent|Deposit|AvailableFrom|SalePrice|PropertySize|Ownership)Field'\)/.test(property),'Property field selector regression returned.');
 must(property.includes('Promise.allSettled'),'Property settings failure must not block public listing load.');
+must(assisted.includes('🎁 Use my LEOGO Shopping Voucher'),'Assisted Shopping voucher wording missing.');
+must(assisted.includes('const voucherEligible=rewardPointsBalance>0&&total>rewardPointsBalance;'),'Assisted Shopping total-above-balance rule missing.');
+must(assisted.includes('const maxByRule=Math.round(total*rewardMaxShare*100)/100;'),'Assisted Shopping 50% preview cap missing.');
+must(assisted.includes("button.textContent=usePoints?'Applying Voucher…':'Submitting…';"),'Assisted Shopping voucher submission state missing.');
+must(html.includes('js/assisted-shopping.js?v=shopping-voucher-rule-1'),'Assisted Shopping voucher cache-bust missing.');
 
 console.log('Shopping Voucher checkout rule regression checks passed.');
