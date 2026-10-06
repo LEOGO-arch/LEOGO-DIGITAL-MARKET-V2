@@ -116,7 +116,7 @@
     dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', assisted: 'Assisted Shopping', flashsales: 'Flash Sales', aftersales: 'Aftersales', customers: 'Customers',
     chat: 'Customer Care Chats', products: 'Products & Categories', sellers: 'Sellers', health: 'Health & Medicine', settlements: 'Partner Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
-    accommodation: 'Accommodation', vacant_houses: 'Vacant Houses', advertisements: 'Advertisements', loyalty: 'Loyalty & Rewards', reports: 'Reports',
+    accommodation: 'Accommodation', vacant_houses: 'Houses & Property', advertisements: 'Advertisements', loyalty: 'Loyalty & Rewards', reports: 'Reports',
     staff: 'Staff Management', settings: 'System Settings', diagnostics: 'System Diagnosis', audit: 'Audit Log'
   };
   const kindLabels = {
