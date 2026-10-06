@@ -123,7 +123,7 @@
     if(!rows.length){list.innerHTML='<div class="loading-card">No viewing requests in this filter.</div>';return;}
     list.innerHTML=rows.map(r=>
       '<article class="vh-admin-request">'+
-        '<div class="vh-admin-card-head"><div><span>'+esc(r.request_reference)+'</span><h4>'+esc(r.title)+'</h4></div><b>'+esc(label(r.payment_status))+'</b></div>'+
+        '<div class="vh-admin-card-head"><div><span>'+esc(r.request_reference)+' · '+(r.listing_purpose==='sale'?'FOR SALE':'FOR RENT')+'</span><h4>'+esc(r.title)+'</h4></div><b>'+esc(label(r.payment_status))+'</b></div>'+
         '<p><strong>'+esc(r.customer_name||'Customer')+'</strong> · '+esc(r.customer_phone||'No saved phone')+'</p>'+
         '<div class="vh-admin-payment-ref"><small>Expected fee</small><strong>'+esc(money(r.fee_amount_kes))+'</strong><small>Submitted reference</small><code>'+esc(r.payment_reference||'—')+'</code></div>'+
         (r.preferred_viewing_at?'<p>Preferred viewing: '+esc(new Date(r.preferred_viewing_at).toLocaleString('en-KE'))+'</p>':'')+
