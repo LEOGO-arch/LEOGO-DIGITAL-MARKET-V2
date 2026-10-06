@@ -116,7 +116,7 @@
     dashboard: 'Dashboard', approvals: 'Approval Center', orders: 'Orders', assisted: 'Assisted Shopping', flashsales: 'Flash Sales', aftersales: 'Aftersales', customers: 'Customers',
     chat: 'Customer Care Chats', products: 'Products & Categories', sellers: 'Sellers', health: 'Health & Medicine', settlements: 'Partner Settlements', providers: 'Service Providers',
     transport: 'Transport & Parcel Delivery', wallet: 'Wallet & SACCO', premium: 'Premium',
-    accommodation: 'Accommodation', advertisements: 'Advertisements', loyalty: 'Loyalty & Rewards', reports: 'Reports',
+    accommodation: 'Accommodation', vacant_houses: 'Vacant Houses', advertisements: 'Advertisements', loyalty: 'Loyalty & Rewards', reports: 'Reports',
     staff: 'Staff Management', settings: 'System Settings', diagnostics: 'System Diagnosis', audit: 'Audit Log'
   };
   const kindLabels = {
@@ -548,7 +548,7 @@
       transport: () => adminHas('orders.read') || adminHas('delivery.manage'),
       wallet: () => adminHas('approvals.read'),
       premium: () => adminHas('premium.read'),
-      accommodation: () => adminHas('approvals.read'),
+      accommodation: () => adminHas('approvals.read'),\n      vacant_houses: () => adminHas('approvals.read') || adminHas('settings.manage') || adminHas('fees.manage'),
       advertisements: () => adminHas('settings.manage'),
       loyalty: () => adminHas('settings.manage') || adminHas('fees.manage') || adminHas('reports.export'),
       reports: () => adminHas('reports.export'),
