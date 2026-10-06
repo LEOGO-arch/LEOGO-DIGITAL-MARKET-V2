@@ -33,7 +33,8 @@
   const rewardSourceLabel=(source)=>{
     if(source==='automatic_delivery')return 'AUTOMATIC SHOPPING';
     if(source==='referral_referrer')return 'REFERRAL VOUCHER';
-    if(source==='referral_welcome')return 'WELCOME VOUCHER';\n    if(source==='vacant_house_submission')return 'HOUSE LISTING VOUCHER';
+    if(source==='referral_welcome')return 'WELCOME VOUCHER';
+    if(source==='vacant_house_submission')return 'HOUSE LISTING VOUCHER';
     return 'ADMIN CREDIT';
   };
 
