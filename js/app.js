@@ -1105,6 +1105,7 @@
   let orderSettings = { cod_limit_kes:10000, service_fee_threshold_kes:3000, service_fee_below_percent:2, service_fee_at_or_above_percent:1.5 };
   let lipaPolePoleSettings = { cancellation_deduction_percent:25, overdue_refund_deduction_percent:25, overdue_interest_percent:5, reminder_days_before_due:3 };
   let checkoutRewardPointsBalance = 0;
+  let checkoutRewardMaxShare = 0.5;
   let updateCheckoutReadiness = () => {};
   const deliveryMoney=(value)=>'KSh '+Number(value||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 
@@ -1283,9 +1284,19 @@
 
   function updateCheckoutPointsTotals() {
     const total=Number(checkoutShell?.dataset.checkoutGrandTotal||0);
-    const usePoints=Boolean(document.getElementById('checkoutUsePoints')?.checked);
-    const applied=usePoints?Math.min(Math.max(0,checkoutRewardPointsBalance),Math.max(0,total)):0;
-    const due=Math.max(0,total-applied);
+    const balance=Math.max(0,Number(checkoutRewardPointsBalance||0));
+    const maxShare=Math.min(0.5,Math.max(0,Number(checkoutRewardMaxShare||0.5)));
+    const healthOnlyCart=testCart.length>0&&testCart.every((item)=>cartItemSource(item)==='health_medicine');
+    const eligible=!healthOnlyCart&&balance>0&&total>balance;
+    const toggle=document.getElementById('checkoutUsePoints');
+    if(toggle){
+      toggle.disabled=!eligible;
+      if(!eligible)toggle.checked=false;
+    }
+    const useVoucher=Boolean(toggle?.checked)&&eligible;
+    const maxByRule=Math.round(total*maxShare*100)/100;
+    const applied=useVoucher?Math.min(balance,maxByRule):0;
+    const due=Math.max(0,Math.round((total-applied)*100)/100);
     if(checkoutShell){
       checkoutShell.dataset.checkoutPointsApplied=String(applied);
       checkoutShell.dataset.checkoutExternalAmountDue=String(due);
@@ -1294,13 +1305,23 @@
     const dueNode=document.getElementById('checkoutAmountDue');
     const paymentPoints=document.getElementById('paymentPointsUsed');
     const paymentDue=document.getElementById('paymentAmountDue');
+    const availableNode=document.getElementById('checkoutPointsAvailable');
     const panel=document.getElementById('checkoutPointsPanel');
     if(appliedNode)appliedNode.textContent=deliveryMoney(applied);
     if(dueNode)dueNode.textContent=deliveryMoney(due);
     if(paymentPoints)paymentPoints.textContent=deliveryMoney(applied);
     if(paymentDue)paymentDue.textContent=deliveryMoney(due);
+    if(availableNode){
+      availableNode.textContent=healthOnlyCart
+        ? 'Shopping Voucher is not yet available for Health & Medicine checkout.'
+        : balance<=0
+          ? 'You do not have a Shopping Voucher balance yet.'
+          : total>0&&total<=balance
+            ? 'Voucher balance '+deliveryMoney(balance)+'. Checkout must be above '+deliveryMoney(balance)+' to use it.'
+            : 'Shopping Voucher balance '+deliveryMoney(balance)+' · covers up to 50% of eligible checkout.';
+    }
     panel?.classList.toggle('is-active',applied>0);
-    panel?.classList.toggle('is-covered',total>0&&due<=0&&applied>0);
+    panel?.classList.remove('is-covered');
   }
 
   function updateCheckoutFees() {
@@ -1434,43 +1455,25 @@
   const loadCheckoutRewardPoints = async () => {
     if (!window.leogoAuth?.isAuthenticated?.() || !window.leogoAuth?.client) {
       checkoutRewardPointsBalance=0;
-      if(checkoutUsePoints){
-        checkoutUsePoints.checked=false;
-        checkoutUsePoints.disabled=true;
-      }
-      if(checkoutPointsAvailable)checkoutPointsAvailable.textContent='Sign in to load your LEOGO Points.';
+      checkoutRewardMaxShare=0.5;
       updateCheckoutPointsTotals();
       syncSelectedPaymentPresentation();
       return 0;
     }
 
-    if(checkoutPointsAvailable)checkoutPointsAvailable.textContent='Loading your LEOGO Points…';
     const {data,error}=await window.leogoAuth.client.rpc('get_my_reward_points_balance');
     if(error||!data?.success){
       checkoutRewardPointsBalance=0;
-      if(checkoutUsePoints){
-        checkoutUsePoints.checked=false;
-        checkoutUsePoints.disabled=true;
-      }
-      if(checkoutPointsAvailable)checkoutPointsAvailable.textContent='Points could not be loaded. Refresh and try again.';
+      checkoutRewardMaxShare=0.5;
+      const available=document.getElementById('checkoutPointsAvailable');
+      if(available)available.textContent='Shopping Voucher could not be loaded. Refresh and try again.';
       updateCheckoutPointsTotals();
       syncSelectedPaymentPresentation();
       return 0;
     }
 
-    checkoutRewardPointsBalance=Math.max(0,Number(data.points_value_kes??data.points??0));
-    const healthOnlyCart=testCart.length>0&&testCart.every((item)=>cartItemSource(item)==='health_medicine');
-    if(checkoutUsePoints){
-      checkoutUsePoints.disabled=healthOnlyCart||checkoutRewardPointsBalance<=0;
-      if(healthOnlyCart)checkoutUsePoints.checked=false;
-    }
-    if(checkoutPointsAvailable){
-      checkoutPointsAvailable.textContent=healthOnlyCart
-        ? 'LEOGO Points are not yet available for Health & Medicine checkout.'
-        : checkoutRewardPointsBalance>0
-          ? Number(checkoutRewardPointsBalance).toLocaleString('en-KE',{maximumFractionDigits:2})+' points · worth '+deliveryMoney(checkoutRewardPointsBalance)
-          : 'You do not have usable LEOGO Points yet.';
-    }
+    checkoutRewardPointsBalance=Math.max(0,Number(data.shopping_voucher_balance_kes??data.points_value_kes??data.points??0));
+    checkoutRewardMaxShare=Math.min(0.5,Math.max(0,Number(data.max_checkout_cover_percent??50)/100));
     updateCheckoutPointsTotals();
     syncSelectedPaymentPresentation();
     return checkoutRewardPointsBalance;
@@ -1478,18 +1481,6 @@
 
   function syncSelectedPaymentPresentation() {
     const due=checkoutExternalAmountDueNumber();
-    const fullyCovered=checkoutPointsAppliedNumber()>0 && checkoutGrandTotalNumber()>0 && due<=0;
-
-    if(fullyCovered){
-      if(lppDepositForm)lppDepositForm.hidden=true;
-      if(walletCheckoutPanel)walletCheckoutPanel.hidden=true;
-      if(standardPaymentProof)standardPaymentProof.hidden=true;
-      if(standardPaymentActions)standardPaymentActions.hidden=false;
-      if(selectedPaymentLabel)selectedPaymentLabel.textContent='LEOGO Points';
-      if(selectedPaymentStatus)selectedPaymentStatus.textContent='Fully covered by points';
-      if(paymentStepStatus)paymentStepStatus.textContent='Your LEOGO Points cover the full order. No additional payment is required.';
-      return;
-    }
 
     if(!selectedCheckoutPayment){
       if(lppDepositForm)lppDepositForm.hidden=true;
@@ -1504,7 +1495,7 @@
     const labels={till:'M-Pesa Till',paybill:'M-Pesa Paybill',cod:'Cash on Delivery',lipapolepole:'Lipa Pole Pole',wallet:'LEOGO Savings Wallet'};
     if(selectedPaymentLabel)selectedPaymentLabel.textContent=labels[selectedCheckoutPayment]||selectedCheckoutPayment;
     if(selectedPaymentStatus)selectedPaymentStatus.textContent=checkoutPointsAppliedNumber()>0
-      ? 'Points applied · remaining payment pending'
+      ? 'Shopping Voucher applied · remaining payment pending'
       : 'Waiting for confirmation';
 
     const isLipaPolePole=selectedCheckoutPayment==='lipapolepole';
@@ -1522,7 +1513,7 @@
     }else if(selectedCheckoutPayment==='cod'){
       paymentProofLabel.textContent='Paste M-Pesa message for the Transport & Parcel Delivery fee';
       markPaymentPaidLabel.textContent=checkoutPointsAppliedNumber()>0
-        ? 'I confirm that I paid the required delivery fee first. LEOGO Points have been applied and I will pay the remaining COD amount on delivery.'
+        ? 'I confirm that I paid the required delivery fee first. my Shopping Voucher has been applied and I will pay the remaining COD amount on delivery.'
         : 'I confirm that I paid the Transport & Parcel Delivery fee first. I will pay the order balance in cash on delivery.';
     }else{
       const destinationNumber=window.leogoPayments?.paymentNumber(marketplacePaymentDestination)||'';
@@ -1530,7 +1521,7 @@
         ? 'Paste M-Pesa payment message after paying '+destinationNumber
         : 'Paste M-Pesa payment message';
       markPaymentPaidLabel.textContent=checkoutPointsAppliedNumber()>0
-        ? 'I confirm that I paid the remaining '+deliveryMoney(due)+' after my LEOGO Points were applied.'
+        ? 'I confirm that I paid the remaining '+deliveryMoney(due)+' after my Shopping Voucher was applied.'
         : 'I confirm that I prepaid this order to the Admin-assigned payment account and want to mark the payment as paid.';
     }
   }
@@ -1747,28 +1738,31 @@
     const healthCheckout=hasHealthCart&&!hasSellerCart;
     const usePoints=Boolean(checkoutUsePoints?.checked);
     if(healthCheckout&&usePoints){
-      paymentStepStatus.textContent='LEOGO Points are not yet connected to Health & Medicine checkout. Untick Points and use Till, Paybill or Cash on Delivery.';
+      paymentStepStatus.textContent='Shopping Voucher is not yet connected to Health & Medicine checkout. Untick the voucher and use Till, Paybill or Cash on Delivery.';
       return;
     }
     const previewDue=checkoutExternalAmountDueNumber();
-    const fullyCoveredByPoints=usePoints && checkoutPointsAppliedNumber()>0 && checkoutGrandTotalNumber()>0 && previewDue<=0;
 
-    if (!fullyCoveredByPoints && !selectedCheckoutPayment) {
+    if (usePoints && checkoutGrandTotalNumber()<=checkoutRewardPointsBalance) {
+      paymentStepStatus.textContent='Shopping Voucher can only be used when your checkout total is greater than your available voucher balance.';
+      return;
+    }
+    if (!selectedCheckoutPayment) {
       paymentStepStatus.textContent = 'Select a payment method for the remaining amount.';
       return;
     }
-    if (!fullyCoveredByPoints && !['till','paybill','cod'].includes(selectedCheckoutPayment)) {
+    if (!['till','paybill','cod'].includes(selectedCheckoutPayment)) {
       paymentStepStatus.textContent = 'For the remaining amount, use Till, Paybill or Cash on Delivery.';
       return;
     }
-    if (!fullyCoveredByPoints && !mpesaPaymentMessage.value.trim()) {
+    if (!mpesaPaymentMessage.value.trim()) {
       paymentStepStatus.textContent = selectedCheckoutPayment === 'cod'
         ? 'Paste the M-Pesa confirmation for the Transport & Parcel Delivery fee.'
         : 'Paste the complete M-Pesa payment confirmation message for the remaining amount.';
       mpesaPaymentMessage.focus();
       return;
     }
-    if (!fullyCoveredByPoints && !markPaymentPaid.checked) {
+    if (!markPaymentPaid.checked) {
       paymentStepStatus.textContent = 'Tick the payment confirmation box before making the order.';
       markPaymentPaid.focus();
       return;
@@ -1791,7 +1785,7 @@
     paymentStepStatus.textContent = healthCheckout
       ? 'Creating your Health & Medicine order and sending it to the Health Partner…'
       : usePoints
-        ? 'Securing your LEOGO Points and creating the order…'
+        ? 'Applying your Shopping Voucher and creating the order…'
         : 'Creating your order and sending it to the Seller…';
 
     try {
@@ -1806,8 +1800,8 @@
         p_landmark: document.getElementById('checkoutLandmark')?.value.trim() || null,
         p_location_link: document.getElementById('checkoutLocationLink')?.value.trim() || null,
         p_pickup_station_id: pickupStation?.id || null,
-        p_payment_method: fullyCoveredByPoints ? null : selectedCheckoutPayment,
-        p_payment_message: fullyCoveredByPoints ? null : mpesaPaymentMessage.value.trim()
+        p_payment_method: selectedCheckoutPayment,
+        p_payment_message: mpesaPaymentMessage.value.trim()
       };
       const orderRequest=healthCheckout
         ? await window.leogoAuth.client.rpc('customer_create_health_medicine_order',{
@@ -1827,20 +1821,14 @@
 
       const actualPoints=Number(data?.reward_points_redeemed_kes||0);
       const actualDue=Number(data?.external_amount_due_kes??data?.grand_total_kes??0);
-      if(actualDue<=0&&actualPoints>0){
-        selectedPaymentLabel.textContent='LEOGO Points';
-        selectedPaymentStatus.textContent='Paid fully with LEOGO Points';
-        paymentStepStatus.textContent='Order created successfully. '+deliveryMoney(actualPoints)+' in LEOGO Points covered the full order.';
-      }else{
-        selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod'
-          ? 'COD — '+deliveryMoney(actualDue)+' remaining'
-          : 'Payment submitted — '+deliveryMoney(actualDue)+' awaiting Admin verification';
-        paymentStepStatus.textContent = actualPoints>0
-          ? 'Order created successfully. '+deliveryMoney(actualPoints)+' in LEOGO Points was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
-          : healthCheckout
-            ? 'Health & Medicine order created successfully and sent to the Health Partner.'
-            : 'Order created successfully and sent to the Seller.';
-      }
+      selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod'
+        ? 'COD — '+deliveryMoney(actualDue)+' remaining'
+        : 'Payment submitted — '+deliveryMoney(actualDue)+' awaiting Admin verification';
+      paymentStepStatus.textContent = actualPoints>0
+        ? 'Order created successfully. '+deliveryMoney(actualPoints)+' from your Shopping Voucher was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
+        : healthCheckout
+          ? 'Health & Medicine order created successfully and sent to the Health Partner.'
+          : 'Order created successfully and sent to the Seller.';
 
       orderCreatedPanel.hidden = false;
       testCart = [];
