@@ -3,7 +3,8 @@ const vm=require('node:vm');
 
 const read=p=>fs.readFileSync(p,'utf8');
 const migration=read('supabase/migrations/20261006131644_vacant_houses_marketplace_v1.sql');
-const safeDefaults=read('supabase/migrations/20261006133217_vacant_houses_voucher_admin_set_default.sql');\nconst customer=read('js/vacant-houses.js');
+const safeDefaults=read('supabase/migrations/20261006133217_vacant_houses_voucher_admin_set_default.sql');
+const customer=read('js/vacant-houses.js');
 const customerCss=read('css/vacant-houses.css');
 const admin=read('admin/vacant-houses.js');
 const adminCss=read('admin/vacant-houses.css');
@@ -24,7 +25,6 @@ for(const needle of [
   'create table if not exists public.vacant_house_viewing_requests',
   'vacant-house-public-media',
   "viewing_access_fee_kes numeric(12,2) not null default 300",
-  "submission_voucher_kes numeric(12,2) not null default 100",
   "credit_source in (",
   "'vacant_house_submission'",
   "private.credit_vacant_house_submission_voucher",
@@ -42,6 +42,7 @@ for(const needle of [
   "revoke all on table private.vacant_house_private_details from public,anon,authenticated"
 ]) must(migration.includes(needle),'Missing Vacant Houses database behavior: '+needle);
 
+must(safeDefaults.includes('submission_voucher_kes set default 0') && safeDefaults.includes('voucher_enabled set default false'),'Submission voucher must start disabled at KSh 0 until Admin sets it.');
 must(migration.includes("'shopping_reward','credit'"),'House submission voucher must use non-withdrawable LEOGO Points.');
 must(migration.includes("approval_status='approved'") && migration.includes("availability_status='vacant'"),'Public feed must expose only approved vacant houses.');
 must(!/returns table\([\s\S]{0,1200}(contact_phone|exact_address|latitude|longitude)/.test(migration.match(/create or replace function public\.public_list_vacant_houses[\s\S]*?\$function\$;/)?.[0]||''),'Public listing RPC must not return protected location/contact.');
@@ -57,6 +58,7 @@ must(customer.includes("customer_submit_vacant_house_viewing_request"),'Customer
 must(customer.includes("contact_reveal_consent"),'Submitter consent gate missing.');
 must(customer.includes("It is not rent, booking deposit or tenancy deposit."),'Viewing fee must be distinguished from rent/deposit.');
 must(customer.includes("customer_set_my_vacant_house_status"),'Customer owner must be able to mark a house occupied/archive it.');
+must(customer.includes("voucher_enabled:false, submission_voucher_kes:0"),'Customer fallback must not invent a Shopping Voucher value.');
 
 must(adminHtml.includes('data-admin-view="vacant_houses"'),'Vacant Houses Admin navigation missing.');
 must(adminHtml.includes('vacant-houses.js?v=vacant-houses-v1'),'Vacant Houses Admin script missing.');
