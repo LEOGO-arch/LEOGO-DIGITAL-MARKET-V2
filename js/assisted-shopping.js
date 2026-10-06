@@ -46,6 +46,7 @@
   let paymentAccount=null;
   let pickupStations=[];
   let rewardPointsBalance=0;
+  let rewardMaxShare=0.5;
 
   const setStatus=(message='',type='')=>{
     statusBox.textContent=message;
@@ -136,8 +137,11 @@
     if(!orderRes.error&&orderRes.data)orderSettings=orderRes.data;
     if(!accountRes.error)paymentAccount=accountRes.data||null;
     rewardPointsBalance=!pointsRes.error&&pointsRes.data?.success
-      ? Math.max(0,Number(pointsRes.data.points_value_kes??pointsRes.data.points??0))
+      ? Math.max(0,Number(pointsRes.data.shopping_voucher_balance_kes??pointsRes.data.points_value_kes??pointsRes.data.points??0))
       : 0;
+    rewardMaxShare=!pointsRes.error&&pointsRes.data?.success
+      ? Math.min(0.5,Math.max(0,Number(pointsRes.data.max_checkout_cover_percent??50)/100))
+      : 0.5;
     feeNote.textContent='Current Assisted Shopping service fee: '+Number(settings.service_fee_percent||0).toLocaleString('en-KE',{maximumFractionDigits:2})+'%. LEOGO applies it to the prepared item subtotal and shows the full total before you approve.';
     if(requests.length)renderRequests();
   };
@@ -247,19 +251,23 @@
 
   const quoteActionsHtml=(row)=>{
     if(!['quotation_ready','payment_rejected'].includes(row.status))return '';
-    const pointsText=rewardPointsBalance>0
-      ? Number(rewardPointsBalance).toLocaleString('en-KE',{maximumFractionDigits:2})+' points · worth '+money(rewardPointsBalance)
-      : 'No usable LEOGO Points available';
+    const total=Math.max(0,Number(row.grand_total_kes||0));
+    const voucherEligible=rewardPointsBalance>0&&total>rewardPointsBalance;
+    const voucherText=rewardPointsBalance<=0
+      ? 'No Shopping Voucher balance available'
+      : !voucherEligible
+        ? 'Voucher balance '+money(rewardPointsBalance)+'. This checkout must be above that balance to use it.'
+        : 'Shopping Voucher balance '+money(rewardPointsBalance)+' · covers up to 50% of this checkout';
     return '<div class="assisted-customer-actions">'+
       '<form class="assisted-payment-form" data-assisted-payment-form="'+escapeHtml(row.id)+'">'+
         '<div class="assisted-payment-account">'+escapeHtml(paymentAccountText())+'</div>'+
-        '<label class="assisted-use-points"><input name="use_reward_points" type="checkbox" '+(rewardPointsBalance>0?'':'disabled')+'><span><b>⭐ Use my LEOGO Points</b><small>'+escapeHtml(pointsText)+'</small></span></label>'+
-        '<div class="assisted-points-preview"><span><small>Points applied</small><b data-assisted-points-applied>'+money(0)+'</b></span><span><small>Remaining to pay</small><b data-assisted-amount-due>'+money(row.grand_total_kes)+'</b></span></div>'+
+        '<label class="assisted-use-points"><input name="use_reward_points" type="checkbox" '+(voucherEligible?'':'disabled')+'><span><b>🎁 Use my LEOGO Shopping Voucher</b><small>'+escapeHtml(voucherText)+'</small></span></label>'+
+        '<div class="assisted-points-preview"><span><small>Voucher applied</small><b data-assisted-points-applied>'+money(0)+'</b></span><span><small>Remaining to pay</small><b data-assisted-amount-due>'+money(row.grand_total_kes)+'</b></span></div>'+
         '<div class="assisted-payment-fields">'+
           '<label><span>Payment method</span><select name="payment_method" required>'+paymentOptions()+'</select></label>'+
-          '<label><span>Payment reference</span><input name="payment_reference" maxlength="100" placeholder="Not required for COD or when points cover the full total"></label>'+
+          '<label><span>Payment reference</span><input name="payment_reference" maxlength="100" placeholder="Required for Till/Paybill remaining amount; not required for COD"></label>'+
         '</div>'+
-        '<small>1 LEOGO Point = KSh 1. COD applies only within the current LEOGO COD limit'+(orderSettings.cod_limit_kes!=null?' (below '+money(orderSettings.cod_limit_kes)+')':'')+'.</small>'+
+        '<small>Shopping Voucher can cover up to 50% of an eligible checkout. The checkout total must be greater than your available voucher balance. COD applies only within the current LEOGO COD limit'+(orderSettings.cod_limit_kes!=null?' (below '+money(orderSettings.cod_limit_kes)+')':'')+'.</small>'+
         '<button type="submit">Accept & Continue</button>'+
       '</form>'+
       '<button class="assisted-change-button" type="button" data-assisted-changes="'+escapeHtml(row.id)+'">Request Changes</button>'+
@@ -270,9 +278,15 @@
     if(!paymentForm)return {applied:0,due:0};
     const row=requests.find((item)=>String(item.id)===String(paymentForm.dataset.assistedPaymentForm));
     const total=Math.max(0,Number(row?.grand_total_kes||0));
-    const usePoints=Boolean(paymentForm.elements.use_reward_points?.checked);
-    const applied=usePoints?Math.min(rewardPointsBalance,total):0;
-    const due=Math.max(0,total-applied);
+    const voucherEligible=rewardPointsBalance>0&&total>rewardPointsBalance;
+    if(paymentForm.elements.use_reward_points&&!voucherEligible){
+      paymentForm.elements.use_reward_points.checked=false;
+      paymentForm.elements.use_reward_points.disabled=true;
+    }
+    const usePoints=Boolean(paymentForm.elements.use_reward_points?.checked)&&voucherEligible;
+    const maxByRule=Math.round(total*rewardMaxShare*100)/100;
+    const applied=usePoints?Math.min(rewardPointsBalance,maxByRule):0;
+    const due=Math.max(0,Math.round((total-applied)*100)/100);
     paymentForm.dataset.pointsApplied=String(applied);
     paymentForm.dataset.amountDue=String(due);
     const appliedNode=paymentForm.querySelector('[data-assisted-points-applied]');
@@ -280,7 +294,7 @@
     if(appliedNode)appliedNode.textContent=money(applied);
     if(dueNode)dueNode.textContent=money(due);
     paymentForm.classList.toggle('points-active',applied>0);
-    paymentForm.classList.toggle('points-covered',total>0&&due<=0&&applied>0);
+    paymentForm.classList.remove('points-covered');
     return {applied,due};
   };
 
@@ -458,7 +472,14 @@
     const method=paymentForm.elements.payment_method.value;
     const reference=paymentForm.elements.payment_reference.value.trim();
     const usePoints=Boolean(paymentForm.elements.use_reward_points?.checked);
+    const row=requests.find((item)=>String(item.id)===String(id));
+    const total=Math.max(0,Number(row?.grand_total_kes||0));
     const {applied,due}=updateAssistedPointsPreview(paymentForm);
+
+    if(usePoints&&total<=rewardPointsBalance){
+      window.alert('Shopping Voucher can only be used when this checkout total is greater than your available voucher balance.');
+      return;
+    }
 
     if(due>0&&method!=='cod'&&reference.length<3){
       window.alert('Enter the M-Pesa payment reference for the remaining '+money(due)+'.');
@@ -467,7 +488,7 @@
 
     const original=button.textContent;
     button.disabled=true;
-    button.textContent=usePoints?'Applying Points…':'Submitting…';
+    button.textContent=usePoints?'Applying Voucher…':'Submitting…';
     try{
       const {data,error}=await client().rpc('customer_accept_assisted_shopping_quote_v2',{
         p_request_id:id,

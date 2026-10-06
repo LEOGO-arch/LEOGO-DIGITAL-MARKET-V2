@@ -56,11 +56,10 @@
     <div class="vh-head">
       <div><span>LEOGO PROPERTY MARKET</span><h2>🏠 Houses &amp; Property</h2><p>Browse Admin-approved property for rent or for sale. Exact location and owner/agent contact stay private until viewing access is verified.</p></div>
       <div class="vh-head-actions">
-        <div class="vh-fee-chip"><small>Viewing & access fee</small><strong id="vhPublicFee">Loading…</strong><span>Admin-managed</span></div>
         <button id="vhOpenSubmit" type="button">＋ Submit Property</button>
       </div>
     </div>
-    <div class="vh-reward-banner" id="vhRewardBanner">Approved customer property submissions can earn an Admin-set LEOGO Shopping Voucher.</div>
+    <div class="vh-reward-banner" id="vhRewardBanner">Approved customer property submission can earn LEOGO Shopping Voucher.</div>
     <form class="vh-filters" id="vhFilters">
       <select id="vhPurpose"><option value="">Rent &amp; Sale</option><option value="rent">For Rent</option><option value="sale">For Sale</option></select>
       <input id="vhSearch" type="search" placeholder="Search estate, town or description">
@@ -77,7 +76,7 @@
       <input id="vhMaxPrice" type="number" min="0" step="100" placeholder="Max price">
       <button type="submit">Search Houses</button>
     </form>
-    <div id="vhPublicStatus" class="vh-status">Loading approved property listings…</div>
+    <div id="vhPublicStatus" class="vh-status"></div>
     <div id="vhGrid" class="vh-grid"></div>
     <section class="vh-mine" id="vhMine" hidden>
       <div class="vh-mine-head"><div><span>MY PROPERTY</span><h3>Submissions &amp; Viewing Access</h3></div><button id="vhRefreshMine" type="button">↻ Refresh</button></div>
@@ -164,11 +163,7 @@
   document.querySelectorAll('[data-vh-submit-close]').forEach(b=>b.addEventListener('click',()=>close(submitModal)));
 
   const renderSettings=()=>{
-    $('vhPublicFee').textContent=money(state.settings.viewing_access_fee_kes);
     $('vhMaxPhotos').textContent=state.settings.max_photos||8;
-    $('vhRewardBanner').innerHTML=state.settings.voucher_enabled && Number(state.settings.submission_voucher_kes)>0
-      ? '🎁 <strong>List a genuine property:</strong> when LEOGO Admin approves it, the submitting customer earns a Shopping Voucher worth <strong>'+esc(money(state.settings.submission_voucher_kes))+'</strong> as non-withdrawable LEOGO Points.'
-      : 'Submit a genuine property for LEOGO Admin verification. Shopping Vouchers are currently disabled.';
   };
 
   const loadSettings=async()=>{
@@ -179,7 +174,6 @@
   };
 
   const loadPublic=async()=>{
-    notify(publicStatus,'Loading approved property listings…');
     const {data,error}=await client.rpc('public_list_property_marketplace',{
       p_search:$('vhSearch').value.trim()||null,
       p_county:$('vhCounty').value.trim()||null,
@@ -402,12 +396,12 @@
     const form=$('vhSubmitForm');
     if(!form)return;
     const forSale=form.elements.listing_purpose.value==='sale';
-    $('#vhRentField').hidden=forSale;
-    $('#vhDepositField').hidden=forSale;
-    $('#vhAvailableFromField').hidden=forSale;
-    $('#vhSalePriceField').hidden=!forSale;
-    $('#vhPropertySizeField').hidden=!forSale;
-    $('#vhOwnershipField').hidden=!forSale;
+    $('vhRentField').hidden=forSale;
+    $('vhDepositField').hidden=forSale;
+    $('vhAvailableFromField').hidden=forSale;
+    $('vhSalePriceField').hidden=!forSale;
+    $('vhPropertySizeField').hidden=!forSale;
+    $('vhOwnershipField').hidden=!forSale;
     form.elements.monthly_rent_kes.required=!forSale;
     form.elements.deposit_kes.required=!forSale;
     form.elements.available_from.required=!forSale;
@@ -498,13 +492,13 @@
   });
 
   const initialize=async()=>{
-    try{
-      await loadSettings();
-      await loadPublic();
-      await loadMine();
-    }catch(e){
-      notify(publicStatus,e.message||'Property marketplace could not load.','error');
-    }
+    const [settingsResult,publicResult]=await Promise.allSettled([
+      loadSettings(),
+      loadPublic()
+    ]);
+    if(settingsResult.status==='rejected')console.warn('Property settings could not load:',settingsResult.reason);
+    if(publicResult.status==='rejected')notify(publicStatus,publicResult.reason?.message||'Property marketplace could not load.','error');
+    await loadMine().catch(()=>{});
   };
 
   client.auth.onAuthStateChange(()=>setTimeout(()=>loadMine().catch(()=>{}),0));

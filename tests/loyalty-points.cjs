@@ -22,13 +22,13 @@ const need=(source,needle,label)=>{
   if(!source.includes(needle))throw new Error('Missing '+label+': '+needle);
 };
 
-need(files.index,'id="checkoutUsePoints"','checkout points switch');
+need(files.index,'id="checkoutUsePoints"','checkout Shopping Voucher switch');
 need(files.index,'id="checkoutAmountDue"','checkout amount due');
 need(files.app,'get_my_reward_points_balance','points balance RPC');
 need(files.app,'customer_create_marketplace_order_v2','points marketplace checkout RPC');
 need(files.app,'customer_list_marketplace_orders_v3','points-aware order history');
 need(files.app,'p_use_reward_points: usePoints','server redemption flag');
-need(files.wallet,'points · worth','wallet points cash-value label');
+need(files.wallet,'elements.pointsEarned.textContent = money(totals.points)','wallet Shopping Voucher balance label');
 need(files.wallet,'leogo:walletrefresh','wallet refresh after point use');
 need(files.assisted,'customer_accept_assisted_shopping_quote_v2','Assisted Shopping points RPC');
 need(files.rider,'rider_list_delivery_jobs_v4','Rider post-points amount due');
