@@ -3,7 +3,7 @@ const vm=require('node:vm');
 
 const read=p=>fs.readFileSync(p,'utf8');
 const migration=read('supabase/migrations/20261006131644_vacant_houses_marketplace_v1.sql');
-const customer=read('js/vacant-houses.js');
+const safeDefaults=read('supabase/migrations/20261006133217_vacant_houses_voucher_admin_set_default.sql');\nconst customer=read('js/vacant-houses.js');
 const customerCss=read('css/vacant-houses.css');
 const admin=read('admin/vacant-houses.js');
 const adminCss=read('admin/vacant-houses.css');
