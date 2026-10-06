@@ -179,13 +179,14 @@
   };
 
   const loadPublic=async()=>{
-    notify(publicStatus,'Loading approved vacant houses…');
-    const {data,error}=await client.rpc('public_list_vacant_houses',{
+    notify(publicStatus,'Loading approved property listings…');
+    const {data,error}=await client.rpc('public_list_property_marketplace',{
       p_search:$('vhSearch').value.trim()||null,
       p_county:$('vhCounty').value.trim()||null,
       p_house_type:$('vhType').value||null,
-      p_min_rent:$('vhMinRent').value?Number($('vhMinRent').value):null,
-      p_max_rent:$('vhMaxRent').value?Number($('vhMaxRent').value):null
+      p_listing_purpose:$('vhPurpose').value||null,
+      p_min_price:$('vhMinPrice').value?Number($('vhMinPrice').value):null,
+      p_max_price:$('vhMaxPrice').value?Number($('vhMaxPrice').value):null
     });
     if(error)throw error;
     state.listings=Array.isArray(data)?data:[];
@@ -194,42 +195,50 @@
 
   const renderPublic=()=>{
     if(!state.listings.length){
-      grid.innerHTML='<div class="vh-empty">🏠 No approved vacant houses match this search yet.</div>';
-      notify(publicStatus,'No matching vacant houses found.');
+      grid.innerHTML='<div class="vh-empty">🏠 No approved property listings match this search yet.</div>';
+      notify(publicStatus,'No matching property found.');
       return;
     }
-    notify(publicStatus,state.listings.length+' approved vacant house'+(state.listings.length===1?'':'s')+' available.');
+    notify(publicStatus,state.listings.length+' approved propert'+(state.listings.length===1?'y':'ies')+' available.');
     grid.innerHTML=state.listings.map(l=>{
       const img=photoUrl((l.photo_paths||[])[0]);
+      const forSale=l.listing_purpose==='sale';
       const facts=[
+        l.property_size_text?l.property_size_text:null,
         l.bedrooms?l.bedrooms+' bedroom'+(Number(l.bedrooms)===1?'':'s'):null,
         l.bathrooms?l.bathrooms+' bath':null,
         l.water_available?'Water':null,l.electricity_available?'Electricity':null,
         l.parking_available?'Parking':null,l.gated_compound?'Gated':null
       ].filter(Boolean);
       return '<article class="vh-card">'+
-        '<div class="vh-card-photo">'+(img?'<img src="'+esc(img)+'" alt="'+esc(l.title)+'" loading="lazy">':'<span>🏠</span>')+'<b>VACANT</b></div>'+
+        '<div class="vh-card-photo">'+(img?'<img src="'+esc(img)+'" alt="'+esc(l.title)+'" loading="lazy">':'<span>🏠</span>')+'<b>'+(forSale?'FOR SALE':'FOR RENT')+'</b></div>'+
         '<div class="vh-card-body"><span>'+esc(typeLabel(l.house_type))+'</span><h3>'+esc(l.title)+'</h3>'+
         '<p>📍 '+esc(l.area_estate)+', '+esc(l.sub_county)+', '+esc(l.county)+'</p>'+
-        '<strong>'+esc(money(l.monthly_rent_kes))+' <small>/ month</small></strong>'+
+        '<strong>'+esc(money(forSale?l.sale_price_kes:l.monthly_rent_kes))+(forSale?' <small>asking price</small>':' <small>/ month</small>')+'</strong>'+
         '<div class="vh-facts">'+facts.slice(0,5).map(f=>'<i>'+esc(f)+'</i>').join('')+'</div>'+
-        '<button type="button" data-vh-detail="'+esc(l.id)+'">View House</button></div></article>';
+        '<button type="button" data-vh-detail="'+esc(l.id)+'">View Property</button></div></article>';
     }).join('');
   };
 
   const renderDetail=async listing=>{
     state.selected=listing;
+    const forSale=listing.listing_purpose==='sale';
     const photos=(listing.photo_paths||[]).map(photoUrl).filter(Boolean);
-    $('vhModalEyebrow').textContent='APPROVED VACANT HOUSE · '+listing.listing_reference;
+    $('vhModalEyebrow').textContent=(forSale?'APPROVED PROPERTY FOR SALE':'APPROVED PROPERTY FOR RENT')+' · '+listing.listing_reference;
     $('vhModalTitle').textContent=listing.title;
+    const priceFacts=forSale
+      ? '<div><small>Sale price</small><strong>'+esc(money(listing.sale_price_kes))+'</strong></div>'+
+        (listing.property_size_text?'<div><small>Property size</small><strong>'+esc(listing.property_size_text)+'</strong></div>':'')+
+        (listing.ownership_note?'<div><small>Ownership / title</small><strong>'+esc(listing.ownership_note)+'</strong></div>':'')
+      : '<div><small>Monthly rent</small><strong>'+esc(money(listing.monthly_rent_kes))+'</strong></div>'+
+        '<div><small>Deposit</small><strong>'+esc(money(listing.deposit_kes))+'</strong></div>';
     $('vhModalBody').innerHTML=
-      '<div class="vh-detail-gallery">'+(photos.length?photos.map((u,i)=>'<img src="'+esc(u)+'" alt="House photo '+(i+1)+'">').join(''):'<div class="vh-photo-placeholder">🏠</div>')+'</div>'+
-      '<div class="vh-detail-grid"><div><small>Monthly rent</small><strong>'+esc(money(listing.monthly_rent_kes))+'</strong></div>'+
-      '<div><small>Deposit</small><strong>'+esc(money(listing.deposit_kes))+'</strong></div>'+
+      '<div class="vh-detail-gallery">'+(photos.length?photos.map((u,i)=>'<img src="'+esc(u)+'" alt="Property photo '+(i+1)+'">').join(''):'<div class="vh-photo-placeholder">🏠</div>')+'</div>'+
+      '<div class="vh-detail-grid">'+priceFacts+
       '<div><small>Type</small><strong>'+esc(typeLabel(listing.house_type))+'</strong></div>'+
       '<div><small>General location</small><strong>'+esc(listing.area_estate+', '+listing.sub_county+', '+listing.county)+'</strong></div></div>'+
       '<p class="vh-description">'+esc(listing.description)+'</p>'+
-      '<div class="vh-privacy-gate"><span>🔒</span><div><strong>Exact location & contact protected</strong><p>Pay the Admin-set viewing/access fee of '+esc(money(state.settings.viewing_access_fee_kes))+' and submit your payment reference. After LEOGO verifies it, the exact address, map pin and landlord/agent contact are unlocked for you.</p></div></div>'+
+      '<div class="vh-privacy-gate"><span>🔒</span><div><strong>Exact location & contact protected</strong><p>Pay the Admin-set viewing/access fee of '+esc(money(state.settings.viewing_access_fee_kes))+' and submit your payment reference. After LEOGO verifies it, the exact address, map pin and owner/agent contact are unlocked for you.</p></div></div>'+
       '<button class="vh-primary" id="vhRequestAccess" type="button">Request Viewing & Unlock Details · '+esc(money(state.settings.viewing_access_fee_kes))+'</button>'+
       '<div id="vhAccessArea"></div>';
     open(modal);
