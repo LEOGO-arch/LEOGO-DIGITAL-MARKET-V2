@@ -548,7 +548,8 @@
       transport: () => adminHas('orders.read') || adminHas('delivery.manage'),
       wallet: () => adminHas('approvals.read'),
       premium: () => adminHas('premium.read'),
-      accommodation: () => adminHas('approvals.read'),\n      vacant_houses: () => adminHas('approvals.read') || adminHas('settings.manage') || adminHas('fees.manage'),
+      accommodation: () => adminHas('approvals.read'),
+      vacant_houses: () => adminHas('approvals.read') || adminHas('settings.manage') || adminHas('fees.manage'),
       advertisements: () => adminHas('settings.manage'),
       loyalty: () => adminHas('settings.manage') || adminHas('fees.manage') || adminHas('reports.export'),
       reports: () => adminHas('reports.export'),
@@ -6496,25 +6497,29 @@
       }
       const button=$('#adminLoginButton');
       await withButtonLock(button,'Signing in…',async()=>{
-        setFormStatus($('#adminLoginStatus'),'Signing in securely…');
-        const email=$('#adminEmail')?.value.trim()||'';
-        const password=$('#adminPassword')?.value||'';
-        const {data,error}=await db.auth.signInWithPassword({email,password});
-        if(error){
+        try{
+          setFormStatus($('#adminLoginStatus'),'Signing in securely…');
+          const email=$('#adminEmail')?.value.trim()||'';
+          const password=$('#adminPassword')?.value||'';
+          const {data,error}=await db.auth.signInWithPassword({email,password});
+          if(error){
+            setFormStatus($('#adminLoginStatus'),friendlyError(error),'error');
+            return;
+          }
+          const admin=await verifyAdmin(data.session?.user);
+          if(!admin){
+            await db.auth.signOut();
+            state.admin=null;
+            state.user=null;
+            showGate('login');
+            setFormStatus($('#adminLoginStatus'),'This account is not an active LEOGO administrator. Use the authorized Admin account.','error');
+            return;
+          }
+          setFormStatus($('#adminLoginStatus'),'Admin account verified. Opening Control Center…','success');
+          await enterAdmin(data.session.user);
+        }catch(error){
           setFormStatus($('#adminLoginStatus'),friendlyError(error),'error');
-          return;
         }
-        const admin=await verifyAdmin(data.session?.user);
-        if(!admin){
-          await db.auth.signOut();
-          state.admin=null;
-          state.user=null;
-          showGate('login');
-          setFormStatus($('#adminLoginStatus'),'This account is not an active LEOGO administrator. Use the authorized Admin account.','error');
-          return;
-        }
-        setFormStatus($('#adminLoginStatus'),'Admin account verified. Opening Control Center…','success');
-        await enterAdmin(data.session.user);
       });
     });
     $('#adminRecoveryRequest')?.addEventListener('click',async()=>{

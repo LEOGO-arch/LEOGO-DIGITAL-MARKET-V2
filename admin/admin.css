@@ -1044,6 +1044,9 @@
 
 /* Admin Security — Super Admin only */
 .auth-link-button{border:0;background:transparent;color:#0d58a6;padding:3px 0;font-weight:800;cursor:pointer;text-align:left;width:max-content}
+.auth-form #adminLoginButton{margin-top:4px}
+.auth-form .auth-link-button{display:block;width:auto;margin-top:14px;padding:3px 0;border-radius:0;background:transparent;color:#0d58a6;text-align:left;font-weight:800}
+.auth-form .auth-link-button:hover{text-decoration:underline;background:transparent;color:#0d58a6}
 .auth-link-button:hover{text-decoration:underline}
 .admin-security-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px;padding:16px 18px;border:1px solid #dce4ee;border-radius:16px;background:#f8fbff}
 .admin-security-heading>div{display:flex;gap:12px;align-items:flex-start}
