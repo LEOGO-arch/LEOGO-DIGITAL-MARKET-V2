@@ -22,7 +22,7 @@
     single_room:'Single Room',bedsitter:'Bedsitter',one_bedroom:'1 Bedroom',
     two_bedroom:'2 Bedroom',three_bedroom:'3 Bedroom',four_plus_bedroom:'4+ Bedroom',
     maisonette:'Maisonette',bungalow:'Bungalow',apartment:'Apartment',
-    commercial:'Commercial',other:'Other'
+    commercial:'Commercial',land_plot:'Land / Plot',other:'Other'
   })[v]||String(v||'House').replaceAll('_',' ');
   const statusLabel=v=>String(v||'').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
   const photoUrl=path=>{
@@ -54,14 +54,15 @@
   section.id='vacant-houses';
   section.innerHTML=`
     <div class="vh-head">
-      <div><span>LEOGO PROPERTY MARKET</span><h2>🏠 Vacant Houses</h2><p>Browse Admin-approved vacant houses. Exact location and landlord/agent contact stay private until viewing access is verified.</p></div>
+      <div><span>LEOGO PROPERTY MARKET</span><h2>🏠 Houses &amp; Property</h2><p>Browse Admin-approved property for rent or for sale. Exact location and owner/agent contact stay private until viewing access is verified.</p></div>
       <div class="vh-head-actions">
         <div class="vh-fee-chip"><small>Viewing & access fee</small><strong id="vhPublicFee">Loading…</strong><span>Admin-managed</span></div>
-        <button id="vhOpenSubmit" type="button">＋ Submit a Vacant House</button>
+        <button id="vhOpenSubmit" type="button">＋ Submit Property</button>
       </div>
     </div>
-    <div class="vh-reward-banner" id="vhRewardBanner">Approved customer submissions can earn an Admin-set LEOGO Shopping Voucher.</div>
+    <div class="vh-reward-banner" id="vhRewardBanner">Approved customer property submissions can earn an Admin-set LEOGO Shopping Voucher.</div>
     <form class="vh-filters" id="vhFilters">
+      <select id="vhPurpose"><option value="">Rent &amp; Sale</option><option value="rent">For Rent</option><option value="sale">For Sale</option></select>
       <input id="vhSearch" type="search" placeholder="Search estate, town or description">
       <input id="vhCounty" type="text" placeholder="County e.g. Siaya">
       <select id="vhType">
@@ -70,18 +71,18 @@
         <option value="one_bedroom">1 Bedroom</option><option value="two_bedroom">2 Bedroom</option>
         <option value="three_bedroom">3 Bedroom</option><option value="four_plus_bedroom">4+ Bedroom</option>
         <option value="maisonette">Maisonette</option><option value="bungalow">Bungalow</option>
-        <option value="apartment">Apartment</option><option value="commercial">Commercial</option><option value="other">Other</option>
+        <option value="apartment">Apartment</option><option value="commercial">Commercial</option><option value="land_plot">Land / Plot</option><option value="other">Other</option>
       </select>
-      <input id="vhMinRent" type="number" min="0" step="100" placeholder="Min rent">
-      <input id="vhMaxRent" type="number" min="0" step="100" placeholder="Max rent">
+      <input id="vhMinPrice" type="number" min="0" step="100" placeholder="Min price">
+      <input id="vhMaxPrice" type="number" min="0" step="100" placeholder="Max price">
       <button type="submit">Search Houses</button>
     </form>
-    <div id="vhPublicStatus" class="vh-status">Loading approved vacant houses…</div>
+    <div id="vhPublicStatus" class="vh-status">Loading approved property listings…</div>
     <div id="vhGrid" class="vh-grid"></div>
     <section class="vh-mine" id="vhMine" hidden>
-      <div class="vh-mine-head"><div><span>MY VACANT HOUSES</span><h3>Submissions & Viewing Access</h3></div><button id="vhRefreshMine" type="button">↻ Refresh</button></div>
+      <div class="vh-mine-head"><div><span>MY PROPERTY</span><h3>Submissions &amp; Viewing Access</h3></div><button id="vhRefreshMine" type="button">↻ Refresh</button></div>
       <div class="vh-mine-columns">
-        <div><h4>My House Submissions</h4><div id="vhMySubmissions" class="vh-mine-list"></div></div>
+        <div><h4>My Property Submissions</h4><div id="vhMySubmissions" class="vh-mine-list"></div></div>
         <div><h4>My Viewing Requests</h4><div id="vhMyRequests" class="vh-mine-list"></div></div>
       </div>
     </section>`;
@@ -97,7 +98,7 @@
   modal.innerHTML=`
     <button class="vh-modal-backdrop" data-vh-close type="button" aria-label="Close"></button>
     <section class="vh-modal-card" role="dialog" aria-modal="true">
-      <header><div><span id="vhModalEyebrow">VACANT HOUSE</span><h2 id="vhModalTitle">House Details</h2></div><button data-vh-close type="button">×</button></header>
+      <header><div><span id="vhModalEyebrow">PROPERTY</span><h2 id="vhModalTitle">Property Details</h2></div><button data-vh-close type="button">×</button></header>
       <div id="vhModalBody" class="vh-modal-body"></div>
     </section>`;
   document.body.append(modal);
@@ -109,15 +110,19 @@
   submitModal.innerHTML=`
     <button class="vh-modal-backdrop" data-vh-submit-close type="button" aria-label="Close"></button>
     <section class="vh-modal-card vh-modal-wide" role="dialog" aria-modal="true">
-      <header><div><span>LIST A VACANT HOUSE</span><h2>Submit House for Admin Approval</h2><p>Public visitors see the general area only. Exact address, map pin and contact remain protected.</p></div><button data-vh-submit-close type="button">×</button></header>
+      <header><div><span>LIST PROPERTY</span><h2>Submit Property for Admin Approval</h2><p>Choose For Rent or For Sale. Public visitors see the general area only; exact address, map pin and contact remain protected.</p></div><button data-vh-submit-close type="button">×</button></header>
       <form id="vhSubmitForm" class="vh-submit-form">
         <div class="vh-form-grid">
           <label><span>Your relationship</span><select name="submitter_role" required><option value="owner">Owner / Landlord</option><option value="caretaker">Caretaker</option><option value="agent">Agent</option><option value="other">Other authorized person</option></select></label>
-          <label><span>House title</span><input name="title" maxlength="140" placeholder="e.g. 2 Bedroom House – Mjini" required></label>
-          <label><span>House type</span><select name="house_type" required><option value="single_room">Single Room</option><option value="bedsitter">Bedsitter</option><option value="one_bedroom">1 Bedroom</option><option value="two_bedroom">2 Bedroom</option><option value="three_bedroom">3 Bedroom</option><option value="four_plus_bedroom">4+ Bedroom</option><option value="maisonette">Maisonette</option><option value="bungalow">Bungalow</option><option value="apartment">Apartment</option><option value="commercial">Commercial</option><option value="other">Other</option></select></label>
-          <label><span>Monthly rent (KSh)</span><input name="monthly_rent_kes" type="number" min="1" step="1" required></label>
-          <label><span>Deposit (KSh)</span><input name="deposit_kes" type="number" min="0" step="1" value="0" required></label>
-          <label><span>Available from</span><input name="available_from" type="date" required></label>
+          <label><span>Listing type</span><select name="listing_purpose" id="vhListingPurpose" required><option value="rent">For Rent</option><option value="sale">For Sale</option></select></label>
+          <label><span>Property title</span><input name="title" maxlength="140" placeholder="e.g. 2 Bedroom House – Mjini" required></label>
+          <label><span>Property type</span><select name="house_type" required><option value="single_room">Single Room</option><option value="bedsitter">Bedsitter</option><option value="one_bedroom">1 Bedroom</option><option value="two_bedroom">2 Bedroom</option><option value="three_bedroom">3 Bedroom</option><option value="four_plus_bedroom">4+ Bedroom</option><option value="maisonette">Maisonette</option><option value="bungalow">Bungalow</option><option value="apartment">Apartment</option><option value="commercial">Commercial</option><option value="land_plot">Land / Plot</option><option value="other">Other</option></select></label>
+          <label id="vhRentField"><span>Monthly rent (KSh)</span><input name="monthly_rent_kes" type="number" min="1" step="1" required></label>
+          <label id="vhDepositField"><span>Deposit (KSh)</span><input name="deposit_kes" type="number" min="0" step="1" value="0" required></label>
+          <label id="vhSalePriceField" hidden><span>Sale price (KSh)</span><input name="sale_price_kes" type="number" min="1" step="1"></label>
+          <label id="vhPropertySizeField" hidden><span>Property size <small>(optional)</small></span><input name="property_size_text" maxlength="120" placeholder="e.g. 50 x 100 ft, 0.5 acre"></label>
+          <label id="vhOwnershipField" hidden><span>Ownership / title information <small>(optional)</small></span><input name="ownership_note" maxlength="300" placeholder="e.g. Title deed available"></label>
+          <label id="vhAvailableFromField"><span>Available from</span><input name="available_from" type="date" required></label>
           <label><span>County</span><input name="county" maxlength="80" required></label>
           <label><span>Sub-County / Town</span><input name="sub_county" maxlength="100" required></label>
           <label><span>Estate / General area</span><input name="area_estate" maxlength="160" required></label>
@@ -131,8 +136,8 @@
           <label><span>Latitude <b>Private</b></span><input name="latitude" id="vhLatitude" type="number" step="0.0000001" min="-90" max="90"></label>
           <label><span>Longitude <b>Private</b></span><input name="longitude" id="vhLongitude" type="number" step="0.0000001" min="-180" max="180"></label>
           <div class="vh-pin-row wide"><button id="vhPinLocation" type="button">📍 Pin Current Location</button><span id="vhPinStatus">Optional, but recommended for accurate viewing directions.</span></div>
-          <label class="wide"><span>Description</span><textarea name="description" minlength="10" maxlength="3000" rows="4" required placeholder="Describe the house, access, utilities and anything a tenant should know."></textarea></label>
-          <label class="wide"><span>House photos (1–<b id="vhMaxPhotos">8</b>)</span><input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required></label>
+          <label class="wide"><span>Description</span><textarea name="description" minlength="10" maxlength="3000" rows="4" required placeholder="Describe the property and the important details a renter or buyer should know."></textarea></label>
+          <label class="wide"><span>Property photos (1–<b id="vhMaxPhotos">8</b>)</span><input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required></label>
         </div>
         <div class="vh-check-grid">
           <label><input name="furnished" type="checkbox"> Furnished</label>
@@ -142,7 +147,7 @@
           <label><input name="gated_compound" type="checkbox"> Gated compound</label>
         </div>
         <label class="vh-consent"><input name="contact_reveal_consent" type="checkbox" required> I authorize LEOGO to reveal this exact location and contact details only to a signed-in customer whose viewing/access payment has been verified by LEOGO.</label>
-        <div class="vh-private-note">🔒 Exact location and contact details are not returned by the public listing API. House photos and the general area are public only after Admin approval.</div>
+        <div class="vh-private-note">🔒 Exact location and contact details are not returned by the public listing API. Property photos and the general area are public only after Admin approval.</div>
         <div id="vhSubmitStatus" class="vh-status" role="status" aria-live="polite"></div>
         <button id="vhSubmitButton" class="vh-primary" type="submit">Submit for Admin Approval</button>
       </form>
