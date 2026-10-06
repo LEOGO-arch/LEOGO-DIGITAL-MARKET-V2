@@ -8,7 +8,7 @@
 
   const BUCKET = 'vacant-house-public-media';
   const state = {
-    settings: { is_enabled:true, voucher_enabled:true, submission_voucher_kes:100, viewing_access_fee_kes:300, max_photos:8 },
+    settings: { is_enabled:true, voucher_enabled:false, submission_voucher_kes:0, viewing_access_fee_kes:300, max_photos:8 },
     listings: [],
     mySubmissions: [],
     myRequests: [],
