@@ -80,7 +80,7 @@
     const pickup=fulfilment.value==='pickup';
     deliveryZoneLabel.hidden=pickup;
     pickupLabel.hidden=!pickup;
-    $('[data-assisted-delivery-field]',modal).forEach((el)=>el.hidden=pickup);
+    $$('[data-assisted-delivery-field]',modal).forEach((el)=>el.hidden=pickup);
     $('#assistedDeliveryZone').required=!pickup;
     pickupSelect.required=pickup;
     ['assistedCounty'].forEach((id)=>{$('#'+id).required=!pickup;});
