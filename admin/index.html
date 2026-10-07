@@ -1095,7 +1095,7 @@
         <div class="settings-panel" data-settings-content="email">
           <form class="settings-form email-notification-settings" id="emailNotificationSettingsForm">
             <div class="form-section-head">
-              <div><span>✉</span><div><h3>Customer Order Email Notifications</h3><p>Send transactional emails when a Pickup Station order arrives and when the station confirms it is ready for collection.</p></div></div>
+              <div><span>✉</span><div><h3>Customer Order Email Notifications</h3><p>Send transactional emails when an order is created, shipped and delivered, plus Pickup Station arrival and ready-for-collection updates.</p></div></div>
               <button type="submit">Save Email Settings</button>
             </div>
 
@@ -1110,13 +1110,15 @@
               <label><span>Sender name</span><input name="sender_name" maxlength="120" required value="LEOGO DIGITAL MARKET"></label>
               <label><span>Sender Gmail / Google Workspace email</span><input name="sender_email" type="email" autocomplete="username" required placeholder="leogodigitalmarket@gmail.com"></label>
               <label class="wide"><span>Gmail App Password</span><input name="app_password" type="password" autocomplete="new-password" placeholder="Leave blank to keep the existing secure App Password"><small>Use a Gmail App Password, not the normal Gmail account password. It is encrypted in Supabase Vault and is never returned to this page.</small></label>
-              <label class="wide email-notification-toggle"><input name="enabled" type="checkbox"><span><b>Enable customer order emails</b><small>Only Pickup Station arrival and ready-for-pickup emails are enabled in this first integration.</small></span></label>
+              <label class="wide email-notification-toggle"><input name="enabled" type="checkbox"><span><b>Enable customer order emails</b><small>Send the three core order emails — created, shipped and delivered — plus Pickup Station arrival and ready-for-pickup updates.</small></span></label>
             </div>
 
             <div class="email-notification-flow">
-              <div><b>1</b><span><strong>Rider delivers to Pickup Station</strong><small>Customer email: parcel has arrived and is awaiting station receipt confirmation.</small></span></div>
+              <div><b>1</b><span><strong>Order created</strong><small>Customer email: order placed successfully and will be shipped as soon as possible.</small></span></div>
               <i>→</i>
-              <div><b>2</b><span><strong>Pickup Station confirms receipt</strong><small>Customer email: parcel is ready for collection, with station details.</small></span></div>
+              <div><b>2</b><span><strong>Order shipped</strong><small>Customer email: order has been dispatched and is on the way.</small></span></div>
+              <i>→</i>
+              <div><b>3</b><span><strong>Order delivered</strong><small>Customer email: order delivered successfully.</small></span></div>
             </div>
 
             <div class="form-status" id="emailNotificationSettingsStatus"></div>
@@ -1715,7 +1717,7 @@
   <script src="system-diagnostics.js?v=diagnostics-trend-collapse-1" defer></script>
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
   <script src="loyalty-rewards.js?v=admin-runtime-hotfix-1" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
-  <script src="email-notifications.js?v=email-notifications-1" defer></script>
+  <script src="email-notifications.js?v=order-lifecycle-emails-1" defer></script>
   <script src="advertisements.js?v=advert-popup-5s-load-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
   <script src="health.js?v=health-runtime-fix-1" defer></script>
