@@ -126,12 +126,24 @@ const startPartnerNotificationRealtime=()=>{
   partnerNotificationRealtimeChannel=client
     .channel('leogo-partner-notifications-'+currentUser.id)
     .on('postgres_changes',{
-      event:'*',
+      event:'INSERT',
       schema:'public',
       table:'partner_notifications',
       filter:'user_id=eq.'+currentUser.id
     },(payload)=>{
-      const partnerType=String(payload?.new?.partner_type||payload?.old?.partner_type||'');
+      const partnerType=String(payload?.new?.partner_type||'');
+      document.dispatchEvent(new CustomEvent('leogo:partner-notification-change',{
+        detail:{partnerType,payload}
+      }));
+      if(partnerType===activeRole)queuePartnerNotificationRefresh(partnerType);
+    })
+    .on('postgres_changes',{
+      event:'UPDATE',
+      schema:'public',
+      table:'partner_notifications',
+      filter:'user_id=eq.'+currentUser.id
+    },(payload)=>{
+      const partnerType=String(payload?.new?.partner_type||'');
       document.dispatchEvent(new CustomEvent('leogo:partner-notification-change',{
         detail:{partnerType,payload}
       }));
