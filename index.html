@@ -484,7 +484,7 @@
   <div class="health-market-shell">
     <div class="health-market-head">
       <div><span>VERIFIED HEALTH PARTNERS</span><h2>⚕️ Health &amp; Medicine</h2><p>Browse LEOGO-approved Pharmacy, Optics, Medical Supplies, Orthopaedic / Rehabilitation, Laboratory / Diagnostics and verified Health Specialists / Doctors. Health products and professional services are reviewed separately from ordinary Seller listings.</p></div>
-      <div class="health-market-safety"><strong>Regulated marketplace</strong><small>Approved OTC medicine can be added to the Health cart. Prescription-required medicine is clearly marked and remains enquiry-only.</small></div>
+      <div class="health-market-safety"><strong>Regulated marketplace</strong><small>Approved Health products can be added to the Health cart. If a Pharmacy marks a medicine as prescription-required, a doctor prescription must be uploaded at checkout.</small></div>
     </div>
     <div class="health-market-filters">
       <label>Business type<select id="healthMarketTypeFilter"><option value="">All Health &amp; Medicine</option><option value="pharmacy">Pharmacy / Pharmaceuticals</option><option value="optics">Optics / Optical</option><option value="medical_supplies">Medical Equipment &amp; Supplies</option><option value="orthopaedic_rehab">Orthopaedic &amp; Rehabilitation</option><option value="laboratory_diagnostics">Laboratory / Diagnostics</option><option value="health_specialist">Health Specialist / Doctor</option><option value="other_health">Other Health &amp; Medicine</option></select></label>
@@ -492,7 +492,7 @@
     </div>
     <div id="healthMarketStatus" class="health-market-status">Loading approved Health &amp; Medicine partners…</div>
     <div id="healthPartnerGrid" class="health-partner-grid"></div>
-    <div class="health-products-heading"><div><span>APPROVED HEALTH PRODUCTS</span><h3>Health &amp; Medicine Products</h3></div><small>OTC and non-prescription items can use cart checkout. Prescription-required medicine remains enquiry-only.</small></div>
+    <div class="health-products-heading"><div><span>APPROVED HEALTH PRODUCTS</span><h3>Health &amp; Medicine Products</h3></div><small>All approved available Health products can use cart checkout. Prescription-required medicines require a doctor prescription upload before the order can be placed.</small></div>
     <div id="healthProductGrid" class="health-product-grid"></div>
 
     <section class="health-specialist-public-section" id="healthSpecialistServices">
@@ -1330,6 +1330,12 @@
                   <strong>Cash on Delivery rule</strong>
                   <p id="checkoutCodRuleText">Cash on Delivery is only available for orders below KSh 10,000. The customer must pay the Transport &amp; Parcel Delivery fee first before the order is dispatched.</p>
                 </div>
+                <div class="payment-proof-panel health-prescription-panel" id="healthPrescriptionPanel" hidden>
+                  <strong>💊 Doctor prescription required</strong>
+                  <p>Your cart contains medicine that the Health Partner marked as prescription-only. Upload a clear doctor prescription before placing the order. The document is private and available only to you, the fulfilling Health Partner and authorized LEOGO Admin/Staff.</p>
+                  <label><span>Doctor prescription</span><input id="healthPrescriptionFile" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"></label>
+                  <small id="healthPrescriptionFileName">PDF, JPG, PNG or WEBP · maximum 8 MB</small>
+                </div>
                 <div class="payment-proof-panel" id="standardPaymentProof">
                   <label><span id="paymentProofLabel">Paste M-Pesa payment message</span><textarea id="mpesaPaymentMessage" rows="4" placeholder="Paste the complete M-Pesa confirmation message here"></textarea></label>
                   <label class="payment-paid-check"><input id="markPaymentPaid" type="checkbox"><span id="markPaymentPaidLabel">I confirm that I have paid and want to mark this payment as paid.</span></label>
@@ -1653,6 +1659,6 @@
   </div>
 </section>
 <footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><small>From the Market To Your Comfort.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script>
-  <script src="js/runtime-monitor.js?v=network-storm-fix-2" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=marketplace-runtime-init-1" defer></script><script src="js/auth.js?v=phone-otp-login-1" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=stay-card-v3" defer></script><script src="js/cyber.js?v=delivery-rates-1" defer></script><script src="js/health.js?v=health-marketplace-selector-fix-1" defer></script><script src="js/health-specialist.js?v=health-specialist-v1" defer></script><script src="js/shipping-moq.js?v=product-modes-2" defer></script><script src="js/wallet.js?v=shopping-voucher-rule-1" defer></script>
+  <script src="js/runtime-monitor.js?v=network-storm-fix-2" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=health-prescription-cart-1" defer></script><script src="js/auth.js?v=phone-otp-login-1" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=stay-card-v3" defer></script><script src="js/cyber.js?v=delivery-rates-1" defer></script><script src="js/health.js?v=health-prescription-cart-1" defer></script><script src="js/health-specialist.js?v=health-specialist-v1" defer></script><script src="js/shipping-moq.js?v=product-modes-2" defer></script><script src="js/wallet.js?v=shopping-voucher-rule-1" defer></script>
 <script src="js/referrals.js?v=referral-share-earn-v1" defer></script><script src="js/vacant-houses.js?v=property-loading-fix-1" defer></script><script src="js/loans.js?v=loan-v2-3" defer></script><script src="js/feedback-testimonials.js?v=feedback-testimonials-v1" defer></script><script src="js/assisted-shopping.js?v=marketplace-runtime-init-1" defer></script><script src="js/premium.js?v=premium-chat-photo-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
 
