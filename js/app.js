@@ -1437,6 +1437,9 @@
   const standardPaymentActions = document.getElementById('standardPaymentActions');
   const paymentProofLabel = document.getElementById('paymentProofLabel');
   const mpesaPaymentMessage = document.getElementById('mpesaPaymentMessage');
+  const healthPrescriptionPanel = document.getElementById('healthPrescriptionPanel');
+  const healthPrescriptionFile = document.getElementById('healthPrescriptionFile');
+  const healthPrescriptionFileName = document.getElementById('healthPrescriptionFileName');
   const markPaymentPaid = document.getElementById('markPaymentPaid');
   const markPaymentPaidLabel = document.getElementById('markPaymentPaidLabel');
   const paymentStepStatus = document.getElementById('paymentStepStatus');
@@ -1469,6 +1472,28 @@
   const checkoutGrandTotalNumber = () => Number(checkoutShell?.dataset.checkoutGrandTotal || 0);
   const checkoutPointsAppliedNumber = () => Number(checkoutShell?.dataset.checkoutPointsApplied || 0);
   const checkoutExternalAmountDueNumber = () => Number(checkoutShell?.dataset.checkoutExternalAmountDue || checkoutGrandTotalNumber());
+  const healthCartRequiresPrescription = () =>
+    testCart.some((item) => cartItemSource(item)==='health_medicine' && item.requiresPrescription===true);
+  const syncHealthPrescriptionPanel = () => {
+    const required = healthCartRequiresPrescription();
+    if (healthPrescriptionPanel) healthPrescriptionPanel.hidden = !required;
+    if (healthPrescriptionFile) {
+      healthPrescriptionFile.required = required;
+      if (!required && healthPrescriptionFile.value) healthPrescriptionFile.value = '';
+    }
+    if (healthPrescriptionFileName && !required) {
+      healthPrescriptionFileName.textContent = 'PDF, JPG, PNG or WEBP · maximum 8 MB';
+    }
+  };
+
+  healthPrescriptionFile?.addEventListener('change',()=>{
+    const file=healthPrescriptionFile.files?.[0]||null;
+    if(healthPrescriptionFileName){
+      healthPrescriptionFileName.textContent=file
+        ? file.name+' · '+Math.max(1,Math.round(file.size/1024)).toLocaleString('en-KE')+' KB'
+        : 'PDF, JPG, PNG or WEBP · maximum 8 MB';
+    }
+  });
 
   const loadCheckoutRewardPoints = async () => {
     if (!window.leogoAuth?.isAuthenticated?.() || !window.leogoAuth?.client) {
@@ -1787,13 +1812,34 @@
     }
 
     const unsupported = healthCheckout
-      ? testCart.find(item => !item.healthProductId || !item.providerId || item.requiresPrescription)
+      ? testCart.find(item => !item.healthProductId || !item.providerId)
       : testCart.find(item => !item.productId || !item.sellerId);
     if (unsupported) {
       paymentStepStatus.textContent = healthCheckout
-        ? 'Your Health cart contains an item that is not eligible for normal checkout. Remove it and add the approved OTC/non-prescription item again.'
+        ? 'Your Health cart contains an old or unavailable item. Remove it and add the approved Health product again.'
         : 'Your cart contains an old preview item. Remove it and add the current Seller product again.';
       return;
+    }
+
+    const prescriptionRequired=healthCheckout&&healthCartRequiresPrescription();
+    const prescriptionFile=prescriptionRequired?(healthPrescriptionFile?.files?.[0]||null):null;
+    if(prescriptionRequired){
+      if(!prescriptionFile){
+        paymentStepStatus.textContent='Upload the doctor prescription for the prescription-only medicine before placing this order.';
+        healthPrescriptionFile?.focus();
+        return;
+      }
+      const allowedPrescriptionTypes=['application/pdf','image/jpeg','image/png','image/webp'];
+      if(!allowedPrescriptionTypes.includes(prescriptionFile.type)){
+        paymentStepStatus.textContent='Doctor prescription must be a PDF, JPG, PNG or WEBP file.';
+        healthPrescriptionFile?.focus();
+        return;
+      }
+      if(prescriptionFile.size>8*1024*1024){
+        paymentStepStatus.textContent='Doctor prescription must be 8 MB or smaller.';
+        healthPrescriptionFile?.focus();
+        return;
+      }
     }
 
     const button = makeCheckoutOrder;
@@ -1806,8 +1852,28 @@
         ? 'Applying your Shopping Voucher and creating the order…'
         : 'Creating your order and sending it to the Seller…';
 
+    let uploadedPrescriptionPath='';
     try {
       const pickupStation = checkoutDeliveryZone?.value === 'pickup' ? selectedPickupStation() : null;
+
+      if(prescriptionRequired&&prescriptionFile){
+        const client=window.leogoAuth?.client;
+        let user=window.leogoAuth?.getUser?.()||null;
+        if(!user){
+          const userResult=await client.auth.getUser();
+          user=userResult.data?.user||null;
+        }
+        if(!user)throw new Error('Sign in again before uploading the doctor prescription.');
+        const ext=(prescriptionFile.name.split('.').pop()||'file').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,8)||'file';
+        const unique=globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2);
+        uploadedPrescriptionPath=user.id+'/prescription-'+Date.now()+'-'+unique+'.'+ext;
+        paymentStepStatus.textContent='Uploading doctor prescription securely…';
+        const {error:prescriptionUploadError}=await client.storage
+          .from('health-prescriptions')
+          .upload(uploadedPrescriptionPath,prescriptionFile,{contentType:prescriptionFile.type,upsert:false});
+        if(prescriptionUploadError)throw prescriptionUploadError;
+      }
+
       const commonOrderArgs={
         p_receiver_name: document.getElementById('checkoutReceiverName')?.value.trim(),
         p_contact_number: document.getElementById('checkoutContactNumber')?.value.trim(),
@@ -1824,7 +1890,11 @@
       const orderRequest=healthCheckout
         ? await window.leogoAuth.client.rpc('customer_create_health_medicine_order',{
             ...commonOrderArgs,
-            p_items:testCart.map(item=>({product_id:item.healthProductId,quantity:item.quantity}))
+            p_items:testCart.map((item,index)=>({
+              product_id:item.healthProductId,
+              quantity:item.quantity,
+              ...(index===0&&uploadedPrescriptionPath?{prescription_path:uploadedPrescriptionPath}:{})
+            }))
           })
         : await window.leogoAuth.client.rpc('customer_create_marketplace_order_v2',{
             ...commonOrderArgs,
@@ -1851,6 +1921,9 @@
       orderCreatedPanel.hidden = false;
       testCart = [];
       saveTestCart();
+      if(healthPrescriptionFile)healthPrescriptionFile.value='';
+      if(healthPrescriptionFileName)healthPrescriptionFileName.textContent='PDF, JPG, PNG or WEBP · maximum 8 MB';
+      syncHealthPrescriptionPanel();
       if(checkoutUsePoints)checkoutUsePoints.checked=false;
       renderTestCart();
       await Promise.all([
@@ -1861,6 +1934,11 @@
       window.dispatchEvent(new CustomEvent('leogo:walletrefresh'));
       orderCreatedPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (error) {
+      if(uploadedPrescriptionPath){
+        try{
+          await window.leogoAuth?.client?.storage.from('health-prescriptions').remove([uploadedPrescriptionPath]);
+        }catch(_cleanupError){}
+      }
       paymentStepStatus.textContent = error?.message || 'Order could not be created. Please try again.';
       await loadCheckoutRewardPoints().catch(()=>{});
     } finally {
@@ -2062,6 +2140,7 @@
     if (cartShellCount) cartShellCount.textContent = count + (count === 1 ? ' item' : ' items');
     if (checkoutShell) checkoutShell.dataset.checkoutSubtotal = String(subtotal);
     const healthOnlyCart=testCart.length>0&&testCart.every((item)=>cartItemSource(item)==='health_medicine');
+    syncHealthPrescriptionPanel();
     if(checkoutUsePoints){
       checkoutUsePoints.disabled=healthOnlyCart;
       if(healthOnlyCart)checkoutUsePoints.checked=false;
@@ -2079,7 +2158,7 @@
         cartShellItems.innerHTML = testCart.map((item) => `
           <article class="test-cart-item" data-cart-item="${item.id}">
             <span class="test-cart-item-icon">${item.icon}</span>
-            <div class="test-cart-item-info"><strong>${item.name}</strong><small>${money(item.price)} each · ${money(item.price * item.quantity)}</small></div>
+            <div class="test-cart-item-info"><strong>${item.name}</strong><small>${money(item.price)} each · ${money(item.price * item.quantity)}${item.requiresPrescription?' · Doctor prescription required':''}</small></div>
             <div class="test-cart-item-controls">
               <button type="button" data-cart-action="decrease" aria-label="Reduce ${item.name}">−</button>
               <b>${item.quantity}</b>
@@ -2097,8 +2176,8 @@
 
   window.leogoAddHealthOtcToCart=(product)=>{
     if(!product||!product.id)return {ok:false,message:'Health product is unavailable.'};
-    if(product.requires_prescription||product.order_mode!=='cart'||product.cart_eligible===false){
-      return {ok:false,message:'This medicine requires a prescription and cannot be added to normal cart checkout.'};
+    if(product.order_mode!=='cart'||product.cart_eligible===false){
+      return {ok:false,message:'This Health & Medicine item is not available for cart checkout.'};
     }
     const stock=Number(product.quantity_available||0);
     if(product.availability_status!=='available'||stock<=0){
@@ -2131,7 +2210,7 @@
         icon:'⚕️',
         quantity:1,
         medicineClassification:product.medicine_classification||'non_medicine',
-        requiresPrescription:false
+        requiresPrescription:Boolean(product.requires_prescription)
       });
     }
     saveTestCart();
