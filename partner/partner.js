@@ -2682,7 +2682,7 @@ function renderProviderServices(){
     '</article>'
   ).join(''):'<div class="empty-card">No services added yet. Use the form above to create your first service.</div>';
   $$('[data-provider-edit-service]').forEach((button)=>button.addEventListener('click',()=>editProviderService(button.dataset.providerEditService)));
-  $('[data-provider-delete-service]').forEach((button)=>button.addEventListener('click',()=>deleteProviderService(button.dataset.providerDeleteService,button)));
+  $$('[data-provider-delete-service]').forEach((button)=>button.addEventListener('click',()=>deleteProviderService(button.dataset.providerDeleteService,button)));
   renderProviderFlashSales();
 }
 function resetProviderServiceForm(){
