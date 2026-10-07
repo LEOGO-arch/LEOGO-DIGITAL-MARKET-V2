@@ -875,7 +875,7 @@
     }).join('');
     $('#systemAlertList').innerHTML = data.alerts?.length ? data.alerts.map((item) => `<div class="alert-row ${escapeHtml(item.level)}"><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.detail)}</small></div><button data-alert-view="${escapeHtml(item.view)}" data-alert-tab="${escapeHtml(item.tab || '')}">Review →</button></div>`).join('') : '<div class="empty-mini">No operational exceptions detected.</div>';
     $('#recentAdminActivity').innerHTML = data.recent_admin_activity?.length ? data.recent_admin_activity.map((item) => `<div><div><b>${escapeHtml(item.action.replaceAll('.', ' '))}</b><small>${escapeHtml(item.admin)} · ${formatDate(item.created_at, true)}</small></div><span class="status-chip">${escapeHtml(item.entity)}</span></div>`).join('') : '<div class="empty-mini">No Admin activity yet.</div>';
-    $('[data-open-view]', $('#networkOverview')).forEach((button) => button.addEventListener('click', () => {
+    $$('[data-open-view]', $('#networkOverview')).forEach((button) => button.addEventListener('click', () => {
       if(button.dataset.openView==='cyber'){
         const cyberButton=$('#openCyberAdmin');
         if(cyberButton){cyberButton.click();return;}
