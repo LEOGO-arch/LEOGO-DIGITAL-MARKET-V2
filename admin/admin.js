@@ -743,7 +743,7 @@
     adminNotificationSignalChannel=db
       .channel('leogo-admin-notification-signal-'+state.user.id)
       .on('postgres_changes',{
-        event:'*',
+        event:'UPDATE',
         schema:'public',
         table:'admin_notification_signal',
         filter:'id=eq.1'
