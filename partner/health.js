@@ -409,6 +409,10 @@
     const unread=notifications.filter((row)=>!row.read_at).length;
     const badge=$('#healthMedicineNotificationBadge');
     if(badge){badge.hidden=!unread;badge.textContent=unread>99?'99+':String(unread);}
+    const sharedBadge=document.getElementById('partnerNotificationBadge');
+    const sharedBell=document.getElementById('partnerNotificationBell');
+    if(sharedBadge){sharedBadge.hidden=!unread;sharedBadge.textContent=unread>99?'99+':String(unread);}
+    if(sharedBell)sharedBell.classList.toggle('has-unread',unread>0);
     const target=$('#healthMedicineNotificationList');
     if(!target)return;
     target.innerHTML=notifications.length?notifications.map((row)=>
@@ -423,6 +427,7 @@
     notifications=data||[];
     renderNotifications();
   };
+  window.leogoRefreshHealthMedicineNotifications=()=>loadNotifications();
   const loadProducts=async()=>{
     const {data,error}=await client.rpc('health_medicine_list_own_products');
     if(error)throw error;

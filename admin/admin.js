@@ -616,6 +616,158 @@
   };
 
   let systemMonitoringPollTimer=null;
+  let adminNotificationSignalChannel=null;
+  let adminNotificationSignalPollTimer=null;
+  let adminNotificationSignalRefreshTimer=null;
+  let adminNotificationSignalQueued=null;
+  let adminNotificationSignalState=null;
+  let adminNotificationSignalRefreshRunning=false;
+
+  const fetchAdminNotificationSignal=async()=>{
+    if(!db||!state.admin)return null;
+    const {data,error}=await db
+      .from('admin_notification_signal')
+      .select('id,version,approvals_version,orders_version,transport_version,pickup_version,accommodation_version,updated_at')
+      .eq('id',1)
+      .maybeSingle();
+    if(error)throw error;
+    return data||null;
+  };
+
+  const adminSignalChanged=(next,previous,key)=>Number(next?.[key]||0)!==Number(previous?.[key]||0);
+
+  const applyAdminNotificationSignal=async(nextSignal,{force=false}={})=>{
+    if(!state.admin||!nextSignal)return;
+    const previous=adminNotificationSignalState;
+    if(!previous){
+      adminNotificationSignalState=nextSignal;
+      return;
+    }
+    if(document.hidden&&!force)return;
+
+    const refreshers=[];
+    const add=(key,task)=>{
+      if(!refreshers.some((entry)=>entry.key===key))refreshers.push({key,task});
+    };
+
+    if(adminSignalChanged(nextSignal,previous,'approvals_version')&&adminHas('approvals.read')){
+      add('approvals',()=>loadApprovals());
+    }
+    if(adminSignalChanged(nextSignal,previous,'orders_version')){
+      if(adminHas('orders.read'))add('orders',()=>loadMarketplaceOrders({refreshActiveDetail:true}));
+      if(adminHas('dashboard.read'))add('dashboard',()=>loadDashboard());
+    }
+    if(adminSignalChanged(nextSignal,previous,'transport_version')&&(adminHas('approvals.read')||adminHas('delivery.manage'))){
+      add('transport',()=>loadTransportNetwork());
+    }
+    if(adminSignalChanged(nextSignal,previous,'pickup_version')&&(adminHas('orders.read')||adminHas('delivery.manage'))){
+      add('pickup',()=>loadPickupStations());
+    }
+    if(adminSignalChanged(nextSignal,previous,'accommodation_version')&&adminHas('approvals.read')){
+      add('accommodation',()=>loadAccommodationSummary());
+    }
+
+    if(!refreshers.length){
+      adminNotificationSignalState=nextSignal;
+      return;
+    }
+
+    const results=await Promise.allSettled(refreshers.map((entry)=>entry.task()));
+    results.forEach((result,index)=>{
+      if(result.status==='rejected'){
+        console.warn('Admin realtime refresh failed for '+refreshers[index].key+':',result.reason);
+      }
+    });
+    renderAdminNotifications();
+    updateSidebarActionCounts();
+    if($('#lastSynced'))$('#lastSynced').textContent=formatDate(new Date().toISOString(),true);
+    adminNotificationSignalState=nextSignal;
+  };
+
+  const queueAdminNotificationSignal=(signal)=>{
+    if(!signal||!state.admin)return;
+    adminNotificationSignalQueued=signal;
+    if(adminNotificationSignalRefreshTimer)clearTimeout(adminNotificationSignalRefreshTimer);
+    adminNotificationSignalRefreshTimer=setTimeout(async()=>{
+      adminNotificationSignalRefreshTimer=null;
+      if(adminNotificationSignalRefreshRunning)return;
+      const next=adminNotificationSignalQueued;
+      adminNotificationSignalQueued=null;
+      if(!next)return;
+      adminNotificationSignalRefreshRunning=true;
+      try{
+        await applyAdminNotificationSignal(next);
+      }finally{
+        adminNotificationSignalRefreshRunning=false;
+        if(adminNotificationSignalQueued)queueAdminNotificationSignal(adminNotificationSignalQueued);
+      }
+    },220);
+  };
+
+  const syncAdminNotificationSignal=async({force=false}={})=>{
+    if(!state.admin||!db)return;
+    try{
+      const signal=await fetchAdminNotificationSignal();
+      if(force)await applyAdminNotificationSignal(signal,{force:true});
+      else queueAdminNotificationSignal(signal);
+    }catch(error){
+      console.warn('Admin notification sync failed:',error);
+    }
+  };
+
+  const stopAdminNotificationRealtime=()=>{
+    if(adminNotificationSignalRefreshTimer)clearTimeout(adminNotificationSignalRefreshTimer);
+    adminNotificationSignalRefreshTimer=null;
+    adminNotificationSignalQueued=null;
+    adminNotificationSignalRefreshRunning=false;
+    if(adminNotificationSignalPollTimer)clearInterval(adminNotificationSignalPollTimer);
+    adminNotificationSignalPollTimer=null;
+    if(adminNotificationSignalChannel&&db){
+      const channel=adminNotificationSignalChannel;
+      adminNotificationSignalChannel=null;
+      db.removeChannel(channel).catch?.(()=>{});
+    }
+    adminNotificationSignalState=null;
+  };
+
+  const startAdminNotificationRealtime=async()=>{
+    stopAdminNotificationRealtime();
+    if(!db||!state.admin||!state.user)return;
+
+    try{
+      adminNotificationSignalState=await fetchAdminNotificationSignal();
+    }catch(error){
+      console.warn('Admin notification baseline could not load:',error);
+    }
+
+    adminNotificationSignalChannel=db
+      .channel('leogo-admin-notification-signal-'+state.user.id)
+      .on('postgres_changes',{
+        event:'UPDATE',
+        schema:'public',
+        table:'admin_notification_signal',
+        filter:'id=eq.1'
+      },(payload)=>{
+        const signal=payload?.new;
+        if(signal)queueAdminNotificationSignal(signal);
+      })
+      .subscribe((subscriptionStatus)=>{
+        if(['CHANNEL_ERROR','TIMED_OUT'].includes(subscriptionStatus)){
+          console.warn('Admin realtime notification channel is unavailable; fallback sync remains active.');
+        }
+      });
+
+    adminNotificationSignalPollTimer=setInterval(()=>{
+      if(state.admin&&!document.hidden)syncAdminNotificationSignal();
+    },30000);
+  };
+
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden&&state.admin)syncAdminNotificationSignal({force:true});
+  });
+  window.addEventListener('focus',()=>{
+    if(state.admin)syncAdminNotificationSignal({force:true});
+  });
 
   const loadSystemMonitoringSnapshot=async()=>{
     if(!db||!isSuperAdmin())return null;
@@ -660,6 +812,7 @@
       applyAdminNavigationPermissions();
       await loadAll();
       startSystemMonitoringPolling();
+      startAdminNotificationRealtime().catch((error)=>console.warn('Admin realtime notification startup failed:',error));
     } catch (error) {
       showGate('denied');
       globalStatus(friendlyError(error), 'error');
@@ -6922,6 +7075,7 @@
     await recordAdminSecurityEvent('admin.security.all_sessions_revoked',{method:'manual'});
     const {error}=await db.auth.signOut({scope:'global'});
     if(error) throw error;
+    stopAdminNotificationRealtime();
     state.admin=null;
     state.user=null;
     showGate('login');
@@ -6975,6 +7129,7 @@
     });
     const signOut = async () => {
       await db?.auth.signOut();
+      stopAdminNotificationRealtime();
       state.admin = null;
       state.user = null;
       showGate('login');
