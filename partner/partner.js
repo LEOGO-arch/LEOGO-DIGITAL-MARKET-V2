@@ -66,6 +66,96 @@ const resetRequestForm=$('#partnerResetRequestForm'),resetUpdateForm=$('#partner
 const sellerReg=$('#sellerRegistrationForm'),approvedArea=$('#sellerApprovedArea'),sellerOnboarding=$('#sellerOnboarding'),sellerDashboard=$('#sellerDashboard'),sellerDocsForm=$('#sellerVerificationDocumentsForm');
 const sellerProfilePanel=$('#sellerProfilePanel'),sellerNotificationPanel=$('#sellerNotificationPanel'),sellerSettlementPanel=$('#sellerSettlementPanel'),sellerPendingArea=$('#sellerPendingArea'),sellerSidebar=$('#sellerSidebar'),sellerBootStatus=$('#sellerBootStatus');
 let activeRole='';
+let partnerNotificationRealtimeChannel=null;
+let partnerNotificationRealtimeUserId='';
+let partnerNotificationFallbackTimer=null;
+let partnerNotificationRefreshTimer=null;
+let partnerNotificationPendingType='';
+
+const refreshPartnerNotificationsForType=async(type=activeRole)=>{
+  if(!currentUser)return;
+  const resolved=String(type||activeRole||'');
+  if(!resolved||resolved!==activeRole)return;
+  if(resolved==='seller')return loadPartnerNotifications();
+  if(resolved==='service_provider')return loadProviderNotifications();
+  if(resolved==='transport')return loadTransportNotifications();
+  if(resolved==='premium')return loadPremiumNotifications();
+  if(resolved==='accommodation')return loadAccommodationNotifications();
+  if(resolved==='cyber')return window.leogoRefreshCyberNotifications?.();
+  if(resolved==='health_medicine')return window.leogoRefreshHealthMedicineNotifications?.();
+};
+
+const queuePartnerNotificationRefresh=(type=activeRole)=>{
+  if(!currentUser)return;
+  const resolved=String(type||activeRole||'');
+  if(!resolved||resolved!==activeRole)return;
+  partnerNotificationPendingType=resolved;
+  if(partnerNotificationRefreshTimer)clearTimeout(partnerNotificationRefreshTimer);
+  partnerNotificationRefreshTimer=setTimeout(async()=>{
+    partnerNotificationRefreshTimer=null;
+    const pending=partnerNotificationPendingType;
+    partnerNotificationPendingType='';
+    if(!pending||pending!==activeRole)return;
+    try{
+      await refreshPartnerNotificationsForType(pending);
+    }catch(error){
+      console.warn('Partner notification realtime refresh failed:',error);
+    }
+  },180);
+};
+
+const stopPartnerNotificationRealtime=()=>{
+  if(partnerNotificationRefreshTimer)clearTimeout(partnerNotificationRefreshTimer);
+  partnerNotificationRefreshTimer=null;
+  partnerNotificationPendingType='';
+  if(partnerNotificationFallbackTimer)clearInterval(partnerNotificationFallbackTimer);
+  partnerNotificationFallbackTimer=null;
+  if(partnerNotificationRealtimeChannel){
+    const channel=partnerNotificationRealtimeChannel;
+    partnerNotificationRealtimeChannel=null;
+    client.removeChannel(channel).catch?.(()=>{});
+  }
+  partnerNotificationRealtimeUserId='';
+};
+
+const startPartnerNotificationRealtime=()=>{
+  if(!currentUser)return;
+  if(partnerNotificationRealtimeChannel&&partnerNotificationRealtimeUserId===currentUser.id)return;
+  stopPartnerNotificationRealtime();
+  partnerNotificationRealtimeUserId=currentUser.id;
+  partnerNotificationRealtimeChannel=client
+    .channel('leogo-partner-notifications-'+currentUser.id)
+    .on('postgres_changes',{
+      event:'*',
+      schema:'public',
+      table:'partner_notifications',
+      filter:'user_id=eq.'+currentUser.id
+    },(payload)=>{
+      const partnerType=String(payload?.new?.partner_type||payload?.old?.partner_type||'');
+      document.dispatchEvent(new CustomEvent('leogo:partner-notification-change',{
+        detail:{partnerType,payload}
+      }));
+      if(partnerType===activeRole)queuePartnerNotificationRefresh(partnerType);
+    })
+    .subscribe((subscriptionStatus)=>{
+      if(['CHANNEL_ERROR','TIMED_OUT'].includes(subscriptionStatus)){
+        console.warn('Partner realtime notification channel is unavailable; fallback sync remains active.');
+      }
+    });
+
+  partnerNotificationFallbackTimer=setInterval(()=>{
+    if(currentUser&&!document.hidden&&activeRole){
+      refreshPartnerNotificationsForType(activeRole).catch(()=>{});
+    }
+  },30000);
+};
+
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&currentUser&&activeRole)queuePartnerNotificationRefresh(activeRole);
+});
+window.addEventListener('focus',()=>{
+  if(currentUser&&activeRole)queuePartnerNotificationRefresh(activeRole);
+});
 
 const partnerTypeLabel=(value)=>({premium:'Premium Partner',seller:'Seller',service_provider:'Service Provider',cyber:'Cyber',accommodation:'Accommodation',transport:'Transporter'}[value]||value);
 const partnerPaymentDestination=(account)=>{
@@ -125,7 +215,10 @@ async function hydratePremiumApplicationBilling(){
   if(select)select.innerHTML='<option value="monthly">Monthly — KSh '+Number(data.monthly_amount_kes||0).toLocaleString('en-KE')+'</option><option value="yearly">Yearly — KSh '+Number(data.yearly_amount_kes||0).toLocaleString('en-KE')+'</option>';
   if($('#premiumApplicationPaymentDestination'))$('#premiumApplicationPaymentDestination').textContent='Pay to '+partnerPaymentDestination(data.payment_destination)+'. Admin will verify the reference before activation.';
 }
-window.leogoSetPartnerActiveRole=(role='')=>{activeRole=String(role||'');};
+window.leogoSetPartnerActiveRole=(role='')=>{
+  activeRole=String(role||'');
+  if(currentUser&&activeRole)queuePartnerNotificationRefresh(activeRole);
+};
 window.leogoPartnerCurrentUser=()=>currentUser;
 
 const waitTimeout=(ms,message='Request timed out')=>new Promise((_,reject)=>window.setTimeout(()=>reject(new Error(message)),ms));
@@ -5783,6 +5876,7 @@ async function handleSession(session){
   logout.hidden=!currentUser;
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   if(!currentUser){
+    stopPartnerNotificationRealtime();
     seller=null;products=[];sellerEarningsReport=null;provider=null;providerServices=[];providerNotifications=[];providerJobs=[];providerSettlementAccounts=[];providerSettlementRequests=[];providerSettlements=[];providerEarningsReport=null;
     transportProvider=null;transportVehicles=[];transportJobs=[];transportNotifications=[];editingTransportVehicle=null;
     premiumProfile=null;premiumNotifications=[];
@@ -5798,6 +5892,7 @@ async function handleSession(session){
     if(hero)hero.hidden=false;
     return;
   }
+  startPartnerNotificationRealtime();
   authShell.hidden=true;
   sellerShell.hidden=true;
   if(providerShell)providerShell.hidden=true;
@@ -5830,15 +5925,6 @@ window.addEventListener('error',event=>{
     showSellerBootError(event.error||new Error(event.message||'Seller Portal error'));
   }
 });
-
-window.setInterval(()=>{
-  if(activeRole==='accommodation'&&currentUser){
-    loadAccommodationNotifications().catch(()=>{});
-  }
-  if(activeRole==='premium'&&currentUser){
-    loadPremiumNotifications().catch(()=>{});
-  }
-},30000);
 
 client.auth.onAuthStateChange((event,s)=>{
   if(event==='PASSWORD_RECOVERY'){
