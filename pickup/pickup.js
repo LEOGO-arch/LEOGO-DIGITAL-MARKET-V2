@@ -749,10 +749,19 @@ const finishQrScan=async(rawValue)=>{
   $('#scannerStatus').textContent='QR detected. Checking LEOGO order…';
 
   let data=null,error=null;
-  try{
-    ({data,error}=await client.rpc('pickup_partner_lookup_parcel',{p_code:code}));
-  }catch(err){
-    error=err;
+  const digits=code.replace(/\D/g,'');
+  const suffix=digits.length>=4?digits.slice(-4):'';
+  const lookupCodes=[...new Set([code,suffix].filter(Boolean))];
+  for(const lookupCode of lookupCodes){
+    try{
+      const result=await client.rpc('pickup_partner_lookup_parcel',{p_code:lookupCode});
+      data=result.data;
+      error=result.error;
+    }catch(err){
+      data=null;
+      error=err;
+    }
+    if(!error&&data?.order_reference)break;
   }
 
   if(error||!data?.order_reference){
@@ -813,13 +822,8 @@ const scanLoop=async(detector)=>{
       }
 
       const elapsed=Date.now()-scannerStartedAt;
-      if(elapsed>12000){
-        stopScanner();
-        const input=scannerMode==='receive'?$('#receiveCode'):$('#handoverCode');
-        const statusEl=scannerMode==='receive'?$('#receiveStatus'):$('#handoverStatus');
-        setStatus(statusEl,'QR could not be read. Enter the order / waybill number below and continue with the required photo.','error');
-        window.setTimeout(()=>{input.scrollIntoView({behavior:'smooth',block:'center'});input.focus({preventScroll:true});},120);
-        return;
+      if(elapsed>15000){
+        $('#scannerStatus').textContent='Still scanning… move closer, keep the QR inside the orange frame, or use the phone flashlight. Tap Cancel Scan when finished.';
       }else if(elapsed>3500){
         $('#scannerStatus').textContent='Looking for QR… keep it inside the orange frame and hold the phone steady.';
       }
