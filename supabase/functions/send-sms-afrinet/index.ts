@@ -33,7 +33,11 @@ const verifyHook = (payload: string, headers: Record<string, string>) => {
     const secret = configuredSecret.replace(/^v1,whsec_/, "");
     try {
       return new Webhook(secret).verify(payload, headers) as {
-        user?: { phone?: string | null };
+        user?: {
+          phone?: string | null;
+          phone_change?: string | null;
+          user_metadata?: { phone?: string | null } | null;
+        };
         sms?: { otp?: string | null };
       };
     } catch (error) {
@@ -82,7 +86,29 @@ Deno.serve(async (req: Request) => {
     const headers = Object.fromEntries(req.headers.entries());
     const event = verifyHook(payload, headers);
 
-    const phone = normalizeKenyanMobile(String(event.user?.phone || ""));
+    // During an email-account -> phone-link request, Supabase invokes the
+    // Send SMS Hook before the new phone has been committed to user.phone.
+    // Prefer an explicit pending phone change when present, then the current
+    // Auth phone, then LEOGO's already-saved profile metadata phone.
+    const phoneCandidates = [
+      event.user?.phone_change,
+      event.user?.phone,
+      event.user?.user_metadata?.phone,
+    ];
+    let phone = "";
+    for (const candidate of phoneCandidates) {
+      if (!candidate) continue;
+      try {
+        phone = normalizeKenyanMobile(String(candidate));
+        break;
+      } catch {
+        // Try the next non-sensitive phone source.
+      }
+    }
+    if (!phone) {
+      throw new Error("No valid Kenyan mobile number was available to the SMS hook");
+    }
+
     const otp = String(event.sms?.otp || "").trim();
     if (!/^\d{4,10}$/.test(otp)) {
       throw new Error("Supabase SMS hook did not provide a valid OTP");
