@@ -850,8 +850,10 @@ const startScanner=async(mode)=>{
     scannerStream=await navigator.mediaDevices.getUserMedia({
       video:{
         facingMode:{ideal:'environment'},
-        width:{ideal:2560},
-        height:{ideal:1440}
+        width:{ideal:1920},
+        height:{ideal:1080},
+        frameRate:{ideal:30},
+        focusMode:{ideal:'continuous'}
       },
       audio:false
     });
