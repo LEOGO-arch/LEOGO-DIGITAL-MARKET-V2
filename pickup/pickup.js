@@ -18,6 +18,7 @@ const setStatus=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.classN
 const PICKUP_LOCATION_FALLBACK={"counties":[{"code":"KE039","name":"Bungoma"},{"code":"KE040","name":"Busia"},{"code":"KE043","name":"Homa Bay"},{"code":"KE037","name":"Kakamega"},{"code":"KE042","name":"Kisumu"},{"code":"KE044","name":"Migori"},{"code":"KE047","name":"Nairobi"},{"code":"KE041","name":"Siaya"},{"code":"KE026","name":"Trans Nzoia"},{"code":"KE027","name":"Uasin Gishu"}],"subcounties":[{"code":"KE026140","name":"Cherangany","county_code":"KE026"},{"code":"KE026137","name":"Endebess","county_code":"KE026"},{"code":"KE026139","name":"Kiminini","county_code":"KE026"},{"code":"KE026136","name":"Kwanza","county_code":"KE026"},{"code":"KE026138","name":"Saboti","county_code":"KE026"},{"code":"KE027144","name":"Ainabkoi","county_code":"KE027"},{"code":"KE027145","name":"Kapseret","county_code":"KE027"},{"code":"KE027146","name":"Kesses","county_code":"KE027"},{"code":"KE027143","name":"Moiben","county_code":"KE027"},{"code":"KE027141","name":"Soy","county_code":"KE027"},{"code":"KE027142","name":"Turbo","county_code":"KE027"},{"code":"KE037207","name":"Butere","county_code":"KE037"},{"code":"KE037210","name":"Ikolomani","county_code":"KE037"},{"code":"KE037208","name":"Khwisero","county_code":"KE037"},{"code":"KE037200","name":"Likuyani","county_code":"KE037"},{"code":"KE037199","name":"Lugari","county_code":"KE037"},{"code":"KE037202","name":"Lurambi","county_code":"KE037"},{"code":"KE037201","name":"Malava","county_code":"KE037"},{"code":"KE037206","name":"Matungu","county_code":"KE037"},{"code":"KE037205","name":"Mumias East","county_code":"KE037"},{"code":"KE037204","name":"Mumias West","county_code":"KE037"},{"code":"KE037203","name":"Navakholo","county_code":"KE037"},{"code":"KE037209","name":"Shinyalu","county_code":"KE037"},{"code":"KE039219","name":"Bumula","county_code":"KE039"},{"code":"KE039218","name":"Kabuchai","county_code":"KE039"},{"code":"KE039220","name":"Kanduyi","county_code":"KE039"},{"code":"KE039223","name":"Kimilili","county_code":"KE039"},{"code":"KE039216","name":"Mt. Elgon","county_code":"KE039"},{"code":"KE039217","name":"Sirisia","county_code":"KE039"},{"code":"KE039224","name":"Tongaren","county_code":"KE039"},{"code":"KE039221","name":"Webuye East","county_code":"KE039"},{"code":"KE039222","name":"Webuye West","county_code":"KE039"},{"code":"KE040231","name":"Budalangi","county_code":"KE040"},{"code":"KE040229","name":"Butula","county_code":"KE040"},{"code":"KE040230","name":"Funyula","county_code":"KE040"},{"code":"KE040228","name":"Matayos","county_code":"KE040"},{"code":"KE040227","name":"Nambale","county_code":"KE040"},{"code":"KE040225","name":"Teso North","county_code":"KE040"},{"code":"KE040226","name":"Teso South","county_code":"KE040"},{"code":"KE041234","name":"Alego Usonga","county_code":"KE041"},{"code":"KE041236","name":"Bondo","county_code":"KE041"},{"code":"KE041235","name":"Gem","county_code":"KE041"},{"code":"KE041237","name":"Rarieda","county_code":"KE041"},{"code":"KE041232","name":"Ugenya","county_code":"KE041"},{"code":"KE041233","name":"Ugunja","county_code":"KE041"},{"code":"KE042240","name":"Kisumu Central","county_code":"KE042"},{"code":"KE042238","name":"Kisumu East","county_code":"KE042"},{"code":"KE042239","name":"Kisumu West","county_code":"KE042"},{"code":"KE042243","name":"Muhoroni","county_code":"KE042"},{"code":"KE042244","name":"Nyakach","county_code":"KE042"},{"code":"KE042242","name":"Nyando","county_code":"KE042"},{"code":"KE042241","name":"Seme","county_code":"KE042"},{"code":"KE043249","name":"Homa Bay","county_code":"KE043"},{"code":"KE043246","name":"Kabondo Kasipul","county_code":"KE043"},{"code":"KE043247","name":"Karachuonyo","county_code":"KE043"},{"code":"KE043245","name":"Kasipul","county_code":"KE043"},{"code":"KE043250","name":"Ndhiwa","county_code":"KE043"},{"code":"KE043248","name":"Rangwe","county_code":"KE043"},{"code":"KE043251","name":"Suba North","county_code":"KE043"},{"code":"KE043252","name":"Suba South","county_code":"KE043"},{"code":"KE044254","name":"Awendo","county_code":"KE044"},{"code":"KE044260","name":"Kuria East","county_code":"KE044"},{"code":"KE044259","name":"Kuria West","county_code":"KE044"},{"code":"KE044258","name":"Nyatike","county_code":"KE044"},{"code":"KE044253","name":"Rongo","county_code":"KE044"},{"code":"KE044255","name":"Suna East","county_code":"KE044"},{"code":"KE044256","name":"Suna West","county_code":"KE044"},{"code":"KE044257","name":"Uriri","county_code":"KE044"},{"code":"KE047276","name":"Dagoretti","county_code":"KE047"},{"code":"KE047284","name":"Embakasi Central","county_code":"KE047"},{"code":"KE047285","name":"Embakasi East","county_code":"KE047"},{"code":"KE047283","name":"Embakasi North","county_code":"KE047"},{"code":"KE047282","name":"Embakasi South","county_code":"KE047"},{"code":"KE047286","name":"Embakasi West","county_code":"KE047"},{"code":"KE047288","name":"Kamukunji","county_code":"KE047"},{"code":"KE047280","name":"Kasarani","county_code":"KE047"},{"code":"KE047278","name":"Kibra","county_code":"KE047"},{"code":"KE047275","name":"Kilimani","county_code":"KE047"},{"code":"KE047277","name":"Langata","county_code":"KE047"},{"code":"KE047287","name":"Makadara","county_code":"KE047"},{"code":"KE047290","name":"Mathare","county_code":"KE047"},{"code":"KE047279","name":"Roysambu","county_code":"KE047"},{"code":"KE047281","name":"Ruaraka","county_code":"KE047"},{"code":"KE047289","name":"Starehe","county_code":"KE047"},{"code":"KE047274","name":"Westlands","county_code":"KE047"}]};
 let dashboard=null,pickupApplication=null,pickupCounties=[],pickupSubcounties=[],parcels=[],returns=[],withdrawals=[],history=[],earnings=null,currentUser=null;
 let scannerStream=null,scannerTimer=null,scannerMode='receive';
+let pickupNotificationChannel=null,pickupNotificationRefreshTimer=null;
 
 const showView=(name)=>{
   $$('#pickupNav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
@@ -458,6 +459,53 @@ const loadEarnings=async()=>{
 const loadAll=async()=>{
   const ok=await loadDashboard();if(!ok)return;
   await Promise.all([loadParcels(),loadReturns(),loadWithdrawals(),loadHistory(),loadEarnings()]);
+};
+
+const queuePickupNotificationRefresh=()=>{
+  if(!currentUser)return;
+  if(pickupNotificationRefreshTimer)clearTimeout(pickupNotificationRefreshTimer);
+  pickupNotificationRefreshTimer=setTimeout(()=>{
+    pickupNotificationRefreshTimer=null;
+    loadAll().catch((error)=>console.warn('Pickup Station notification refresh failed:',error));
+  },220);
+};
+
+const stopPickupNotificationRealtime=()=>{
+  if(pickupNotificationRefreshTimer)clearTimeout(pickupNotificationRefreshTimer);
+  pickupNotificationRefreshTimer=null;
+  if(pickupNotificationChannel){
+    const channel=pickupNotificationChannel;
+    pickupNotificationChannel=null;
+    client.removeChannel(channel).catch?.(()=>{});
+  }
+};
+
+const startPickupNotificationRealtime=()=>{
+  stopPickupNotificationRealtime();
+  if(!currentUser)return;
+  const handle=(payload)=>{
+    const row=payload?.new||{};
+    if(String(row.partner_type||'')==='pickup_station')queuePickupNotificationRefresh();
+  };
+  pickupNotificationChannel=client
+    .channel('leogo-pickup-notifications-'+currentUser.id)
+    .on('postgres_changes',{
+      event:'INSERT',
+      schema:'public',
+      table:'partner_notifications',
+      filter:'user_id=eq.'+currentUser.id
+    },handle)
+    .on('postgres_changes',{
+      event:'UPDATE',
+      schema:'public',
+      table:'partner_notifications',
+      filter:'user_id=eq.'+currentUser.id
+    },handle)
+    .subscribe((subscriptionStatus)=>{
+      if(['CHANNEL_ERROR','TIMED_OUT'].includes(subscriptionStatus)){
+        console.warn('Pickup Station realtime notifications unavailable; fallback refresh remains active.');
+      }
+    });
 };
 
 const lookupParcel=async(code)=>{
@@ -903,6 +951,7 @@ const boot=async()=>{
   const {data:{session},error}=await client.auth.getSession();
   if(error||!session){stopScanner();$('#authGate').hidden=false;$('#assignmentGate').hidden=true;$('#portal').hidden=true;return;}
   currentUser=session.user;$('#authGate').hidden=true;
+  startPickupNotificationRealtime();
   try{
     await loadPickupLocations();
     await loadAll();
@@ -925,10 +974,21 @@ const boot=async()=>{
 };
 
 client.auth.onAuthStateChange((event,session)=>{
-  if(event==='SIGNED_OUT'){location.replace('../partner/');return;}
-  if(session?.user&&!currentUser){currentUser=session.user;loadAll().catch(()=>{});}
+  if(event==='SIGNED_OUT'){
+    stopPickupNotificationRealtime();
+    location.replace('../partner/');
+    return;
+  }
+  if(session?.user&&!currentUser){
+    currentUser=session.user;
+    startPickupNotificationRealtime();
+    loadAll().catch(()=>{});
+  }
 });
-window.addEventListener('beforeunload',stopScanner);
+window.addEventListener('beforeunload',()=>{
+  stopScanner();
+  stopPickupNotificationRealtime();
+});
 
 // Keep the station dashboard fresh so newly booked parcels appear without a manual reload.
 window.setInterval(()=>{
@@ -941,8 +1001,11 @@ window.setInterval(()=>{
 },30000);
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'&&currentUser&&dashboard?.assigned){
-    Promise.all([loadDashboard(),loadParcels(),loadReturns(),loadWithdrawals()]).catch(()=>{});
+    queuePickupNotificationRefresh();
   }
+});
+window.addEventListener('focus',()=>{
+  if(currentUser&&dashboard?.assigned)queuePickupNotificationRefresh();
 });
 
 boot();
