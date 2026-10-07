@@ -95,6 +95,7 @@
     advertisements: [],
     adminNotifications: [],
     systemMonitoring: null,
+    dataCleanupOverview: null,
     audit: [],
     dashboard: null,
     dashboardRange: 'today',
@@ -150,6 +151,18 @@
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
   })[character]);
   const formatMoney = (value) => `KSh ${Number(value || 0).toLocaleString('en-KE', { maximumFractionDigits: 2 })}`;
+  const formatBytes = (value) => {
+    const bytes = Math.max(0, Number(value || 0));
+    if (bytes < 1024) return bytes.toLocaleString('en-KE') + ' B';
+    const units = ['KB','MB','GB','TB'];
+    let amount = bytes / 1024;
+    let unit = units[0];
+    for (let index = 1; index < units.length && amount >= 1024; index += 1) {
+      amount /= 1024;
+      unit = units[index];
+    }
+    return amount.toLocaleString('en-KE', { maximumFractionDigits: amount >= 100 ? 0 : amount >= 10 ? 1 : 2 }) + ' ' + unit;
+  };
   const formatDate = (value, withTime = false) => {
     if (!value) return '—';
     const date = new Date(value);
@@ -581,6 +594,10 @@
     if(securityTab) securityTab.hidden=!isSuperAdmin();
     const securityPanel=$('#adminSecuritySettingsPanel');
     if(securityPanel && !isSuperAdmin()) securityPanel.classList.remove('active');
+    const dataTab=$('#dataManagementSettingsTab');
+    if(dataTab) dataTab.hidden=!isSuperAdmin();
+    const dataPanel=$('[data-settings-content="data"]');
+    if(dataPanel && !isSuperAdmin()) dataPanel.classList.remove('active');
   };
 
   const showGate = (name) => {
@@ -6378,6 +6395,111 @@
     if ($('#dataTypeFilter')?.value === 'audit_log') renderDataManagement();
   };
 
+  const renderDataCleanupOverview = () => {
+    const overview = state.dataCleanupOverview;
+    if (!overview) return;
+
+    $('#cleanupDatabaseSize').textContent = formatBytes(overview.database_bytes);
+    $('#cleanupStorageSize').textContent = formatBytes(overview.storage_bytes);
+    $('#cleanupStorageObjects').textContent = Number(overview.storage_objects || 0).toLocaleString('en-KE') + ' objects';
+    $('#cleanupCandidateCount').textContent = Number(overview.cleanup_candidates?.total || 0).toLocaleString('en-KE');
+    $('#cleanupInactiveCustomerCount').textContent = Number(overview.review_only?.inactive_customers || 0).toLocaleString('en-KE');
+
+    const settings = overview.settings || {};
+    const form = $('#dataRetentionSettingsForm');
+    if (form) {
+      ['read_notification_days','diagnostic_event_days','monitoring_run_days','inactive_customer_review_days']
+        .forEach((key) => { if (form.elements[key]) form.elements[key].value = settings[key] ?? ''; });
+    }
+
+    const candidates = overview.cleanup_candidates || {};
+    const candidateRows = [
+      ['Read customer notifications', candidates.read_customer_notifications, 'Older than the notification retention period'],
+      ['Read partner notifications', candidates.read_partner_notifications, 'Older than the notification retention period'],
+      ['Resolved diagnostic events', candidates.resolved_runtime_error_events, 'Only resolved/ignored issue events'],
+      ['Old monitoring runs', candidates.old_monitoring_runs, 'Newest 30 and incident-linked runs stay protected']
+    ];
+    $('#cleanupCandidateList').innerHTML = candidateRows.map(([label,count,note]) => `
+      <div class="cleanup-list-row"><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(note)}</small></div><b>${Number(count || 0).toLocaleString('en-KE')}</b></div>
+    `).join('');
+
+    const buckets = Array.isArray(overview.storage_buckets) ? overview.storage_buckets : [];
+    $('#cleanupBucketList').innerHTML = buckets.length ? buckets.map((bucket) => `
+      <div class="cleanup-list-row"><div><strong>${escapeHtml(bucket.bucket_id || 'Storage bucket')}</strong><small>${Number(bucket.object_count || 0).toLocaleString('en-KE')} object(s)</small></div><b>${formatBytes(bucket.bytes)}</b></div>
+    `).join('') : '<div class="empty-mini">No Storage objects are currently using space.</div>';
+
+    const cleanupButton = $('#runSafeDataCleanup');
+    if (cleanupButton) cleanupButton.disabled = Number(candidates.total || 0) <= 0;
+  };
+
+  const loadDataCleanupOverview = async () => {
+    if (!isSuperAdmin()) return;
+    const { data, error } = await db.rpc('admin_get_data_cleanup_overview');
+    if (error) throw error;
+    state.dataCleanupOverview = data || {};
+    renderDataCleanupOverview();
+    setFormStatus($('#dataCleanupStatus'), 'Storage scan completed. Nothing has been deleted.', 'success');
+  };
+
+  const saveDataRetentionSettings = async (event) => {
+    event.preventDefault();
+    if (!isSuperAdmin()) {
+      setFormStatus($('#dataRetentionSettingsStatus'), 'Super Admin access is required.', 'error');
+      return;
+    }
+    const form = event.currentTarget;
+    const button = event.submitter || $('button[type="submit"]', form);
+    await withButtonLock(button, 'Saving…', async () => {
+      const { error } = await db.rpc('admin_save_data_retention_settings', {
+        p_read_notification_days: Number(form.elements.read_notification_days.value),
+        p_diagnostic_event_days: Number(form.elements.diagnostic_event_days.value),
+        p_monitoring_run_days: Number(form.elements.monitoring_run_days.value),
+        p_inactive_customer_review_days: Number(form.elements.inactive_customer_review_days.value)
+      });
+      if (error) {
+        setFormStatus($('#dataRetentionSettingsStatus'), friendlyError(error), 'error');
+        return;
+      }
+      setFormStatus($('#dataRetentionSettingsStatus'), 'Retention rules saved and recorded in Audit Log.', 'success');
+      await Promise.all([loadDataCleanupOverview(), loadAuditLog()]);
+    });
+  };
+
+  const runSafeDataCleanup = async (button) => {
+    if (!isSuperAdmin()) {
+      globalStatus('Super Admin access is required for data cleanup.', 'error');
+      return;
+    }
+    const total = Number(state.dataCleanupOverview?.cleanup_candidates?.total || 0);
+    if (!total) {
+      setFormStatus($('#dataCleanupStatus'), 'There are no eligible housekeeping records to delete.', 'success');
+      return;
+    }
+    const confirmed = window.confirm(
+      `Delete ${total.toLocaleString('en-KE')} eligible housekeeping record(s)?\n\nThis action only removes old READ notifications, resolved/ignored diagnostic event history and old monitoring runs. Customer accounts, orders, payments, Wallet/SACCO, loans, audit history, disputes and Storage files will NOT be deleted.`
+    );
+    if (!confirmed) return;
+
+    await withButtonLock(button, 'Cleaning safely…', async () => {
+      const { data, error } = await db.rpc('admin_run_safe_data_cleanup');
+      if (error) {
+        setFormStatus($('#dataCleanupStatus'), friendlyError(error), 'error');
+        return;
+      }
+      const deleted = Number(data?.total_deleted || 0);
+      setFormStatus(
+        $('#dataCleanupStatus'),
+        `Safe cleanup completed: ${deleted.toLocaleString('en-KE')} housekeeping record(s) removed. Protected business/customer data was untouched.`,
+        'success'
+      );
+      await Promise.all([
+        loadDataCleanupOverview(),
+        loadAuditLog(),
+        loadSystemMonitoringSnapshot().catch(() => null)
+      ]);
+    });
+  };
+
   const dataRows = () => {
     const type = $('#dataTypeFilter')?.value || 'customers';
     let rows = type === 'customers' ? state.customers : type === 'pickup_stations' ? state.pickupStations : type === 'payment_accounts' ? state.paymentAccounts : state.audit;
@@ -6667,9 +6789,16 @@
       globalStatus('Super Admin access is required for Admin Security.','error');
       return;
     }
+    if(tab==='data'&&!isSuperAdmin()){
+      globalStatus('Super Admin access is required for Data Cleanup & Retention.','error');
+      return;
+    }
     $$('#settingsTabs [data-settings-panel]').forEach((button) => button.classList.toggle('active', button.dataset.settingsPanel === tab));
     $$('[data-settings-content]').forEach((panel) => panel.classList.toggle('active', panel.dataset.settingsContent === tab));
-    if (tab === 'data') renderDataManagement();
+    if (tab === 'data') {
+      renderDataManagement();
+      loadDataCleanupOverview().catch((error)=>setFormStatus($('#dataCleanupStatus'),friendlyError(error),'error'));
+    }
     if (tab === 'orders') loadOrderSettings().catch((error)=>setFormStatus($('#orderSettingsStatus'),friendlyError(error),'error'));
     if (tab === 'lipa') loadLipaPolePoleSettings().catch((error)=>setFormStatus($('#lipaPolePoleSettingsStatus'),friendlyError(error),'error'));
   };
@@ -7125,6 +7254,9 @@
     $('#paymentAccountForm').addEventListener('submit', savePaymentAccount);
     $('#addPickupStation').addEventListener('click', () => openPickupModal());
     $('#pickupStationForm').addEventListener('submit', savePickupStation);
+    $('#refreshDataCleanupOverview')?.addEventListener('click',(event)=>withButtonLock(event.currentTarget,'Scanning…',loadDataCleanupOverview));
+    $('#dataRetentionSettingsForm')?.addEventListener('submit',saveDataRetentionSettings);
+    $('#runSafeDataCleanup')?.addEventListener('click',(event)=>runSafeDataCleanup(event.currentTarget));
     ['dataTypeFilter','dataStatusFilter','dataFromFilter','dataToFilter'].forEach(id=>$('#'+id).addEventListener('change',()=>{state.selectedData.clear();renderDataManagement();}));
     $('#selectAllData').addEventListener('change',event=>{dataRows().forEach(r=>event.target.checked?state.selectedData.add(dataRecordId(r)):state.selectedData.delete(dataRecordId(r)));renderDataManagement();});
     $('#selectFilteredData').addEventListener('click',()=>{dataRows().forEach(r=>state.selectedData.add(dataRecordId(r)));renderDataManagement();});
