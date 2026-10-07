@@ -1749,6 +1749,56 @@
     if ($('#staffEditorRole')) $('#staffEditorRole').innerHTML=options;
   };
 
+  const normalizeLocationText=(value)=>String(value||'').trim().toLowerCase().replace(/\s+/g,' ');
+  const staffLocationLabel=(staff)=>[staff?.sub_county,staff?.county].filter(Boolean).join(', ')||'Location not set';
+
+  const setStaffLocationSelection=(countySelect,subCountySelect,countyCode='',subCountyCode='')=>{
+    if(!countySelect||!subCountySelect)return;
+    const counties=Array.isArray(state.serviceCounties)?state.serviceCounties:[];
+    const subcounties=Array.isArray(state.serviceSubcounties)?state.serviceSubcounties:[];
+    countySelect.innerHTML='<option value="">Choose county</option>'+counties.map((county)=>
+      '<option value="'+escapeHtml(county.code)+'">'+escapeHtml(county.name)+'</option>'
+    ).join('');
+    countySelect.value=counties.some((county)=>county.code===countyCode)?countyCode:'';
+    const filtered=countySelect.value?subcounties.filter((sub)=>sub.county_code===countySelect.value):[];
+    subCountySelect.innerHTML=countySelect.value
+      ? '<option value="">Choose sub-county</option>'+filtered.map((sub)=>'<option value="'+escapeHtml(sub.code)+'">'+escapeHtml(sub.name)+'</option>').join('')
+      : '<option value="">Choose county first</option>';
+    subCountySelect.disabled=!countySelect.value;
+    subCountySelect.value=filtered.some((sub)=>sub.code===subCountyCode)?subCountyCode:'';
+  };
+
+  const refreshCreateStaffLocation=()=>{
+    const county=$('#staffCounty');
+    const subCounty=$('#staffSubCounty');
+    const countyCode=county?.value||'';
+    const subCountyCode=subCounty?.value||'';
+    setStaffLocationSelection(county,subCounty,countyCode,subCountyCode);
+  };
+
+  const riderLocationMatchScore=(rider,county,subCounty)=>{
+    const riderSub=normalizeLocationText(rider?.sub_county);
+    const riderCounty=normalizeLocationText(rider?.county);
+    const targetSub=normalizeLocationText(subCounty);
+    const targetCounty=normalizeLocationText(county);
+    if(targetSub&&riderSub===targetSub)return 2;
+    if(targetCounty&&riderCounty===targetCounty)return 1;
+    return 0;
+  };
+
+  const prioritizeRidersForLocation=(riders,county,subCounty)=>[...(riders||[])].sort((a,b)=>{
+    const score=riderLocationMatchScore(b,county,subCounty)-riderLocationMatchScore(a,county,subCounty);
+    if(score)return score;
+    return String(a.display_name||'').localeCompare(String(b.display_name||''));
+  });
+
+  const riderAssignmentLabel=(rider,county,subCounty)=>{
+    const match=riderLocationMatchScore(rider,county,subCounty);
+    const location=staffLocationLabel(rider);
+    const matchLabel=match===2?' · LOCAL MATCH':match===1?' · COUNTY MATCH':'';
+    return String(rider.display_name||'Rider')+(rider.vehicle_registration?' · '+rider.vehicle_registration:'')+' · '+location+matchLabel;
+  };
+
   const applyCreateRolePreset = () => {
     const preset=presetForRole($('#staffRole')?.value);
     if(!preset) return;
@@ -1770,7 +1820,7 @@
     return state.staffDirectory.filter((staff)=>{
       const matchesTerm=!term||[
         staff.display_name,staff.email,staff.phone,staff.role_label,staff.department,
-        staff.job_title,staff.vehicle_type,staff.vehicle_registration
+        staff.job_title,staff.vehicle_type,staff.vehicle_registration,staff.county,staff.sub_county
       ].some((value)=>String(value||'').toLowerCase().includes(term));
       const matchesRole=role==='all'
         || (role==='admin_staff'&&staff.account_kind==='admin_staff')
@@ -1803,7 +1853,7 @@
         '<div class="staff-directory-main">'+
           '<div class="staff-directory-title"><div><span>'+escapeHtml(staff.account_kind==='rider'?'DELIVERY STAFF':'ADMIN STAFF')+'</span><h4>'+escapeHtml(staff.display_name)+'</h4><p>'+escapeHtml(staff.email||'')+(staff.phone?' · '+escapeHtml(staff.phone):'')+'</p></div>'+
             '<div class="staff-directory-badges"><span class="status-chip">'+escapeHtml(staff.role_label||staff.role_code)+'</span><span class="status-chip">'+escapeHtml(staff.status)+'</span></div></div>'+
-          '<div class="staff-card-meta"><span><small>Department</small><strong>'+escapeHtml(staff.department||'—')+'</strong></span><span><small>Last sign in</small><strong>'+escapeHtml(formatDate(staff.last_sign_in_at,true))+'</strong></span><span><small>Created</small><strong>'+escapeHtml(formatDate(staff.created_at))+'</strong></span></div>'+
+          '<div class="staff-card-meta"><span><small>Department</small><strong>'+escapeHtml(staff.department||'—')+'</strong></span><span><small>Operating location</small><strong>'+escapeHtml(staffLocationLabel(staff))+'</strong></span><span><small>Last sign in</small><strong>'+escapeHtml(formatDate(staff.last_sign_in_at,true))+'</strong></span><span><small>Created</small><strong>'+escapeHtml(formatDate(staff.created_at))+'</strong></span></div>'+
           riderMeta+
           '<div class="staff-directory-actions">'+
             (isOwner
@@ -1844,15 +1894,21 @@
 
   const loadStaffManagement = async () => {
     if(!isSuperAdmin()) return;
-    const [directoryResult,presetResult]=await Promise.all([
+    const [directoryResult,presetResult,countyResult,subcountyResult]=await Promise.all([
       db.rpc('admin_list_staff_directory'),
-      db.rpc('admin_staff_role_presets')
+      db.rpc('admin_staff_role_presets'),
+      db.from('kenya_counties').select('code,name').eq('is_active',true).order('name'),
+      db.from('kenya_subcounties').select('code,county_code,name').eq('is_active',true).order('name')
     ]);
     if(directoryResult.error) throw directoryResult.error;
     if(presetResult.error) throw presetResult.error;
+    if(countyResult.error||subcountyResult.error) throw countyResult.error||subcountyResult.error;
     state.staffDirectory=Array.isArray(directoryResult.data)?directoryResult.data:[];
     state.staffRolePresets=Array.isArray(presetResult.data)?presetResult.data:[];
+    state.serviceCounties=Array.isArray(countyResult.data)?countyResult.data:[];
+    state.serviceSubcounties=Array.isArray(subcountyResult.data)?subcountyResult.data:[];
     renderStaffRoleOptions();
+    refreshCreateStaffLocation();
     if($('#staffRole')&&!$('#staffRole').value&&state.staffRolePresets[0]) $('#staffRole').value=state.staffRolePresets[0].code;
     if(!$('#staffPermissionGrid')?.children.length) applyCreateRolePreset();
     renderStaffDirectory();
@@ -2000,6 +2056,7 @@
     $('#staffEditorAccountKind').value=staff.account_kind;
     $('#staffEditorName').value=staff.display_name||'';
     $('#staffEditorPhone').value=staff.phone||'';
+    setStaffLocationSelection($('#staffEditorCounty'),$('#staffEditorSubCounty'),staff.county_code||'',staff.sub_county_code||'');
     $('#staffEditorTitle').textContent='Manage '+staff.display_name;
     $('#staffEditorSubtitle').textContent=staff.email+' · '+(staff.role_label||staff.role_code);
 
@@ -2095,6 +2152,8 @@
       display_name:($('#staffDisplayName')?.value||'').trim(),
       email:($('#staffEmail')?.value||'').trim(),
       phone:($('#staffPhone')?.value||'').trim(),
+      county_code:$('#staffCounty')?.value||'',
+      sub_county_code:$('#staffSubCounty')?.value||'',
       role_code:kind==='admin_staff'?$('#staffRole')?.value:'rider',
       department:kind==='admin_staff'?($('#staffDepartment')?.value||'').trim():'Delivery',
       job_title:kind==='admin_staff'?($('#staffJobTitle')?.value||'').trim():'LEOGO Rider',
@@ -2176,6 +2235,7 @@
 
         form.reset();
         $('#staffAccountKind').value='admin_staff';
+        setStaffLocationSelection($('#staffCounty'),$('#staffSubCounty'),'','');
         $('#staffPhone').required=false;
         $('#staffRole').required=true;
         $('#adminStaffFields').hidden=false;
@@ -2222,9 +2282,11 @@
         p_vehicle_registration:rider?($('#staffEditorVehicleRegistration').value.trim()||null):null,
         p_id_number:rider?($('#staffEditorIdNumber').value.trim()||null):null,
         p_license_number:rider?($('#staffEditorLicenseNumber').value.trim()||null):null,
-        p_availability_status:rider?$('#staffEditorAvailability').value:null
+        p_availability_status:rider?$('#staffEditorAvailability').value:null,
+        p_county_code:$('#staffEditorCounty').value||null,
+        p_sub_county_code:$('#staffEditorSubCounty').value||null
       };
-      const {error}=await db.rpc('admin_update_staff_access',args);
+      const {error}=await db.rpc('admin_update_staff_access_v2',args);
       if(error){
         setFormStatus($('#staffAccessStatus'),friendlyError(error),'error');
         return;
@@ -3498,7 +3560,11 @@
       '</article>';
     }).join(''):'<div class="loading-card">No Seller fulfilment records found.</div>';
 
-    const activeRiders=state.riders.filter((r)=>r.status==='active');
+    const activeRiders=prioritizeRidersForLocation(
+      state.riders.filter((r)=>r.status==='active'),
+      order.county,
+      order.sub_county
+    );
     const assignmentLocked=delivery&&['picked_up','arrived_sorting_center','sorting_received','ready_for_dispatch','on_the_way','delivered'].includes(delivery.status);
     const canAssignRider=adminHas('delivery.manage')||adminHas('orders.manage');
     const canManageSorting=adminHas('delivery.manage')||adminHas('orders.manage');
@@ -3513,7 +3579,7 @@
             : '';
     const riderOptions='<option value="">Choose active LEOGO rider…</option>'+activeRiders.map((r)=>
       '<option value="'+escapeHtml(r.user_id)+'" '+(delivery?.rider_id===r.user_id?'selected':'')+'>'+
-        escapeHtml(r.display_name)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):'')+
+        escapeHtml(riderAssignmentLabel(r,order.county,order.sub_county))+
       '</option>'
     ).join('');
 
@@ -4844,7 +4910,7 @@
 
   const loadDeliveryOps = async () => {
     const [ridersResult,jobsResult,sellerStatesResult]=await Promise.all([
-      db.rpc('admin_list_riders'),
+      db.rpc('admin_list_riders_v2'),
       db.rpc('admin_list_delivery_jobs'),
       db.from('marketplace_seller_orders').select('order_id,fulfilment_status')
     ]);
@@ -4866,13 +4932,14 @@
 
     $('#adminRiderList').innerHTML=state.riders.length?state.riders.map(r=>`<article class="station-card">
       <header><div><h3>${escapeHtml(r.display_name)}</h3><span class="status-chip">${escapeHtml(r.status)}</span></div><strong>Rider</strong></header>
-      <p>${escapeHtml(r.email||'')}<br>${escapeHtml(r.phone||'No phone')}${r.vehicle_type?'<br>'+escapeHtml(r.vehicle_type)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):''):''}</p>
+      <p>${escapeHtml(r.email||'')}<br>${escapeHtml(r.phone||'No phone')}<br><strong>${escapeHtml(staffLocationLabel(r))}</strong>${r.vehicle_type?'<br>'+escapeHtml(r.vehicle_type)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):''):''}</p>
     </article>`).join(''):'<div class="loading-card">No LEOGO riders authorized yet.</div>';
 
     $('#adminDeliveryJobBody').innerHTML=state.deliveryJobs.length?state.deliveryJobs.map(job=>{
       const states=state.deliverySellerStates.filter(s=>s.order_id===job.order_id).map(s=>s.fulfilment_status);
       const readiness=states.length&&states.every(s=>['packed_ready','handed_to_rider','delivered'].includes(s))?'Ready for rider':states.length?states.map(s=>String(s).replaceAll('_',' ')).join(', '):'Waiting for Seller';
-      const riderOptions='<option value="">Choose rider…</option>'+activeRiders.map(r=>'<option value="'+escapeHtml(r.user_id)+'" '+(r.user_id===job.rider_id?'selected':'')+'>'+escapeHtml(r.display_name)+(r.vehicle_registration?' · '+escapeHtml(r.vehicle_registration):'')+'</option>').join('');
+      const matchedRiders=prioritizeRidersForLocation(activeRiders,job.county,job.sub_county);
+      const riderOptions='<option value="">Choose rider…</option>'+matchedRiders.map(r=>'<option value="'+escapeHtml(r.user_id)+'" '+(r.user_id===job.rider_id?'selected':'')+'>'+escapeHtml(riderAssignmentLabel(r,job.county,job.sub_county))+'</option>').join('');
       const destination=[job.estate,job.landmark,job.sub_county,job.county].filter(Boolean).join(', ')||job.delivery_zone;
       const assignable=!['picked_up','on_the_way','delivered','cancelled'].includes(job.status);
       return `<tr>
@@ -7296,6 +7363,8 @@
     $('#staffSearch')?.addEventListener('input', renderStaffDirectory);
     $('#staffRoleFilter')?.addEventListener('change', renderStaffDirectory);
     $('#staffStatusFilter')?.addEventListener('change', renderStaffDirectory);
+    $('#staffCounty')?.addEventListener('change',()=>setStaffLocationSelection($('#staffCounty'),$('#staffSubCounty'),$('#staffCounty').value,''));
+    $('#staffEditorCounty')?.addEventListener('change',()=>setStaffLocationSelection($('#staffEditorCounty'),$('#staffEditorSubCounty'),$('#staffEditorCounty').value,''));
     $('#staffAccountKind')?.addEventListener('change', () => {
       const rider=$('#staffAccountKind').value==='rider';
       $('#adminStaffFields').hidden=rider;
