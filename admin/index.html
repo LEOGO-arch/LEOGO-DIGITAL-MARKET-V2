@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=admin-login-hotfix-1">
+  <link rel="stylesheet" href="admin.css?v=safe-data-cleanup-1">
   <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-trend-collapse-1">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
   <link rel="stylesheet" href="health.css?v=health-specialist-v1">
@@ -1030,7 +1030,7 @@
 
       <section class="admin-panel" data-admin-panel="settings">
         <div class="section-head"><div><span>ADMINISTRATION</span><h2>System Settings</h2><p>Official business information, payment destinations, fees and reserved system modules.</p></div></div>
-        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button id="adminSecuritySettingsTab" data-settings-panel="security" hidden>Admin Security</button><button data-settings-panel="email">Email Notifications</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="orders">Order Rules</button><button data-settings-panel="lipa">Lipa Pole Pole</button><button data-settings-panel="data">Data Management</button><button data-settings-panel="reserved">More Settings</button></div>
+        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button id="adminSecuritySettingsTab" data-settings-panel="security" hidden>Admin Security</button><button data-settings-panel="email">Email Notifications</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="orders">Order Rules</button><button data-settings-panel="lipa">Lipa Pole Pole</button><button id="dataManagementSettingsTab" data-settings-panel="data" hidden>Data Cleanup &amp; Retention</button><button data-settings-panel="reserved">More Settings</button></div>
 
         <div class="settings-panel active" data-settings-content="business">
           <form class="settings-form" id="businessSettingsForm">
@@ -1248,7 +1248,60 @@
           </form>
         </div>
 
-        <div class="settings-panel" data-settings-content="data"><div class="data-management"><div class="form-section-head"><div><span>D</span><div><h3>Data Management</h3><p>Filter, select and safely export or archive supported records.</p></div></div></div><div class="data-filter-grid"><label><span>Data type</span><select id="dataTypeFilter"><option value="customers">Customers</option><option value="pickup_stations">Pickup Stations</option><option value="payment_accounts">Payment Accounts</option><option value="audit_log">Audit Log</option></select></label><label><span>Status</span><select id="dataStatusFilter"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></label><label><span>From</span><input id="dataFromFilter" type="date"></label><label><span>To</span><input id="dataToFilter" type="date"></label></div><div class="protection-note" id="dataProtectionNote"></div><div class="selection-toolbar"><label><input id="selectAllData" type="checkbox"> Select all on page</label><button id="selectFilteredData" type="button">Select all matching filter</button><span id="dataSelectedCount">0 selected</span><button data-data-export="selected" type="button">Export Selected</button><button data-data-export="filtered" type="button">Export All Filtered</button><button id="archiveSelectedData" type="button">Archive Selected</button><button id="clearDataSelection" type="button">Clear</button></div><div class="table-card"><div class="responsive-table"><table><thead id="dataTableHead"></thead><tbody id="dataTableBody"></tbody></table></div></div></div></div>
+        <div class="settings-panel" data-settings-content="data">
+          <div class="data-cleanup-shell">
+            <section class="data-cleanup-card">
+              <div class="form-section-head">
+                <div><span>🧹</span><div><h3>Safe Data Cleanup &amp; Retention</h3><p>Super Admin can measure storage, review inactive accounts and remove only old housekeeping records that are safe to recreate or no longer operationally required.</p></div></div>
+                <button id="refreshDataCleanupOverview" type="button">Scan Storage</button>
+              </div>
+              <div class="data-cleanup-summary">
+                <article><span>Database Size</span><strong id="cleanupDatabaseSize">—</strong><small>All database records</small></article>
+                <article><span>Storage Files</span><strong id="cleanupStorageSize">—</strong><small id="cleanupStorageObjects">— objects</small></article>
+                <article><span>Safe Cleanup Candidates</span><strong id="cleanupCandidateCount">—</strong><small>Housekeeping only</small></article>
+                <article><span>Inactive Customers</span><strong id="cleanupInactiveCustomerCount">—</strong><small>Review only · never auto-deleted</small></article>
+              </div>
+              <div class="data-cleanup-protected">
+                <strong>🔒 Protected from this cleanup</strong>
+                <p>Customer/Auth accounts, orders, payments, settlements, Wallet/SACCO, savings, loans, aftersales/disputes, Admin audit history, identity documents and Storage files are not deleted by this tool.</p>
+              </div>
+              <div class="data-cleanup-grid">
+                <section>
+                  <div class="cleanup-subhead"><div><h4>Eligible Housekeeping Records</h4><p>Only records meeting the retention rule are shown here.</p></div></div>
+                  <div id="cleanupCandidateList" class="cleanup-list"><div class="empty-mini">Run a storage scan to calculate safe cleanup candidates.</div></div>
+                  <button class="danger-button cleanup-run-button" id="runSafeDataCleanup" type="button" disabled>Delete Eligible Housekeeping Only</button>
+                  <div class="form-status" id="dataCleanupStatus" role="status" aria-live="polite"></div>
+                </section>
+                <section>
+                  <div class="cleanup-subhead"><div><h4>Storage by Bucket</h4><p>Largest buckets appear first. File deletion is report-only in this version so working media cannot be removed accidentally.</p></div></div>
+                  <div id="cleanupBucketList" class="cleanup-list"><div class="empty-mini">Storage scan not loaded yet.</div></div>
+                </section>
+              </div>
+            </section>
+
+            <form class="data-cleanup-card" id="dataRetentionSettingsForm">
+              <div class="form-section-head">
+                <div><span>⏱</span><div><h3>Retention Rules</h3><p>Longer periods preserve more history; shorter periods save database space. Minimum safe limits are enforced by the backend.</p></div></div>
+                <button type="submit">Save Retention Rules</button>
+              </div>
+              <div class="data-retention-grid">
+                <label><span>Read notifications</span><input name="read_notification_days" type="number" min="30" max="3650" step="1" required><small>Only notifications already read by the user are eligible.</small></label>
+                <label><span>Resolved diagnostic events</span><input name="diagnostic_event_days" type="number" min="14" max="3650" step="1" required><small>Open/unresolved system issues remain protected.</small></label>
+                <label><span>Monitoring run history</span><input name="monitoring_run_days" type="number" min="30" max="3650" step="1" required><small>The newest 30 runs and incident-linked runs are always retained.</small></label>
+                <label><span>Inactive customer review</span><input name="inactive_customer_review_days" type="number" min="180" max="3650" step="1" required><small>Flags accounts for review only. It never deletes customer accounts.</small></label>
+              </div>
+              <div class="form-status" id="dataRetentionSettingsStatus" role="status" aria-live="polite"></div>
+            </form>
+
+            <section class="data-management">
+              <div class="form-section-head"><div><span>D</span><div><h3>Record Management</h3><p>Filter, select and safely export or archive supported records. Protected business history remains non-destructive.</p></div></div></div>
+              <div class="data-filter-grid"><label><span>Data type</span><select id="dataTypeFilter"><option value="customers">Customers</option><option value="pickup_stations">Pickup Stations</option><option value="payment_accounts">Payment Accounts</option><option value="audit_log">Audit Log</option></select></label><label><span>Status</span><select id="dataStatusFilter"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></label><label><span>From</span><input id="dataFromFilter" type="date"></label><label><span>To</span><input id="dataToFilter" type="date"></label></div>
+              <div class="protection-note" id="dataProtectionNote"></div>
+              <div class="selection-toolbar"><label><input id="selectAllData" type="checkbox"> Select all on page</label><button id="selectFilteredData" type="button">Select all matching filter</button><span id="dataSelectedCount">0 selected</span><button data-data-export="selected" type="button">Export Selected</button><button data-data-export="filtered" type="button">Export All Filtered</button><button id="archiveSelectedData" type="button">Archive Selected</button><button id="clearDataSelection" type="button">Clear</button></div>
+              <div class="table-card"><div class="responsive-table"><table><thead id="dataTableHead"></thead><tbody id="dataTableBody"></tbody></table></div></div>
+            </section>
+          </div>
+        </div>
         <div class="settings-panel" data-settings-content="reserved">
           <div class="reserved-settings-grid active-settings-grid">
             <button type="button" data-settings-card="orders"><span>▤</span><strong>Order Settings</strong><small>COD limit · Service fee bands</small><b>Open →</b></button>
@@ -1653,7 +1706,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
-  <script src="admin.js?v=order-address-summary-v1" defer></script>
+  <script src="admin.js?v=safe-data-cleanup-1" defer></script>
   <script src="vacant-houses.js?v=property-sale-rent-v1" defer></script>
   <script src="system-diagnostics.js?v=diagnostics-trend-collapse-1" defer></script>
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
