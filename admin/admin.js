@@ -137,7 +137,8 @@
     accommodation_property: 'Accommodation Property',
     accommodation_unit: 'Accommodation Room / Unit',
     health_medicine_application: 'Health & Medicine Registration', health_medicine_product: 'Health & Medicine Product', health_medicine_service: 'Health Specialist Service',
-    cyber_application: 'Cyber Partner Registration', cyber_service: 'Cyber Service', cyber_product: 'Cyber Shop Item', cyber_profile_change: 'Cyber Profile Update'
+    cyber_application: 'Cyber Partner Registration', cyber_service: 'Cyber Service', cyber_product: 'Cyber Shop Item', cyber_profile_change: 'Cyber Profile Update',
+    partner_flash_sale: 'Flash Sale'
   };
   const functionLabels = {
     wallet_sacco_deposits: 'Wallet / SACCO Deposits', savings_challenge: 'Savings Challenge',
@@ -1058,7 +1059,7 @@
   };
 
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,lookingRequestResult,serviceProviderResult,healthMedicineResult,healthSpecialistResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,partnerBillingResult,customerMeetupBillingResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
+    const [coreResult,personalSaleResult,lookingRequestResult,serviceProviderResult,healthMedicineResult,healthSpecialistResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,partnerBillingResult,customerMeetupBillingResult,flashSaleResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
       db.rpc('admin_list_approval_queue'),
       db.rpc('admin_list_personal_sale_approvals'),
       db.rpc('admin_list_looking_request_approvals'),
@@ -1074,6 +1075,7 @@
       db.rpc('admin_list_cyber_approvals'),
       db.rpc('admin_list_partner_billing_approvals'),
       db.rpc('admin_list_premium_customer_meetup_approvals'),
+      db.rpc('admin_list_partner_flash_sales'),
       db.rpc('admin_list_pending_payment_actions'),
       db.rpc('admin_list_transport_requests')
     ]);
@@ -1092,6 +1094,7 @@
     if (cyberResult.error) throw cyberResult.error;
     if (partnerBillingResult.error) throw partnerBillingResult.error;
     if (customerMeetupBillingResult.error) throw customerMeetupBillingResult.error;
+    if (flashSaleResult.error) throw flashSaleResult.error;
     if (paymentActionsResult.error) throw paymentActionsResult.error;
     if (transportRequestsResult.error) throw transportRequestsResult.error;
 
@@ -1110,7 +1113,8 @@
       ...(Array.isArray(accommodationUnitsResult.data) ? accommodationUnitsResult.data : []),
       ...(Array.isArray(cyberResult.data) ? cyberResult.data : []),
       ...(Array.isArray(partnerBillingResult.data) ? partnerBillingResult.data : []),
-      ...(Array.isArray(customerMeetupBillingResult.data) ? customerMeetupBillingResult.data : [])
+      ...(Array.isArray(customerMeetupBillingResult.data) ? customerMeetupBillingResult.data : []),
+      ...(Array.isArray(flashSaleResult.data) ? flashSaleResult.data.filter((row)=>row.flash_status==='requested').map((row)=>({kind:'partner_flash_sale',record_id:row.item_id,applicant_name:row.partner_name||'LEOGO Partner',applicant_email:'',title:(row.item_name||'Flash Sale')+' — Flash Sale',subtitle:String(row.partner_type||'partner').replaceAll('_',' ')+' · '+formatMoney(row.flash_price_kes)+' · '+formatDate(row.starts_at,true)+' → '+formatDate(row.ends_at,true),status:'requested',submitted_at:row.updated_at,payload:{partner_type:row.partner_type,item_type:row.item_type,normal_price_kes:row.normal_price_kes,flash_price_kes:row.flash_price_kes,flash_quantity:row.flash_quantity,starts_at:row.starts_at,ends_at:row.ends_at,admin_notes:row.admin_notes}})) : [])
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
     state.paymentActions=Array.isArray(paymentActionsResult.data)?paymentActionsResult.data:[];
     state.transportRequests=Array.isArray(transportRequestsResult.data)?transportRequestsResult.data:state.transportRequests;
@@ -1164,7 +1168,7 @@
     renderAdminNotifications();
   };
 
-  const approvalGroup = (kind) => kind==='customer_looking_request' ? 'customer_requests' : ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : kind.startsWith('health_medicine_') ? 'health' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle','transport_provider_settlement_account','pickup_station_application'].includes(kind) ? 'transport' : kind.startsWith('cyber_') ? 'cyber' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
+  const approvalGroup = (kind) => kind==='partner_flash_sale' ? 'sellers' : kind==='customer_looking_request' ? 'customer_requests' : ['seller_application','seller_profile_change','seller_product','seller_settlement_account'].includes(kind) ? 'sellers' : kind.startsWith('health_medicine_') ? 'health' : ['service_provider_application','service_provider_profile_change','service_listing','service_provider_settlement_account'].includes(kind) ? 'providers' : ['transport_provider_application','transport_provider_profile_change','transport_vehicle','transport_provider_settlement_account','pickup_station_application'].includes(kind) ? 'transport' : kind.startsWith('cyber_') ? 'cyber' : kind.startsWith('premium') ? 'premium' : kind.startsWith('wallet') ? 'wallet' : kind.startsWith('accommodation') ? 'accommodation' : 'other';
   const approvalIsFinancial = (item) => ['premium_payment','partner_subscription_payment','premium_extra_acceptance_payment','premium_customer_meetup_payment'].includes(item.kind) || item.kind.startsWith('wallet') || item.kind.endsWith('_settlement_account');
   const approvalKey = (item) => `${item.kind}::${item.record_id}`;
   const approvalMatchesFilter = (item) => {
@@ -1510,7 +1514,9 @@
       setFormStatus($('#reviewStatus'), decision === 'changes_requested' ? 'Explain what the applicant needs to correct before resubmitting.' : 'Add a clear rejection reason before rejecting.', 'error'); return;
     }
     await withButtonLock(button, 'Saving…', async () => {
-      const rpcName = item.kind==='premium_customer_meetup_payment'
+      const rpcName = item.kind==='partner_flash_sale'
+        ? 'admin_review_partner_flash_sale'
+        : item.kind==='premium_customer_meetup_payment'
         ? 'admin_review_premium_customer_meetup_payment'
         : ['partner_subscription_payment','premium_extra_acceptance_payment'].includes(item.kind)
         ? 'admin_review_partner_billing_payment'
@@ -1561,7 +1567,9 @@
                                         : item.kind === 'transport_provider_settlement_account'
                                           ? 'admin_review_transport_provider_settlement_account'
                                           : 'admin_review_approval';
-      const rpcArgs = item.kind==='premium_customer_meetup_payment'
+      const rpcArgs = item.kind==='partner_flash_sale'
+        ? { p_partner_type: item.payload?.partner_type, p_item_id: item.record_id, p_decision: decision, p_notes: notes || null }
+        : item.kind==='premium_customer_meetup_payment'
         ? { p_payment_id: item.record_id, p_decision: decision, p_notes: notes || null }
         : ['partner_subscription_payment','premium_extra_acceptance_payment'].includes(item.kind)
         ? { p_payment_id: item.record_id, p_decision: decision, p_notes: notes || null }
