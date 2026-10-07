@@ -7029,6 +7029,13 @@
     $('#adminOrderStatusFilter')?.addEventListener('change', renderMarketplaceOrders);
     $('#downloadOrderDeliverySummary')?.addEventListener('click', downloadOrderDeliverySummary);
     $('#printOrderDeliverySummary')?.addEventListener('click', printOrderDeliverySummary);
+    $('#orderSummaryType')?.addEventListener('change',()=>{
+      const address=$('#orderSummaryType')?.value==='address';
+      const download=$('#downloadOrderDeliverySummary');
+      const print=$('#printOrderDeliverySummary');
+      if(download)download.textContent=address?'⬇ Download Address Summary + QR':'⬇ Download Detailed Summary + QR';
+      if(print)print.textContent=address?'🖨 Print Address Summary':'🖨 Print Detailed Summary';
+    });
     $('#closeAdminOrderDetail')?.addEventListener('click', closeMarketplaceOrderDetail);
     $('#adminOrderDeliveryDetail')?.addEventListener('click',(event)=>{
       const assignButton=event.target.closest?.('#assignRiderFromOrder');
