@@ -625,6 +625,7 @@ const loadCyberNotifications=async()=>{
       <div class="cyber-card-actions">${n.action_view?'<button type="button" data-open-cyber-notification="'+esc(n.id)+'">Open</button>':''}${n.read_at?'':'<button class="secondary" type="button" data-read-cyber-notification="'+esc(n.id)+'">Mark read</button>'}</div>
     </article>`).join(''):'<div class="cyber-empty">No Cyber notifications yet.</div>';
 };
+window.leogoRefreshCyberNotifications=()=>loadCyberNotifications();
 const loadCyberChatThreads=async()=>{
   const {data,error}=await client.rpc('cyber_provider_list_chat_threads');
   if(error)throw error;
