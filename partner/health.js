@@ -358,11 +358,31 @@
       return '<article class="health-order-card" data-health-order-id="'+escapeHtml(row.id)+'">'+
         '<header><div><span>'+escapeHtml(row.order_reference)+'</span><strong>'+escapeHtml(orderStatusLabel(row.order_status))+'</strong><small>'+escapeHtml(new Date(row.created_at).toLocaleString('en-KE'))+'</small></div><b>KSh '+Number(row.grand_total_kes||0).toLocaleString('en-KE')+'</b></header>'+
         '<div class="health-order-meta"><span><small>Payment</small><strong>'+escapeHtml(paymentStatusLabel(row.payment_status))+'</strong></span><span><small>Delivery</small><strong>'+escapeHtml(String(row.delivery_zone||'').replaceAll('_',' '))+'</strong></span><span><small>Customer</small><strong>'+escapeHtml(row.receiver_name||'Customer')+'</strong></span><span><small>Phone</small><strong>'+escapeHtml(row.contact_number||'')+'</strong></span></div>'+
-        '<div class="health-order-items">'+items.map((item)=>'<span><strong>'+escapeHtml(item.product_name)+'</strong><small>'+Number(item.quantity)+' × KSh '+Number(item.unit_price_kes||0).toLocaleString('en-KE')+'</small></span>').join('')+'</div>'+
+        '<div class="health-order-items">'+items.map((item)=>'<span><strong>'+escapeHtml(item.product_name)+'</strong><small>'+Number(item.quantity)+' × KSh '+Number(item.unit_price_kes||0).toLocaleString('en-KE')+(item.requires_prescription?' · Prescription required':'')+'</small></span>').join('')+'</div>'+
+        (row.prescription_required&&row.prescription_path?'<div class="product-actions"><button type="button" class="secondary" data-health-prescription="'+escapeHtml(row.prescription_path)+'">View Doctor Prescription</button></div>':'')+
+        (row.prescription_required&&!row.prescription_path?'<div class="restricted-notice">Prescription-required order is missing its prescription. Do not prepare it; contact LEOGO Admin.</div>':'')+
         (!canProgress&&row.payment_status==='submitted'?'<div class="restricted-notice">Wait for LEOGO Admin to verify payment before preparing this order.</div>':'')+
         (next&&canProgress?'<div class="product-actions"><button type="button" data-health-order-status="'+escapeHtml(next[0])+'" data-health-order-id="'+escapeHtml(row.id)+'">'+escapeHtml(next[1])+'</button></div>':'')+
       '</article>';
     }).join('');
+    $('[data-health-prescription]',target).forEach((button)=>button.addEventListener('click',async()=>{
+      const path=button.dataset.healthPrescription;
+      if(!path)return;
+      const original=button.textContent;
+      button.disabled=true;
+      button.textContent='Opening…';
+      try{
+        const {data,error}=await client.storage.from('health-prescriptions').createSignedUrl(path,300);
+        if(error)throw error;
+        if(!data?.signedUrl)throw new Error('Prescription link could not be created.');
+        window.open(data.signedUrl,'_blank','noopener');
+      }catch(error){
+        status($('#healthMedicineOrderStatus'),error?.message||'Prescription could not be opened.','error');
+      }finally{
+        button.disabled=false;
+        button.textContent=original;
+      }
+    }));
     $('[data-health-order-status]',target).forEach((button)=>button.addEventListener('click',async()=>{
       const id=button.dataset.healthOrderId,statusValue=button.dataset.healthOrderStatus;
       const original=button.textContent;button.disabled=true;button.textContent='Saving…';
@@ -467,7 +487,7 @@
     $('#healthMedicineViewDescription').textContent={
       overview:'Approved Health & Medicine partner overview.',
       products:'Manage Health products and Admin approval status.',
-      orders:'Receive and prepare approved OTC / non-prescription Health orders.',
+      orders:'Receive approved Health orders and review doctor prescriptions when a medicine is marked prescription-required.',
       services:'Manage Health Specialist services and Admin approval status.',
       bookings:'Receive and respond to verified Health Specialist service bookings.',
       notifications:'Application, product, service and booking approval notifications.'
