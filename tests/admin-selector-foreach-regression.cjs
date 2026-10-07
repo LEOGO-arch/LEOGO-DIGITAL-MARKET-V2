@@ -4,10 +4,11 @@ const vm=require('node:vm');
 const js=fs.readFileSync('admin/admin.js','utf8');
 new vm.Script(js,{filename:'admin/admin.js'});
 
-if(js.includes("$('[data-open-view]', $('#networkOverview')).forEach(")){
+const lines=js.split(/\r?\n/).map((line)=>line.trim());
+if(lines.some((line)=>line.startsWith("$('[data-open-view]', $('#networkOverview')).forEach("))){
   throw new Error('Admin dashboard still calls forEach on the single-element $ helper');
 }
-if(!js.includes("$$('[data-open-view]', $('#networkOverview')).forEach(")){
+if(!lines.some((line)=>line.startsWith("$$('[data-open-view]', $('#networkOverview')).forEach("))){
   throw new Error('Admin dashboard network buttons are not iterated through the multi-element $$ helper');
 }
 
