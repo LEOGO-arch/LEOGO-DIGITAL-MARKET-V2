@@ -1538,6 +1538,15 @@
                   <button type="submit">Login to LEOGO</button>
                   <button class="auth-link-button" id="showResetPassword" type="button">Forgot password?</button>
                 </form>
+                <form class="auth-preview-form active" id="customerPhoneLoginForm" data-auth-panel="login">
+                  <div class="auth-provider-divider"><span>or use phone OTP</span></div>
+                  <label><span>Phone number</span><input id="loginPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0745 396 385" required></label>
+                  <button id="sendPhoneLoginOtp" type="button">Send OTP</button>
+                  <div id="phoneLoginOtpStep" hidden>
+                    <label><span>6-digit OTP</span><input id="loginPhoneOtp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="Enter SMS code"></label>
+                    <button type="submit">Verify OTP &amp; Login</button>
+                  </div>
+                </form>
                 <form class="auth-preview-form" id="customerRegisterForm" data-auth-panel="register">
                   <label><span>Full name</span><input id="registerFullName" name="full_name" type="text" autocomplete="name" placeholder="Your full name" minlength="2" required></label>
                   <label><span>Phone number</span><input id="registerPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0700 192 545" required></label>
@@ -1558,7 +1567,12 @@
                 <h4 id="signedInCustomerName">LEOGO Customer</h4>
                 <p id="signedInCustomerEmail"></p>
                 <p id="signedInCustomerPhone"></p>
-                <div><button type="button" data-customer-view="dashboard">Open Dashboard</button><button class="auth-logout-button" id="customerLogoutButton" type="button">Logout</button></div>
+                <div><button type="button" data-customer-view="dashboard">Open Dashboard</button><button id="enablePhoneLoginButton" type="button">Enable Phone OTP Login</button><button class="auth-logout-button" id="customerLogoutButton" type="button">Logout</button></div>
+                <form class="auth-reset-form" id="phoneLinkForm" hidden>
+                  <strong>Verify your phone for future OTP login</strong>
+                  <label><span>6-digit OTP</span><input id="phoneLinkOtp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="Enter SMS code" required></label>
+                  <button type="submit">Verify Phone</button>
+                </form>
               </section>
               <form class="auth-reset-form" id="resetPasswordUpdateForm" hidden>
                 <strong>Create your new password</strong>
@@ -1639,6 +1653,6 @@
   </div>
 </section>
 <footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><small>From the Market To Your Comfort.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script>
-  <script src="js/runtime-monitor.js?v=network-storm-fix-2" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=shopping-voucher-rule-1" defer></script><script src="js/auth.js?v=kenya-locations-1" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=stay-card-v3" defer></script><script src="js/cyber.js?v=delivery-rates-1" defer></script><script src="js/health.js?v=health-specialist-v1" defer></script><script src="js/health-specialist.js?v=health-specialist-v1" defer></script><script src="js/shipping-moq.js?v=product-modes-2" defer></script><script src="js/wallet.js?v=shopping-voucher-rule-1" defer></script>
+  <script src="js/runtime-monitor.js?v=network-storm-fix-2" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=shopping-voucher-rule-1" defer></script><script src="js/auth.js?v=phone-otp-login-1" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=stay-card-v3" defer></script><script src="js/cyber.js?v=delivery-rates-1" defer></script><script src="js/health.js?v=health-specialist-v1" defer></script><script src="js/health-specialist.js?v=health-specialist-v1" defer></script><script src="js/shipping-moq.js?v=product-modes-2" defer></script><script src="js/wallet.js?v=shopping-voucher-rule-1" defer></script>
 <script src="js/referrals.js?v=referral-share-earn-v1" defer></script><script src="js/vacant-houses.js?v=property-loading-fix-1" defer></script><script src="js/loans.js?v=loan-v2-3" defer></script><script src="js/feedback-testimonials.js?v=feedback-testimonials-v1" defer></script><script src="js/assisted-shopping.js?v=shopping-voucher-rule-1" defer></script><script src="js/premium.js?v=premium-chat-photo-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
 
