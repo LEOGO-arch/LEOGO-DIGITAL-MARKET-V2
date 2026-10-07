@@ -102,12 +102,12 @@
           '<small>'+esc(row.provider_name)+' · 📍 '+esc([row.town,row.county].filter(Boolean).join(', ')||'Kenya')+'</small>'+
           (row.description?'<p>'+esc(row.description)+'</p>':'')+
           '<div class="health-public-badges"><em>'+esc(classification)+'</em>'+
-            (row.requires_prescription?'<em class="prescription">Prescription required</em>':'')+
-            (row.medicine_classification==='otc'?'<em>Can add to cart</em>':'')+
+            (row.requires_prescription?'<em class="prescription">Prescription required</em><em>Upload prescription at checkout</em>':'')+
+            (!row.requires_prescription&&row.cart_eligible?'<em>Can add to cart</em>':'')+
           '</div><b>'+money(row.price_kes)+'</b>'+
           (canAdd
             ? '<button class="health-public-enquiry health-public-cart" type="button" data-health-add-cart="'+esc(row.id)+'">Add to Cart</button>'
-            : row.cart_eligible
+            : row.order_mode==='cart'
               ? '<button class="health-public-enquiry" type="button" disabled>Out of Stock</button>'
               : '<button class="health-public-enquiry" type="button" data-health-enquiry="'+esc(row.id)+'">Ask LEOGO about this item</button>')+
           '</div>'+
