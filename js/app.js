@@ -1025,6 +1025,7 @@
       }, 0);
     }
     if (viewName === 'premiumaccess') updateDashboardPremiumStatus();
+    if (viewName === 'cart' && window.leogoAuth?.isAuthenticated?.()) window.setTimeout(prefillCheckoutFromPrimaryProfile, 0);
     showCustomerView(viewName);
     customerShellModal.classList.add('is-open');
     customerShellModal.setAttribute('aria-hidden', 'false');
@@ -1299,6 +1300,30 @@
     if (checkoutSubCounty) checkoutSubCounty.disabled = options.length === 0;
   };
   checkoutCounty?.addEventListener('change', populateCheckoutSubCounties);
+
+  const prefillCheckoutFromPrimaryProfile = async () => {
+    const client=window.leogoAuth?.client;
+    const user=window.leogoAuth?.getUser?.();
+    if(!client||!user)return;
+    const {data:profile,error}=await client.from('customer_profiles')
+      .select('full_name,phone,county,sub_county,estate,nearest_landmark')
+      .eq('user_id',user.id).maybeSingle();
+    if(error||!profile)return;
+    const receiver=document.getElementById('checkoutReceiverName');
+    const contact=document.getElementById('checkoutContactNumber');
+    const estate=document.getElementById('checkoutEstate');
+    const landmark=document.getElementById('checkoutLandmark');
+    if(receiver&&!receiver.value.trim())receiver.value=profile.full_name||'';
+    if(contact&&!contact.value.trim())contact.value=profile.phone||'';
+    if(checkoutCounty&&profile.county){
+      checkoutCounty.value=profile.county;
+      populateCheckoutSubCounties();
+      if(checkoutSubCounty&&profile.sub_county)checkoutSubCounty.value=profile.sub_county;
+    }
+    if(estate)estate.value=profile.estate||'';
+    if(landmark)landmark.value=profile.nearest_landmark||'';
+    updateCheckoutReadiness();
+  };
 
   function updateCheckoutPointsTotals() {
     const total=Number(checkoutShell?.dataset.checkoutGrandTotal||0);
