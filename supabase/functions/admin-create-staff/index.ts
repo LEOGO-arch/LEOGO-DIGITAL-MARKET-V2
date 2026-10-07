@@ -177,6 +177,8 @@ Deno.serve(async (req: Request) => {
     const displayName = String(body.display_name || "").trim();
     const email = String(body.email || "").trim().toLowerCase();
     const phone = String(body.phone || "").trim();
+    const countyCode = String(body.county_code || "").trim();
+    const subCountyCode = String(body.sub_county_code || "").trim();
 
     if (!["admin_staff","rider"].includes(accountKind)) {
       return json({ ok:false, stage:"validation", error:"Choose a supported staff account type." }, 400);
@@ -186,6 +188,34 @@ Deno.serve(async (req: Request) => {
     }
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       return json({ ok:false, stage:"validation", error:"Enter a valid staff email address." }, 400);
+    }
+    if (!countyCode || !subCountyCode) {
+      return json({ ok:false, stage:"validation", error:"Choose the staff County and Sub-County." }, 400);
+    }
+
+    const { data: countyRow, error: countyError } = await admin
+      .from("kenya_counties")
+      .select("code,name,is_active")
+      .eq("code", countyCode)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (countyError) return errorPayload("location_validation", countyError, 400);
+    if (!countyRow) {
+      return json({ ok:false, stage:"validation", error:"Choose an active LEOGO County." }, 400);
+    }
+
+    const { data: subCountyRow, error: subCountyError } = await admin
+      .from("kenya_subcounties")
+      .select("code,name,county_code,is_active")
+      .eq("code", subCountyCode)
+      .eq("county_code", countyCode)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (subCountyError) return errorPayload("location_validation", subCountyError, 400);
+    if (!subCountyRow) {
+      return json({ ok:false, stage:"validation", error:"Choose a Sub-County that belongs to the selected County." }, 400);
     }
 
     let roleCode = "";
@@ -220,6 +250,8 @@ Deno.serve(async (req: Request) => {
           phone: phone || null,
           staff_account: true,
           staff_role: roleCode,
+          county_code: countyCode,
+          sub_county_code: subCountyCode,
         },
       });
 
@@ -241,6 +273,8 @@ Deno.serve(async (req: Request) => {
         phone: phone || null,
         department: String(body.department || "").trim() || null,
         job_title: String(body.job_title || "").trim() || null,
+        county_code: countyCode,
+        sub_county_code: subCountyCode,
         role: roleCode,
         status: "active",
         permissions,
@@ -259,6 +293,8 @@ Deno.serve(async (req: Request) => {
         phone,
         staff_role: "rider",
         status: "active",
+        county_code: countyCode,
+        sub_county_code: subCountyCode,
         vehicle_type: String(body.vehicle_type || "").trim() || null,
         vehicle_registration: String(body.vehicle_registration || "").trim().toUpperCase() || null,
         id_number: String(body.id_number || "").trim() || null,
@@ -288,6 +324,10 @@ Deno.serve(async (req: Request) => {
         email,
         role_code: roleCode,
         status: "active",
+        county_code: countyCode,
+        county: String(countyRow.name || ""),
+        sub_county_code: subCountyCode,
+        sub_county: String(subCountyRow.name || ""),
         permissions,
       },
       metadata: {
@@ -308,6 +348,10 @@ Deno.serve(async (req: Request) => {
       display_name: displayName,
       account_kind: accountKind,
       role_code: roleCode,
+      county_code: countyCode,
+      county: String(countyRow.name || ""),
+      sub_county_code: subCountyCode,
+      sub_county: String(subCountyRow.name || ""),
       status: "active",
       invitation_sent: true,
       warning: auditError
