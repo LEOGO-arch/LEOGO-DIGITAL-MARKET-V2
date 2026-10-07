@@ -10,7 +10,7 @@ if(!html.includes('<option value="80mm" selected>80 mm Thermal — Auto Length</
    !html.includes('<option value="a6">A6</option>')){
   throw new Error('80mm thermal must be the default while A6 remains available');
 }
-if(!html.includes('admin.js?v=xprinter-80mm-compact-6')){
+if(!html.includes('admin.js?v=order-address-summary-v1')){
   throw new Error('Xprinter thermal receipt cache version missing');
 }
 
