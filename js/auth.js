@@ -9,6 +9,14 @@
 
   const statusBox = document.getElementById('authPreviewStatus');
   const loginForm = document.getElementById('customerLoginForm');
+  const phoneLoginForm = document.getElementById('customerPhoneLoginForm');
+  const phoneLoginPhone = document.getElementById('loginPhone');
+  const sendPhoneLoginOtp = document.getElementById('sendPhoneLoginOtp');
+  const phoneLoginOtpStep = document.getElementById('phoneLoginOtpStep');
+  const phoneLoginOtp = document.getElementById('loginPhoneOtp');
+  const enablePhoneLoginButton = document.getElementById('enablePhoneLoginButton');
+  const phoneLinkForm = document.getElementById('phoneLinkForm');
+  const phoneLinkOtp = document.getElementById('phoneLinkOtp');
   const registerForm = document.getElementById('customerRegisterForm');
   const resetRequestForm = document.getElementById('resetPasswordRequestForm');
   const resetUpdateForm = document.getElementById('resetPasswordUpdateForm');
@@ -40,6 +48,8 @@
   let savedProfile = null;
   let kenyaCounties = [];
   let kenyaSubcounties = [];
+  let pendingPhoneLogin = '';
+  let pendingPhoneLink = '';
 
   const setStatus = (message = '', type = '') => {
     if (!statusBox) return;
@@ -55,6 +65,9 @@
     if (message.includes('user already registered') || message.includes('already been registered')) return 'An account already exists with this email. Please log in instead.';
     if (message.includes('password') && (message.includes('short') || message.includes('least'))) return 'Use a password containing at least 8 characters.';
     if (message.includes('rate limit')) return 'Too many attempts were made. Please wait briefly and try again.';
+    if ((message.includes('signup') && message.includes('not allowed')) || message.includes('user not found')) return 'This phone number is not enabled for OTP login yet. Sign in with email once, then choose Enable Phone OTP Login.';
+    if (message.includes('otp') && (message.includes('expired') || message.includes('invalid') || message.includes('incorrect'))) return 'The OTP is incorrect or has expired. Request a new code and try again.';
+    if (message.includes('phone') && message.includes('already')) return 'This phone number is already linked to another account.';
     if (message.includes('provider is not enabled') || message.includes('unsupported provider')) return 'Google login is not available yet. Please use email login while LEOGO completes the Google connection.';
     if (message.includes('network') || message.includes('fetch')) return 'We could not reach the secure login service. Check your internet connection and try again.';
     return error?.message || 'The request could not be completed. Please try again.';
@@ -87,7 +100,7 @@
     if (signedInPanel) signedInPanel.hidden = !signedIn;
     const name = currentSession?.user?.user_metadata?.full_name || firstName(currentSession);
     const email = currentSession?.user?.email || '';
-    const phone = currentSession?.user?.user_metadata?.phone || '';
+    const phone = currentSession?.user?.phone || currentSession?.user?.user_metadata?.phone || '';
     const setText = (id, value) => {
       const element = document.getElementById(id);
       if (element) element.textContent = value;
@@ -95,6 +108,18 @@
     setText('signedInCustomerName', name);
     setText('signedInCustomerEmail', email);
     setText('signedInCustomerPhone', phone || 'Phone not added');
+    if (enablePhoneLoginButton) {
+      const phoneLoginEnabled = Boolean(currentSession?.user?.phone);
+      enablePhoneLoginButton.textContent = phoneLoginEnabled ? 'Phone OTP Login Enabled' : 'Enable Phone OTP Login';
+      enablePhoneLoginButton.disabled = !signedIn || phoneLoginEnabled;
+    }
+    if (!signedIn) {
+      pendingPhoneLogin = '';
+      pendingPhoneLink = '';
+      if (phoneLoginOtpStep) phoneLoginOtpStep.hidden = true;
+      if (phoneLoginOtp) phoneLoginOtp.required = false;
+      if (phoneLinkForm) phoneLinkForm.hidden = true;
+    }
     setText('dashboardCustomerName', signedIn ? 'Welcome, ' + firstName(currentSession) : 'Welcome to LEOGO');
     setText('dashboardCustomerAvatar', signedIn ? initials(currentSession) : 'LC');
     setText('profileCustomerAvatar', signedIn ? initials(currentSession) : 'LC');
@@ -335,6 +360,69 @@
     });
   });
 
+  sendPhoneLoginOtp?.addEventListener('click', async () => {
+    if (sendPhoneLoginOtp.disabled) return;
+    const phone = normalizeKenyanPhone(phoneLoginPhone?.value);
+    if (!phone) {
+      setStatus('Enter a valid Kenyan mobile number, for example 0745 396 385.', 'error');
+      phoneLoginPhone?.focus();
+      return;
+    }
+    sendPhoneLoginOtp.disabled = true;
+    setStatus('Sending your LEOGO login OTP…');
+    const { error } = await authClient.auth.signInWithOtp({
+      phone,
+      options: { shouldCreateUser: false }
+    });
+    sendPhoneLoginOtp.disabled = false;
+    if (error) {
+      setStatus(friendlyAuthError(error), 'error');
+      return;
+    }
+    pendingPhoneLogin = phone;
+    if (phoneLoginOtpStep) phoneLoginOtpStep.hidden = false;
+    if (phoneLoginOtp) {
+      phoneLoginOtp.required = true;
+      phoneLoginOtp.value = '';
+      phoneLoginOtp.focus();
+    }
+    setStatus('OTP sent. Enter the 6-digit code from the SMS.', 'success');
+  });
+
+  phoneLoginForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const phone = pendingPhoneLogin || normalizeKenyanPhone(phoneLoginPhone?.value);
+    const token = String(phoneLoginOtp?.value || '').trim();
+    if (!phone) {
+      setStatus('Enter a valid Kenyan mobile number first.', 'error');
+      return;
+    }
+    if (!/^\d{6}$/.test(token)) {
+      setStatus('Enter the 6-digit OTP sent to your phone.', 'error');
+      phoneLoginOtp?.focus();
+      return;
+    }
+    runOnce(phoneLoginForm, async () => {
+      setStatus('Verifying your phone OTP…');
+      const { data, error } = await authClient.auth.verifyOtp({
+        phone,
+        token,
+        type: 'sms'
+      });
+      if (error) {
+        setStatus(friendlyAuthError(error), 'error');
+        return;
+      }
+      pendingPhoneLogin = '';
+      phoneLoginForm.reset();
+      if (phoneLoginOtpStep) phoneLoginOtpStep.hidden = true;
+      if (phoneLoginOtp) phoneLoginOtp.required = false;
+      updateAuthUI(data.session);
+      setStatus('Phone login successful. Welcome back to LEOGO.', 'success');
+      window.setTimeout(() => window.leogoOpenCustomerView?.('dashboard'), 500);
+    });
+  });
+
   registerForm?.addEventListener('submit', (event) => {
     event.preventDefault();
     if (!registerForm.reportValidity()) return;
@@ -400,6 +488,72 @@
       googleLoginButton.disabled = false;
       setStatus(friendlyAuthError(error), 'error');
     }
+  });
+
+  enablePhoneLoginButton?.addEventListener('click', async () => {
+    if (!currentSession?.user || enablePhoneLoginButton.disabled) return;
+    const phone = normalizeKenyanPhone(
+      currentSession.user.phone ||
+      currentSession.user.user_metadata?.phone ||
+      savedProfile?.phone ||
+      ''
+    );
+    if (!phone) {
+      setStatus('Add and save your phone number in Account & Profile first, then return here to enable phone OTP login.', 'error');
+      window.leogoOpenCustomerView?.('account');
+      return;
+    }
+    enablePhoneLoginButton.disabled = true;
+    setStatus('Sending a verification OTP to enable phone login…');
+    const { error } = await authClient.auth.updateUser({ phone });
+    enablePhoneLoginButton.disabled = false;
+    if (error) {
+      setStatus(friendlyAuthError(error), 'error');
+      return;
+    }
+    pendingPhoneLink = phone;
+    if (phoneLinkForm) phoneLinkForm.hidden = false;
+    if (phoneLinkOtp) {
+      phoneLinkOtp.value = '';
+      phoneLinkOtp.focus();
+    }
+    setStatus('Verification OTP sent. Enter the code to link this phone to your existing LEOGO account.', 'success');
+  });
+
+  phoneLinkForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const token = String(phoneLinkOtp?.value || '').trim();
+    if (!pendingPhoneLink) {
+      setStatus('Request a phone verification OTP first.', 'error');
+      return;
+    }
+    if (!/^\d{6}$/.test(token)) {
+      setStatus('Enter the 6-digit verification OTP.', 'error');
+      phoneLinkOtp?.focus();
+      return;
+    }
+    runOnce(phoneLinkForm, async () => {
+      setStatus('Verifying your phone for future OTP login…');
+      const { error } = await authClient.auth.verifyOtp({
+        phone: pendingPhoneLink,
+        token,
+        type: 'phone_change'
+      });
+      if (error) {
+        setStatus(friendlyAuthError(error), 'error');
+        return;
+      }
+      pendingPhoneLink = '';
+      phoneLinkForm.reset();
+      phoneLinkForm.hidden = true;
+      const { data: refreshed, error: refreshError } = await authClient.auth.refreshSession();
+      if (refreshError) {
+        setStatus('Phone verified. Refresh the page before using phone OTP login.', 'success');
+        return;
+      }
+      updateAuthUI(refreshed.session);
+      setStatus('Phone verified. You can now log in to this same LEOGO account using phone OTP.', 'success');
+    });
   });
 
   profileForm?.addEventListener('input', updateProfileCompletion);
