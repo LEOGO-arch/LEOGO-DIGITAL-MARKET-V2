@@ -94,47 +94,66 @@ Deno.serve(async (req: Request) => {
 
     const message = `LEOGO verification code: ${otp}. This code expires shortly. Do not share it.`;
 
-    const response = await fetch(AFRINET_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        apikey,
-        partnerID,
-        mobile: phone,
-        message,
-        shortcode,
-        pass_type: "plain",
-      }),
-    });
+    const sendAfrinet = async (mobile: string) => {
+      const response = await fetch(AFRINET_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apikey,
+          partnerID,
+          mobile,
+          message,
+          shortcode,
+          pass_type: "plain",
+        }),
+      });
 
-    const responseText = await response.text();
-    let responseBody: unknown = null;
-    try {
-      responseBody = responseText ? JSON.parse(responseText) : null;
-    } catch {
-      responseBody = responseText;
+      const responseText = await response.text();
+      let responseBody: unknown = null;
+      try {
+        responseBody = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        responseBody = responseText;
+      }
+
+      return {
+        response,
+        responseBody,
+        code: providerCode(responseBody),
+        description: providerDescription(responseBody),
+      };
+    };
+
+    let attempt = await sendAfrinet(phone);
+
+    // This SMS gateway family uses code 1003 for "Invalid mobile number".
+    // Some deployments accept Kenyan numbers only in local 07/01 format, so
+    // retry once in local format only after a definite 1003 rejection.
+    if (attempt.code === 1003 && phone.startsWith("254")) {
+      const localPhone = "0" + phone.slice(3);
+      console.warn("Afrinet rejected international phone format; retrying local Kenyan format", {
+        phoneLast4: phone.slice(-4),
+      });
+      attempt = await sendAfrinet(localPhone);
     }
 
-    const code = providerCode(responseBody);
-    const description = providerDescription(responseBody);
-
-    if (!response.ok || (code !== null && code !== 200)) {
+    if (!attempt.response.ok || (attempt.code !== null && attempt.code !== 200)) {
       console.error("Afrinet SMS rejected", {
-        httpStatus: response.status,
-        providerCode: code,
-        description,
+        httpStatus: attempt.response.status,
+        providerCode: attempt.code,
+        description: attempt.description,
         phoneLast4: phone.slice(-4),
       });
       return json({
         error: {
-          http_code: response.status || 502,
-          message: description || "Afrinet could not send the verification SMS",
+          http_code: attempt.response.status || 502,
+          message: attempt.description || "Afrinet could not send the verification SMS",
         },
       }, 502);
     }
 
     console.log("Afrinet OTP accepted", {
-      providerCode: code ?? 200,
+      providerCode: attempt.code ?? 200,
       phoneLast4: phone.slice(-4),
     });
 
