@@ -219,9 +219,10 @@
           <div class="admin-order-detail-head">
             <div><span>ORDER CONTROL</span><h3 id="adminOrderDetailTitle">Order Details</h3><p id="adminOrderDetailSubtitle">Loading order information…</p></div>
             <div class="admin-order-detail-actions">
-              <button id="downloadOrderDeliverySummary" type="button" class="primary-button" disabled>⬇ Download Order Summary + QR</button>
+              <button id="downloadOrderDeliverySummary" type="button" class="primary-button" disabled>⬇ Download Summary + QR</button>
+              <label class="order-summary-paper-select order-summary-type-select"><span>Summary</span><select id="orderSummaryType"><option value="detailed" selected>Detailed Order Summary</option><option value="address">Address / Delivery Summary</option></select></label>
               <label class="order-summary-paper-select"><span>Paper</span><select id="orderSummaryPaperSize"><option value="80mm" selected>80 mm Thermal — Auto Length</option><option value="a6">A6</option></select></label>
-              <button id="printOrderDeliverySummary" type="button" class="secondary" disabled>🖨 Print Order Summary</button>
+              <button id="printOrderDeliverySummary" type="button" class="secondary" disabled>🖨 Print Selected Summary</button>
               <button id="closeAdminOrderDetail" type="button" class="secondary">Close</button>
             </div>
           </div>
@@ -1652,7 +1653,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
-  <script src="admin.js?v=network-overview-v1" defer></script>
+  <script src="admin.js?v=order-address-summary-v1" defer></script>
   <script src="vacant-houses.js?v=property-sale-rent-v1" defer></script>
   <script src="system-diagnostics.js?v=diagnostics-trend-collapse-1" defer></script>
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>

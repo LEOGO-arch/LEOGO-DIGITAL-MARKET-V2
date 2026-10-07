@@ -2725,26 +2725,298 @@
     return canvas;
   };
 
+  const orderSummaryPaymentDisplay = (order={}) => {
+    const status=String(order.payment_status||'').toLowerCase();
+    const pointsUsed=Number(order.reward_points_redeemed_kes||0);
+    const rawMethod=String(order.payment_method||'').replaceAll('_',' ').trim().toUpperCase();
+    const method=rawMethod||(pointsUsed>0?'LEOGO POINTS':'PAYMENT');
+    if(status==='cod_due'){
+      return {
+        primary:'CASH ON DELIVERY',
+        secondary:method==='PAYMENT'?'COD':method,
+        amountLabel:'AMOUNT TO COLLECT',
+        amount:formatMoney(order.external_amount_due_kes??order.grand_total_kes)
+      };
+    }
+    if(status==='cod_paid'){
+      return {
+        primary:'PAID ON DELIVERY',
+        secondary:method==='PAYMENT'?'COD':method,
+        amountLabel:'TOTAL ORDER',
+        amount:formatMoney(order.grand_total_kes)
+      };
+    }
+    if(status==='verified_paid'){
+      return {
+        primary:'PREPAID / PAID',
+        secondary:method,
+        amountLabel:'TOTAL ORDER',
+        amount:formatMoney(order.grand_total_kes)
+      };
+    }
+    if(status==='submitted'){
+      return {
+        primary:'PREPAID — AWAITING VERIFICATION',
+        secondary:method,
+        amountLabel:'TOTAL ORDER',
+        amount:formatMoney(order.grand_total_kes)
+      };
+    }
+    return {
+      primary:paymentStatusLabel(order.payment_status).toUpperCase(),
+      secondary:method,
+      amountLabel:'TOTAL ORDER',
+      amount:formatMoney(order.grand_total_kes)
+    };
+  };
+
+  const buildOrderAddressSummaryCanvas = async (detail) => {
+    if(!detail?.order) throw new Error('Open an order before generating its address summary.');
+
+    const order=detail.order;
+    const payment=orderSummaryPaymentDisplay(order);
+    const width=1240;
+    const height=1754;
+    const canvas=document.createElement('canvas');
+    canvas.width=width;
+    canvas.height=height;
+    const ctx=canvas.getContext('2d');
+
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,width,height);
+    ctx.fillStyle='#07152f';
+    ctx.fillRect(0,0,width,220);
+    ctx.fillStyle='#ff7800';
+    ctx.fillRect(0,220,width,16);
+
+    try{
+      const logoUrl=new URL('../assets/images/leogo-official-logo.jpg',window.location.href).href;
+      const logo=await loadImageForCanvas(logoUrl);
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(52,44,126,126);
+      ctx.drawImage(logo,52,44,126,126);
+    }catch{}
+
+    ctx.textBaseline='top';
+    ctx.fillStyle='#ffffff';
+    ctx.font='700 42px Arial, sans-serif';
+    ctx.fillText('LEOGO DIGITAL MARKET',205,54);
+    ctx.font='700 25px Arial, sans-serif';
+    ctx.fillStyle='#ffb26e';
+    ctx.fillText('ADDRESS / DELIVERY SUMMARY',205,110);
+    ctx.font='18px Arial, sans-serif';
+    ctx.fillStyle='#d7dfeb';
+    ctx.fillText('Privacy label — order items intentionally hidden.',205,150);
+
+    const contentWidth=width-108;
+    let y=292;
+
+    ctx.fillStyle='#6b778b';
+    ctx.font='700 16px Arial, sans-serif';
+    ctx.fillText('ORDER NUMBER',54,y);
+    y+=30;
+    ctx.fillStyle='#07152f';
+    ctx.font='700 40px Arial, sans-serif';
+    ctx.fillText(String(order.order_reference||'ORDER'),54,y);
+    y+=62;
+
+    ctx.fillStyle='#6b778b';
+    ctx.font='700 16px Arial, sans-serif';
+    ctx.fillText('ORDER DATE',54,y);
+    ctx.fillStyle='#07152f';
+    ctx.font='700 20px Arial, sans-serif';
+    ctx.fillText(formatDate(order.created_at,true),190,y-2);
+    y+=54;
+
+    ctx.fillStyle='#f3f6f9';
+    ctx.fillRect(54,y,contentWidth,4);
+    y+=34;
+
+    ctx.fillStyle='#07152f';
+    ctx.font='700 22px Arial, sans-serif';
+    ctx.fillText('DELIVER TO',54,y);
+    y+=42;
+    ctx.font='700 38px Arial, sans-serif';
+    ctx.fillText(String(order.receiver_name||'Receiver'),54,y);
+    y+=58;
+    ctx.font='700 28px Arial, sans-serif';
+    ctx.fillStyle='#26364f';
+    ctx.fillText(String(order.contact_number||'No phone'),54,y);
+    y+=50;
+    ctx.font='28px Arial, sans-serif';
+    ctx.fillStyle='#34445d';
+    y=canvasWrapText(ctx,orderDeliveryAddress(order),54,y,contentWidth,40,4)+26;
+
+    ctx.fillStyle='#ff7800';
+    ctx.fillRect(54,y,contentWidth,4);
+    y+=34;
+
+    ctx.fillStyle='#07152f';
+    ctx.font='700 22px Arial, sans-serif';
+    ctx.fillText('PAYMENT',54,y);
+    y+=42;
+
+    const paymentBoxY=y;
+    ctx.fillStyle=String(order.payment_status||'')==='cod_due'?'#fff0e5':'#edf9f1';
+    ctx.fillRect(54,paymentBoxY,contentWidth,180);
+    ctx.fillStyle=String(order.payment_status||'')==='cod_due'?'#a94300':'#177245';
+    ctx.font='700 28px Arial, sans-serif';
+    ctx.fillText(payment.primary,76,paymentBoxY+22);
+    ctx.fillStyle='#07152f';
+    ctx.font='700 38px Arial, sans-serif';
+    ctx.fillText(payment.amount,76,paymentBoxY+72);
+    ctx.fillStyle='#4c5a6c';
+    ctx.font='700 18px Arial, sans-serif';
+    ctx.fillText(payment.amountLabel,76,paymentBoxY+120);
+    ctx.textAlign='right';
+    ctx.font='700 22px Arial, sans-serif';
+    ctx.fillText(payment.secondary,1160,paymentBoxY+76);
+    ctx.textAlign='left';
+    y+=220;
+
+    const qr=await buildDeliveryQrCanvas(deliveryQrTarget(order),330);
+    const qrSize=330;
+    const qrX=Math.round((width-qrSize)/2);
+    const qrY=Math.max(y+18,1070);
+    ctx.drawImage(qr,qrX,qrY,qrSize,qrSize);
+    ctx.fillStyle='#07152f';
+    ctx.textAlign='center';
+    ctx.font='700 24px Arial, sans-serif';
+    ctx.fillText('SCAN ORDER',width/2,qrY+qrSize+20);
+    ctx.font='700 18px Arial, sans-serif';
+    ctx.fillStyle='#5d6b7f';
+    ctx.fillText(String(order.order_reference||'LEOGO ORDER'),width/2,qrY+qrSize+58);
+    ctx.textAlign='left';
+
+    const footerY=1658;
+    ctx.fillStyle='#07152f';
+    ctx.fillRect(0,footerY,width,height-footerY);
+    ctx.fillStyle='#ffffff';
+    ctx.font='700 18px Arial, sans-serif';
+    ctx.fillText('Authorized LEOGO address summary — item details intentionally excluded for customer privacy.',54,footerY+28);
+    ctx.font='16px Arial, sans-serif';
+    ctx.fillStyle='#c9d4e4';
+    ctx.fillText('Printed '+formatDate(new Date().toISOString(),true)+'  |  Keep this label with the parcel until final handover.',54,footerY+62);
+
+    return canvas;
+  };
+
+  const buildOrderAddressThermalReceiptHtml = async (detail) => {
+    if(!detail?.order) throw new Error('Open an order before printing its address summary.');
+
+    const order=detail.order;
+    const payment=orderSummaryPaymentDisplay(order);
+    const qr=await buildDeliveryQrCanvas(deliveryQrTarget(order),300);
+    const qrDataUrl=qr.toDataURL('image/png');
+    const logoUrl=new URL('../assets/images/leogo-official-logo.jpg',window.location.href).href;
+    const printedAt=formatDate(new Date().toISOString(),true);
+    const orderDate=formatDate(order.created_at,true);
+
+    return '<!doctype html><html><head><meta charset="utf-8">'+
+      '<meta name="viewport" content="width=device-width,initial-scale=1">'+
+      '<title></title>'+
+      '<style>'+
+        '@page{margin:0;}'+
+        '*{box-sizing:border-box;}'+
+        'html,body{width:80mm;min-width:80mm;max-width:80mm;margin:0;padding:0;background:#fff;color:#000;}'+
+        'body{font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'+
+        '.receipt{width:72mm;margin:0 auto;padding:1mm 0 1.4mm;font-size:7.6pt;line-height:1.08;font-weight:800;color:#000;}'+
+        '.receipt-header{display:grid;grid-template-columns:10mm minmax(0,1fr);gap:2mm;align-items:center;}'+
+        '.receipt-logo{width:9mm;height:9mm;object-fit:cover;filter:grayscale(1) contrast(1.3);}'+
+        '.receipt-header h1{margin:0;font-size:10.2pt;line-height:1;font-weight:900;}'+
+        '.receipt-title-line{display:flex;align-items:baseline;justify-content:space-between;gap:1.5mm;margin:.35mm 0 0;}'+
+        '.receipt-title-line h2{margin:0;font-size:6.9pt;font-weight:900;white-space:nowrap;}'+
+        '.receipt-print-time{font-size:5.5pt;font-weight:900;white-space:nowrap;}'+
+        '.receipt-header p{margin:.28mm 0 0;font-size:6.1pt;font-weight:800;}'+
+        '.receipt-rule{border:0;border-top:1px dashed #000;margin:.9mm 0;}'+
+        '.receipt-reference{display:flex;align-items:baseline;gap:1.2mm;}'+
+        '.receipt-reference small{font-size:6.2pt;font-weight:900;white-space:nowrap;}'+
+        '.receipt-reference strong{font-size:8.6pt;font-weight:900;word-break:break-word;}'+
+        '.receipt-row{display:flex;justify-content:space-between;gap:2mm;font-size:7.1pt;margin:.25mm 0;}'+
+        '.receipt-row span{font-weight:800;}'+
+        '.receipt-row strong{text-align:right;font-weight:900;}'+
+        '.receipt-section h3{margin:0 0 .4mm;font-size:6.8pt;font-weight:900;letter-spacing:.2px;}'+
+        '.receipt-section p{margin:.2mm 0;font-size:7.4pt;font-weight:800;line-height:1.09;overflow-wrap:anywhere;}'+
+        '.receipt-section .customer{font-size:9.1pt;font-weight:900;}'+
+        '.receipt-section .phone{font-size:8.2pt;font-weight:900;}'+
+        '.payment-box{border:1.4px solid #000;padding:1mm 1.2mm;margin:.35mm 0;}'+
+        '.payment-box strong{display:block;font-size:8.4pt;font-weight:900;}'+
+        '.payment-box .amount{font-size:10pt;margin:.5mm 0;}'+
+        '.payment-box small{display:block;font-size:6.4pt;font-weight:900;}'+
+        '.receipt-qr{text-align:center;margin-top:.3mm;break-inside:avoid;}'+
+        '.receipt-qr img{display:block;width:23mm;height:23mm;margin:0 auto;image-rendering:pixelated;image-rendering:crisp-edges;}'+
+        '.receipt-qr strong{display:block;margin-top:.3mm;font-size:7pt;font-weight:900;}'+
+        '.receipt-qr small{display:block;margin-top:.15mm;font-size:6pt;font-weight:800;}'+
+        '.receipt-footer{margin-top:.45mm;text-align:center;font-size:5.9pt;font-weight:800;line-height:1.08;}'+
+        '@media print{html,body{width:80mm!important;height:auto!important;overflow:visible!important;margin:0!important}.receipt{width:72mm!important;page-break-after:auto}.receipt-section,.payment-box,.receipt-qr{break-inside:avoid;}}'+
+      '</style></head><body>'+
+        '<main class="receipt">'+
+          '<header class="receipt-header">'+
+            '<img class="receipt-logo" src="'+logoUrl+'" alt="LEOGO logo">'+
+            '<div>'+
+              '<h1>LEOGO DIGITAL MARKET</h1>'+
+              '<div class="receipt-title-line"><h2>ADDRESS / DELIVERY SUMMARY</h2><span class="receipt-print-time">'+escapeHtml(printedAt)+'</span></div>'+
+              '<p>Private label — order items hidden</p>'+
+            '</div>'+
+          '</header>'+
+          '<hr class="receipt-rule">'+
+          '<div class="receipt-reference"><small>ORDER NO.</small><strong>'+escapeHtml(order.order_reference||'ORDER')+'</strong></div>'+
+          '<div class="receipt-row"><span>Order date</span><strong>'+escapeHtml(orderDate)+'</strong></div>'+
+          '<hr class="receipt-rule">'+
+          '<section class="receipt-section">'+
+            '<h3>DELIVER TO</h3>'+
+            '<p class="customer">'+escapeHtml(order.receiver_name||'Receiver')+'</p>'+
+            '<p class="phone">'+escapeHtml(order.contact_number||'No phone')+'</p>'+
+            '<p>'+escapeHtml(orderDeliveryAddress(order))+'</p>'+
+          '</section>'+
+          '<hr class="receipt-rule">'+
+          '<section class="receipt-section">'+
+            '<h3>PAYMENT</h3>'+
+            '<div class="payment-box">'+
+              '<strong>'+escapeHtml(payment.primary)+'</strong>'+
+              '<strong class="amount">'+escapeHtml(payment.amount)+'</strong>'+
+              '<small>'+escapeHtml(payment.amountLabel)+' · '+escapeHtml(payment.secondary)+'</small>'+
+            '</div>'+
+          '</section>'+
+          '<hr class="receipt-rule">'+
+          '<div class="receipt-qr">'+
+            '<img src="'+qrDataUrl+'" alt="Order QR">'+
+            '<strong>SCAN ORDER</strong>'+
+            '<small>'+escapeHtml(order.order_reference||'LEOGO ORDER')+'</small>'+
+            '<footer class="receipt-footer">'+
+              '<div>Authorized LEOGO address summary.</div>'+
+              '<div>Order item details intentionally excluded.</div>'+
+            '</footer>'+
+          '</div>'+
+        '</main>'+
+        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var renderedPx=receipt?receipt.getBoundingClientRect().height:0;var renderedMm=renderedPx/pxPerMm;var heightMm=Math.max(46,Math.min(120,Math.ceil(renderedMm+2)));var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0!important}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";document.documentElement.style.overflow="hidden";document.body.style.overflow="hidden";setTimeout(function(){window.print();},180);})})});<\/script>'+
+      '</body></html>';
+  };
+
   const downloadOrderDeliverySummary = async () => {
     const detail=state.activeMarketplaceOrderDetail;
     if(!detail?.order) return;
+    const summaryType=$('#orderSummaryType')?.value==='address'?'address':'detailed';
     const button=$('#downloadOrderDeliverySummary');
-    const original=button?.textContent||'Download Order Summary + QR';
+    const original=button?.textContent||'Download Summary + QR';
+    const label=summaryType==='address'?'address / delivery summary':'detailed order summary';
     try{
       if(button){button.disabled=true;button.textContent='Preparing Summary…';}
-      setFormStatus($('#adminOrderDetailStatus'),'Generating order summary with permanent LEOGO order QR…');
-      const canvas=await buildOrderDeliverySummaryCanvas(detail);
+      setFormStatus($('#adminOrderDetailStatus'),'Generating '+label+' with permanent LEOGO order QR…');
+      const canvas=summaryType==='address'
+        ? await buildOrderAddressSummaryCanvas(detail)
+        : await buildOrderDeliverySummaryCanvas(detail);
       const blob=await new Promise((resolve)=>canvas.toBlob(resolve,'image/png'));
       if(!blob) throw new Error('Delivery summary image could not be created.');
       const url=URL.createObjectURL(blob);
       const link=document.createElement('a');
       link.href=url;
-      link.download=(detail.order.order_reference||'LEOGO-order')+'-order-summary.png';
+      link.download=(detail.order.order_reference||'LEOGO-order')+(summaryType==='address'?'-address-summary.png':'-order-summary.png');
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.setTimeout(()=>URL.revokeObjectURL(url),1500);
-      setFormStatus($('#adminOrderDetailStatus'),'Order summary with QR downloaded successfully.','success');
+      setFormStatus($('#adminOrderDetailStatus'),(summaryType==='address'?'Address / delivery summary':'Detailed order summary')+' with QR downloaded successfully.','success');
     }catch(error){
       setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
     }finally{
@@ -2915,6 +3187,7 @@
     if(!detail?.order) return;
 
     const paperSize=$('#orderSummaryPaperSize')?.value||'a6';
+    const summaryType=$('#orderSummaryType')?.value==='address'?'address':'detailed';
     const popup=window.open('','_blank',paperSize==='80mm'?'width=430,height=820':'width=900,height=1100');
     if(!popup){
       setFormStatus($('#adminOrderDetailStatus'),'Your browser blocked the print window. Allow pop-ups for LEOGO Admin and try again.','error');
@@ -2922,27 +3195,35 @@
     }
 
     const button=$('#printOrderDeliverySummary');
-    const original=button?.textContent||'Print Order Summary';
+    const original=button?.textContent||'Print Selected Summary';
     try{
       if(button){button.disabled=true;button.textContent='Preparing…';}
-      popup.document.write('<!doctype html><title>Preparing LEOGO Delivery Summary</title><body style="font-family:Arial;padding:24px">Preparing delivery summary…</body>');
+      popup.document.write('<!doctype html><title>Preparing LEOGO Summary</title><body style="font-family:Arial;padding:24px">Preparing selected summary…</body>');
 
       if(paperSize==='80mm'){
-        const receiptHtml=await buildOrderThermalReceiptHtml(detail);
+        const receiptHtml=summaryType==='address'
+          ? await buildOrderAddressThermalReceiptHtml(detail)
+          : await buildOrderThermalReceiptHtml(detail);
         popup.document.open();
         popup.document.write(receiptHtml);
         popup.document.close();
-        setFormStatus($('#adminOrderDetailStatus'),'80 mm thermal receipt ready. For the shortest single-page roll, keep print Margins = None and turn OFF browser Headers and footers (the date/about:blank/page number shown by Chrome).','success');
+        setFormStatus(
+          $('#adminOrderDetailStatus'),
+          (summaryType==='address'?'Address / delivery':'Detailed order')+' thermal summary ready. Keep print Margins = None and turn OFF browser Headers and footers for the shortest roll.',
+          'success'
+        );
         return;
       }
 
-      const canvas=await buildOrderDeliverySummaryCanvas(detail);
+      const canvas=summaryType==='address'
+        ? await buildOrderAddressSummaryCanvas(detail)
+        : await buildOrderDeliverySummaryCanvas(detail);
       const dataUrl=canvas.toDataURL('image/png');
       const pageCss='@page{size:A6 portrait;margin:0}html,body{width:105mm;height:148mm;margin:0;padding:0;background:#fff}img{width:105mm;height:148mm;object-fit:contain;display:block;margin:0}';
       popup.document.open();
-      popup.document.write('<!doctype html><html><head><title>'+escapeHtml(detail.order.order_reference||'LEOGO Order Summary')+'</title><style>'+pageCss+'</style></head><body><img id="label" src="'+dataUrl+'" alt="LEOGO Order Summary"><script>document.getElementById("label").onload=function(){setTimeout(function(){window.print();},120)};<\/script></body></html>');
+      popup.document.write('<!doctype html><html><head><title>'+escapeHtml(detail.order.order_reference||'LEOGO Summary')+'</title><style>'+pageCss+'</style></head><body><img id="label" src="'+dataUrl+'" alt="LEOGO Summary"><script>document.getElementById("label").onload=function(){setTimeout(function(){window.print();},120)};<\/script></body></html>');
       popup.document.close();
-      setFormStatus($('#adminOrderDetailStatus'),'Order summary opened for A6 printing.','success');
+      setFormStatus($('#adminOrderDetailStatus'),(summaryType==='address'?'Address / delivery':'Detailed order')+' summary opened for A6 printing.','success');
     }catch(error){
       popup.close();
       setFormStatus($('#adminOrderDetailStatus'),friendlyError(error),'error');
@@ -6748,6 +7029,13 @@
     $('#adminOrderStatusFilter')?.addEventListener('change', renderMarketplaceOrders);
     $('#downloadOrderDeliverySummary')?.addEventListener('click', downloadOrderDeliverySummary);
     $('#printOrderDeliverySummary')?.addEventListener('click', printOrderDeliverySummary);
+    $('#orderSummaryType')?.addEventListener('change',()=>{
+      const address=$('#orderSummaryType')?.value==='address';
+      const download=$('#downloadOrderDeliverySummary');
+      const print=$('#printOrderDeliverySummary');
+      if(download)download.textContent=address?'⬇ Download Address Summary + QR':'⬇ Download Detailed Summary + QR';
+      if(print)print.textContent=address?'🖨 Print Address Summary':'🖨 Print Detailed Summary';
+    });
     $('#closeAdminOrderDetail')?.addEventListener('click', closeMarketplaceOrderDetail);
     $('#adminOrderDeliveryDetail')?.addEventListener('click',(event)=>{
       const assignButton=event.target.closest?.('#assignRiderFromOrder');

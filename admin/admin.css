@@ -531,6 +531,8 @@
 .order-summary-paper-select{display:flex;align-items:center;gap:6px;padding:5px 7px;border:1px solid #d4dce7;border-radius:10px;background:#fff}
 .order-summary-paper-select span{font-size:8px;font-weight:900;color:#667489;text-transform:uppercase}
 .order-summary-paper-select select{border:0;outline:0;background:transparent;color:#07152f;font:inherit;font-size:9px;font-weight:800;cursor:pointer}
+.order-summary-type-select{min-width:245px}
+.order-summary-type-select select{min-width:180px}
 .admin-order-delivery-timeline{grid-template-columns:repeat(7,minmax(90px,1fr))}
 .admin-sorting-actions{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:12px;padding:11px;border-radius:10px;background:#eef6ff;border:1px solid #cfe1f4}
 .admin-sorting-actions button{border:0;border-radius:9px;padding:9px 12px;background:#07152f;color:#fff;font-size:9px;font-weight:900;cursor:pointer;white-space:nowrap}
@@ -546,6 +548,8 @@
   .admin-sorting-actions{align-items:flex-start;flex-direction:column}
   .admin-sorting-actions button{width:100%}
   .order-summary-paper-select{flex:1 1 150px;justify-content:space-between}
+  .order-summary-type-select{flex:1 1 100%;min-width:0}
+  .order-summary-type-select select{min-width:0;width:100%}
 }
 
 
