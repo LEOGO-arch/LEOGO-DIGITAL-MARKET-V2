@@ -187,6 +187,8 @@ Deno.serve(async (req: Request) => {
         description: attempt.description,
         validation: validation ? JSON.stringify(validation).slice(0, 800) : null,
         responseKeys: bodyRecord ? Object.keys(bodyRecord).slice(0, 20) : [],
+        partnerID,
+        shortcode,
         phoneLast4: phone.slice(-4),
       });
       return json({
