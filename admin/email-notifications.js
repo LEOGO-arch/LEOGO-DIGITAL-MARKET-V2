@@ -54,7 +54,7 @@
         ? 'Configured / Off'
         : 'Needs Gmail App Password';
     $('#emailConfigNote').textContent = active
-      ? 'Automatic Pickup Station order emails are enabled'
+      ? 'Automatic order lifecycle and Pickup Station emails are enabled'
       : configured
         ? 'Sender is configured but automatic emails are disabled'
         : 'Save a Gmail App Password securely to activate sending';
@@ -94,7 +94,7 @@
       setStatus(
         $('#emailNotificationSettingsStatus'),
         data?.enabled
-          ? 'Customer email notifications are enabled. Pickup Station arrival and ready-for-pickup events will send automatically.'
+          ? 'Customer email notifications are enabled. Order-created, shipped, delivered and Pickup Station events will send automatically.'
           : 'Email sender settings saved. Automatic customer emails are currently switched off.',
         'success'
       );
