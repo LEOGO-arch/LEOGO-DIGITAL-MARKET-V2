@@ -138,10 +138,18 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!attempt.response.ok || (attempt.code !== null && attempt.code !== 200)) {
+      const bodyRecord = attempt.responseBody && typeof attempt.responseBody === "object"
+        ? attempt.responseBody as Record<string, unknown>
+        : null;
+      const validation = bodyRecord
+        ? (bodyRecord.errors ?? bodyRecord.error ?? bodyRecord.validation ?? bodyRecord.data ?? null)
+        : null;
       console.error("Afrinet SMS rejected", {
         httpStatus: attempt.response.status,
         providerCode: attempt.code,
         description: attempt.description,
+        validation: validation ? JSON.stringify(validation).slice(0, 800) : null,
+        responseKeys: bodyRecord ? Object.keys(bodyRecord).slice(0, 20) : [],
         phoneLast4: phone.slice(-4),
       });
       return json({
