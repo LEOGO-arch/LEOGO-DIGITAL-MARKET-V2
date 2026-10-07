@@ -126,12 +126,23 @@ Deno.serve(async (req: Request) => {
 
     let attempt = await sendAfrinet(phone);
 
-    // This SMS gateway family uses code 1003 for "Invalid mobile number".
-    // Some deployments accept Kenyan numbers only in local 07/01 format, so
-    // retry once in local format only after a definite 1003 rejection.
-    if (attempt.code === 1003 && phone.startsWith("254")) {
+    // Retry with local Kenyan phone format only when Afrinet explicitly reports
+    // a mobile-number validation problem. Do not retry for shortcode/sender-ID
+    // validation failures.
+    const firstBody = attempt.responseBody && typeof attempt.responseBody === "object"
+      ? attempt.responseBody as Record<string, unknown>
+      : null;
+    const firstErrors = firstBody?.errors && typeof firstBody.errors === "object"
+      ? JSON.stringify(firstBody.errors).toLowerCase()
+      : "";
+    const mobileValidationFailed =
+      firstErrors.includes("mobile") ||
+      firstErrors.includes("phone") ||
+      firstErrors.includes("msisdn");
+
+    if (mobileValidationFailed && phone.startsWith("254")) {
       const localPhone = "0" + phone.slice(3);
-      console.warn("Afrinet rejected international phone format; retrying local Kenyan format", {
+      console.warn("Afrinet reported a mobile validation error; retrying local Kenyan format", {
         phoneLast4: phone.slice(-4),
       });
       attempt = await sendAfrinet(localPhone);
