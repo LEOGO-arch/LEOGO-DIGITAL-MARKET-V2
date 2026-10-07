@@ -36,7 +36,25 @@ const renderEmail = (subject: string, data: Record<string, unknown>) => {
   let action = "";
   let heading = "Order Update";
   let footer = "This is an automatic LEOGO order notification. If you did not place this order, contact LEOGO customer support.";
-  if (kind === "pickup_station_arrived") {
+  if (kind === "order_created") {
+    heading = "Order Created Successfully";
+    message =
+      `Your order <strong>${order}</strong> has been placed successfully and received by LEOGO.`;
+    action =
+      "Your order will be shipped as soon as possible. You can follow its progress from My Activity / Orders in your LEOGO account.";
+  } else if (kind === "order_shipped") {
+    heading = "Order Shipped";
+    message =
+      `Your order <strong>${order}</strong> has been shipped / dispatched by LEOGO.`;
+    action =
+      "Your order is now on the way. Keep checking My Activity / Orders for the latest delivery update.";
+  } else if (kind === "order_delivered") {
+    heading = "Order Delivered Successfully";
+    message =
+      `Your order <strong>${order}</strong> has been marked delivered successfully.`;
+    action =
+      "Thank you for shopping with LEOGO. You can now review the order or use Aftersales from your LEOGO account if you need assistance.";
+  } else if (kind === "pickup_station_arrived") {
     message =
       `Your order <strong>${order}</strong> has been delivered by the LEOGO Rider to <strong>${station}</strong>.`;
     action =
@@ -55,7 +73,7 @@ const renderEmail = (subject: string, data: Record<string, unknown>) => {
     message =
       "This is a test message confirming that LEOGO customer email notifications are configured correctly.";
     action =
-      "No action is required. Future eligible Pickup Station order updates will be emailed automatically.";
+      "No action is required. Eligible order-created, shipped, delivered and Pickup Station updates will be emailed automatically.";
   }
 
   const stationRows = kind === "pickup_station_ready"
@@ -176,7 +194,7 @@ Deno.serve(async (req: Request) => {
       html: renderEmail(String(job.subject), (job.template_data || {}) as Record<string, unknown>),
       text: securityEmail
         ? `LEOGO DIGITAL MARKET\n\n${String(job.subject)}\n\n${safeText(job.template_data?.security_message, "A Super Admin security action was completed.")}\n\nIf this was not you, use Admin recovery immediately and revoke all sessions.\n`
-        : `LEOGO DIGITAL MARKET\n\n${String(job.subject)}\n\nOrder: ${safeText(job.template_data?.order_reference, "LEOGO order")}\n`,
+        : `LEOGO DIGITAL MARKET\n\n${String(job.subject)}\n\nOrder: ${safeText(job.template_data?.order_reference, "LEOGO order")}\n\n${emailKind === "order_created" ? "Your order has been placed successfully and will be shipped as soon as possible." : emailKind === "order_shipped" ? "Your order has been shipped / dispatched and is on the way." : emailKind === "order_delivered" ? "Your order has been delivered successfully." : ""}\n`,
     });
 
     await supabase.from("order_email_outbox").update({
