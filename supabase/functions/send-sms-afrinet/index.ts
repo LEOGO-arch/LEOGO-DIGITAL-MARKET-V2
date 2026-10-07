@@ -1,6 +1,6 @@
 import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 
-const AFRINET_ENDPOINT = "https://sms.imarabiz.com/api/services/sendsms/";
+const AFRINET_ENDPOINT = "https://bulksms.afrinettelecom.co.ke/api/services/sendsms/";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
