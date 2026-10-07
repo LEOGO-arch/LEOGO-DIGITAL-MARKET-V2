@@ -2,6 +2,24 @@
 (() => {
   'use strict';
 
+  // Initialize shared customer cart state before any auth/data events can call
+  // checkout helpers. Keeping this above event registration prevents temporal
+  // dead-zone failures during fast session restoration on mobile.
+  const testCartStorageKey = 'leogo_marketplace_cart_v1';
+  let testCart = [];
+  try {
+    const savedCart = JSON.parse(localStorage.getItem(testCartStorageKey) || '[]');
+    testCart = Array.isArray(savedCart) ? savedCart : [];
+  } catch {
+    testCart = [];
+  }
+  const cartItemSource=(item)=>item?.sourceType==='health_medicine'?'health_medicine':'seller';
+  const cartHasSource=(source)=>testCart.some((item)=>cartItemSource(item)===source);
+
+  // Lipa Pole Pole settings can finish loading while the page is still restoring
+  // the customer session. Use a harmless placeholder until the full renderer is assigned.
+  let renderLppAccounts = () => {};
+
   // Official LEOGO V2 logo presentation. This overrides the earlier temporary
   // recreated-logo styling without disturbing the locked project foundation.
   const style = document.createElement('style');
@@ -332,7 +350,7 @@
   });
 
   document.addEventListener('leogo:authchange', refreshPersonalSaleEligibility);
-  document.addEventListener('leogo:authchange',()=>{ loadPublicServices().catch(()=>{}); loadCustomerServiceRequests().catch(()=>{}); });
+  // Service/request refresh is registered later, after those loaders are initialized.
   window.setTimeout(refreshPersonalSaleEligibility, 700);
 
   const openLeogoBar = document.getElementById('openLeogoBar');
@@ -2027,25 +2045,15 @@
     window.open('https://wa.me/254700192545?text=' + encodeURIComponent(message), '_blank', 'noopener');
   });
 
-  const testCartStorageKey = 'leogo_marketplace_cart_v1';
   const headerCartCount = document.getElementById('headerCartCount');
   const cartShellCount = document.getElementById('cartShellCount');
   const cartShellItems = document.getElementById('cartShellItems');
   const testCartFeedback = document.getElementById('testCartFeedback');
-  let testCart = [];
-  try {
-    const savedCart = JSON.parse(localStorage.getItem(testCartStorageKey) || '[]');
-    testCart = Array.isArray(savedCart) ? savedCart : [];
-  } catch {
-    testCart = [];
-  }
 
   const money = (value) => 'KSh ' + Number(value || 0).toLocaleString();
   const testCartCount = () => testCart.reduce((total, item) => total + item.quantity, 0);
   const testCartSubtotal = () => testCart.reduce((total, item) => total + (item.price * item.quantity), 0);
   const saveTestCart = () => localStorage.setItem(testCartStorageKey, JSON.stringify(testCart));
-  const cartItemSource=(item)=>item?.sourceType==='health_medicine'?'health_medicine':'seller';
-  const cartHasSource=(source)=>testCart.some((item)=>cartItemSource(item)===source);
 
   const renderTestCart = () => {
     const count = testCartCount();
@@ -3421,7 +3429,7 @@
 
   const formatLppDate = (value) => new Date(value).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' });
   const lppDaysRemaining = (deadline) => Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
-  const renderLppAccounts = () => {
+  renderLppAccounts = () => {
     const activeCount = lppPlans.length;
     const allApproved = lppPlans.reduce((sum, plan) => sum + approvedLppTotal(plan), 0);
     const allPending = lppPlans.reduce((sum, plan) => sum + pendingLppTotal(plan), 0);
