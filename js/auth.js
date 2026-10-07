@@ -8,6 +8,7 @@
   const supabaseFactory = window.supabase?.createClient;
 
   const statusBox = document.getElementById('authPreviewStatus');
+  const emailLoginStatus = document.getElementById('customerEmailLoginStatus');
   const loginForm = document.getElementById('customerLoginForm');
   const phoneLoginForm = document.getElementById('customerPhoneLoginForm');
   const phoneLoginPhone = document.getElementById('loginPhone');
@@ -56,6 +57,13 @@
     statusBox.textContent = message;
     statusBox.classList.toggle('is-error', type === 'error');
     statusBox.classList.toggle('is-success', type === 'success');
+  };
+
+  const setEmailLoginStatus = (message = '', type = '') => {
+    if (!emailLoginStatus) return;
+    emailLoginStatus.textContent = message;
+    emailLoginStatus.classList.toggle('is-error', type === 'error');
+    emailLoginStatus.classList.toggle('is-success', type === 'success');
   };
 
   const friendlyAuthError = (error) => {
@@ -345,15 +353,19 @@
     event.preventDefault();
     if (!loginForm.reportValidity()) return;
     runOnce(loginForm, async () => {
+      setEmailLoginStatus('Logging you in securely…');
       setStatus('Logging you in securely…');
       const email = document.getElementById('loginEmail').value.trim().toLowerCase();
       const password = document.getElementById('loginPassword').value;
       const { data, error } = await authClient.auth.signInWithPassword({ email, password });
       if (error) {
-        setStatus(friendlyAuthError(error), 'error');
+        const message = friendlyAuthError(error);
+        setEmailLoginStatus(message, 'error');
+        setStatus(message, 'error');
         return;
       }
       updateAuthUI(data.session);
+      setEmailLoginStatus('Login successful. Welcome back to LEOGO.', 'success');
       setStatus('Login successful. Welcome back to LEOGO.', 'success');
       loginForm.reset();
       window.setTimeout(() => window.leogoOpenCustomerView?.('dashboard'), 500);
