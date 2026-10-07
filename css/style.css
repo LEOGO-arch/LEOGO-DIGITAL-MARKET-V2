@@ -2833,3 +2833,18 @@ body.advertisement-lightbox-open{overflow:hidden}
 .flash-item .flash-body h3,.flash-item .flash-price,.flash-item .flash-old,.flash-item .flash-save,.flash-item .flash-seller,.flash-item .flash-qty,.flash-item .flash-until{position:static}
 .flash-item .flash-action{margin-top:10px}
 @media(max-width:700px){.flash-item{flex:0 0 180px}.flash-item .flash-img{height:145px;flex-basis:145px}.flash-item .flash-body{padding:10px}}
+
+
+/* Product profile/card photos: always show the complete uploaded product image.
+   Keep the existing card frame; do not crop the product with object-fit: cover. */
+.live-product-card .live-product-image{
+  background:#fff;
+}
+.live-product-card .live-product-image img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:center;
+  background:#fff;
+  display:block;
+}
