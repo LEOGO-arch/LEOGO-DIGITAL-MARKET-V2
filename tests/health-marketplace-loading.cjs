@@ -15,9 +15,9 @@ assert.match(
   /\$\$\('\[data-health-enquiry\]',productGrid\)\.forEach/,
   'Health enquiry buttons must use the querySelectorAll helper'
 );
-assert.doesNotMatch(
-  health,
-  /\$\('\[data-health-(?:add-cart|enquiry)\]',productGrid\)\.forEach/,
+assert.ok(
+  !health.includes("\n    $('[data-health-add-cart]',productGrid).forEach") &&
+  !health.includes("\n    $('[data-health-enquiry]',productGrid).forEach"),
   'Health product actions must not call forEach on a single element'
 );
 assert.match(
