@@ -850,8 +850,8 @@ const startScanner=async(mode)=>{
     scannerStream=await navigator.mediaDevices.getUserMedia({
       video:{
         facingMode:{ideal:'environment'},
-        width:{ideal:1920},
-        height:{ideal:1080}
+        width:{ideal:2560},
+        height:{ideal:1440}
       },
       audio:false
     });
@@ -881,7 +881,9 @@ const startScanner=async(mode)=>{
       throw new Error('QR scanner could not start in this browser. Refresh the page and try again.');
     }
 
-    $('#scannerStatus').textContent='Point the camera at the LEOGO order QR.';
+    const cameraSettings=track.getSettings?.()||{};
+    const actualResolution=cameraSettings.width&&cameraSettings.height?' ('+cameraSettings.width+'×'+cameraSettings.height+')':'';
+    $('#scannerStatus').textContent='Camera ready'+actualResolution+'. Point the camera at the LEOGO order QR.';
     scanLoop(detector);
   }catch(err){
     if(scannerStream){scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null;}
