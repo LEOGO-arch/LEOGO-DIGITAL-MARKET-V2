@@ -22,9 +22,18 @@ assert.match(migration, /leogo-order-sms-retry/, 'failed SMS jobs must have retr
 
 assert.match(hardening, /revoke all on function private\.dispatch_order_sms_job/, 'internal dispatch helper must not be callable by app users');
 assert.match(hardening, /revoke all on function private\.enqueue_pickup_order_sms/, 'internal enqueue helper must not be callable by app users');
-assert.match(arrivalOnly, /drop trigger if exists pickup_station_sms_ready_for_pickup/, 'ready-for-pickup SMS trigger must be disabled');
-assert.match(arrivalOnly, /if p_event_key <> 'pickup_station_arrived' then/, 'SMS enqueue helper must refuse non-arrival events');
-assert.doesNotMatch(arrivalOnly, /pickup_station_ready/, 'arrival-only policy must not enqueue ready-for-pickup SMS');
+assert.match(arrivalOnly, /drop trigger if exists pickup_station_sms_ready_for_pickup/, 'legacy arrival-only migration must disable the earlier ready trigger');
+
+const readyDetails = fs.readFileSync('supabase/migrations/20261008041500_pickup_ready_sms_station_details.sql', 'utf8');
+assert.match(readyDetails, /drop trigger if exists marketplace_delivery_sms_pickup_arrival/, 'Rider-arrival SMS trigger must be disabled so customers get one collection-ready SMS');
+assert.match(readyDetails, /if p_event_key <> 'pickup_station_ready' then/, 'SMS helper must only allow ready-for-collection events');
+assert.match(readyDetails, /new\.status='received'/, 'Pickup Station received status must trigger the ready SMS');
+assert.match(readyDetails, /v_order\.contact_number/, 'Ready SMS must use the shipping contact captured on the order');
+assert.match(readyDetails, /v_station\.station_name/, 'Ready SMS must include Pickup Station name');
+assert.match(readyDetails, /v_station\.address_line/, 'Ready SMS must include Pickup Station address');
+assert.match(readyDetails, /v_station\.contact_phone/, 'Ready SMS must include Pickup Station phone');
+assert.match(readyDetails, /It is ready for collection\./, 'Ready SMS must clearly say the parcel is ready for collection');
+assert.match(readyDetails, /on conflict \(order_id,event_key\).*do nothing/s, 'Ready SMS must remain idempotent');
 
 console.log('Pickup order SMS notification regression checks passed.');
 
