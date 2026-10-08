@@ -758,7 +758,7 @@
     }, 0);
   });
 
-  authClient.auth.getSession().then(({ data, error }) => {
+  authClient.auth.getSession().then(async ({ data, error }) => {
     authReady = true;
     if (error) {
       updateAuthUI(null);
