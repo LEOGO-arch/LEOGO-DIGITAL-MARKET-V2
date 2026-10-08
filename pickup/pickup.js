@@ -27,6 +27,21 @@ const showView=(name)=>{
 };
 $$('#pickupNav [data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 
+const isAdminIdentity=async(user)=>{
+  const userId=user?.id||'';
+  if(!userId)return false;
+  const {data,error}=await client.from('admin_users').select('user_id').eq('user_id',userId).maybeSingle();
+  if(error)throw error;
+  return Boolean(data?.user_id);
+};
+
+const redirectAdminIdentity=async(user)=>{
+  if(!(await isAdminIdentity(user)))return false;
+  try{await client.auth.signOut({scope:'local'});}catch(error){console.warn('Pickup Admin-session cleanup failed:',error);}
+  location.replace('../admin/');
+  return true;
+};
+
 const parcelStatusLabel=(s)=>({booked:'Booked for station / en route',arrived_pending_receipt:'Rider delivered — pending station receipt',received:'At station / ready for collection',handed_over:'Handed over',cancelled:'Cancelled'})[s]||String(s||'Unknown').replaceAll('_',' ');
 const deliveryStatusLabel=(s)=>({
   assigned:'Assigned to rider',
@@ -950,6 +965,7 @@ const boot=async()=>{
   $('#historyFrom').value=monthStart();$('#historyTo').value=today();$('#earningsFrom').value=monthStart();$('#earningsTo').value=today();
   const {data:{session},error}=await client.auth.getSession();
   if(error||!session){stopScanner();$('#authGate').hidden=false;$('#assignmentGate').hidden=true;$('#portal').hidden=true;return;}
+  if(await redirectAdminIdentity(session.user))return;
   currentUser=session.user;$('#authGate').hidden=true;
   startPickupNotificationRealtime();
   try{
@@ -980,9 +996,19 @@ client.auth.onAuthStateChange((event,session)=>{
     return;
   }
   if(session?.user&&!currentUser){
-    currentUser=session.user;
-    startPickupNotificationRealtime();
-    loadAll().catch(()=>{});
+    setTimeout(async()=>{
+      try{
+        if(await redirectAdminIdentity(session.user))return;
+        currentUser=session.user;
+        startPickupNotificationRealtime();
+        loadAll().catch(()=>{});
+      }catch(error){
+        console.warn('Pickup portal access check failed:',error);
+        stopScanner();
+        $('#portal').hidden=true;
+        $('#assignmentGate').hidden=false;
+      }
+    },0);
   }
 });
 window.addEventListener('beforeunload',()=>{
