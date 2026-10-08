@@ -27,3 +27,12 @@ assert.match(arrivalOnly, /if p_event_key <> 'pickup_station_arrived' then/, 'SM
 assert.doesNotMatch(arrivalOnly, /pickup_station_ready/, 'arrival-only policy must not enqueue ready-for-pickup SMS');
 
 console.log('Pickup order SMS notification regression checks passed.');
+
+
+const dispatchFix = fs.readFileSync('supabase/migrations/20261008040500_pickup_sms_dispatch_shipping_contact.sql', 'utf8');
+
+assert.match(dispatchFix, /grant select, update on table public\.order_sms_outbox to service_role/i, 'SMS worker service role must be able to read/update queued jobs');
+assert.match(dispatchFix, /revoke all on table public\.order_sms_outbox from anon, authenticated/i, 'Customer/partner clients must remain blocked from the SMS outbox');
+assert.match(dispatchFix, /v_order\.contact_number/, 'Pickup SMS must use the shipping contact captured on the order');
+assert.doesNotMatch(dispatchFix, /customer_profiles|raw_user_meta_data|auth\.users/i, 'Pickup SMS must not fall back to profile/Auth phone numbers');
+assert.match(dispatchFix, /Check your LEOGO order updates for collection status\./, 'Arrival SMS must avoid stale ready-for-pickup wording');
