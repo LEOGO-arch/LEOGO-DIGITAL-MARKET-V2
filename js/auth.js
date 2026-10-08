@@ -51,6 +51,7 @@
   let kenyaSubcounties = [];
   let pendingPhoneLogin = '';
   let pendingPhoneLink = '';
+  let rejectingAdminCustomerSession = false;
 
   const setStatus = (message = '', type = '') => {
     if (!statusBox) return;
@@ -79,6 +80,53 @@
     if (message.includes('provider is not enabled') || message.includes('unsupported provider')) return 'Google login is not available yet. Please use email login while LEOGO completes the Google connection.';
     if (message.includes('network') || message.includes('fetch')) return 'We could not reach the secure login service. Check your internet connection and try again.';
     return error?.message || 'The request could not be completed. Please try again.';
+  };
+
+  const isAdminIdentity = async (session) => {
+    const userId = session?.user?.id;
+    if (!userId) return false;
+    const { data, error } = await authClient
+      .from('admin_users')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    return Boolean(data?.user_id);
+  };
+
+  const rejectAdminCustomerSession = async (session) => {
+    if (!session?.user) return false;
+    if (rejectingAdminCustomerSession) return true;
+    const adminAccount = await isAdminIdentity(session);
+    if (!adminAccount) return false;
+
+    rejectingAdminCustomerSession = true;
+    try {
+      await authClient.auth.signOut({ scope: 'local' });
+    } catch (error) {
+      console.warn('Admin customer-session cleanup failed:', error);
+    } finally {
+      updateAuthUI(null);
+      const message = 'Admin credentials can only sign in at the LEOGO Admin Center. You can continue browsing the customer website as a guest.';
+      setEmailLoginStatus(message, 'error');
+      setStatus(message, 'error');
+      window.setTimeout(() => { rejectingAdminCustomerSession = false; }, 0);
+    }
+    return true;
+  };
+
+  const applyCustomerSession = async (session, event = '') => {
+    if (session && await rejectAdminCustomerSession(session)) return false;
+    updateAuthUI(session);
+    if (session) await loadCustomerProfile(session);
+    if (event === 'PASSWORD_RECOVERY') {
+      window.leogoOpenCustomerView?.('auth', { skipAuthGuard: true });
+      if (guestControls) guestControls.hidden = true;
+      if (signedInPanel) signedInPanel.hidden = true;
+      if (resetUpdateForm) resetUpdateForm.hidden = false;
+      setStatus('Create a new password for your LEOGO account.', 'success');
+    }
+    return true;
   };
 
   const firstName = (session) => {
@@ -362,6 +410,10 @@
         const message = friendlyAuthError(error);
         setEmailLoginStatus(message, 'error');
         setStatus(message, 'error');
+        return;
+      }
+      if (await rejectAdminCustomerSession(data.session)) {
+        loginForm.reset();
         return;
       }
       updateAuthUI(data.session);
@@ -697,26 +749,24 @@
   });
 
   authClient.auth.onAuthStateChange((event, session) => {
-    updateAuthUI(session);
-    if (session) loadCustomerProfile(session);
-    if (event === 'PASSWORD_RECOVERY') {
-      window.leogoOpenCustomerView?.('auth', { skipAuthGuard: true });
-      if (guestControls) guestControls.hidden = true;
-      if (signedInPanel) signedInPanel.hidden = true;
-      if (resetUpdateForm) resetUpdateForm.hidden = false;
-      setStatus('Create a new password for your LEOGO account.', 'success');
-    }
+    window.setTimeout(() => {
+      applyCustomerSession(session, event).catch((error) => {
+        console.warn('Customer portal access check failed:', error);
+        updateAuthUI(null);
+        setStatus('We could not verify this account for Customer access. Please refresh and try again.', 'error');
+      });
+    }, 0);
   });
 
-  authClient.auth.getSession().then(({ data, error }) => {
+  authClient.auth.getSession().then(async ({ data, error }) => {
     authReady = true;
     if (error) {
       updateAuthUI(null);
       setStatus(friendlyAuthError(error), 'error');
       return;
     }
-    updateAuthUI(data.session);
-    if (data.session) loadCustomerProfile(data.session);
+    const accepted = await applyCustomerSession(data.session, 'INITIAL_SESSION');
+    if (!accepted) return;
     if (data.session && window.location.hash.includes('access_token')) {
       const provider = data.session.user?.app_metadata?.provider;
       history.replaceState({}, document.title, PRODUCTION_URL);
