@@ -41,6 +41,33 @@ const status=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className
 const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const uid=()=>currentUser?.id||'';
 let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],sellerEarningsReport=null,partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
+let rejectingAdminPartnerSession=false;
+const isAdminIdentity=async(user)=>{
+  const userId=user?.id||'';
+  if(!userId)return false;
+  const {data,error}=await client.from('admin_users').select('user_id').eq('user_id',userId).maybeSingle();
+  if(error)throw error;
+  return Boolean(data?.user_id);
+};
+
+const rejectAdminPartnerSession=async(user)=>{
+  if(!user)return false;
+  if(rejectingAdminPartnerSession)return true;
+  if(!(await isAdminIdentity(user)))return false;
+
+  rejectingAdminPartnerSession=true;
+  try{
+    await client.auth.signOut({scope:'local'});
+  }catch(error){
+    console.warn('Admin Partner-session cleanup failed:',error);
+  }finally{
+    currentUser=null;
+    status($('#partnerAuthStatus'),'Admin credentials can only sign in at the LEOGO Admin Center. Use the Admin Portal for this account.','error');
+    window.setTimeout(()=>{rejectingAdminPartnerSession=false;},0);
+  }
+  return true;
+};
+
 const selectedSellerProducts=new Set();
 const selectedSellerNotifications=new Set();
 let provider=null,providerServices=[],providerNotifications=[],providerJobs=[],providerSettlementAccounts=[],providerSettlementRequests=[],providerSettlements=[],providerEarningsReport=null,editingProviderService=null;
@@ -5884,7 +5911,23 @@ $('#markAllTransportNotificationsRead')?.addEventListener('click',async()=>{
 });
 
 async function handleSession(session){
-  currentUser=session?.user||null;
+  const incomingUser=session?.user||null;
+  if(incomingUser&&await rejectAdminPartnerSession(incomingUser)){
+    currentUser=null;
+    logout.hidden=true;
+    authShell.hidden=false;
+    rolePicker.hidden=true;
+    sellerShell.hidden=true;
+    if(providerShell)providerShell.hidden=true;
+    if(healthMedicineShell)healthMedicineShell.hidden=true;
+    if(transportShell)transportShell.hidden=true;
+    if(premiumShell)premiumShell.hidden=true;
+    if(accommodationShell)accommodationShell.hidden=true;
+    if(cyberShell)cyberShell.hidden=true;
+    if(hero)hero.hidden=false;
+    return;
+  }
+  currentUser=incomingUser;
   logout.hidden=!currentUser;
   if(partnerNotificationBell)partnerNotificationBell.hidden=true;
   if(!currentUser){
@@ -5940,16 +5983,31 @@ window.addEventListener('error',event=>{
 
 client.auth.onAuthStateChange((event,s)=>{
   if(event==='PASSWORD_RECOVERY'){
-    currentUser=s?.user||null;
-    passwordRecoveryMode=true;
-    passwordRecoverySessionVerified=Boolean(s?.user);
-    if(s?.user)passwordRecoverySessionPromise=Promise.resolve(s);
-    showPasswordRecoveryScreen({
-      valid:passwordRecoverySessionVerified,
-      message:passwordRecoverySessionVerified
-        ? 'Secure password reset verified. Create a new password for your LEOGO account.'
-        : 'Verifying your secure password reset link…'
-    });
+    setTimeout(async()=>{
+      try{
+        if(s?.user&&await rejectAdminPartnerSession(s.user)){
+          passwordRecoveryMode=false;
+          passwordRecoverySessionVerified=false;
+          authShell.hidden=false;
+          rolePicker.hidden=true;
+          status($('#partnerAuthStatus'),'Admin password recovery is only available through the LEOGO Admin Center.','error');
+          return;
+        }
+        currentUser=s?.user||null;
+        passwordRecoveryMode=true;
+        passwordRecoverySessionVerified=Boolean(s?.user);
+        if(s?.user)passwordRecoverySessionPromise=Promise.resolve(s);
+        showPasswordRecoveryScreen({
+          valid:passwordRecoverySessionVerified,
+          message:passwordRecoverySessionVerified
+            ? 'Secure password reset verified. Create a new password for your LEOGO account.'
+            : 'Verifying your secure password reset link…'
+        });
+      }catch(error){
+        console.warn('Partner recovery access check failed:',error);
+        status($('#partnerAuthStatus'),'We could not verify this account for Partner access. Please try again.','error');
+      }
+    },0);
     return;
   }
 
@@ -6008,6 +6066,14 @@ client.auth.getSession().then(async({data,error})=>{
     }
 
     if(data.session?.user){
+      if(await rejectAdminPartnerSession(data.session.user)){
+        passwordRecoveryMode=false;
+        passwordRecoverySessionVerified=false;
+        authShell.hidden=false;
+        rolePicker.hidden=true;
+        status($('#partnerAuthStatus'),'Admin password recovery is only available through the LEOGO Admin Center.','error');
+        return;
+      }
       currentUser=data.session.user;
       passwordRecoverySessionVerified=true;
       passwordRecoverySessionPromise=Promise.resolve(data.session);
@@ -6030,5 +6096,5 @@ client.auth.getSession().then(async({data,error})=>{
     }
     return;
   }
-  handleSession(data.session);
+  await handleSession(data.session);
 });})();
