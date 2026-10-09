@@ -63,4 +63,58 @@ for (const selector of [
   '.wallet-checkout-panel[hidden]'
 ]) requireSource(css, selector, 'Native hidden styling regression: ' + selector);
 
+// Exercise the actual view-selection function with lightweight stand-in elements.
+// This catches regressions where an unrelated payment's instructions become visible.
+const fnStart = app.indexOf('  function syncSelectedPaymentPresentation() {');
+const fnEnd = app.indexOf('\n  const clearUnavailableMarketplaceSelection =', fnStart);
+assert.ok(fnStart >= 0 && fnEnd > fnStart, 'Selected-payment function boundaries changed');
+const presentationSource = app.slice(fnStart, fnEnd);
+for (const mode of ['', 'till', 'paybill', 'cod', 'lipapolepole', 'wallet']) {
+  const element = () => ({ hidden: null, textContent: '' });
+  const context = {
+    selectedCheckoutPayment: mode,
+    checkoutExternalAmountDueNumber: () => 152,
+    checkoutPointsAppliedNumber: () => 25,
+    lppDepositForm: element(),
+    walletCheckoutPanel: element(),
+    standardPaymentProof: element(),
+    checkoutPaymentDestination: element(),
+    paymentRuleNotice: element(),
+    paymentOrderSummary: element(),
+    makeCheckoutOrder: element(),
+    standardPaymentActions: element(),
+    selectedPaymentLabel: element(),
+    selectedPaymentStatus: element(),
+    checkoutWalletRewards: { open: false },
+    paymentProofLabel: element(),
+    markPaymentPaidLabel: element(),
+    openLppDepositForm: () => {},
+    syncHealthPrescriptionPanel: () => {},
+    deliveryMoney: (amount) => 'KSh ' + amount,
+    marketplacePaymentDestination: null,
+    window: { leogoPayments: { paymentNumber: () => '' } },
+    document: { getElementById: () => ({ textContent: '' }) }
+  };
+  const render = new Function(...Object.keys(context),
+    presentationSource + '\nreturn syncSelectedPaymentPresentation;')(...Object.values(context));
+  render();
+  const label = mode || 'nothing selected';
+  assert.equal(context.checkoutPaymentDestination.hidden,
+    !['till', 'paybill'].includes(mode), label + ': M-Pesa destination');
+  assert.equal(context.paymentRuleNotice.hidden, mode !== 'cod',
+    label + ': COD rules');
+  assert.equal(context.makeCheckoutOrder.hidden,
+    !mode || ['lipapolepole', 'wallet'].includes(mode), label + ': make-order action');
+  assert.equal(context.standardPaymentProof.hidden,
+    !mode || ['lipapolepole', 'wallet'].includes(mode), label + ': payment confirmation');
+  assert.equal(context.paymentOrderSummary.hidden, !Boolean(mode),
+    label + ': payment summary');
+  assert.equal(context.walletCheckoutPanel.hidden, mode !== 'wallet',
+    label + ': cash-wallet status');
+  assert.equal(context.lppDepositForm.hidden, mode !== 'lipapolepole',
+    label + ': instalment deposit');
+  assert.equal(context.standardPaymentActions.hidden, false,
+    label + ': Back action must remain accessible');
+}
+
 console.log('Compact checkout payment selection regression checks passed.');
