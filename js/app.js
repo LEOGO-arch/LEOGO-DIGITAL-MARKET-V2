@@ -3662,7 +3662,6 @@
 
   renderTestCart();
 
-  const lppStorageKey = 'leogo_phase1_lipa_pole_pole';
   const lppDepositItem = document.getElementById('lppDepositItem');
   const lppDepositTotal = document.getElementById('lppDepositTotal');
   const lppDepositRequired = document.getElementById('lppDepositRequired');
@@ -3672,109 +3671,231 @@
   const lppRulesAccepted = document.getElementById('lppRulesAccepted');
   const lppDepositStatus = document.getElementById('lppDepositStatus');
   const lppAccountList = document.getElementById('lppAccountList');
+  const refreshLppAccounts = document.getElementById('refreshLppAccounts');
+  const lppPaymentDestination = document.getElementById('lppPaymentDestination');
+  const lppPaymentDestinationTitle = document.getElementById('lppPaymentDestinationTitle');
+  const lppPaymentDestinationName = document.getElementById('lppPaymentDestinationName');
+  const lppPaymentDestinationNumber = document.getElementById('lppPaymentDestinationNumber');
+  const lppPaymentDestinationInstructions = document.getElementById('lppPaymentDestinationInstructions');
+  const copyLppPaymentDestination = document.getElementById('copyLppPaymentDestination');
   let lppPlans = [];
-  try {
-    const savedPlans = JSON.parse(localStorage.getItem(lppStorageKey) || '[]');
-    lppPlans = Array.isArray(savedPlans) ? savedPlans : [];
-  } catch {
-    lppPlans = [];
-  }
-  lppPlans = lppPlans.map((plan) => {
-    const maxDays = Number(plan.maxDays || sampleSellerPeriods[plan.itemId] || 30);
-    const createdAt = plan.createdAt || plan.payments?.[0]?.submittedAt || new Date().toISOString();
-    const deadline = plan.deadline || new Date(new Date(createdAt).getTime() + (maxDays * 86400000)).toISOString();
-    return { ...plan, maxDays, createdAt, deadline };
-  });
-  const saveLppPlans = () => localStorage.setItem(lppStorageKey, JSON.stringify(lppPlans));
-  const approvedLppTotal = (plan) => (plan.payments || []).filter((payment) => payment.status === 'approved').reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-  const pendingLppTotal = (plan) => (plan.payments || []).filter((payment) => payment.status === 'pending').reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  let lppPaymentAccount = null;
+
+  const approvedLppTotal = (plan) => Number(plan.approved_paid_kes || 0);
+  const pendingLppTotal = (plan) => Number(plan.pending_paid_kes || 0);
+  const lppBalance = (plan) => Math.max(0, Number(plan.balance_kes ?? (Number(plan.total_payable_kes || 0) - approvedLppTotal(plan))));
+  const formatLppDate = (value) => value
+    ? new Date(value).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' })
+    : '—';
+  const lppDaysRemaining = (deadline) => deadline
+    ? Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000)
+    : 0;
+  const lppStatusText = (value) => ({
+    deposit_pending:'DEPOSIT PENDING',
+    active:'ACTIVE',
+    fully_paid:'PAID IN FULL',
+    overdue:'PAYMENT OVERDUE',
+    cancellation_pending:'CANCELLATION PENDING',
+    cancelled:'CANCELLED',
+    refund_pending:'REFUND PENDING',
+    refunded:'REFUNDED'
+  }[value] || String(value || '').replaceAll('_',' ').toUpperCase());
+
+  const eligibleLppCartItems = () => testCart.filter((item) =>
+    cartItemSource(item)==='seller' &&
+    item.productId &&
+    Number(item.deposit || 0)>0 &&
+    Number(item.lppDays || 0)>0
+  );
 
   const populateLppCartItems = () => {
     if (!lppDepositItem) return;
     const selected = lppDepositItem.value;
-    lppDepositItem.innerHTML = '<option value="">Select an item from your cart</option>' + testCart.map((item) =>
-      '<option value="' + receiptEscape(item.id) + '">' + receiptEscape(item.name) + ' — deposit ' + receiptEscape(money((item.deposit || 0) * item.quantity)) + ' · ' + receiptEscape(item.lppDays || 0) + ' days</option>'
+    const eligible = eligibleLppCartItems();
+    lppDepositItem.innerHTML = '<option value="">Select a Lipa Pole Pole item from your cart</option>' + eligible.map((item) =>
+      '<option value="' + receiptEscape(item.id) + '">' +
+      receiptEscape(item.name) + ' — deposit ' +
+      receiptEscape(money(Math.min((item.deposit || 0) * item.quantity, item.price * item.quantity))) +
+      ' · ' + receiptEscape(item.lppDays || 0) + ' days</option>'
     ).join('');
-    if (testCart.some((item) => item.id === selected)) lppDepositItem.value = selected;
+    if (eligible.some((item) => item.id === selected)) lppDepositItem.value = selected;
   };
+
   const updateLppDepositValues = () => {
     const item = testCart.find((entry) => entry.id === lppDepositItem?.value);
     if (lppDepositTotal) lppDepositTotal.textContent = item ? money(item.price * item.quantity) : 'KSh 0';
-    if (lppDepositRequired) lppDepositRequired.textContent = item ? money((item.deposit || 0) * item.quantity) : 'KSh 0';
+    if (lppDepositRequired) lppDepositRequired.textContent = item
+      ? money(Math.min((item.deposit || 0) * item.quantity, item.price * item.quantity))
+      : 'KSh 0';
     if (lppDepositPeriod) lppDepositPeriod.textContent = item ? (item.lppDays + ' days') : 'Select item';
   };
+
+  const renderLppPaymentDestination = (destination) => {
+    lppPaymentAccount = destination || null;
+    const number = window.leogoPayments?.paymentNumber(destination) || '';
+    const name = window.leogoPayments?.destinationName(destination) || '';
+    const typeLabel = window.leogoPayments?.typeLabel(destination) || 'LEOGO Payment Account';
+    if (lppPaymentDestination) lppPaymentDestination.hidden = !destination;
+    if (lppPaymentDestinationTitle) lppPaymentDestinationTitle.textContent = destination
+      ? typeLabel + ' — ' + (destination.display_name || 'LEOGO')
+      : 'Lipa Pole Pole payment account unavailable';
+    if (lppPaymentDestinationName) lppPaymentDestinationName.textContent = name;
+    if (lppPaymentDestinationNumber) lppPaymentDestinationNumber.textContent = number || '—';
+    if (lppPaymentDestinationInstructions) lppPaymentDestinationInstructions.textContent =
+      destination?.instructions || 'Pay the required amount to this LEOGO account, then paste the M-Pesa confirmation/reference below.';
+    if (copyLppPaymentDestination) copyLppPaymentDestination.disabled = !number;
+  };
+
+  const loadLppPaymentDestination = async () => {
+    if (!window.leogoAuth?.isAuthenticated?.() || !window.leogoAuth?.client) {
+      renderLppPaymentDestination(null);
+      return null;
+    }
+    const {data,error}=await window.leogoAuth.client.rpc('get_customer_payment_destination',{p_function_code:'lipa_pole_pole'});
+    if(error) {
+      renderLppPaymentDestination(null);
+      return null;
+    }
+    const destination=Array.isArray(data)?(data[0]||null):(data||null);
+    renderLppPaymentDestination(destination);
+    return destination;
+  };
+
+  copyLppPaymentDestination?.addEventListener('click', async () => {
+    const number = window.leogoPayments?.paymentNumber(lppPaymentAccount) || '';
+    if(!number) return;
+    try {
+      await navigator.clipboard.writeText(number);
+      const original=copyLppPaymentDestination.textContent;
+      copyLppPaymentDestination.textContent='Copied';
+      window.setTimeout(()=>{if(copyLppPaymentDestination.isConnected)copyLppPaymentDestination.textContent=original;},900);
+    } catch {
+      if(lppDepositStatus) lppDepositStatus.textContent='Payment number: '+number;
+    }
+  });
+
   const openLppDepositForm = () => {
     populateLppCartItems();
     updateLppDepositValues();
-    if (lppDepositStatus) lppDepositStatus.textContent = '';
+    loadLppPaymentDestination().catch(()=>{});
+    if (lppDepositStatus) lppDepositStatus.textContent = eligibleLppCartItems().length
+      ? ''
+      : 'Your cart has no Seller product currently enabled for Lipa Pole Pole.';
   };
   lppDepositItem?.addEventListener('change', updateLppDepositValues);
 
-  const formatLppDate = (value) => new Date(value).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' });
-  const lppDaysRemaining = (deadline) => Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
   renderLppAccounts = () => {
-    const activeCount = lppPlans.length;
+    const activeCount = lppPlans.filter((plan)=>!['cancelled','refunded'].includes(plan.status)).length;
     const allApproved = lppPlans.reduce((sum, plan) => sum + approvedLppTotal(plan), 0);
     const allPending = lppPlans.reduce((sum, plan) => sum + pendingLppTotal(plan), 0);
-    const allBalance = lppPlans.reduce((sum, plan) => sum + Math.max(0, Number(plan.total) - approvedLppTotal(plan)), 0);
+    const allBalance = lppPlans.reduce((sum, plan) => sum + lppBalance(plan), 0);
     const setText = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
     setText('lppDashboardCount', activeCount);
     setText('lppActiveAccounts', activeCount);
     setText('lppTotalApproved', money(allApproved));
     setText('lppTotalPending', money(allPending));
     setText('lppTotalBalance', money(allBalance));
+
     if (!lppAccountList) return;
     if (!lppPlans.length) {
-      lppAccountList.innerHTML = '<div class="customer-empty-state compact"><span>🪙</span><h4>No Lipa Pole Pole account yet</h4><p>Select Lipa Pole Pole during checkout to submit a seller-set first deposit.</p><button type="button" data-customer-view="cart">Open Cart</button></div>';
+      lppAccountList.innerHTML = '<div class="customer-empty-state compact"><span>🪙</span><h4>No Lipa Pole Pole account yet</h4><p>Select an eligible Seller product, choose Lipa Pole Pole at checkout, and submit the seller-set first deposit.</p><button type="button" data-customer-view="cart">Open Cart</button></div>';
       lppAccountList.querySelector('[data-customer-view="cart"]')?.addEventListener('click', () => showCustomerView('cart'));
       return;
     }
+
     lppAccountList.innerHTML = lppPlans.map((plan) => {
       const paid = approvedLppTotal(plan);
       const pending = pendingLppTotal(plan);
-      const balance = Math.max(0, Number(plan.total) - paid);
-      const progress = plan.total ? Math.min(100, (paid / Number(plan.total)) * 100) : 0;
+      const balance = lppBalance(plan);
+      const total = Number(plan.total_payable_kes || 0);
+      const progress = total ? Math.min(100, (paid / total) * 100) : 0;
+      const days = lppDaysRemaining(plan.deadline_at);
+      const canPay=['deposit_pending','active','overdue'].includes(plan.status) && balance>0 && plan.status!=='cancellation_pending';
+      const canCancel=['deposit_pending','active','overdue'].includes(plan.status) && !plan.marketplace_order_id;
+      const marketplaceLink = plan.marketplace_order_id
+        ? '<p class="lpp-collection-lock">✓ Fully paid and transferred to your normal LEOGO order fulfilment workflow.</p>'
+        : '';
+      const refundLine = Number(plan.refund_due_kes || 0)>0
+        ? '<p class="lpp-cancellation-pending">Refund due: <strong>'+money(plan.refund_due_kes)+'</strong> · '+receiptEscape(String(plan.refund_status||'pending').replaceAll('_',' '))+'</p>'
+        : '';
+
       return `<article class="lpp-plan-card" data-lpp-plan="${receiptEscape(plan.id)}">
-        <div class="lpp-plan-head"><div><span>${receiptEscape(plan.orderRef)}</span><h4>${receiptEscape(plan.itemName)}</h4><small>Seller-set deposit: ${receiptEscape(money(plan.depositRequired))}</small></div><b class="lpp-status">${plan.cancellation?.status === 'pending' ? 'CANCELLATION PENDING' : (plan.cancellation?.status === 'approved' ? 'CANCELLED' : (balance <= 0 ? 'PAID IN FULL' : (lppDaysRemaining(plan.deadline) < 0 ? 'PAYMENT OVERDUE' : (pending > 0 ? 'PENDING CONFIRMATION' : 'ACTIVE'))))}</b></div>
-        <div class="lpp-plan-terms"><div><span>Maximum Period</span><strong>${receiptEscape(plan.maxDays)} days</strong></div><div><span>Payment Deadline</span><strong>${receiptEscape(formatLppDate(plan.deadline))}</strong></div><div><span>Time Remaining</span><strong>${balance <= 0 ? 'Completed' : (lppDaysRemaining(plan.deadline) >= 0 ? lppDaysRemaining(plan.deadline) + ' days' : Math.abs(lppDaysRemaining(plan.deadline)) + ' days overdue')}</strong></div></div>
-        <div class="lpp-plan-money"><div><span>Total Amount</span><strong>${money(plan.total)}</strong></div><div><span>Deposit Paid</span><strong>${money(paid)}</strong></div><div><span>Total Paid</span><strong>${money(paid)}</strong></div><div><span>Total Balance</span><strong>${money(balance)}</strong></div></div>
+        <div class="lpp-plan-head"><div><span>${receiptEscape(plan.account_reference)}</span><h4>${receiptEscape(plan.product_name+(plan.variant_name?' — '+plan.variant_name:''))}</h4><small>${receiptEscape(plan.seller_name||'LEOGO Seller')} · Seller-set deposit: ${receiptEscape(money(plan.required_first_deposit_kes))}</small></div><b class="lpp-status">${receiptEscape(lppStatusText(plan.status))}</b></div>
+        <div class="lpp-plan-terms"><div><span>Maximum Period</span><strong>${receiptEscape(plan.max_days)} days</strong></div><div><span>Payment Deadline</span><strong>${receiptEscape(formatLppDate(plan.deadline_at))}</strong></div><div><span>Time Remaining</span><strong>${balance<=0?'Completed':(days>=0?days+' days':Math.abs(days)+' days overdue')}</strong></div></div>
+        <div class="lpp-plan-money"><div><span>Total Payable</span><strong>${money(total)}</strong></div><div><span>Verified Paid</span><strong>${money(paid)}</strong></div><div><span>Pending Verification</span><strong>${money(pending)}</strong></div><div><span>Total Balance</span><strong>${money(balance)}</strong></div></div>
         <div class="lpp-progress"><i style="width:${progress}%"></i></div>
-        ${pending > 0 ? '<p class="lpp-pending-note">⏳ ' + money(pending) + ' submitted and waiting for Admin/Staff confirmation. Pending payments do not reduce the balance.</p>' : ''}
-        <p class="lpp-collection-lock ${lppDaysRemaining(plan.deadline) < 0 && balance > 0 ? 'lpp-deadline-warning' : ''}">${balance <= 0 ? '✓ Full payment completed. Item collection can be released after final confirmation.' : (lppDaysRemaining(plan.deadline) < 0 ? '⚠ Deadline missed: subject to a '+lppOverdueRefundPercent().toLocaleString('en-KE')+'% refund deduction or a '+lppInterestPercent().toLocaleString('en-KE')+'% charge on the total payable amount.' : '🔒 Item collection remains locked until the full amount is paid and confirmed.')}</p>
-        ${plan.cancellation?.status === 'pending' ? '<p class="lpp-cancellation-pending">Cancellation requested. Estimated refund: <strong>' + money(plan.cancellation.estimatedRefund) + '</strong> after a '+lppCancellationPercent().toLocaleString('en-KE')+'% deduction, subject to Admin/Staff confirmation and payment verification.</p>' : ''}
+        ${pending>0?'<p class="lpp-pending-note">⏳ '+money(pending)+' is waiting for LEOGO Admin/Staff verification. Pending payments do not reduce the verified balance.</p>':''}
+        ${plan.status==='overdue'?'<p class="lpp-collection-lock lpp-deadline-warning">⚠ Payment deadline missed. LEOGO Admin will resolve the account using the configured overdue rules.</p>':''}
+        ${plan.status==='cancellation_pending'?'<p class="lpp-cancellation-pending">Cancellation request is waiting for LEOGO Admin review.</p>':''}
+        ${marketplaceLink}
+        ${refundLine}
         <div class="lpp-plan-actions">
-          <button type="button" data-lpp-pay="${receiptEscape(plan.id)}" ${balance <= 0 || plan.cancellation ? 'disabled' : ''}>Do Payment</button>
-          <button class="lpp-cancel-button" type="button" data-lpp-cancel="${receiptEscape(plan.id)}" ${plan.cancellation || balance <= 0 ? 'disabled' : ''}>Cancel Lipa Pole Pole Order</button>
+          <button type="button" data-lpp-pay="${receiptEscape(plan.id)}" ${canPay?'':'disabled'}>Do Payment</button>
+          <button class="lpp-cancel-button" type="button" data-lpp-cancel="${receiptEscape(plan.id)}" ${canCancel?'':'disabled'}>Cancel Lipa Pole Pole Order</button>
         </div>
-        <form class="lpp-cancel-form" data-lpp-cancel-form="${receiptEscape(plan.id)}" hidden>
-          <h5>Cancel Lipa Pole Pole Order</h5>
-          <div class="lpp-refund-preview"><div><span>Submitted/approved payments</span><strong>${money(paid + pending)}</strong></div><div><span>${lppCancellationPercent().toLocaleString('en-KE')}% cancellation deduction</span><strong>− ${money(Math.round((paid + pending) * lppCancellationRate()))}</strong></div><div><span>Estimated refund</span><strong>${money(Math.round((paid + pending) * (1-lppCancellationRate())))}</strong></div></div>
-          <label><span>Reason for cancellation</span><select name="reason" required><option value="">Select reason</option><option>Changed my mind</option><option>Unable to complete payments</option><option>Seller or item concern</option><option>Other reason</option></select></label>
-          <label><span>Additional information <small>(optional)</small></span><textarea name="details" rows="3" placeholder="Explain the cancellation request"></textarea></label>
-          <label class="payment-paid-check"><input name="acceptDeduction" type="checkbox"><span>I understand that an approved cancellation refund is subject to a ${lppCancellationPercent().toLocaleString('en-KE')}% deduction from verified payments.</span></label>
-          <button type="submit">Submit Cancellation Request</button>
-          <p class="payment-step-status" data-lpp-cancel-status></p>
-        </form>
         <form class="lpp-topup-form" data-lpp-topup-form="${receiptEscape(plan.id)}" hidden>
-          <label><span>Payment amount</span><input name="amount" type="number" min="1" max="${balance}" placeholder="Enter amount" required></label>
-          <label><span>Paste M-Pesa message/reference</span><textarea name="message" rows="3" placeholder="Paste the complete payment message" required></textarea></label>
-          <label class="payment-paid-check"><input name="paid" type="checkbox"><span>I have paid this amount and request Admin/Staff confirmation.</span></label>
+          <label><span>Payment amount</span><input name="amount" type="number" min="1" max="${Math.max(0,balance-pending)}" step="0.01" placeholder="Enter amount" required></label>
+          <label><span>Paste M-Pesa message/reference</span><textarea name="message" rows="3" minlength="8" placeholder="Paste the complete payment confirmation or reference" required></textarea></label>
+          <label class="payment-paid-check"><input name="paid" type="checkbox"><span>I have paid this amount and request LEOGO confirmation.</span></label>
           <button type="submit">Submit Payment for Confirmation</button>
           <p class="payment-step-status" data-lpp-topup-status></p>
+        </form>
+        <form class="lpp-cancel-form" data-lpp-cancel-form="${receiptEscape(plan.id)}" hidden>
+          <h5>Cancel Lipa Pole Pole Order</h5>
+          <div class="lpp-refund-preview"><div><span>Verified payments</span><strong>${money(paid)}</strong></div><div><span>Configured cancellation deduction</span><strong>${lppCancellationPercent().toLocaleString('en-KE')}%</strong></div><div><span>Estimated refund</span><strong>${money(Math.max(0,paid-(paid*lppCancellationRate())))}</strong></div></div>
+          <label><span>Reason</span><select name="reason" required><option value="">Choose reason</option><option value="changed_mind">Changed my mind</option><option value="financial_difficulty">Financial difficulty</option><option value="item_no_longer_needed">Item no longer needed</option><option value="other">Other</option></select></label>
+          <label><span>Additional details (optional)</span><textarea name="details" rows="3"></textarea></label>
+          <label class="payment-paid-check"><input name="acceptDeduction" type="checkbox"><span>I understand the configured cancellation deduction applies to verified payments.</span></label>
+          <button type="submit">Submit Cancellation Request</button>
+          <p class="payment-step-status" data-lpp-cancel-status></p>
         </form>
       </article>`;
     }).join('');
   };
 
-  lppDepositForm?.addEventListener('submit', (event) => {
+  const loadLppAccounts = async ({quiet=false}={}) => {
+    if(!window.leogoAuth?.isAuthenticated?.() || !window.leogoAuth?.client){
+      lppPlans=[];
+      renderLppAccounts();
+      return [];
+    }
+    if(!quiet && lppAccountList) lppAccountList.innerHTML='<div class="customer-empty-state compact"><span>🪙</span><h4>Loading Lipa Pole Pole accounts…</h4></div>';
+    const {data,error}=await window.leogoAuth.client.rpc('customer_list_lipa_pole_pole_accounts');
+    if(error){
+      if(lppAccountList) lppAccountList.innerHTML='<div class="customer-empty-state compact"><span>⚠</span><h4>Lipa Pole Pole could not be loaded</h4><p>'+receiptEscape(error.message||'Refresh and try again.')+'</p></div>';
+      throw error;
+    }
+    lppPlans=Array.isArray(data)?data:[];
+    renderLppAccounts();
+    return lppPlans;
+  };
+
+  refreshLppAccounts?.addEventListener('click',async()=>{
+    const original=refreshLppAccounts.textContent;
+    refreshLppAccounts.disabled=true;
+    refreshLppAccounts.textContent='Refreshing…';
+    try{await Promise.all([loadLppAccounts(),loadLppPaymentDestination()]);}
+    catch(_error){}
+    finally{refreshLppAccounts.disabled=false;refreshLppAccounts.textContent=original;}
+  });
+
+  lppDepositForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const item = testCart.find((entry) => entry.id === lppDepositItem?.value);
-    if (!item) {
-      lppDepositStatus.textContent = 'Select an eligible item from the cart.';
+    if (!item || cartItemSource(item)!=='seller' || !item.productId || Number(item.deposit||0)<=0 || Number(item.lppDays||0)<=0) {
+      lppDepositStatus.textContent = 'Select a Seller product that is enabled for Lipa Pole Pole.';
       return;
     }
-    if (!lppDepositMessage.value.trim()) {
-      lppDepositStatus.textContent = 'Paste the M-Pesa deposit message/reference.';
+    if (!checkoutDeliveryZone?.value || checkoutDeliveryZone.value==='quote') {
+      lppDepositStatus.textContent = 'Choose a standard delivery zone or Pickup Station before opening Lipa Pole Pole.';
+      return;
+    }
+    if(checkoutDeliveryZone.value==='pickup'&&!checkoutPickupStation?.value){
+      lppDepositStatus.textContent='Choose a Pickup Station before opening Lipa Pole Pole.';
+      return;
+    }
+    if (!lppDepositMessage.value.trim() || lppDepositMessage.value.trim().length<8) {
+      lppDepositStatus.textContent = 'Paste the M-Pesa first-deposit payment message/reference.';
       return;
     }
     if (!lppDepositPaidCheck.checked) {
@@ -3785,27 +3906,51 @@
       lppDepositStatus.textContent = 'Read and accept the Lipa Pole Pole rules before submitting.';
       return;
     }
-    const total = item.price * item.quantity;
-    const depositRequired = (item.deposit || 0) * item.quantity;
-    const reference = 'LPP-' + Date.now().toString().slice(-8);
-    lppPlans.push({
-      id: reference,
-      orderRef: reference,
-      itemId: item.id,
-      itemName: item.name + (item.quantity > 1 ? ' × ' + item.quantity : ''),
-      total,
-      depositRequired,
-      maxDays: item.lppDays,
-      createdAt: new Date().toISOString(),
-      deadline: new Date(Date.now() + (item.lppDays * 86400000)).toISOString(),
-      rulesAccepted: true,
-      payments: [{ id: 'PAY-' + Date.now(), amount: depositRequired, message: lppDepositMessage.value.trim(), type: 'deposit', status: 'pending', submittedAt: new Date().toISOString() }]
-    });
-    saveLppPlans();
-    renderLppAccounts();
-    lppDepositStatus.textContent = 'Deposit submitted. It is pending Admin/Staff confirmation.';
-    selectedPaymentStatus.textContent = 'Deposit pending Admin confirmation';
-    window.setTimeout(() => showCustomerView('lipapolepole'), 700);
+    if(!lppPaymentAccount){
+      lppDepositStatus.textContent='The LEOGO Lipa Pole Pole payment account is unavailable. Refresh and try again before paying.';
+      return;
+    }
+
+    const button=event.submitter;
+    const original=button?.textContent||'Submit Deposit for Confirmation';
+    if(button){button.disabled=true;button.textContent='Creating secure account…';}
+    lppDepositStatus.textContent='Saving your Lipa Pole Pole account and reserving the item…';
+
+    try{
+      const {data,error}=await window.leogoAuth.client.rpc('customer_open_lipa_pole_pole_account',{
+        p_product_id:item.productId,
+        p_variant_id:item.variantId||null,
+        p_quantity:Number(item.quantity||1),
+        p_receiver_name:checkoutReceiverName?.value?.trim()||'',
+        p_contact_number:checkoutContactNumber?.value?.trim()||'',
+        p_delivery_zone:checkoutDeliveryZone.value,
+        p_county:checkoutCounty?.value||null,
+        p_sub_county:checkoutSubCounty?.value||null,
+        p_estate:checkoutEstate?.value?.trim()||null,
+        p_landmark:checkoutLandmark?.value?.trim()||null,
+        p_location_link:document.getElementById('checkoutLocationLink')?.value?.trim()||null,
+        p_pickup_station_id:checkoutDeliveryZone.value==='pickup'?(checkoutPickupStation?.value||null):null,
+        p_payment_reference:lppDepositMessage.value.trim()
+      });
+      if(error) throw error;
+
+      const index=testCart.findIndex((entry)=>entry.id===item.id);
+      if(index>=0)testCart.splice(index,1);
+      saveTestCart();
+      renderTestCart();
+
+      lppDepositMessage.value='';
+      lppDepositPaidCheck.checked=false;
+      lppRulesAccepted.checked=false;
+      lppDepositStatus.textContent='✓ '+(data?.account_reference||'Lipa Pole Pole account')+' created. First deposit is waiting for LEOGO verification. Total payable: '+money(data?.total_payable_kes||0)+'.';
+      if(selectedPaymentStatus)selectedPaymentStatus.textContent='First deposit pending LEOGO verification';
+      await loadLppAccounts({quiet:true});
+      window.setTimeout(()=>showCustomerView('lipapolepole'),900);
+    }catch(error){
+      lppDepositStatus.textContent=error?.message||'Lipa Pole Pole account could not be created.';
+    }finally{
+      if(button){button.disabled=false;button.textContent=original;}
+    }
   });
 
   lppAccountList?.addEventListener('click', (event) => {
@@ -3821,65 +3966,71 @@
       if (form) form.hidden = !form.hidden;
     }
   });
-  lppAccountList?.addEventListener('submit', (event) => {
-    const form = event.target.closest('[data-lpp-topup-form]');
-    if (!form) return;
-    event.preventDefault();
-    const plan = lppPlans.find((entry) => entry.id === form.dataset.lppTopupForm);
-    const status = form.querySelector('[data-lpp-topup-status]');
-    const amount = Number(form.elements.amount.value);
-    const message = form.elements.message.value.trim();
-    if (!plan || !amount || amount <= 0) {
-      status.textContent = 'Enter a valid payment amount.';
-      return;
-    }
-    if (amount > Math.max(0, plan.total - approvedLppTotal(plan))) {
-      status.textContent = 'Payment cannot be higher than the outstanding balance.';
-      return;
-    }
-    if (!message) {
-      status.textContent = 'Paste the M-Pesa payment message/reference.';
-      return;
-    }
-    if (!form.elements.paid.checked) {
-      status.textContent = 'Tick “I have paid” before submitting.';
-      return;
-    }
-    plan.payments.push({ id: 'PAY-' + Date.now(), amount, message, type: 'instalment', status: 'pending', submittedAt: new Date().toISOString() });
-    saveLppPlans();
-    renderLppAccounts();
-  });
-  lppAccountList?.addEventListener('submit', (event) => {
-    const form = event.target.closest('[data-lpp-cancel-form]');
-    if (!form) return;
-    event.preventDefault();
-    const plan = lppPlans.find((entry) => entry.id === form.dataset.lppCancelForm);
-    const status = form.querySelector('[data-lpp-cancel-status]');
-    if (!plan) return;
-    const reason = form.elements.reason.value;
-    if (!reason) {
-      status.textContent = 'Select a reason for cancelling the order.';
-      return;
-    }
-    if (!form.elements.acceptDeduction.checked) {
-      status.textContent = 'Confirm that you understand the '+lppCancellationPercent().toLocaleString('en-KE')+'% cancellation deduction.';
-      return;
-    }
-    const verifiedOrSubmitted = approvedLppTotal(plan) + pendingLppTotal(plan);
-    plan.cancellation = {
-      status: 'pending',
-      reason,
-      details: form.elements.details.value.trim(),
-      requestedAt: new Date().toISOString(),
-      paymentBase: verifiedOrSubmitted,
-      deduction: Math.round(verifiedOrSubmitted * lppCancellationRate()),
-      estimatedRefund: Math.round(verifiedOrSubmitted * (1-lppCancellationRate()))
-    };
-    saveLppPlans();
-    renderLppAccounts();
-  });
-  renderLppAccounts();
 
+  lppAccountList?.addEventListener('submit', async (event) => {
+    const topupForm = event.target.closest('[data-lpp-topup-form]');
+    if (topupForm) {
+      event.preventDefault();
+      const plan=lppPlans.find((entry)=>entry.id===topupForm.dataset.lppTopupForm);
+      const feedback=topupForm.querySelector('[data-lpp-topup-status]');
+      const amount=Number(topupForm.elements.amount.value);
+      const message=topupForm.elements.message.value.trim();
+      if(!plan||!amount||amount<=0){feedback.textContent='Enter a valid payment amount.';return;}
+      if(!message||message.length<8){feedback.textContent='Paste the M-Pesa payment message/reference.';return;}
+      if(!topupForm.elements.paid.checked){feedback.textContent='Tick “I have paid” before submitting.';return;}
+      const max=Math.max(0,lppBalance(plan)-pendingLppTotal(plan));
+      if(amount>max){feedback.textContent='Payment cannot exceed '+money(max)+' currently available for submission.';return;}
+
+      const button=topupForm.querySelector('button[type="submit"]');
+      const original=button.textContent;button.disabled=true;button.textContent='Submitting…';
+      try{
+        const {error}=await window.leogoAuth.client.rpc('customer_submit_lipa_pole_pole_payment',{
+          p_account_id:plan.id,p_amount_kes:amount,p_payment_reference:message
+        });
+        if(error)throw error;
+        feedback.textContent='✓ Payment submitted. It will reduce your balance only after LEOGO verification.';
+        topupForm.reset();
+        await loadLppAccounts({quiet:true});
+      }catch(error){feedback.textContent=error?.message||'Payment could not be submitted.';}
+      finally{button.disabled=false;button.textContent=original;}
+      return;
+    }
+
+    const cancelForm = event.target.closest('[data-lpp-cancel-form]');
+    if (cancelForm) {
+      event.preventDefault();
+      const plan=lppPlans.find((entry)=>entry.id===cancelForm.dataset.lppCancelForm);
+      const feedback=cancelForm.querySelector('[data-lpp-cancel-status]');
+      const reason=cancelForm.elements.reason.value;
+      if(!plan||!reason){feedback.textContent='Select a cancellation reason.';return;}
+      if(!cancelForm.elements.acceptDeduction.checked){feedback.textContent='Confirm that you understand the configured cancellation deduction.';return;}
+
+      const button=cancelForm.querySelector('button[type="submit"]');
+      const original=button.textContent;button.disabled=true;button.textContent='Submitting…';
+      try{
+        const {error}=await window.leogoAuth.client.rpc('customer_request_lipa_pole_pole_cancellation',{
+          p_account_id:plan.id,p_reason:reason,p_details:cancelForm.elements.details.value.trim()||null
+        });
+        if(error)throw error;
+        feedback.textContent='✓ Cancellation request sent to LEOGO Admin for review.';
+        await loadLppAccounts({quiet:true});
+      }catch(error){feedback.textContent=error?.message||'Cancellation request could not be submitted.';}
+      finally{button.disabled=false;button.textContent=original;}
+    }
+  });
+
+  document.addEventListener('leogo:authchange',()=>{
+    loadLppAccounts({quiet:true}).catch(()=>{});
+    loadLppPaymentDestination().catch(()=>{});
+  });
+  window.setTimeout(()=>{
+    if(window.leogoAuth?.isAuthenticated?.()){
+      loadLppAccounts({quiet:true}).catch(()=>{});
+      loadLppPaymentDestination().catch(()=>{});
+    }
+  },950);
+
+  renderLppAccounts();
 
   let customerMarketplaceOrders = [];
   let customerActivityFilter = 'all';
