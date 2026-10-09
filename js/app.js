@@ -2047,11 +2047,15 @@
 
       const actualPoints=Number(data?.reward_points_redeemed_kes||0);
       const actualDue=Number(data?.external_amount_due_kes??data?.grand_total_kes??0);
+      const feeAdvance=isCodOrderFirst?Math.min(actualDue,Math.max(0,Number(data?.delivery_fee_kes||0))):0;
+      const handoverDue=Math.max(0,Math.round((actualDue-feeAdvance)*100)/100);
       selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod'
-        ? (isCodOrderFirst?'COD created — delivery fee pending verification · '+deliveryMoney(actualDue)+' at handover':'COD — '+deliveryMoney(actualDue)+' remaining')
+        ? (isCodOrderFirst?'COD created · '+deliveryMoney(feeAdvance)+' fee to verify before dispatch · '+deliveryMoney(handoverDue)+' at handover':'COD — '+deliveryMoney(actualDue)+' remaining')
         : 'Payment submitted — '+deliveryMoney(actualDue)+' awaiting Admin verification';
-      paymentStepStatus.textContent = actualPoints>0
-        ? 'Order created successfully. '+deliveryMoney(actualPoints)+' from your Shopping Voucher was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
+      paymentStepStatus.textContent = isCodOrderFirst
+        ? 'Order created. Pay '+deliveryMoney(feeAdvance)+' delivery fee for LEOGO Admin to verify before rider assignment. Remaining COD on handover: '+deliveryMoney(handoverDue)+'.'
+        : actualPoints>0
+          ? 'Order created successfully. '+deliveryMoney(actualPoints)+' from your Shopping Voucher was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
         : healthCheckout
           ? 'Health & Medicine order created successfully and sent to the Health Partner.'
           : 'Order created successfully and sent to the Seller.';
@@ -2063,7 +2067,7 @@
         codFeeCreatedOrderForm.dataset.codOrderId=requiresCodFee ? String(data.order_id||'') : '';
         if(requiresCodFee){
           const feeNode=document.getElementById('codFeeCreatedAmount');
-          if(feeNode)feeNode.textContent='Pay '+deliveryMoney(data.delivery_fee_kes)+' for transport before your rider can be assigned.';
+          if(feeNode)feeNode.textContent='Pay '+deliveryMoney(feeAdvance)+' delivery fee before your rider can be assigned. Remaining '+deliveryMoney(handoverDue)+' is collected at handover.';
           const destinationNode=document.getElementById('codFeeCreatedDestination');
           const destinationNumber=window.leogoPayments?.paymentNumber(marketplacePaymentDestination)||'';
           if(destinationNode)destinationNode.textContent=destinationNumber
@@ -3927,11 +3931,19 @@
     cancelled:'Cancelled'
   }[status] || String(status || '').replaceAll('_',' '));
 
+  const customerCodAmountToCollect=(order)=>{
+    const due=Number(order?.external_amount_due_kes??order?.grand_total_kes??0);
+    const feeAdvance=order?.cod_delivery_fee?.status==='verified'
+      ? Math.min(due,Number(order?.delivery_fee_kes||0)):0;
+    return Math.max(0,Math.round((due-feeAdvance)*100)/100);
+  };
   const customerPointsOrderSummaryHtml=(order)=>{
     const points=Number(order?.reward_points_redeemed_kes||0);
     if(points<=0)return '';
     const due=Number(order?.external_amount_due_kes??Math.max(0,Number(order?.grand_total_kes||0)-points));
-    return '<div class="customer-order-points-summary"><span><small>LEOGO Points used</small><strong>'+money(points)+'</strong></span><span><small>Other payment amount</small><strong>'+money(due)+'</strong></span></div>';
+    const codVerified=order.payment_method==='cod' && order.cod_delivery_fee?.status==='verified';
+    return '<div class="customer-order-points-summary"><span><small>LEOGO Points used</small><strong>'+money(points)+'</strong></span><span><small>Other payment amount</small><strong>'+money(due)+'</strong></span>'+
+      (codVerified?'<span><small>Already paid delivery fee</small><strong>'+money(Math.min(due,Number(order.delivery_fee_kes||0)))+'</strong></span><span><small>COD to collect at handover</small><strong>'+money(customerCodAmountToCollect(order))+'</strong></span>':'')+'</div>';
   };
 
   const customerOrderHistory = (order) => {
