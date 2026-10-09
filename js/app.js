@@ -15,6 +15,7 @@
   const buildPartnerShareUrl=({type,id,name=''})=>{
     const url=new URL(window.location.href);
     url.hash='';
+    url.search='';
     url.searchParams.set('partner_type',String(type||''));
     url.searchParams.set('partner_id',String(id||''));
     if(name)url.searchParams.set('partner_name',String(name).slice(0,100));
