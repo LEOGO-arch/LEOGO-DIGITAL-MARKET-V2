@@ -2968,7 +2968,7 @@
   const codAmountToCollect=(order={})=>{
     const external=Number(order.external_amount_due_kes??order.grand_total_kes??0);
     const alreadyPaid=order.payment_method==='cod' && order.cod_delivery_fee_status==='verified'
-      ? Number(order.delivery_fee_kes||0):0;
+      ? Math.min(external,Number(order.delivery_fee_kes||0)):0;
     return Math.max(0,Math.round((external-alreadyPaid)*100)/100);
   };
   const orderSummaryPaymentDisplay = (order={}) => {
