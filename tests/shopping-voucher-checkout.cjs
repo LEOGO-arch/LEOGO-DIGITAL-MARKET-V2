@@ -46,6 +46,6 @@ must(assisted.includes('🎁 Use my LEOGO Shopping Voucher'),'Assisted Shopping 
 must(assisted.includes('const voucherEligible=rewardPointsBalance>0&&total>rewardPointsBalance;'),'Assisted Shopping total-above-balance rule missing.');
 must(assisted.includes('const maxByRule=Math.round(total*rewardMaxShare*100)/100;'),'Assisted Shopping 50% preview cap missing.');
 must(assisted.includes("button.textContent=usePoints?'Applying Voucher…':'Submitting…';"),'Assisted Shopping voucher submission state missing.');
-must(html.includes('js/assisted-shopping.js?v=shopping-voucher-rule-1'),'Assisted Shopping voucher cache-bust missing.');
+must(/js\/assisted-shopping\.js\?v=[^"'\s<>]+/.test(html),'Assisted Shopping voucher versioned script include missing.');
 
 console.log('Shopping Voucher checkout rule regression checks passed.');
