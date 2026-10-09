@@ -228,3 +228,25 @@ grant execute on function public.customer_list_cod_delivery_fee_status() to auth
 
 comment on column public.marketplace_orders.cod_delivery_fee_status is
   'Independent proof/verification of LEOGO COD delivery fee; not verification of order COD balance.';
+
+-- Admin queue discovery uses an authenticated, permission-checked RPC and does
+-- not alter the signature of the existing locked orders-list RPC.
+create or replace function public.admin_list_cod_delivery_fee_queue()
+returns jsonb language plpgsql stable security definer set search_path = '' as $fn$
+declare v_result jsonb;
+begin
+  if not private.is_leogo_admin('orders.read') then
+    raise exception 'Order access required';
+  end if;
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'order_id',o.id,'status',o.cod_delivery_fee_status
+  ) order by o.created_at desc),'[]'::jsonb)
+  into v_result from public.marketplace_orders o
+  where o.payment_method='cod'
+    and coalesce(o.delivery_fee_kes,0)>0
+    and o.cod_delivery_fee_status in ('awaiting_payment','submitted','rejected','verified');
+  return v_result;
+end;
+$fn$;
+revoke all on function public.admin_list_cod_delivery_fee_queue() from public,anon;
+grant execute on function public.admin_list_cod_delivery_fee_queue() to authenticated;
