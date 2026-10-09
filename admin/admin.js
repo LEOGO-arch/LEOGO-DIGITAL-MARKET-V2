@@ -2883,7 +2883,7 @@
     ctx.font='700 20px Arial, sans-serif';
     ctx.fillText(codDue?'COLLECT ON DELIVERY':'PAYMENT STATUS',72,y+16);
     ctx.font='700 30px Arial, sans-serif';
-    ctx.fillText(codDue?formatMoney(order.grand_total_kes):paymentStatusLabel(order.payment_status).toUpperCase(),72,y+46);
+    ctx.fillText(codDue?formatMoney(codAmountToCollect(order)):paymentStatusLabel(order.payment_status).toUpperCase(),72,y+46);
     ctx.fillStyle='#394960';
     ctx.font='18px Arial, sans-serif';
     ctx.textAlign='right';
@@ -2965,6 +2965,12 @@
     return canvas;
   };
 
+  const codAmountToCollect=(order={})=>{
+    const external=Number(order.external_amount_due_kes??order.grand_total_kes??0);
+    const alreadyPaid=order.payment_method==='cod' && order.cod_delivery_fee_status==='verified'
+      ? Number(order.delivery_fee_kes||0):0;
+    return Math.max(0,Math.round((external-alreadyPaid)*100)/100);
+  };
   const orderSummaryPaymentDisplay = (order={}) => {
     const status=String(order.payment_status||'').toLowerCase();
     const pointsUsed=Number(order.reward_points_redeemed_kes||0);
@@ -2975,7 +2981,7 @@
         primary:'CASH ON DELIVERY',
         secondary:method==='PAYMENT'?'COD':method,
         amountLabel:'AMOUNT TO COLLECT',
-        amount:formatMoney(order.external_amount_due_kes??order.grand_total_kes)
+        amount:formatMoney(codAmountToCollect(order))
       };
     }
     if(status==='cod_paid'){
@@ -3396,7 +3402,7 @@
             '<div class="receipt-money-row receipt-total"><span>TOTAL</span><strong>'+escapeHtml(formatMoney(order.grand_total_kes))+'</strong></div>'+
             '<div class="receipt-money-row"><span>Method</span><strong>'+escapeHtml(String(order.payment_method||'').replaceAll('_',' ').toUpperCase())+'</strong></div>'+
             '<div class="receipt-money-row"><span>Status</span><strong>'+escapeHtml(codDue?'COLLECT ON DELIVERY':paymentStatusLabel(order.payment_status).toUpperCase())+'</strong></div>'+
-            (codDue?'<div class="receipt-money-row"><span>Amount to collect</span><strong>'+escapeHtml(formatMoney(order.external_amount_due_kes??order.grand_total_kes))+'</strong></div>':'')+
+            (codDue?'<div class="receipt-money-row"><span>Amount to collect</span><strong>'+escapeHtml(formatMoney(codAmountToCollect(order)))+'</strong></div>':'')+
           '</section>'+
           '<hr class="receipt-rule">'+
           '<section class="receipt-section receipt-meta">'+
@@ -3484,7 +3490,7 @@
     const readiness=sellerReadiness(sellers);
     const codNeedsCollection=String(order.payment_method||'').toLowerCase()==='cod'
       && !['cod_paid','verified_paid'].includes(String(order.payment_status||'').toLowerCase());
-    const codInstruction='COD: Collect and confirm '+formatMoney(order.external_amount_due_kes??order.grand_total_kes)+' before handing over the order to the customer.'+(Number(order.reward_points_redeemed_kes||0)>0?' LEOGO Points already covered '+formatMoney(order.reward_points_redeemed_kes)+'.':'');
+    const codInstruction='COD: Collect and confirm '+formatMoney(codAmountToCollect(order))+' before handing over the order to the customer.'+(Number(order.reward_points_redeemed_kes||0)>0?' LEOGO Points already covered '+formatMoney(order.reward_points_redeemed_kes)+'.':'');
 
     panel.hidden=false;
     if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=false;
@@ -3724,7 +3730,7 @@
     const order=detail?.order;
     const box=$('#adminRiderInstructions');
     if(!order||!box) return;
-    const instruction='COD: Collect and confirm the full '+formatMoney(order.grand_total_kes)+' payment before handing over the order to the customer.';
+    const instruction='COD: Collect and confirm '+formatMoney(codAmountToCollect(order))+' remaining COD payment before handing over the order to the customer.';
     const current=box.value.trim();
     box.value=current
       ? (current.includes(instruction)?current:current+'\n'+instruction)
@@ -3819,6 +3825,11 @@
         ...state.activeMarketplaceOrderDetail.delivery,
         ...sortingResult.data
       };
+    }
+    // Use fee verification only for handover display; preserve gross order totals.
+    if(state.activeMarketplaceOrderDetail.order){
+      state.activeMarketplaceOrderDetail.order.cod_delivery_fee_status=
+        state.activeMarketplaceOrderDetail.cod_delivery_fee?.status||'not_required';
     }
     renderMarketplaceOrderDetail();
     await renderPickupStationHandoverEvidence({loadToken,orderId});
