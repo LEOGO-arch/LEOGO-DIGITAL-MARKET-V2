@@ -2099,6 +2099,35 @@
     }
   });
 
+  // Both the immediate order confirmation and My Activity submit through the same
+  // customer-owned RPC. A reference never marks the fee verified by itself.
+  document.addEventListener('submit',async (event)=>{
+    const form=event.target?.closest?.('form[data-cod-fee-form]');
+    if(!form)return;
+    event.preventDefault();
+    const orderId=form.dataset.codOrderId;
+    const reference=form.querySelector('[name="cod_fee_reference"]')?.value.trim()||'';
+    const status=form.querySelector('[data-cod-fee-feedback]');
+    const button=form.querySelector('[type="submit"]');
+    if(!orderId || reference.length<8){
+      if(status)status.textContent='Enter a valid payment reference for this COD order.';
+      return;
+    }
+    if(button)button.disabled=true;
+    if(status)status.textContent='Sending delivery fee reference to LEOGO Admin…';
+    try{
+      const {error}=await window.leogoAuth.client.rpc('customer_submit_cod_delivery_fee_reference',{
+        p_order_id:orderId,p_payment_reference:reference
+      });
+      if(error)throw error;
+      if(status)status.textContent='Reference submitted. Wait for LEOGO Admin verification before dispatch.';
+      form.querySelector('textarea')?.setAttribute('readonly','readonly');
+      await loadCustomerMarketplaceOrders();
+    }catch(error){
+      if(status)status.textContent=error?.message||'Delivery fee proof could not be submitted. Try again.';
+    }finally{if(button)button.disabled=false;}
+  });
+
   const receiptEscape = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
   })[character]);
@@ -4111,6 +4140,19 @@
         ? receiptEscape(firstItem.product_name)+(firstItem.variant_name?' · '+receiptEscape(firstItem.variant_name):'')+' × '+Number(firstItem.quantity)+(orderItems.length>1?' · +'+(orderItems.length-1)+' more':'')
         : 'Order items';
       const completed=order.order_status==='delivered';
+      const fee=order.order_source==='health_medicine'?null:order.cod_delivery_fee;
+      const feeStatus=fee?.status||'not_required';
+      const feeForm=['awaiting_payment','rejected'].includes(feeStatus)
+        ? '<form class="cod-fee-activity-form" data-cod-fee-form data-cod-order-id="'+receiptEscape(order.id)+'">'+
+            '<strong>Pay '+money(fee.amount_kes)+' delivery fee before dispatch</strong>'+
+            (feeStatus==='rejected'?'<p>Earlier payment proof rejected: '+receiptEscape(fee.review_notes||'Please submit a valid payment reference.')+'</p>':'')+
+            '<label>Payment reference<textarea name="cod_fee_reference" rows="2" minlength="8" maxlength="600" required placeholder="Paste confirmed M-Pesa message"></textarea></label>'+
+            '<button type="submit">Submit fee for Admin verification</button><p data-cod-fee-feedback role="status"></p></form>'
+        : feeStatus==='submitted'
+          ? '<div class="cod-fee-activity-status">Delivery fee reference received. Awaiting LEOGO Admin verification before dispatch.</div>'
+          : feeStatus==='verified'
+            ? '<div class="cod-fee-activity-status">✓ Delivery fee verified — dispatch permitted when Seller is ready.</div>'
+            : '';
       const actionButtons=
         '<button type="button" class="customer-order-update-toggle" data-toggle-order-updates="'+receiptEscape(order.id)+'" aria-expanded="false">View Order Updates <span>⌄</span></button>'+
         (completed&&order.order_source!=='health_medicine'?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(orderHasProductReviews(order)?'Product Reviews':'Review Products')+'</button>'+
@@ -4122,7 +4164,7 @@
         '<div class="customer-order-compact-actions">'+actionButtons+'</div>'+
         '<div class="customer-order-expanded" data-order-expanded hidden>'+
           '<div class="customer-order-expanded-head"><span>ORDER DETAILS & UPDATES</span><small>'+customerOrderHistory(order).length+' updates</small></div>'+
-          '<ul>'+items+'</ul>'+customerPointsOrderSummaryHtml(order)+'<div class="customer-order-sellers">'+sellers+'</div>'+rider+
+          '<ul>'+items+'</ul>'+feeForm+customerPointsOrderSummaryHtml(order)+'<div class="customer-order-sellers">'+sellers+'</div>'+rider+
           '<div class="customer-order-history-wrap"><div class="customer-order-history-title"><span>ORDER HISTORY</span><strong>'+customerOrderHistory(order).length+' updates</strong></div>'+customerOrderTimelineHtml(order,false)+'</div>'+
           (completed&&order.order_source!=='health_medicine' ? customerReviewBoxHtml(order) : '')+
         '</div>'+
@@ -4150,9 +4192,10 @@
         return;
       }
 
-      const [marketResult,healthResult]=await Promise.all([
+      const [marketResult,healthResult,codFeeResult]=await Promise.all([
         client.rpc('customer_list_marketplace_orders_v3'),
-        client.rpc('customer_list_health_medicine_orders')
+        client.rpc('customer_list_health_medicine_orders'),
+        client.rpc('customer_list_cod_delivery_fee_status')
       ]);
       const error=marketResult.error||healthResult.error;
       if(error){
@@ -4167,7 +4210,13 @@
         }
         return;
       }
-      const marketRows=(Array.isArray(marketResult.data)?marketResult.data:[]).map((row)=>({...row,order_source:row.order_source||'marketplace'}));
+      // On the old backend the fee-status RPC does not exist; treat that as no
+      // order-first feature rather than interrupting existing customer orders.
+      const feeStates=new Map((Array.isArray(codFeeResult.data)?codFeeResult.data:[]).map(item=>[item.order_id,item]));
+      const marketRows=(Array.isArray(marketResult.data)?marketResult.data:[]).map((row)=>({
+        ...row,order_source:row.order_source||'marketplace',
+        cod_delivery_fee:feeStates.get(row.id)||null
+      }));
       const healthRows=(Array.isArray(healthResult.data)?healthResult.data:[]).map((row)=>({
         ...row,
         order_source:'health_medicine',
