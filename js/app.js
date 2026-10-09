@@ -4403,6 +4403,10 @@
   const transportRequestForm=document.getElementById('transportRequestForm');
   let customerPublicServices=[];
   let customerPublicTransportVehicles=[];
+  let selectedPublicServiceProviderId='';
+  let selectedPublicServiceProviderName='';
+  let selectedPublicTransportProviderId='';
+  let selectedPublicTransportProviderName='';
   let customerPublicServiceReviews=[];
   let customerOwnServiceReviews=[];
   let customerServiceConfig={direct_request_fee_kes:50,quotation_fee_kes:50,payment_destination:null};
@@ -4529,6 +4533,7 @@
         '<div class="leogo-compact-actions">'+
           '<button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="direct">Request Service · '+receiptEscape(money(directFee))+'</button>'+
           '<button class="reviews" type="button" data-view-public-reviews="service_provider" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-service-id="'+receiptEscape(item.service_id||'')+'" data-review-title="'+receiptEscape(item.business_name||'Service Provider')+'">Reviews</button>'+
+          '<button class="leogo-partner-share-button" type="button" data-share-partner data-partner-type="service_provider" data-partner-id="'+receiptEscape(item.provider_id||'')+'" data-partner-name="'+receiptEscape(item.business_name||'Service Provider')+'">↗ Share Provider</button>'+
           '<button class="quote" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="quotation">Request Quotation · '+receiptEscape(money(quotationFee))+'</button>'+
         '</div>'+
       '</div>';
@@ -4558,6 +4563,7 @@
         '<div class="leogo-compact-actions">'+
           '<button class="direct" type="button" data-request-transport="'+receiptEscape(item.vehicle_id||'')+'">Request Transport</button>'+
           '<button class="reviews" type="button" data-view-public-reviews="transport" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-vehicle-id="'+receiptEscape(item.vehicle_id||'')+'" data-review-title="'+receiptEscape(item.provider_name||'Transport Provider')+'">Reviews</button>'+
+          '<button class="leogo-partner-share-button" type="button" data-share-partner data-partner-type="transport" data-partner-id="'+receiptEscape(item.provider_id||'')+'" data-partner-name="'+receiptEscape(item.provider_name||'Transport Provider')+'">↗ Share Provider</button>'+
           '<button class="quote" type="button" data-view-transport-vehicle="'+receiptEscape(item.vehicle_id||'')+'">View Vehicle Details</button>'+
         '</div>'+
       '</div>';
@@ -5390,7 +5396,8 @@
       '<div class="customer-service-request-meta"><div><small>LATITUDE</small><strong>'+receiptEscape(item.waiting_point_latitude??'—')+'</strong></div><div><small>LONGITUDE</small><strong>'+receiptEscape(item.waiting_point_longitude??'—')+'</strong></div></div>'+
       (mapLink?'<p><a class="download-quote" href="'+receiptEscape(mapLink)+'" target="_blank" rel="noopener noreferrer">📍 Open Waiting Point in Google Maps ↗</a></p>':'')+
       '</div>'+
-      '<p><strong>Customer rating:</strong> '+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</p>';
+      '<p><strong>Customer rating:</strong> '+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</p>'+
+      '<button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="transport" data-partner-id="'+receiptEscape(item.provider_id||'')+'" data-partner-name="'+receiptEscape(item.provider_name||'Transport Provider')+'">↗ Share this Transport Provider</button>';
     transportVehicleDetailsModal.classList.add('open');
     transportVehicleDetailsModal.setAttribute('aria-hidden','false');
     document.body.style.overflow='hidden';
