@@ -40,7 +40,7 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const status=(el,msg='',type='')=>{if(!el)return;el.textContent=msg;el.className='status'+(type?' '+type:'');};
 const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
 const uid=()=>currentUser?.id||'';
-let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],sellerEarningsReport=null,partnerNotifications=[],sellerOrders=[],sellerReviews=[],sellerOrderFilter='all';
+let currentUser=null,seller=null,categories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.categories)?window.LEOGO_PRODUCT_TAXONOMY.categories:[],subcategories=Array.isArray(window.LEOGO_PRODUCT_TAXONOMY?.subcategories)?window.LEOGO_PRODUCT_TAXONOMY.subcategories:[],products=[],editingProduct=null,kenyaCounties=[],kenyaSubcounties=[],settlementAccounts=[],sellerSettlements=[],settlementRequests=[],sellerEarningsReport=null,partnerNotifications=[],sellerOrders=[],sellerLppAccounts=[],sellerReviews=[],sellerOrderFilter='all';
 let rejectingAdminPartnerSession=false;
 const isAdminIdentity=async(user)=>{
   const userId=user?.id||'';
@@ -668,10 +668,11 @@ async function loadSeller(){
         loadSellerSettlementData(),
         loadSellerEarnings(),
         loadSellerOrders(),
+        loadSellerLppAccounts(),
         loadSellerReviews(),
         loadKenyaLocations()
       ]).then(results=>{
-        const labels=['products','taxonomy','settlements','earnings','orders','reviews','locations'];
+        const labels=['products','taxonomy','settlements','earnings','orders','lipa pole pole','reviews','locations'];
         results.forEach((result,index)=>{
           if(result.status==='rejected')console.error('Seller '+labels[index]+' loader failed:',result.reason);
         });
@@ -1016,7 +1017,11 @@ async function loadPartnerNotifications(){
       await loadSellerReviews();
     }else if(view==='orders'){
       openSellerView('orders');
-      await loadSellerOrders();
+      await Promise.all([loadSellerOrders(),loadSellerLppAccounts()]);
+    }else if(view==='lipa-pole-pole'){
+      openSellerView('orders');
+      await loadSellerLppAccounts();
+      window.setTimeout(()=>$('#sellerLppOperations')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
     }else if(['products','earnings','settlements','subscription','notifications','profile','data','flashsale'].includes(view)){
       openSellerView(view);
     }
@@ -1042,13 +1047,14 @@ async function downloadSellerData(){
   const original=button.textContent;button.disabled=true;button.textContent='Preparing…';
   status($('#sellerDataExportStatus'),'Preparing your Seller data…');
   try{
-    await Promise.all([loadProducts(),loadPartnerNotifications(),loadSellerOrders(),loadSellerReviews(),loadSellerSettlementData()]);
+    await Promise.all([loadProducts(),loadPartnerNotifications(),loadSellerOrders(),loadSellerLppAccounts(),loadSellerReviews(),loadSellerSettlementData()]);
     const exportData={
       export_type:'LEOGO Seller Data',
       generated_at:new Date().toISOString(),
       seller_account:seller,
       products,
       seller_orders:sellerOrders,
+      lipa_pole_pole_reservations:sellerLppAccounts,
       approved_product_reviews:sellerReviews,
       notifications:partnerNotifications,
       settlement_accounts:settlementAccounts,
@@ -1464,6 +1470,57 @@ async function loadSellerOrders(){
   sellerOrders=data||[];
   renderSellerOrders();
 }
+
+function sellerLppStatusLabel(value){
+  return {
+    deposit_pending:'DEPOSIT PENDING',
+    active:'ACTIVE',
+    fully_paid:'PAID IN FULL',
+    overdue:'PAYMENT OVERDUE',
+    cancellation_pending:'CANCELLATION PENDING',
+    cancelled:'CANCELLED',
+    refund_pending:'REFUND PENDING',
+    refunded:'REFUNDED'
+  }[value]||String(value||'').replaceAll('_',' ').toUpperCase();
+}
+function renderSellerLppAccounts(){
+  const target=$('#sellerLppAccountList');
+  if(!target)return;
+  if(!sellerLppAccounts.length){
+    target.innerHTML='<div class="empty-card">No Lipa Pole Pole reservations yet.</div>';
+    return;
+  }
+  target.innerHTML=sellerLppAccounts.map(a=>{
+    const total=Number(a.total_payable_kes||0);
+    const approved=Number(a.approved_paid_kes||0);
+    const pending=Number(a.pending_paid_kes||0);
+    const balance=Number(a.balance_kes||Math.max(0,total-approved));
+    const progress=total?Math.min(100,Math.max(0,(approved/total)*100)):0;
+    const deadline=a.deadline_at?formatDate(a.deadline_at):'—';
+    const normalOrder=a.marketplace_order_id
+      ? '<strong class="delivered-confirmation">✓ Fully paid — moved to Customer Orders for normal fulfilment</strong>'
+      : '<strong>🔒 Product remains reserved while the customer completes verified payments.</strong>';
+    return '<article class="seller-order-card seller-lpp-card">'+
+      '<header><div><span>'+escapeHtml(a.account_reference||'LPP')+'</span><h4>'+escapeHtml(a.product_name||'Product')+(a.variant_name?' — '+escapeHtml(a.variant_name):'')+'</h4><small>Opened '+formatDate(a.opened_at)+'</small></div><div><b class="payment-status">'+escapeHtml(sellerLppStatusLabel(a.status))+'</b></div></header>'+
+      '<div class="seller-order-body"><div class="seller-order-meta">'+
+        '<span><small>Quantity</small><strong>'+Number(a.quantity||0).toLocaleString('en-KE')+'</strong></span>'+
+        '<span><small>Total payable</small><strong>'+money(total)+'</strong></span>'+
+        '<span><small>Verified paid</small><strong>'+money(approved)+'</strong></span>'+
+        '<span><small>Pending verification</small><strong>'+money(pending)+'</strong></span>'+
+        '<span><small>Balance</small><strong>'+money(balance)+'</strong></span>'+
+        '<span><small>Deadline</small><strong>'+escapeHtml(deadline)+'</strong></span>'+
+      '</div><div class="lpp-progress"><i style="width:'+progress+'%"></i></div></div>'+
+      '<footer>'+normalOrder+(a.refund_status==='pending'?'<strong>Refund is being handled by LEOGO Admin.</strong>':'')+'</footer>'+
+    '</article>';
+  }).join('');
+}
+async function loadSellerLppAccounts(){
+  if(!currentUser||seller?.application_status!=='approved')return;
+  const {data,error}=await client.rpc('seller_list_lipa_pole_pole_accounts');
+  if(error){console.error('Seller Lipa Pole Pole accounts could not load:',error);return;}
+  sellerLppAccounts=Array.isArray(data)?data:[];
+  renderSellerLppAccounts();
+}
 function orderPaymentLabel(status){
   return {
     submitted:'PAYMENT SUBMITTED — VERIFYING',
@@ -1515,7 +1572,11 @@ $$('[data-seller-order-filter]').forEach(button=>button.addEventListener('click'
   $$('[data-seller-order-filter]').forEach(b=>b.classList.toggle('active',b===button));
   renderSellerOrders();
 }));
-$('#refreshSellerOrders').addEventListener('click',async()=>{const b=$('#refreshSellerOrders');b.disabled=true;await loadSellerOrders();b.disabled=false;});
+$('#refreshSellerOrders').addEventListener('click',async()=>{const b=$('#refreshSellerOrders');b.disabled=true;await Promise.all([loadSellerOrders(),loadSellerLppAccounts()]);b.disabled=false;});
+$('#refreshSellerLppAccounts')?.addEventListener('click',async()=>{
+  const b=$('#refreshSellerLppAccounts');const original=b.textContent;b.disabled=true;b.textContent='Refreshing…';
+  try{await loadSellerLppAccounts();}finally{b.disabled=false;b.textContent=original;}
+});
 $('#refreshSellerReviews')?.addEventListener('click',async()=>{
   const button=$('#refreshSellerReviews');
   button.disabled=true;
