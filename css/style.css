@@ -2940,3 +2940,28 @@ body.advertisement-lightbox-open{overflow:hidden}
     max-width:150px;
   }
 }
+
+/* LEOGO CHECKOUT — compact, selected-method-only payment instructions (2026-10-09) */
+#checkoutPaymentStep .payment-method-grid{gap:7px}
+#checkoutPaymentStep .payment-method-grid button{padding:10px 12px;min-height:55px}
+#checkoutPaymentStep .payment-method-grid button small{line-height:1.4}
+#checkoutPaymentStep .checkout-wallet-rewards{margin:10px 0;border:1px solid #e1e7ef;border-radius:12px;background:#fcfdff;overflow:hidden}
+#checkoutPaymentStep .checkout-wallet-rewards>summary{display:flex;flex-direction:column;gap:3px;padding:12px 14px;cursor:pointer;color:#07152f;list-style:revert;font-size:11px}
+#checkoutPaymentStep .checkout-wallet-rewards>summary small{font-size:9px;font-weight:600;color:#627087}
+#checkoutPaymentStep .checkout-wallet-rewards[open]>summary{background:#f4f7fe;border-bottom:1px solid #e1e7ef}
+#checkoutPaymentStep .checkout-wallet-rewards .checkout-points-panel{margin:10px}
+#checkoutPaymentStep .checkout-admin-payment[hidden],
+#checkoutPaymentStep .wallet-checkout-panel[hidden],
+#checkoutPaymentStep .payment-proof-panel[hidden],
+#checkoutPaymentStep .payment-rule-notice[hidden],
+#checkoutPaymentStep .payment-order-summary[hidden],
+#checkoutPaymentStep .checkout-payment-actions[hidden],
+#checkoutPaymentStep .checkout-payment-actions button[hidden],
+#checkoutPaymentStep .health-prescription-panel[hidden],
+#checkoutPaymentStep .lpp-deposit-form[hidden]{display:none!important}
+#checkoutPaymentStep .payment-step-status:empty{display:none}
+#checkoutPaymentStep .payment-rule-notice{margin:11px 0}
+@media(max-width:600px){
+  #checkoutPaymentStep .payment-method-grid button{min-height:56px}
+  #checkoutPaymentStep .checkout-wallet-rewards>summary{padding:12px}
+}
