@@ -48,8 +48,8 @@ requireSource(app, 'const eligible=!healthOnlyCart&&balance>0&&total>balance;',
   'Existing Shopping Voucher eligibility must remain');
 requireSource(app, 'p_use_reward_points:usePoints',
   'Voucher must still reach marketplace server');
-requireSource(app, "if (!mpesaPaymentMessage.value.trim())",
-  'Do not bypass the backend payment confirmation requirement');
+requireSource(app, "if (!isCodOrderFirst && !mpesaPaymentMessage.value.trim())",
+  'Only backend-gated COD can omit upfront payment confirmation');
 requireSource(app, "const prescriptionRequired=healthCheckout&&healthCartRequiresPrescription()",
   'Prescription-only checkout validation must remain');
 requireSource(app, "Wallet cash checkout pending activation",
