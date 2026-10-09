@@ -1652,19 +1652,30 @@
     const isLipaPolePole=selectedCheckoutPayment==='lipapolepole';
     const isWallet=selectedCheckoutPayment==='wallet';
     const isCodOrderFirst=selectedCheckoutPayment==='cod' && codOrderFirstReady && !cartHasSource('health_medicine');
+
+    if(isLipaPolePole && checkoutUsePoints?.checked){
+      checkoutUsePoints.checked=false;
+      updateCheckoutPointsTotals();
+    }
+    if(checkoutUsePoints){
+      if(isLipaPolePole) checkoutUsePoints.disabled=true;
+      else updateCheckoutPointsTotals();
+    }
+
     if(lppDepositForm)lppDepositForm.hidden=!isLipaPolePole;
     if(walletCheckoutPanel)walletCheckoutPanel.hidden=!isWallet;
     if(standardPaymentProof)standardPaymentProof.hidden=isLipaPolePole||isWallet||isCodOrderFirst;
     if(codOrderFirstNote)codOrderFirstNote.hidden=!isCodOrderFirst;
     if(checkoutPaymentDestination)checkoutPaymentDestination.hidden=!['till','paybill'].includes(selectedCheckoutPayment);
     if(paymentRuleNotice)paymentRuleNotice.hidden=selectedCheckoutPayment!=='cod';
-    if(paymentOrderSummary)paymentOrderSummary.hidden=false;
+    if(paymentOrderSummary)paymentOrderSummary.hidden=isLipaPolePole;
     if(makeCheckoutOrder)makeCheckoutOrder.hidden=isLipaPolePole||isWallet;
     if(standardPaymentActions)standardPaymentActions.hidden=false; // Keep Back accessible in all modes.
     if(isWallet && checkoutWalletRewards)checkoutWalletRewards.open=true;
     syncHealthPrescriptionPanel();
 
     if(isLipaPolePole){
+      if(selectedPaymentStatus)selectedPaymentStatus.textContent='Pay the seller-set first deposit to open this instalment account';
       openLppDepositForm();
     }else if(isWallet){
       if(selectedPaymentStatus)selectedPaymentStatus.textContent='Wallet cash checkout pending activation · vouchers remain available';
