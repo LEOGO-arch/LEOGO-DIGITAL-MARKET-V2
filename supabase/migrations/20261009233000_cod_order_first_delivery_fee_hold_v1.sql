@@ -202,7 +202,7 @@ begin
   if not private.is_leogo_admin('orders.read') then raise exception 'Order access required'; end if;
   select jsonb_build_object(
     'status',o.cod_delivery_fee_status,'reference',o.cod_delivery_fee_reference,
-    'amount_kes',o.delivery_fee_kes,'submitted_at',o.cod_delivery_fee_submitted_at,
+    'amount_kes',least(coalesce(o.delivery_fee_kes,0),greatest(0,o.external_amount_due_kes)),'submitted_at',o.cod_delivery_fee_submitted_at,
     'reviewed_at',o.cod_delivery_fee_reviewed_at,'review_notes',o.cod_delivery_fee_review_notes
   ) into v_result from public.marketplace_orders o where o.id=p_order_id;
   if v_result is null then raise exception 'Order not found'; end if;
@@ -216,7 +216,7 @@ create or replace function public.customer_list_cod_delivery_fee_status()
 returns jsonb language sql stable security definer set search_path = '' as $fn$
   select coalesce(jsonb_agg(jsonb_build_object(
     'order_id',o.id,'status',o.cod_delivery_fee_status,
-    'reference',o.cod_delivery_fee_reference,'amount_kes',o.delivery_fee_kes,
+    'reference',o.cod_delivery_fee_reference,'amount_kes',least(coalesce(o.delivery_fee_kes,0),greatest(0,o.external_amount_due_kes)),
     'review_notes',o.cod_delivery_fee_review_notes
   )), '[]'::jsonb)
   from public.marketplace_orders o
