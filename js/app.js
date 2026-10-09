@@ -1671,7 +1671,7 @@
       const walletOrderTotal=document.getElementById('walletCheckoutOrderTotal');
       if(walletOrderTotal)walletOrderTotal.textContent=deliveryMoney(due);
     }else if(selectedCheckoutPayment==='cod'){
-      if(isCodOrderFirst && selectedPaymentStatus)selectedPaymentStatus.textContent='Order first · delivery fee verified before dispatch';
+      if(isCodOrderFirst && selectedPaymentStatus)selectedPaymentStatus.textContent='Delivery fee required before dispatch';
       paymentProofLabel.textContent='Paste M-Pesa message for the Transport & Parcel Delivery fee';
       markPaymentPaidLabel.textContent=checkoutPointsAppliedNumber()>0
         ? 'I confirm that I paid the required delivery fee first. my Shopping Voucher has been applied and I will pay the remaining COD amount on delivery.'
