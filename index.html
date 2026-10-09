@@ -1222,7 +1222,7 @@
         </section>
 
         <section class="customer-view" data-customer-panel="lipapolepole">
-          <div class="customer-view-title"><div><span>INSTALMENT ACCOUNT</span><h3>My Lipa Pole Pole</h3><p>Track seller-set deposits, approved instalments, payment deadlines and remaining balances.</p></div><span class="lpp-account-badge">Admin Confirmed Payments Only</span></div>
+          <div class="customer-view-title"><div><span>INSTALMENT ACCOUNT</span><h3>My Lipa Pole Pole</h3><p>Track seller-set deposits, approved instalments, payment deadlines and remaining balances.</p></div><div class="customer-view-title-actions"><span class="lpp-account-badge">Admin Confirmed Payments Only</span><button id="refreshLppAccounts" type="button">↻ Refresh</button></div></div>
           <div class="lpp-account-summary">
             <article><small>Active Accounts</small><strong id="lppActiveAccounts">0</strong></article>
             <article><small>Total Approved Paid</small><strong id="lppTotalApproved">KSh 0</strong></article>
@@ -1232,7 +1232,7 @@
           <div id="lppAccountList" class="lpp-account-list">
             <div class="customer-empty-state compact"><span>🪙</span><h4>No Lipa Pole Pole account yet</h4><p>Select Lipa Pole Pole during checkout to submit a seller-set first deposit.</p><button type="button" data-customer-view="cart">Open Cart</button></div>
           </div>
-          <div class="foundation-preview-note">Only payments approved by authorized LEOGO Admin/Staff increase Total Paid and reduce Total Balance.</div>
+          <div class="foundation-preview-note">Your Lipa Pole Pole account and payment history are stored securely in LEOGO. Only payments approved by authorized LEOGO Admin/Staff increase Total Paid and reduce Total Balance. When fully paid, the item automatically enters the normal Seller fulfilment workflow.</div>
         </section>
 
         <section class="customer-view" data-customer-panel="cart">
@@ -1311,10 +1311,15 @@
                   <strong>💰 Pay with LEOGO Savings Wallet</strong><div><span>Available verified balance</span><b id="walletCheckoutAvailable">KSh 0</b></div><div><span>Order total</span><b id="walletCheckoutOrderTotal">KSh 0</b></div><p id="walletCheckoutStatus">Your verified balance is live. Wallet checkout will be enabled only after the SACCO/payment settlement and order-ledger connection is approved.</p><button type="button" disabled>Partner Activation Required</button>
                 </div>
                 <form class="lpp-deposit-form" id="lppDepositForm" data-requires-auth hidden>
-                  <div class="lpp-form-head"><span>🪙 LIPA POLE POLE</span><h5>Submit First Deposit</h5><p>The first deposit is set by the seller. It must be confirmed by LEOGO Admin/Staff before it increases Total Paid.</p></div>
+                  <div class="lpp-form-head"><span>🪙 LIPA POLE POLE</span><h5>Submit First Deposit</h5><p>The first deposit and maximum period are set by the seller. LEOGO securely stores the instalment account and verifies every M-Pesa payment before it reduces your balance.</p></div>
                   <label><span>Eligible item</span><select id="lppDepositItem" required><option value="">Select an item from your cart</option></select></label>
-                  <div class="lpp-deposit-values"><div><small>Total amount</small><strong id="lppDepositTotal">KSh 0</strong></div><div><small>Seller-set first deposit</small><strong id="lppDepositRequired">KSh 0</strong></div><div><small>Maximum payment period</small><strong id="lppDepositPeriod">Select item</strong></div></div>
-                  <label><span>Paste M-Pesa payment message/reference</span><textarea id="lppDepositMessage" rows="4" placeholder="Paste the complete payment confirmation message" required></textarea></label>
+                  <div class="lpp-deposit-values"><div><small>Selected item subtotal</small><strong id="lppDepositTotal">KSh 0</strong></div><div><small>Seller-set first deposit</small><strong id="lppDepositRequired">KSh 0</strong></div><div><small>Maximum payment period</small><strong id="lppDepositPeriod">Select item</strong></div></div>
+                  <div class="checkout-admin-payment lpp-payment-destination" id="lppPaymentDestination" hidden>
+                    <div><span>LIPA POLE POLE PAYMENT ACCOUNT</span><strong id="lppPaymentDestinationTitle">Loading LEOGO payment account…</strong><small id="lppPaymentDestinationName"></small></div>
+                    <div class="checkout-admin-payment-number"><b id="lppPaymentDestinationNumber">—</b><button id="copyLppPaymentDestination" type="button" disabled>Copy</button></div>
+                    <p id="lppPaymentDestinationInstructions">Use this LEOGO account for the first deposit and later instalments.</p>
+                  </div>
+                  <label><span>Paste M-Pesa first-deposit message/reference</span><textarea id="lppDepositMessage" rows="4" minlength="8" placeholder="Paste the complete M-Pesa confirmation message or transaction reference" required></textarea></label>
                   <div class="lpp-rules" data-admin-managed="lipa-pole-pole-rules">
                     <strong>Lipa Pole Pole Rules</strong>
                     <ol>
@@ -1672,6 +1677,6 @@
   </div>
 </section>
 <footer class="site-footer"><strong>LEOGO DIGITAL MARKET</strong><p>Everything you need. Delivered.</p><a href="partner/" style="display:inline-block;margin:6px 12px 6px 0;font-weight:800;color:#ff7200">Join LEOGO as a Partner →</a><small>From the Market To Your Comfort.</small></footer><script src="js/vendor/supabase-2.116.0.min.js?v=pickup-station-1" defer></script>
-  <script src="js/runtime-monitor.js?v=network-storm-fix-2" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=customer-checkout-cleanup-1" defer></script><script src="js/auth.js?v=admin-portal-isolation-2" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=partner-storefront-share-1" defer></script><script src="js/cyber.js?v=partner-storefront-share-1" defer></script><script src="js/health.js?v=partner-storefront-share-1" defer></script><script src="js/health-specialist.js?v=partner-storefront-share-1" defer></script><script src="js/shipping-moq.js?v=product-modes-2" defer></script><script src="js/wallet.js?v=shopping-voucher-rule-1" defer></script>
+  <script src="js/runtime-monitor.js?v=network-storm-fix-2" defer></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script><script src="js/app.js?v=lpp-production-workflow-1" defer></script><script src="js/auth.js?v=admin-portal-isolation-2" defer></script><script src="js/theme.js?v=seasonal-theme-2" defer></script><script src="js/payments.js?v=payment-routing-1" defer></script><script src="js/accommodation.js?v=partner-storefront-share-1" defer></script><script src="js/cyber.js?v=partner-storefront-share-1" defer></script><script src="js/health.js?v=partner-storefront-share-1" defer></script><script src="js/health-specialist.js?v=partner-storefront-share-1" defer></script><script src="js/shipping-moq.js?v=product-modes-2" defer></script><script src="js/wallet.js?v=shopping-voucher-rule-1" defer></script>
 <script src="js/referrals.js?v=referral-share-earn-v1" defer></script><script src="js/vacant-houses.js?v=property-loading-fix-1" defer></script><script src="js/loans.js?v=loan-v2-3" defer></script><script src="js/feedback-testimonials.js?v=feedback-testimonials-v1" defer></script><script src="js/assisted-shopping.js?v=marketplace-runtime-init-1" defer></script><script src="js/premium.js?v=premium-chat-photo-1" defer></script><script src="js/notifications.js?v=notifications-7" defer></script></body></html>
 
