@@ -2298,10 +2298,18 @@
     });
   };
 
+  let codFeeAdminRpcUnavailable=false;
   const loadMarketplaceOrders = async ({refreshActiveDetail=false}={}) => {
-    const {data,error}=await db.rpc('admin_list_marketplace_orders');
-    if(error) throw error;
-    state.marketplaceOrders=Array.isArray(data)?data:[];
+    const [ordersResult,codQueueResult]=await Promise.all([
+      db.rpc('admin_list_marketplace_orders'),
+      codFeeAdminRpcUnavailable?Promise.resolve({data:[],error:null}):db.rpc('admin_list_cod_delivery_fee_queue')
+    ]);
+    if(ordersResult.error)throw ordersResult.error;
+    if(codQueueResult.error && (codQueueResult.error.code==='PGRST202'||codQueueResult.error.status===404))codFeeAdminRpcUnavailable=true;
+    const codFeeQueue=new Map((Array.isArray(codQueueResult.data)?codQueueResult.data:[])
+      .map(item=>[item.order_id,item.status]));
+    state.marketplaceOrders=(Array.isArray(ordersResult.data)?ordersResult.data:[])
+      .map(order=>({...order,cod_fee_status:codFeeQueue.get(order.id)||'not_required'}));
     renderMarketplaceOrders();
 
     if(refreshActiveDetail && state.activeMarketplaceOrderId && !$('#adminOrderDetailPanel')?.hidden){
@@ -2546,7 +2554,7 @@
     const orders=filteredMarketplaceOrders();
 
     $('#adminOrderTotal').textContent=all.length;
-    $('#adminOrderPaymentPending').textContent=all.filter((o)=>o.payment_status==='submitted').length;
+    $('#adminOrderPaymentPending').textContent=all.filter((o)=>o.payment_status==='submitted'||o.cod_fee_status==='submitted').length;
     $('#adminOrderWithRider').textContent=all.filter((o)=>o.order_status==='with_rider').length;
     $('#adminOrderDelivered').textContent=all.filter((o)=>o.order_status==='delivered').length;
     updateSidebarActionCounts();
@@ -2555,11 +2563,11 @@
       <td><strong>${escapeHtml(o.order_reference)}</strong><small>${formatDate(o.created_at,true)}</small></td>
       <td><strong>${escapeHtml(o.receiver_name)}</strong><small>${escapeHtml(o.customer_email||o.contact_number||'')}</small></td>
       <td><strong>${formatMoney(o.grand_total_kes)}</strong><small>${Number(o.seller_count||0)} Seller(s)</small></td>
-      <td><span class="status-chip">${escapeHtml(paymentStatusLabel(o.payment_status))}</span><small>${escapeHtml(String(o.payment_method||'').replaceAll('_',' '))}</small></td>
+      <td><span class="status-chip">${escapeHtml(paymentStatusLabel(o.payment_status))}</span><small>${escapeHtml(String(o.payment_method||'').replaceAll('_',' '))}</small>${o.cod_fee_status==='submitted'?'<small>⚠ COD delivery fee awaiting verification</small>':o.cod_fee_status==='awaiting_payment'?'<small>Delivery fee payment required</small>':''}</td>
       <td><span class="status-chip">${escapeHtml(orderStatusLabel(o.order_status))}</span></td>
       <td><small class="order-payment-proof">${escapeHtml(o.payment_message||'No payment message')}</small></td>
       <td class="settlement-admin-actions admin-order-row-actions">
-        <button type="button" data-open-marketplace-order="${escapeHtml(o.id)}">View Order</button>
+        <button type="button" data-open-marketplace-order="${escapeHtml(o.id)}">${o.cod_fee_status==='submitted'?'Review COD Fee':'View Order'}</button>
         ${o.payment_status==='submitted' && adminHas('orders.payment_verify')
           ? '<button type="button" data-order-payment="paid" data-order-id="'+escapeHtml(o.id)+'">Verify Paid</button><button type="button" class="danger" data-order-payment="reject" data-order-id="'+escapeHtml(o.id)+'">Reject</button>'
           : ''}
@@ -2883,7 +2891,7 @@
     ctx.font='700 20px Arial, sans-serif';
     ctx.fillText(codDue?'COLLECT ON DELIVERY':'PAYMENT STATUS',72,y+16);
     ctx.font='700 30px Arial, sans-serif';
-    ctx.fillText(codDue?formatMoney(order.grand_total_kes):paymentStatusLabel(order.payment_status).toUpperCase(),72,y+46);
+    ctx.fillText(codDue?formatMoney(codAmountToCollect(order)):paymentStatusLabel(order.payment_status).toUpperCase(),72,y+46);
     ctx.fillStyle='#394960';
     ctx.font='18px Arial, sans-serif';
     ctx.textAlign='right';
@@ -2965,6 +2973,12 @@
     return canvas;
   };
 
+  const codAmountToCollect=(order={})=>{
+    const external=Number(order.external_amount_due_kes??order.grand_total_kes??0);
+    const alreadyPaid=order.payment_method==='cod' && order.cod_delivery_fee_status==='verified'
+      ? Math.min(external,Number(order.delivery_fee_kes||0)):0;
+    return Math.max(0,Math.round((external-alreadyPaid)*100)/100);
+  };
   const orderSummaryPaymentDisplay = (order={}) => {
     const status=String(order.payment_status||'').toLowerCase();
     const pointsUsed=Number(order.reward_points_redeemed_kes||0);
@@ -2975,7 +2989,7 @@
         primary:'CASH ON DELIVERY',
         secondary:method==='PAYMENT'?'COD':method,
         amountLabel:'AMOUNT TO COLLECT',
-        amount:formatMoney(order.external_amount_due_kes??order.grand_total_kes)
+        amount:formatMoney(codAmountToCollect(order))
       };
     }
     if(status==='cod_paid'){
@@ -3396,7 +3410,7 @@
             '<div class="receipt-money-row receipt-total"><span>TOTAL</span><strong>'+escapeHtml(formatMoney(order.grand_total_kes))+'</strong></div>'+
             '<div class="receipt-money-row"><span>Method</span><strong>'+escapeHtml(String(order.payment_method||'').replaceAll('_',' ').toUpperCase())+'</strong></div>'+
             '<div class="receipt-money-row"><span>Status</span><strong>'+escapeHtml(codDue?'COLLECT ON DELIVERY':paymentStatusLabel(order.payment_status).toUpperCase())+'</strong></div>'+
-            (codDue?'<div class="receipt-money-row"><span>Amount to collect</span><strong>'+escapeHtml(formatMoney(order.external_amount_due_kes??order.grand_total_kes))+'</strong></div>':'')+
+            (codDue?'<div class="receipt-money-row"><span>Amount to collect</span><strong>'+escapeHtml(formatMoney(codAmountToCollect(order)))+'</strong></div>':'')+
           '</section>'+
           '<hr class="receipt-rule">'+
           '<section class="receipt-section receipt-meta">'+
@@ -3484,7 +3498,7 @@
     const readiness=sellerReadiness(sellers);
     const codNeedsCollection=String(order.payment_method||'').toLowerCase()==='cod'
       && !['cod_paid','verified_paid'].includes(String(order.payment_status||'').toLowerCase());
-    const codInstruction='COD: Collect and confirm '+formatMoney(order.external_amount_due_kes??order.grand_total_kes)+' before handing over the order to the customer.'+(Number(order.reward_points_redeemed_kes||0)>0?' LEOGO Points already covered '+formatMoney(order.reward_points_redeemed_kes)+'.':'');
+    const codInstruction='COD: Collect and confirm '+formatMoney(codAmountToCollect(order))+' before handing over the order to the customer.'+(Number(order.reward_points_redeemed_kes||0)>0?' LEOGO Points already covered '+formatMoney(order.reward_points_redeemed_kes)+'.':'');
 
     panel.hidden=false;
     if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=false;
@@ -3502,6 +3516,19 @@
       '<div class="admin-order-info-row admin-order-address-row"><small>Destination</small><strong>'+escapeHtml(orderDeliveryAddress(order))+'</strong></div>'+
       (locationUrl?'<a class="admin-order-location-link" href="'+escapeHtml(locationUrl)+'" target="_blank" rel="noopener">Open customer location pin ↗</a>':'');
 
+    const fee=detail.cod_delivery_fee||null;
+    const feeReviewAvailable=String(order.payment_method)==='cod' && Number(order.delivery_fee_kes||0)>0 && fee && fee.status!=='not_required';
+    const feeReviewActions=feeReviewAvailable && fee.status==='submitted' && adminHas('orders.payment_verify')
+      ? '<div class="admin-order-payment-actions"><button type="button" data-cod-fee-review="approve">Verify COD Delivery Fee</button><button type="button" class="danger" data-cod-fee-review="reject">Reject Fee Proof</button></div>'
+      : '';
+    const feeReviewHtml=feeReviewAvailable
+      ? '<div class="admin-order-payment-proof-full"><strong>COD delivery fee — '+escapeHtml(String(fee.status).replaceAll('_',' '))+'</strong>'+
+          '<p>Delivery fee: '+formatMoney(fee.amount_kes)+' · separate from the COD balance payable at handover.</p>'+
+          '<p>Customer fee reference: '+escapeHtml(fee.reference||'Not submitted')+'</p>'+
+          (fee.review_notes?'<p>Review notes: '+escapeHtml(fee.review_notes)+'</p>':'')+
+          (fee.status!=='verified'?'<p>Rider assignment / dispatch must wait until this fee is verified.</p>':'')+
+          feeReviewActions+'</div>'
+      : '';
     const paymentActions=order.payment_status==='submitted' && adminHas('orders.payment_verify')
       ? '<div class="admin-order-payment-actions"><button type="button" data-detail-payment="paid">Verify Paid</button><button type="button" class="danger" data-detail-payment="reject">Reject Payment</button></div>'
       : '';
@@ -3522,7 +3549,7 @@
           : '')+
       '</div>'+
       (order.payment_verified_at?'<p class="admin-order-verified-note">Verified '+escapeHtml(formatDate(order.payment_verified_at,true))+(order.payment_verified_by_name?' by '+escapeHtml(order.payment_verified_by_name):'')+'</p>':'')+
-      paymentActions;
+      paymentActions+feeReviewHtml;
 
     $('#adminOrderItemList').innerHTML=items.length?items.map((item)=>{
       const imageUrl=orderItemMediaUrl(item.variant_image_path||item.product_image_path);
@@ -3622,8 +3649,24 @@
             : '<div class="admin-order-no-rider"><strong>No active LEOGO rider account exists yet.</strong><p>Create a Rider from Staff Management and the Rider will become selectable here automatically.</p><button type="button" disabled>Assign Rider</button></div>'
       );
 
-    $$('[data-detail-payment]').forEach((button)=>button.addEventListener('click',()=>{
+    $('[data-detail-payment]').forEach((button)=>button.addEventListener('click',()=>{
       verifyMarketplaceOrderPayment(button,order.id,button.dataset.detailPayment==='paid');
+    }));
+    $('[data-cod-fee-review]').forEach((button)=>button.addEventListener('click',async()=>{
+      if(!adminHas('orders.payment_verify'))return;
+      const approved=button.dataset.codFeeReview==='approve';
+      const notes=approved?'':window.prompt('Reason for COD delivery fee rejection:','');
+      if(!approved && (!notes||notes.trim().length<3))return;
+      if(approved && !window.confirm('Confirm the full COD delivery fee arrived in the official LEOGO account? This is NOT verification of the remaining COD balance.'))return;
+      await withButtonLock(button,approved?'Verifying fee…':'Rejecting fee…',async()=>{
+        const {error}=await db.rpc('admin_review_cod_delivery_fee',{
+          p_order_id:order.id,p_verified:approved,p_notes:notes||null
+        });
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        await Promise.all([loadMarketplaceOrders({refreshActiveDetail:false}),loadAuditLog()]);
+        await loadMarketplaceOrderDetail(order.id,{scroll:false});
+        globalStatus(approved?'Delivery fee verified — rider assignment now permitted.':'Delivery fee proof rejected; customer may resubmit.');
+      });
     }));
 
 
@@ -3695,7 +3738,7 @@
     const order=detail?.order;
     const box=$('#adminRiderInstructions');
     if(!order||!box) return;
-    const instruction='COD: Collect and confirm the full '+formatMoney(order.grand_total_kes)+' payment before handing over the order to the customer.';
+    const instruction='COD: Collect and confirm '+formatMoney(codAmountToCollect(order))+' remaining COD payment before handing over the order to the customer.';
     const current=box.value.trim();
     box.value=current
       ? (current.includes(instruction)?current:current+'\n'+instruction)
@@ -3764,11 +3807,12 @@
 
     renderMarketplaceOrders();
 
-    const [detailResult,riderResult,sortingResult,handoverResult]=await Promise.all([
+    const [detailResult,riderResult,sortingResult,handoverResult,codFeeResult]=await Promise.all([
       db.rpc('admin_get_marketplace_order_detail',{p_order_id:orderId}),
       db.rpc('admin_list_riders'),
       db.rpc('admin_get_delivery_sorting_state',{p_order_id:orderId}),
-      db.rpc('admin_get_pickup_handover_evidence',{p_order_id:orderId})
+      db.rpc('admin_get_pickup_handover_evidence',{p_order_id:orderId}),
+      db.rpc('admin_get_cod_delivery_fee_status',{p_order_id:orderId})
     ]);
     if(loadToken!==state.orderDetailLoadToken || state.activeMarketplaceOrderId!==orderId) return;
     if(detailResult.error){
@@ -3780,6 +3824,7 @@
 
     state.activeMarketplaceOrderDetail={
       ...(detailResult.data||{}),
+      cod_delivery_fee:codFeeResult.error?null:(codFeeResult.data||null),
       pickup_station_handover:handoverResult.error?null:(handoverResult.data||null),
       pickup_station_handover_error:handoverResult.error?friendlyError(handoverResult.error):''
     };
@@ -3788,6 +3833,11 @@
         ...state.activeMarketplaceOrderDetail.delivery,
         ...sortingResult.data
       };
+    }
+    // Use fee verification only for handover display; preserve gross order totals.
+    if(state.activeMarketplaceOrderDetail.order){
+      state.activeMarketplaceOrderDetail.order.cod_delivery_fee_status=
+        state.activeMarketplaceOrderDetail.cod_delivery_fee?.status||'not_required';
     }
     renderMarketplaceOrderDetail();
     await renderPickupStationHandoverEvidence({loadToken,orderId});

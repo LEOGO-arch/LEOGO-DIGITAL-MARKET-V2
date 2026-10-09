@@ -1530,6 +1530,8 @@
   const checkoutWalletRewards = document.getElementById('checkoutWalletRewards');
   const paymentRuleNotice = checkoutPaymentStep?.querySelector('[data-admin-managed="cod-payment-rules"]');
   const paymentOrderSummary = checkoutPaymentStep?.querySelector('.payment-order-summary');
+  const codOrderFirstNote = document.getElementById('codOrderFirstNote');
+  const codFeeCreatedOrderForm = document.getElementById('codFeeCreatedOrderForm');
   const lppDepositForm = document.getElementById('lppDepositForm');
   const standardPaymentProof = document.getElementById('standardPaymentProof');
   const standardPaymentActions = document.getElementById('standardPaymentActions');
@@ -1562,6 +1564,8 @@
   const checkoutPaymentDestinationInstructions = document.getElementById('checkoutPaymentDestinationInstructions');
   const copyCheckoutPaymentDestination = document.getElementById('copyCheckoutPaymentDestination');
   let selectedCheckoutPayment = '';
+  let codOrderFirstReady = false;
+  let codFeeStatusRpcUnavailable = false;
   let previewOrderReference = '';
   let marketplacePaymentDestination = null;
 
@@ -1629,6 +1633,7 @@
       if(standardPaymentProof)standardPaymentProof.hidden=true;
       if(checkoutPaymentDestination)checkoutPaymentDestination.hidden=true;
       if(paymentRuleNotice)paymentRuleNotice.hidden=true;
+      if(codOrderFirstNote)codOrderFirstNote.hidden=true;
       if(paymentOrderSummary)paymentOrderSummary.hidden=true;
       if(makeCheckoutOrder)makeCheckoutOrder.hidden=true;
       if(standardPaymentActions)standardPaymentActions.hidden=false;
@@ -1646,9 +1651,11 @@
 
     const isLipaPolePole=selectedCheckoutPayment==='lipapolepole';
     const isWallet=selectedCheckoutPayment==='wallet';
+    const isCodOrderFirst=selectedCheckoutPayment==='cod' && codOrderFirstReady && !cartHasSource('health_medicine');
     if(lppDepositForm)lppDepositForm.hidden=!isLipaPolePole;
     if(walletCheckoutPanel)walletCheckoutPanel.hidden=!isWallet;
-    if(standardPaymentProof)standardPaymentProof.hidden=isLipaPolePole||isWallet;
+    if(standardPaymentProof)standardPaymentProof.hidden=isLipaPolePole||isWallet||isCodOrderFirst;
+    if(codOrderFirstNote)codOrderFirstNote.hidden=!isCodOrderFirst;
     if(checkoutPaymentDestination)checkoutPaymentDestination.hidden=!['till','paybill'].includes(selectedCheckoutPayment);
     if(paymentRuleNotice)paymentRuleNotice.hidden=selectedCheckoutPayment!=='cod';
     if(paymentOrderSummary)paymentOrderSummary.hidden=false;
@@ -1664,6 +1671,7 @@
       const walletOrderTotal=document.getElementById('walletCheckoutOrderTotal');
       if(walletOrderTotal)walletOrderTotal.textContent=deliveryMoney(due);
     }else if(selectedCheckoutPayment==='cod'){
+      if(isCodOrderFirst && selectedPaymentStatus)selectedPaymentStatus.textContent='Order first · delivery fee verified before dispatch';
       paymentProofLabel.textContent='Paste M-Pesa message for the Transport & Parcel Delivery fee';
       markPaymentPaidLabel.textContent=checkoutPointsAppliedNumber()>0
         ? 'I confirm that I paid the required delivery fee first. my Shopping Voucher has been applied and I will pay the remaining COD amount on delivery.'
@@ -1832,6 +1840,16 @@
     field?.addEventListener('change', updateCheckoutReadiness);
   });
 
+  const checkCodOrderFirstCapability = async () => {
+    codOrderFirstReady = false;
+    if(!window.leogoAuth?.isAuthenticated?.()) return false;
+    try{
+      const {data,error}=await window.leogoAuth.client.rpc('customer_cod_order_first_ready');
+      codOrderFirstReady = !error && data === true;
+    }catch(_error){codOrderFirstReady=false;}
+    syncSelectedPaymentPresentation();
+    return codOrderFirstReady;
+  };
   continueToPayment?.addEventListener('click', async () => {
     if (!testCart.length) {
       openCustomerShell('cart');
@@ -1840,7 +1858,8 @@
     showCheckoutStep('payment');
     await Promise.all([
       loadMarketplacePaymentDestination(true),
-      loadCheckoutRewardPoints()
+      loadCheckoutRewardPoints(),
+      checkCodOrderFirstCapability()
     ]);
   });
   backToCheckoutDetails?.addEventListener('click', () => showCheckoutStep('details'));
@@ -1917,14 +1936,15 @@
       paymentStepStatus.textContent = 'For the remaining amount, use Till, Paybill or Cash on Delivery.';
       return;
     }
-    if (!mpesaPaymentMessage.value.trim()) {
+    const isCodOrderFirst = selectedCheckoutPayment==='cod' && codOrderFirstReady && !healthCheckout;
+    if (!isCodOrderFirst && !mpesaPaymentMessage.value.trim()) {
       paymentStepStatus.textContent = selectedCheckoutPayment === 'cod'
         ? 'Paste the M-Pesa confirmation for the Transport & Parcel Delivery fee.'
         : 'Paste the complete M-Pesa payment confirmation message for the remaining amount.';
       mpesaPaymentMessage.focus();
       return;
     }
-    if (!markPaymentPaid.checked) {
+    if (!isCodOrderFirst && !markPaymentPaid.checked) {
       paymentStepStatus.textContent = 'Tick the payment confirmation box before making the order.';
       markPaymentPaid.focus();
       return;
@@ -2004,7 +2024,7 @@
         p_location_link: document.getElementById('checkoutLocationLink')?.value.trim() || null,
         p_pickup_station_id: pickupStation?.id || null,
         p_payment_method: selectedCheckoutPayment,
-        p_payment_message: mpesaPaymentMessage.value.trim()
+        p_payment_message: isCodOrderFirst ? '' : mpesaPaymentMessage.value.trim()
       };
       const orderRequest=healthCheckout
         ? await window.leogoAuth.client.rpc('customer_create_health_medicine_order',{
@@ -2028,16 +2048,34 @@
 
       const actualPoints=Number(data?.reward_points_redeemed_kes||0);
       const actualDue=Number(data?.external_amount_due_kes??data?.grand_total_kes??0);
+      const feeAdvance=isCodOrderFirst?Math.min(actualDue,Math.max(0,Number(data?.delivery_fee_kes||0))):0;
+      const handoverDue=Math.max(0,Math.round((actualDue-feeAdvance)*100)/100);
       selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod'
-        ? 'COD — '+deliveryMoney(actualDue)+' remaining'
+        ? (isCodOrderFirst?'COD created · '+deliveryMoney(feeAdvance)+' fee to verify before dispatch · '+deliveryMoney(handoverDue)+' at handover':'COD — '+deliveryMoney(actualDue)+' remaining')
         : 'Payment submitted — '+deliveryMoney(actualDue)+' awaiting Admin verification';
-      paymentStepStatus.textContent = actualPoints>0
-        ? 'Order created successfully. '+deliveryMoney(actualPoints)+' from your Shopping Voucher was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
+      paymentStepStatus.textContent = isCodOrderFirst
+        ? 'Order created. Pay '+deliveryMoney(feeAdvance)+' delivery fee for LEOGO Admin to verify before rider assignment. Remaining COD on handover: '+deliveryMoney(handoverDue)+'.'
+        : actualPoints>0
+          ? 'Order created successfully. '+deliveryMoney(actualPoints)+' from your Shopping Voucher was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
         : healthCheckout
           ? 'Health & Medicine order created successfully and sent to the Health Partner.'
           : 'Order created successfully and sent to the Seller.';
 
       orderCreatedPanel.hidden = false;
+      if(codFeeCreatedOrderForm){
+        const requiresCodFee=isCodOrderFirst && Number(data?.delivery_fee_kes||0)>0;
+        codFeeCreatedOrderForm.hidden=!requiresCodFee;
+        codFeeCreatedOrderForm.dataset.codOrderId=requiresCodFee ? String(data.order_id||'') : '';
+        if(requiresCodFee){
+          const feeNode=document.getElementById('codFeeCreatedAmount');
+          if(feeNode)feeNode.textContent='Pay '+deliveryMoney(feeAdvance)+' delivery fee before your rider can be assigned. Remaining '+deliveryMoney(handoverDue)+' is collected at handover.';
+          const destinationNode=document.getElementById('codFeeCreatedDestination');
+          const destinationNumber=window.leogoPayments?.paymentNumber(marketplacePaymentDestination)||'';
+          if(destinationNode)destinationNode.textContent=destinationNumber
+            ? 'LEOGO '+(window.leogoPayments?.typeLabel(marketplacePaymentDestination)||'payment account')+': '+destinationNumber+' — use the Admin-assigned details only.'
+            : 'Ask LEOGO Customer Care for the current order-payment Till or Paybill before paying.';
+        }
+      }
       testCart = [];
       saveTestCart();
       if(healthPrescriptionFile)healthPrescriptionFile.value='';
@@ -2064,6 +2102,35 @@
       button.disabled = false;
       button.textContent = original;
     }
+  });
+
+  // Both the immediate order confirmation and My Activity submit through the same
+  // customer-owned RPC. A reference never marks the fee verified by itself.
+  document.addEventListener('submit',async (event)=>{
+    const form=event.target?.closest?.('form[data-cod-fee-form]');
+    if(!form)return;
+    event.preventDefault();
+    const orderId=form.dataset.codOrderId;
+    const reference=form.querySelector('[name="cod_fee_reference"]')?.value.trim()||'';
+    const status=form.querySelector('[data-cod-fee-feedback]');
+    const button=form.querySelector('[type="submit"]');
+    if(!orderId || reference.length<8){
+      if(status)status.textContent='Enter a valid payment reference for this COD order.';
+      return;
+    }
+    if(button)button.disabled=true;
+    if(status)status.textContent='Sending delivery fee reference to LEOGO Admin…';
+    try{
+      const {error}=await window.leogoAuth.client.rpc('customer_submit_cod_delivery_fee_reference',{
+        p_order_id:orderId,p_payment_reference:reference
+      });
+      if(error)throw error;
+      if(status)status.textContent='Reference submitted. Wait for LEOGO Admin verification before dispatch.';
+      form.querySelector('textarea')?.setAttribute('readonly','readonly');
+      await loadCustomerMarketplaceOrders();
+    }catch(error){
+      if(status)status.textContent=error?.message||'Delivery fee proof could not be submitted. Try again.';
+    }finally{if(button)button.disabled=false;}
   });
 
   const receiptEscape = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -3865,11 +3932,19 @@
     cancelled:'Cancelled'
   }[status] || String(status || '').replaceAll('_',' '));
 
+  const customerCodAmountToCollect=(order)=>{
+    const due=Number(order?.external_amount_due_kes??order?.grand_total_kes??0);
+    const feeAdvance=order?.cod_delivery_fee?.status==='verified'
+      ? Math.min(due,Number(order?.delivery_fee_kes||0)):0;
+    return Math.max(0,Math.round((due-feeAdvance)*100)/100);
+  };
   const customerPointsOrderSummaryHtml=(order)=>{
     const points=Number(order?.reward_points_redeemed_kes||0);
     if(points<=0)return '';
     const due=Number(order?.external_amount_due_kes??Math.max(0,Number(order?.grand_total_kes||0)-points));
-    return '<div class="customer-order-points-summary"><span><small>LEOGO Points used</small><strong>'+money(points)+'</strong></span><span><small>Other payment amount</small><strong>'+money(due)+'</strong></span></div>';
+    const codVerified=order.payment_method==='cod' && order.cod_delivery_fee?.status==='verified';
+    return '<div class="customer-order-points-summary"><span><small>LEOGO Points used</small><strong>'+money(points)+'</strong></span><span><small>Other payment amount</small><strong>'+money(due)+'</strong></span>'+
+      (codVerified?'<span><small>Already paid delivery fee</small><strong>'+money(Math.min(due,Number(order.delivery_fee_kes||0)))+'</strong></span><span><small>COD to collect at handover</small><strong>'+money(customerCodAmountToCollect(order))+'</strong></span>':'')+'</div>';
   };
 
   const customerOrderHistory = (order) => {
@@ -4078,6 +4153,24 @@
         ? receiptEscape(firstItem.product_name)+(firstItem.variant_name?' · '+receiptEscape(firstItem.variant_name):'')+' × '+Number(firstItem.quantity)+(orderItems.length>1?' · +'+(orderItems.length-1)+' more':'')
         : 'Order items';
       const completed=order.order_status==='delivered';
+      const fee=order.order_source==='health_medicine'?null:order.cod_delivery_fee;
+      const feeStatus=fee?.status||'not_required';
+      const codAccountNumber=window.leogoPayments?.paymentNumber(marketplacePaymentDestination)||'';
+      const codAccountType=window.leogoPayments?.typeLabel(marketplacePaymentDestination)||'LEOGO order account';
+      const codAccountInfo=codAccountNumber
+        ? '<p>Pay to '+receiptEscape(codAccountType)+': <strong>'+receiptEscape(codAccountNumber)+'</strong>. Use only this Admin-assigned account.</p>'
+        : '<p>Ask LEOGO Customer Care for the official order-payment Till or Paybill before sending money.</p>';
+      const feeForm=['awaiting_payment','rejected'].includes(feeStatus)
+        ? '<form class="cod-fee-activity-form" data-cod-fee-form data-cod-order-id="'+receiptEscape(order.id)+'">'+
+            '<strong>Pay '+money(fee.amount_kes)+' delivery fee before dispatch</strong>'+codAccountInfo+
+            (feeStatus==='rejected'?'<p>Earlier payment proof rejected: '+receiptEscape(fee.review_notes||'Please submit a valid payment reference.')+'</p>':'')+
+            '<label>Payment reference<textarea name="cod_fee_reference" rows="2" minlength="8" maxlength="600" required placeholder="Paste confirmed M-Pesa message"></textarea></label>'+
+            '<button type="submit">Submit fee for Admin verification</button><p data-cod-fee-feedback role="status"></p></form>'
+        : feeStatus==='submitted'
+          ? '<div class="cod-fee-activity-status">Delivery fee reference received. Awaiting LEOGO Admin verification before dispatch.</div>'
+          : feeStatus==='verified'
+            ? '<div class="cod-fee-activity-status">✓ Delivery fee verified — dispatch permitted when Seller is ready.</div>'
+            : '';
       const actionButtons=
         '<button type="button" class="customer-order-update-toggle" data-toggle-order-updates="'+receiptEscape(order.id)+'" aria-expanded="false">View Order Updates <span>⌄</span></button>'+
         (completed&&order.order_source!=='health_medicine'?'<button type="button" data-review-order="'+receiptEscape(order.id)+'">'+(orderHasProductReviews(order)?'Product Reviews':'Review Products')+'</button>'+
@@ -4089,7 +4182,7 @@
         '<div class="customer-order-compact-actions">'+actionButtons+'</div>'+
         '<div class="customer-order-expanded" data-order-expanded hidden>'+
           '<div class="customer-order-expanded-head"><span>ORDER DETAILS & UPDATES</span><small>'+customerOrderHistory(order).length+' updates</small></div>'+
-          '<ul>'+items+'</ul>'+customerPointsOrderSummaryHtml(order)+'<div class="customer-order-sellers">'+sellers+'</div>'+rider+
+          '<ul>'+items+'</ul>'+feeForm+customerPointsOrderSummaryHtml(order)+'<div class="customer-order-sellers">'+sellers+'</div>'+rider+
           '<div class="customer-order-history-wrap"><div class="customer-order-history-title"><span>ORDER HISTORY</span><strong>'+customerOrderHistory(order).length+' updates</strong></div>'+customerOrderTimelineHtml(order,false)+'</div>'+
           (completed&&order.order_source!=='health_medicine' ? customerReviewBoxHtml(order) : '')+
         '</div>'+
@@ -4117,10 +4210,12 @@
         return;
       }
 
-      const [marketResult,healthResult]=await Promise.all([
+      const [marketResult,healthResult,codFeeResult]=await Promise.all([
         client.rpc('customer_list_marketplace_orders_v3'),
-        client.rpc('customer_list_health_medicine_orders')
+        client.rpc('customer_list_health_medicine_orders'),
+        codFeeStatusRpcUnavailable?Promise.resolve({data:[],error:null}):client.rpc('customer_list_cod_delivery_fee_status')
       ]);
+      if(codFeeResult.error && (codFeeResult.error.code==='PGRST202'||codFeeResult.error.status===404))codFeeStatusRpcUnavailable=true;
       const error=marketResult.error||healthResult.error;
       if(error){
         console.error('LEOGO customer orders could not load:',error.message||error);
@@ -4134,7 +4229,17 @@
         }
         return;
       }
-      const marketRows=(Array.isArray(marketResult.data)?marketResult.data:[]).map((row)=>({...row,order_source:row.order_source||'marketplace'}));
+      // On the old backend the fee-status RPC does not exist; treat that as no
+      // order-first feature rather than interrupting existing customer orders.
+      const feeStates=new Map((Array.isArray(codFeeResult.data)?codFeeResult.data:[]).map(item=>[item.order_id,item]));
+      if(!marketplacePaymentDestination && [...feeStates.values()].some(item=>['awaiting_payment','rejected'].includes(item.status)) && window.leogoPayments){
+        const {data:feeAccount}=await window.leogoPayments.getDestination('marketplace_orders');
+        marketplacePaymentDestination=feeAccount||null;
+      }
+      const marketRows=(Array.isArray(marketResult.data)?marketResult.data:[]).map((row)=>({
+        ...row,order_source:row.order_source||'marketplace',
+        cod_delivery_fee:feeStates.get(row.id)||null
+      }));
       const healthRows=(Array.isArray(healthResult.data)?healthResult.data:[]).map((row)=>({
         ...row,
         order_source:'health_medicine',
