@@ -1415,6 +1415,10 @@
     const paymentPoints=document.getElementById('paymentPointsUsed');
     const paymentDue=document.getElementById('paymentAmountDue');
     const availableNode=document.getElementById('checkoutPointsAvailable');
+    const rewardsSummary=document.getElementById('checkoutRewardsSummary');
+    if(rewardsSummary)rewardsSummary.textContent=balance>0
+      ? 'Available Shopping Voucher: '+deliveryMoney(balance)+' · can be combined with an eligible payment'
+      : 'No Shopping Voucher available yet · view wallet rewards';
     const panel=document.getElementById('checkoutPointsPanel');
     if(appliedNode)appliedNode.textContent=deliveryMoney(applied);
     if(dueNode)dueNode.textContent=deliveryMoney(due);
@@ -1523,6 +1527,9 @@
   const backToCheckoutDetails = document.getElementById('backToCheckoutDetails');
   const paymentMethodButtons = customerShellModal?.querySelectorAll('[data-payment-method]');
   const walletCheckoutPanel = document.getElementById('walletCheckoutPanel');
+  const checkoutWalletRewards = document.getElementById('checkoutWalletRewards');
+  const paymentRuleNotice = checkoutPaymentStep?.querySelector('[data-admin-managed="cod-payment-rules"]');
+  const paymentOrderSummary = checkoutPaymentStep?.querySelector('.payment-order-summary');
   const lppDepositForm = document.getElementById('lppDepositForm');
   const standardPaymentProof = document.getElementById('standardPaymentProof');
   const standardPaymentActions = document.getElementById('standardPaymentActions');
@@ -1567,7 +1574,7 @@
     testCart.some((item) => cartItemSource(item)==='health_medicine' && item.requiresPrescription===true);
   const syncHealthPrescriptionPanel = () => {
     const required = healthCartRequiresPrescription();
-    if (healthPrescriptionPanel) healthPrescriptionPanel.hidden = !required;
+    if (healthPrescriptionPanel) healthPrescriptionPanel.hidden = !required || !selectedCheckoutPayment;
     if (healthPrescriptionFile) {
       healthPrescriptionFile.required = required;
       if (!required && healthPrescriptionFile.value) healthPrescriptionFile.value = '';
@@ -1619,10 +1626,15 @@
     if(!selectedCheckoutPayment){
       if(lppDepositForm)lppDepositForm.hidden=true;
       if(walletCheckoutPanel)walletCheckoutPanel.hidden=true;
-      if(standardPaymentProof)standardPaymentProof.hidden=false;
+      if(standardPaymentProof)standardPaymentProof.hidden=true;
+      if(checkoutPaymentDestination)checkoutPaymentDestination.hidden=true;
+      if(paymentRuleNotice)paymentRuleNotice.hidden=true;
+      if(paymentOrderSummary)paymentOrderSummary.hidden=true;
+      if(makeCheckoutOrder)makeCheckoutOrder.hidden=true;
       if(standardPaymentActions)standardPaymentActions.hidden=false;
       if(selectedPaymentLabel)selectedPaymentLabel.textContent='Not selected';
       if(selectedPaymentStatus)selectedPaymentStatus.textContent='Waiting';
+      syncHealthPrescriptionPanel();
       return;
     }
 
@@ -1637,11 +1649,18 @@
     if(lppDepositForm)lppDepositForm.hidden=!isLipaPolePole;
     if(walletCheckoutPanel)walletCheckoutPanel.hidden=!isWallet;
     if(standardPaymentProof)standardPaymentProof.hidden=isLipaPolePole||isWallet;
-    if(standardPaymentActions)standardPaymentActions.hidden=isLipaPolePole||isWallet;
+    if(checkoutPaymentDestination)checkoutPaymentDestination.hidden=!['till','paybill'].includes(selectedCheckoutPayment);
+    if(paymentRuleNotice)paymentRuleNotice.hidden=selectedCheckoutPayment!=='cod';
+    if(paymentOrderSummary)paymentOrderSummary.hidden=false;
+    if(makeCheckoutOrder)makeCheckoutOrder.hidden=isLipaPolePole||isWallet;
+    if(standardPaymentActions)standardPaymentActions.hidden=false; // Keep Back accessible in all modes.
+    if(isWallet && checkoutWalletRewards)checkoutWalletRewards.open=true;
+    syncHealthPrescriptionPanel();
 
     if(isLipaPolePole){
       openLppDepositForm();
     }else if(isWallet){
+      if(selectedPaymentStatus)selectedPaymentStatus.textContent='Wallet cash checkout pending activation · vouchers remain available';
       const walletOrderTotal=document.getElementById('walletCheckoutOrderTotal');
       if(walletOrderTotal)walletOrderTotal.textContent=deliveryMoney(due);
     }else if(selectedCheckoutPayment==='cod'){
@@ -1665,7 +1684,10 @@
     const requiredType = selectedCheckoutPayment === 'till' ? 'mpesa_till' : 'mpesa_paybill';
     if (marketplacePaymentDestination?.account_type === requiredType) return;
     selectedCheckoutPayment = '';
-    paymentMethodButtons?.forEach((item) => item.classList.remove('active'));
+    paymentMethodButtons?.forEach((item) => {
+      item.classList.remove('active');
+      item.setAttribute('aria-pressed','false');
+    });
     if (selectedPaymentLabel) selectedPaymentLabel.textContent = 'Not selected';
     if (selectedPaymentStatus) selectedPaymentStatus.textContent = 'Waiting';
   };
@@ -1719,6 +1741,7 @@
     if (copyCheckoutPaymentDestination) copyCheckoutPaymentDestination.disabled = !number;
 
     clearUnavailableMarketplaceSelection();
+    syncSelectedPaymentPresentation();
   };
 
   const loadMarketplacePaymentDestination = async (force = false) => {
@@ -1745,7 +1768,9 @@
     if (unavailable && selectedCheckoutPayment === 'cod') {
       selectedCheckoutPayment = '';
       codButton?.classList.remove('active');
-      selectedPaymentLabel.textContent = 'Not selected';
+      codButton?.setAttribute('aria-pressed','false');
+      if(paymentStepStatus)paymentStepStatus.textContent='Cash on Delivery is not available for this order total. Choose another payment method.';
+      syncSelectedPaymentPresentation();
     }
   };
 
@@ -1827,7 +1852,10 @@
         return;
       }
       selectedCheckoutPayment = button.dataset.paymentMethod;
-      paymentMethodButtons.forEach((item) => item.classList.toggle('active', item === button));
+      paymentMethodButtons.forEach((item) => {
+        item.classList.toggle('active', item === button);
+        item.setAttribute('aria-pressed', String(item === button));
+      });
       paymentStepStatus.textContent = '';
       syncSelectedPaymentPresentation();
     });
