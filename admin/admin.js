@@ -877,6 +877,7 @@
       [loadPaymentSettings, () => adminHas('payments.manage')],
       [loadOrderSettings, () => adminHas('settings.manage') || adminHas('fees.manage')],
       [loadLipaPolePoleSettings, () => adminHas('settings.manage') || adminHas('fees.manage')],
+      [loadAdminLppAccounts, () => adminHas('orders.read') || adminHas('orders.payment_verify') || adminHas('approvals.manage')],
       [loadPartnerSubscriptionSettings, () => adminHas('settings.manage') || adminHas('fees.manage')],
       [loadPickupStations, () => adminHas('orders.read') || adminHas('delivery.manage')],
       [loadWalletSettings, () => adminHas('approvals.read') || adminHas('fees.manage')],
@@ -4743,6 +4744,181 @@
     });
   };
 
+  let adminLppAccounts=[];
+
+  const adminLppStatusLabel=(value)=>({
+    deposit_pending:'Deposit pending',active:'Active',fully_paid:'Paid in full',overdue:'Overdue',
+    cancellation_pending:'Cancellation pending',cancelled:'Cancelled',refund_pending:'Refund pending',refunded:'Refunded'
+  }[value]||String(value||'').replaceAll('_',' '));
+
+  const renderAdminLppAccounts=()=>{
+    const body=$('#adminLppAccountBody');if(!body)return;
+    const search=String($('#adminLppSearch')?.value||'').trim().toLowerCase();
+    const statusFilter=$('#adminLppStatusFilter')?.value||'all';
+    const rows=adminLppAccounts.filter((a)=>{
+      const matchesStatus=statusFilter==='all'||a.status===statusFilter;
+      const hay=[a.account_reference,a.customer_email,a.receiver_name,a.contact_number,a.seller_name,a.product_name,a.variant_name]
+        .filter(Boolean).join(' ').toLowerCase();
+      return matchesStatus&&(!search||hay.includes(search));
+    });
+
+    const pendingCount=adminLppAccounts.reduce((sum,a)=>sum+(Array.isArray(a.payments)?a.payments.filter(p=>p.status==='pending').length:0),0);
+    const set=(id,value)=>{const node=$(id);if(node)node.textContent=Number(value||0).toLocaleString('en-KE');};
+    set('#adminLppTotal',adminLppAccounts.length);
+    set('#adminLppPendingPayments',pendingCount);
+    set('#adminLppCancellationPending',adminLppAccounts.filter(a=>a.status==='cancellation_pending').length);
+    set('#adminLppOverdue',adminLppAccounts.filter(a=>a.status==='overdue').length);
+    set('#adminLppRefundPending',adminLppAccounts.filter(a=>a.refund_status==='pending').length);
+
+    if(!rows.length){
+      body.innerHTML='<tr><td colspan="6">No Lipa Pole Pole accounts match this filter.</td></tr>';
+      return;
+    }
+
+    body.innerHTML=rows.map((a)=>{
+      const payments=Array.isArray(a.payments)?a.payments:[];
+      const pending=payments.filter(p=>p.status==='pending');
+      const paymentActions=pending.map((p)=>`
+        <div class="admin-inline-actions lpp-admin-payment-action">
+          <small>${escapeHtml(p.payment_type==='deposit'?'First deposit':'Instalment')} · ${formatMoney(p.amount_kes)} · ${escapeHtml(p.payment_reference||'')}</small>
+          <button type="button" data-admin-lpp-payment="approve" data-payment-id="${escapeHtml(p.id)}">Verify</button>
+          <button type="button" class="danger" data-admin-lpp-payment="reject" data-payment-id="${escapeHtml(p.id)}">Reject</button>
+        </div>`).join('');
+
+      let accountActions='';
+      if(a.status==='cancellation_pending'){
+        accountActions+=`<div class="admin-inline-actions"><button type="button" data-admin-lpp-cancel="approve" data-account-id="${escapeHtml(a.id)}">Approve Cancellation</button><button type="button" class="danger" data-admin-lpp-cancel="decline" data-account-id="${escapeHtml(a.id)}">Decline</button></div>`;
+      }
+      if(a.status==='overdue'){
+        accountActions+=`<div class="admin-inline-actions"><button type="button" data-admin-lpp-overdue="extend" data-account-id="${escapeHtml(a.id)}">Extend Deadline</button><button type="button" class="danger" data-admin-lpp-overdue="refund" data-account-id="${escapeHtml(a.id)}">Close & Refund</button></div>`;
+      }
+      if(a.refund_status==='pending'){
+        accountActions+=`<div class="admin-inline-actions"><button type="button" data-admin-lpp-refund data-account-id="${escapeHtml(a.id)}">Mark Refund Paid</button></div>`;
+      }
+      if(a.marketplace_order_id){
+        accountActions+=`<small>✓ Fulfilment order created</small>`;
+      }
+      if(!paymentActions&&!accountActions) accountActions='<small>No action required</small>';
+
+      return `<tr>
+        <td><strong>${escapeHtml(a.account_reference||'')}</strong><small>${formatDate(a.opened_at,true)}</small></td>
+        <td><strong>${escapeHtml(a.receiver_name||a.customer_email||'Customer')}</strong><small>${escapeHtml(a.customer_email||'')}</small><small>${escapeHtml(a.seller_name||'Seller')}</small></td>
+        <td><strong>${escapeHtml(a.product_name||'')}</strong><small>${escapeHtml(a.variant_name||'')}${a.quantity?' · Qty '+escapeHtml(a.quantity):''}</small></td>
+        <td><strong>${formatMoney(a.approved_paid_kes)} / ${formatMoney(a.total_payable_kes)}</strong><small>Pending: ${formatMoney(a.pending_paid_kes)} · Balance: ${formatMoney(a.balance_kes)}</small></td>
+        <td><strong>${escapeHtml(adminLppStatusLabel(a.status))}</strong><small>Due ${formatDate(a.deadline_at,false)}</small>${a.refund_status==='pending'?'<small>Refund due: '+formatMoney(a.refund_due_kes)+'</small>':''}</td>
+        <td>${paymentActions}${accountActions}</td>
+      </tr>`;
+    }).join('');
+  };
+
+  const loadAdminLppAccounts=async()=>{
+    if(!adminHas('orders.read')&&!adminHas('orders.payment_verify')&&!adminHas('approvals.manage'))return [];
+    const {data,error}=await db.rpc('admin_list_lipa_pole_pole_accounts');
+    if(error)throw error;
+    adminLppAccounts=Array.isArray(data)?data:[];
+    renderAdminLppAccounts();
+    return adminLppAccounts;
+  };
+
+  const refreshAdminLppOperations=async(statusMessage='')=>{
+    try{
+      await loadAdminLppAccounts();
+      if(statusMessage)setFormStatus($('#adminLppOperationsStatus'),statusMessage,'success');
+    }catch(error){
+      setFormStatus($('#adminLppOperationsStatus'),friendlyError(error),'error');
+      throw error;
+    }
+  };
+
+  const reviewAdminLppPayment=async(button)=>{
+    const approve=button.dataset.adminLppPayment==='approve';
+    let notes=null;
+    if(!approve){
+      notes=window.prompt('Why is this Lipa Pole Pole payment being rejected?','')||'';
+      if(notes.trim().length<3)return;
+    }else if(!window.confirm('Verify this M-Pesa Lipa Pole Pole payment? Only verified payments reduce the customer balance.'))return;
+
+    await withButtonLock(button,approve?'Verifying…':'Rejecting…',async()=>{
+      const {data,error}=await db.rpc('admin_review_lipa_pole_pole_payment',{
+        p_payment_id:button.dataset.paymentId,
+        p_approve:approve,
+        p_notes:notes||null
+      });
+      if(error)throw error;
+      await Promise.all([loadAdminLppAccounts(),loadMarketplaceOrders().catch(()=>null),loadAuditLog().catch(()=>null)]);
+      setFormStatus(
+        $('#adminLppOperationsStatus'),
+        approve
+          ? (data?.marketplace_order_id?'Payment verified. Account is fully paid and has entered normal Seller fulfilment.':'Payment verified and customer balance updated.')
+          : 'Payment rejected and customer notified.',
+        'success'
+      );
+    }).catch((error)=>setFormStatus($('#adminLppOperationsStatus'),friendlyError(error),'error'));
+  };
+
+  const reviewAdminLppCancellation=async(button)=>{
+    const approve=button.dataset.adminLppCancel==='approve';
+    let notes='';
+    if(approve){
+      notes=window.prompt('Optional Admin note for this cancellation/refund:','')||'';
+      if(!window.confirm('Approve this Lipa Pole Pole cancellation? Reserved stock will be returned and the configured deduction will be applied to verified payments.'))return;
+    }else{
+      notes=window.prompt('Reason for declining cancellation:','')||'';
+      if(notes.trim().length<3)return;
+    }
+    await withButtonLock(button,approve?'Approving…':'Declining…',async()=>{
+      const {data,error}=await db.rpc('admin_review_lipa_pole_pole_cancellation',{
+        p_account_id:button.dataset.accountId,p_approve:approve,p_notes:notes||null
+      });
+      if(error)throw error;
+      await Promise.all([loadAdminLppAccounts(),loadCatalogue().catch(()=>null),loadAuditLog().catch(()=>null)]);
+      setFormStatus($('#adminLppOperationsStatus'),approve
+        ? 'Cancellation approved. Refund due: '+formatMoney(data?.refund_due_kes||0)+'.'
+        : 'Cancellation declined and account restored.','success');
+    }).catch((error)=>setFormStatus($('#adminLppOperationsStatus'),friendlyError(error),'error'));
+  };
+
+  const resolveAdminLppOverdue=async(button)=>{
+    const action=button.dataset.adminLppOverdue;
+    let newDeadline=null;
+    let notes='';
+    if(action==='extend'){
+      const date=window.prompt('New payment deadline (YYYY-MM-DD):','')||'';
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;
+      newDeadline=date+'T23:59:59+03:00';
+      notes=window.prompt('Optional extension note:','')||'';
+      if(!window.confirm('Extend this overdue Lipa Pole Pole account? The configured overdue interest will be added to the payable balance.'))return;
+    }else{
+      notes=window.prompt('Optional overdue-refund note:','')||'';
+      if(!window.confirm('Close this overdue account by refund? Reserved stock will be returned and the configured overdue refund deduction will apply.'))return;
+    }
+
+    await withButtonLock(button,action==='extend'?'Extending…':'Closing…',async()=>{
+      const {data,error}=await db.rpc('admin_resolve_lipa_pole_pole_overdue',{
+        p_account_id:button.dataset.accountId,p_action:action,p_new_deadline:newDeadline,p_notes:notes||null
+      });
+      if(error)throw error;
+      await Promise.all([loadAdminLppAccounts(),loadCatalogue().catch(()=>null),loadAuditLog().catch(()=>null)]);
+      setFormStatus($('#adminLppOperationsStatus'),action==='extend'
+        ? 'Deadline extended. Overdue charge added: '+formatMoney(data?.overdue_charge_kes||0)+'.'
+        : 'Overdue account closed. Refund due: '+formatMoney(data?.refund_due_kes||0)+'.','success');
+    }).catch((error)=>setFormStatus($('#adminLppOperationsStatus'),friendlyError(error),'error'));
+  };
+
+  const markAdminLppRefundPaid=async(button)=>{
+    const reference=window.prompt('Enter the M-Pesa/bank refund reference:','')||'';
+    if(reference.trim().length<3)return;
+    if(!window.confirm('Confirm this Lipa Pole Pole refund has actually been paid to the customer?'))return;
+    await withButtonLock(button,'Saving…',async()=>{
+      const {error}=await db.rpc('admin_mark_lipa_pole_pole_refund_paid',{
+        p_account_id:button.dataset.accountId,p_refund_reference:reference.trim()
+      });
+      if(error)throw error;
+      await Promise.all([loadAdminLppAccounts(),loadAuditLog().catch(()=>null)]);
+      setFormStatus($('#adminLppOperationsStatus'),'Refund marked paid and customer notified.','success');
+    }).catch((error)=>setFormStatus($('#adminLppOperationsStatus'),friendlyError(error),'error'));
+  };
+
   const partnerSubscriptionLabel=(value)=>({premium:'Premium Partner',seller:'Seller',service_provider:'Service Provider',cyber:'Cyber',accommodation:'Accommodation',transport:'Transporter'}[value]||value);
   const loadPartnerSubscriptionSettings=async()=>{
     const {data,error}=await db.rpc('admin_list_partner_subscription_settings');
@@ -7078,7 +7254,10 @@
       loadDataCleanupOverview().catch((error)=>setFormStatus($('#dataCleanupStatus'),friendlyError(error),'error'));
     }
     if (tab === 'orders') loadOrderSettings().catch((error)=>setFormStatus($('#orderSettingsStatus'),friendlyError(error),'error'));
-    if (tab === 'lipa') loadLipaPolePoleSettings().catch((error)=>setFormStatus($('#lipaPolePoleSettingsStatus'),friendlyError(error),'error'));
+    if (tab === 'lipa') Promise.all([
+      loadLipaPolePoleSettings(),
+      loadAdminLppAccounts()
+    ]).catch((error)=>setFormStatus($('#adminLppOperationsStatus'),friendlyError(error),'error'));
   };
   const openSystemSettingsCard=(target)=>{
     const scrollTo=(selector)=>window.setTimeout(()=>$(selector)?.scrollIntoView({behavior:'smooth',block:'start'}),80);
@@ -7526,6 +7705,19 @@
     $('#businessSettingsForm').addEventListener('submit', saveBusinessSettings);
     $('#orderSettingsForm')?.addEventListener('submit', saveOrderSettings);
     $('#lipaPolePoleSettingsForm')?.addEventListener('submit', saveLipaPolePoleSettings);
+    $('#refreshAdminLppAccounts')?.addEventListener('click',(event)=>withButtonLock(event.currentTarget,'Refreshing…',()=>refreshAdminLppOperations('Lipa Pole Pole accounts refreshed.')));
+    $('#adminLppSearch')?.addEventListener('input',renderAdminLppAccounts);
+    $('#adminLppStatusFilter')?.addEventListener('change',renderAdminLppAccounts);
+    $('#adminLppAccountBody')?.addEventListener('click',(event)=>{
+      const payment=event.target.closest('[data-admin-lpp-payment]');
+      if(payment){reviewAdminLppPayment(payment);return;}
+      const cancellation=event.target.closest('[data-admin-lpp-cancel]');
+      if(cancellation){reviewAdminLppCancellation(cancellation);return;}
+      const overdue=event.target.closest('[data-admin-lpp-overdue]');
+      if(overdue){resolveAdminLppOverdue(overdue);return;}
+      const refund=event.target.closest('[data-admin-lpp-refund]');
+      if(refund){markAdminLppRefundPaid(refund);}
+    });
     $('#customerThemeForm')?.addEventListener('submit', saveCustomerTheme);
     $('#customerThemeForm')?.addEventListener('input', renderCustomerThemePreview);
     $('#walletFeesForm').addEventListener('submit', saveWalletSettings);
