@@ -355,14 +355,19 @@
       const items=Array.isArray(row.items)?row.items:[];
       const next=orderNextAction(row);
       const canProgress=['verified_paid','cod_due','cod_paid'].includes(row.payment_status);
+      const codFeeRequired=row.payment_method==='cod'&&Number(row.delivery_fee_kes||0)>0;
+      const codFeeVerified=!codFeeRequired||row.cod_delivery_fee_status==='verified';
+      const handoverBlocked=next?.[0]==='handed_to_leogo'&&!codFeeVerified;
       return '<article class="health-order-card" data-health-order-id="'+escapeHtml(row.id)+'">'+
         '<header><div><span>'+escapeHtml(row.order_reference)+'</span><strong>'+escapeHtml(orderStatusLabel(row.order_status))+'</strong><small>'+escapeHtml(new Date(row.created_at).toLocaleString('en-KE'))+'</small></div><b>KSh '+Number(row.grand_total_kes||0).toLocaleString('en-KE')+'</b></header>'+
         '<div class="health-order-meta"><span><small>Payment</small><strong>'+escapeHtml(paymentStatusLabel(row.payment_status))+'</strong></span><span><small>Delivery</small><strong>'+escapeHtml(String(row.delivery_zone||'').replaceAll('_',' '))+'</strong></span><span><small>Customer</small><strong>'+escapeHtml(row.receiver_name||'Customer')+'</strong></span><span><small>Phone</small><strong>'+escapeHtml(row.contact_number||'')+'</strong></span></div>'+
+        (codFeeRequired?'<div class="health-order-meta"><span><small>COD delivery fee</small><strong>KSh '+Number(row.delivery_fee_kes||0).toLocaleString('en-KE')+'</strong></span><span><small>Fee verification</small><strong>'+escapeHtml(String(row.cod_delivery_fee_status||'awaiting_payment').replaceAll('_',' '))+'</strong></span></div>':'')+
         '<div class="health-order-items">'+items.map((item)=>'<span><strong>'+escapeHtml(item.product_name)+'</strong><small>'+Number(item.quantity)+' × KSh '+Number(item.unit_price_kes||0).toLocaleString('en-KE')+(item.requires_prescription?' · Prescription required':'')+'</small></span>').join('')+'</div>'+
         (row.prescription_required&&row.prescription_path?'<div class="product-actions"><button type="button" class="secondary" data-health-prescription="'+escapeHtml(row.prescription_path)+'">View Doctor Prescription</button></div>':'')+
         (row.prescription_required&&!row.prescription_path?'<div class="restricted-notice">Prescription-required order is missing its prescription. Do not prepare it; contact LEOGO Admin.</div>':'')+
         (!canProgress&&row.payment_status==='submitted'?'<div class="restricted-notice">Wait for LEOGO Admin to verify payment before preparing this order.</div>':'')+
-        (next&&canProgress?'<div class="product-actions"><button type="button" data-health-order-status="'+escapeHtml(next[0])+'" data-health-order-id="'+escapeHtml(row.id)+'">'+escapeHtml(next[1])+'</button></div>':'')+
+        (handoverBlocked?'<div class="restricted-notice">COD delivery fee must be verified by LEOGO Admin before this order is handed to LEOGO for dispatch.</div>':'')+
+        (next&&canProgress&&!handoverBlocked?'<div class="product-actions"><button type="button" data-health-order-status="'+escapeHtml(next[0])+'" data-health-order-id="'+escapeHtml(row.id)+'">'+escapeHtml(next[1])+'</button></div>':'')+
       '</article>';
     }).join('');
     $('[data-health-prescription]',target).forEach((button)=>button.addEventListener('click',async()=>{
@@ -492,7 +497,7 @@
     $('#healthMedicineViewDescription').textContent={
       overview:'Approved Health & Medicine partner overview.',
       products:'Manage Health products and Admin approval status.',
-      orders:'Receive approved Health orders and review doctor prescriptions when a medicine is marked prescription-required.',
+      orders:'Receive approved Health orders, review doctor prescriptions, and wait for LEOGO verification of COD delivery fees before handover.',
       services:'Manage Health Specialist services and Admin approval status.',
       bookings:'Receive and respond to verified Health Specialist service bookings.',
       notifications:'Application, product, service and booking approval notifications.'
