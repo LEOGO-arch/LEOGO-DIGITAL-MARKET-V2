@@ -1280,14 +1280,16 @@
               </div>
 
               <div class="checkout-step" id="checkoutPaymentStep" hidden>
-                <div class="checkout-step-heading"><span>STEP 2 OF 2</span><h4>Payment &amp; Place Order</h4><p>Choose how you want to pay, confirm the payment and then create your order.</p></div>
+                <div class="checkout-step-heading"><span>STEP 2 OF 2</span><h4>Payment &amp; Place Order</h4><p>Choose a payment method to view only its instructions and continue.</p></div>
                 <div class="payment-method-grid" role="group" aria-label="Select payment method" data-admin-managed="payment-methods">
                   <button type="button" data-payment-method="till"><span>📱</span><strong>M-Pesa Till</strong><small>Till number: <b data-admin-managed="mpesa-till-number">Set by Admin</b></small></button>
                   <button type="button" data-payment-method="paybill"><span>🏦</span><strong>M-Pesa Paybill</strong><small>Paybill: <b data-admin-managed="mpesa-paybill-number">Set by Admin</b></small><small>Account: phone/order reference</small></button>
                   <button type="button" data-payment-method="cod"><span>💵</span><strong>Cash on Delivery</strong><small id="checkoutCodLimitLabel">Available below KSh 10,000</small><small>Transport &amp; Parcel Delivery fee must be paid first</small></button>
                   <button type="button" data-payment-method="lipapolepole"><span>🪙</span><strong>Lipa Pole Pole</strong><small>Pay the seller-set deposit first</small><small>Balance paid in approved instalments</small></button>
-                  <button type="button" data-payment-method="wallet"><span>💰</span><strong>LEOGO Savings Wallet</strong><small>Available verified balance: <b id="checkoutWalletBalance">KSh 0</b></small><small>Checkout activation pending SACCO/payment settlement connection</small></button>
+                  <button type="button" data-payment-method="wallet"><span>💰</span><strong>My LEOGO Wallet</strong><small>Balance: <b id="checkoutWalletBalance">KSh 0</b> · Vouchers &amp; rewards</small></button>
                 </div>
+                <details class="checkout-wallet-rewards" id="checkoutWalletRewards">
+                  <summary><strong>🎁 My vouchers &amp; rewards</strong><small id="checkoutRewardsSummary">Tap to see available shopping vouchers and awards</small></summary>
                 <div class="checkout-points-panel" id="checkoutPointsPanel">
                   <label class="checkout-points-toggle">
                     <input id="checkoutUsePoints" type="checkbox" disabled>
@@ -1299,7 +1301,8 @@
                   </div>
                   <p>Your Shopping Voucher can cover up to 50% of an eligible checkout. The checkout total must be greater than your available voucher balance, and the remaining amount is paid using your selected payment method.</p>
                 </div>
-                <div class="checkout-admin-payment" id="checkoutAdminPaymentDestination" aria-live="polite">
+                </details>
+                <div class="checkout-admin-payment" id="checkoutAdminPaymentDestination" aria-live="polite" hidden>
                   <div><span>ORDER PAYMENT ACCOUNT</span><strong id="checkoutPaymentDestinationTitle">Loading Admin payment account…</strong><small id="checkoutPaymentDestinationName"></small></div>
                   <div class="checkout-admin-payment-number"><b id="checkoutPaymentDestinationNumber">—</b><button id="copyCheckoutPaymentDestination" type="button" disabled>Copy</button></div>
                   <p id="checkoutPaymentDestinationInstructions">The active payment destination is controlled from LEOGO Admin.</p>
@@ -1326,7 +1329,7 @@
                   <button type="submit">Submit Deposit for Confirmation</button>
                   <p class="payment-step-status" id="lppDepositStatus" aria-live="polite"></p>
                 </form>
-                <div class="payment-rule-notice" data-admin-managed="cod-payment-rules">
+                <div class="payment-rule-notice" data-admin-managed="cod-payment-rules" hidden>
                   <strong>Cash on Delivery rule</strong>
                   <p id="checkoutCodRuleText">Cash on Delivery is only available for orders below KSh 10,000. The customer must pay the Transport &amp; Parcel Delivery fee first before the order is dispatched.</p>
                 </div>
@@ -1336,19 +1339,19 @@
                   <label><span>Doctor prescription</span><input id="healthPrescriptionFile" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"></label>
                   <small id="healthPrescriptionFileName">PDF, JPG, PNG or WEBP · maximum 8 MB</small>
                 </div>
-                <div class="payment-proof-panel" id="standardPaymentProof">
+                <div class="payment-proof-panel" id="standardPaymentProof" hidden>
                   <label><span id="paymentProofLabel">Paste M-Pesa payment message</span><textarea id="mpesaPaymentMessage" rows="4" placeholder="Paste the complete M-Pesa confirmation message here"></textarea></label>
                   <label class="payment-paid-check"><input id="markPaymentPaid" type="checkbox"><span id="markPaymentPaidLabel">I confirm that I have paid and want to mark this payment as paid.</span></label>
-                  <p id="paymentStepStatus" class="payment-step-status" aria-live="polite"></p>
                 </div>
-                <div class="payment-order-summary">
+                <p id="paymentStepStatus" class="payment-step-status" role="status" aria-live="polite"></p>
+                <div class="payment-order-summary" hidden>
                   <div><span>Order total</span><strong id="paymentOrderTotal">KSh 0</strong></div>
                   <div><span>LEOGO Points used</span><strong id="paymentPointsUsed">KSh 0</strong></div>
                   <div><span>Amount to pay</span><strong id="paymentAmountDue">KSh 0</strong></div>
                   <div><span>Selected payment</span><strong id="selectedPaymentLabel">Not selected</strong></div>
                   <div><span>Payment status</span><strong id="selectedPaymentStatus">Waiting</strong></div>
                 </div>
-                <div class="checkout-payment-actions" id="standardPaymentActions"><button type="button" id="backToCheckoutDetails">← Back</button><button class="make-order-button" type="button" id="makeCheckoutOrder" data-requires-auth data-auth-message="Please log in before placing your order.">Make Order</button></div>
+                <div class="checkout-payment-actions" id="standardPaymentActions"><button type="button" id="backToCheckoutDetails">← Back</button><button class="make-order-button" type="button" id="makeCheckoutOrder" hidden data-requires-auth data-auth-message="Please log in before placing your order.">Make Order</button></div>
                 <div class="order-created-panel" id="orderCreatedPanel" hidden>
                   <span>✓ ORDER CREATED</span><h5 id="createdOrderReference">LEOGO Order</h5><p>Your preview order is ready. Download the receipt, then send the order details to LEOGO on WhatsApp.</p>
                   <div><button type="button" id="downloadOrderReceipt">⬇ Download Receipt</button><button type="button" id="sendOrderWhatsApp">Send Order to WhatsApp</button></div>
