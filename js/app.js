@@ -4215,7 +4215,7 @@
         client.rpc('customer_list_health_medicine_orders'),
         codFeeStatusRpcUnavailable?Promise.resolve({data:[],error:null}):client.rpc('customer_list_cod_delivery_fee_status')
       ]);
-      if(codFeeResult.error)codFeeStatusRpcUnavailable=true;
+      if(codFeeResult.error && (codFeeResult.error.code==='PGRST202'||codFeeResult.error.status===404))codFeeStatusRpcUnavailable=true;
       const error=marketResult.error||healthResult.error;
       if(error){
         console.error('LEOGO customer orders could not load:',error.message||error);
