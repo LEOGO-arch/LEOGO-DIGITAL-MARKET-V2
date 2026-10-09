@@ -2993,8 +2993,25 @@
     customerFlashSales=!flashSaleResult.error&&Array.isArray(flashSaleResult.data)?flashSaleResult.data:[];
     renderCustomerFlashSales();
     renderMarketplacePreview();
+
+    const sellerShareTarget=window.leogoPartnerShare?.getTarget?.('seller');
+    if(sellerShareTarget){
+      const sellerProduct=marketplaceProducts.find((row)=>String(row.seller_id||'')===String(sellerShareTarget.id));
+      if(sellerProduct){
+        selectedMarketplaceSellerId=String(sellerShareTarget.id);
+        selectedMarketplaceSellerName=sellerShareTarget.name||sellerProduct.seller_name||'LEOGO Seller';
+        selectedMarketplaceCategory='all';
+        marketplaceVisibleCount=Number.MAX_SAFE_INTEGER;
+        window.leogoPartnerShare?.markHandled?.();
+      }
+    }
+
     renderLiveCatalogue();
     await loadHomeSellerSections();
+
+    if(selectedMarketplaceSellerId){
+      window.setTimeout(()=>document.getElementById('live-product-catalogue')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+    }
   };
 
   const addLiveProductToCart = (button) => {
