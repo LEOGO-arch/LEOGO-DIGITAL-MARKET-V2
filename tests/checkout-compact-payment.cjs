@@ -73,6 +73,9 @@ for (const mode of ['', 'till', 'paybill', 'cod', 'lipapolepole', 'wallet']) {
   const element = () => ({ hidden: null, textContent: '' });
   const context = {
     selectedCheckoutPayment: mode,
+    codOrderFirstReady: false,
+    cartHasSource: () => false,
+    codOrderFirstNote: { hidden: true },
     checkoutExternalAmountDueNumber: () => 152,
     checkoutPointsAppliedNumber: () => 25,
     lppDepositForm: element(),
