@@ -4664,20 +4664,57 @@
       customerPublicServiceReviews=Array.isArray(reviewsResult.data)?reviewsResult.data:[];
       customerOwnServiceReviews=Array.isArray(ownReviewsResult?.data)?ownReviewsResult.data:[];
 
+      const serviceShareTarget=window.leogoPartnerShare?.getTarget?.('service_provider');
+      if(serviceShareTarget){
+        const match=customerPublicServices.find((item)=>String(item.provider_id||'')===String(serviceShareTarget.id));
+        if(match){
+          selectedPublicServiceProviderId=String(serviceShareTarget.id);
+          selectedPublicServiceProviderName=serviceShareTarget.name||match.business_name||'Service Provider';
+          window.leogoPartnerShare?.markHandled?.();
+        }
+      }
+      const transportShareTarget=window.leogoPartnerShare?.getTarget?.('transport');
+      if(transportShareTarget){
+        const match=customerPublicTransportVehicles.find((item)=>String(item.provider_id||'')===String(transportShareTarget.id));
+        if(match){
+          selectedPublicTransportProviderId=String(transportShareTarget.id);
+          selectedPublicTransportProviderName=transportShareTarget.name||match.provider_name||'Transport Provider';
+          window.leogoPartnerShare?.markHandled?.();
+        }
+      }
+
+      const visibleServices=selectedPublicServiceProviderId
+        ? customerPublicServices.filter((item)=>String(item.provider_id||'')===selectedPublicServiceProviderId)
+        : customerPublicServices;
       publicServiceProviderList.innerHTML='';
-      if(!customerPublicServices.length){
-        publicServiceProviderList.innerHTML='<div class="service-provider-public-empty">Approved services will appear here after provider listings are approved.</div>';
+      if(selectedPublicServiceProviderId){
+        publicServiceProviderList.insertAdjacentHTML('beforeend','<div class="partner-share-filter-banner"><div><strong>'+receiptEscape(selectedPublicServiceProviderName)+'</strong><small>Shared LEOGO Service Provider · approved services</small></div><button type="button" data-clear-service-provider-share>View all providers</button></div>');
+      }
+      if(!visibleServices.length){
+        publicServiceProviderList.insertAdjacentHTML('beforeend','<div class="service-provider-public-empty">Approved services will appear here after provider listings are approved.</div>');
       }else{
-        customerPublicServices.forEach((item)=>publicServiceProviderList.appendChild(createPublicServiceCard(item)));
+        visibleServices.forEach((item)=>publicServiceProviderList.appendChild(createPublicServiceCard(item)));
       }
 
       if(publicTransportProviderList){
+        const visibleTransport=selectedPublicTransportProviderId
+          ? customerPublicTransportVehicles.filter((item)=>String(item.provider_id||'')===selectedPublicTransportProviderId)
+          : customerPublicTransportVehicles;
         publicTransportProviderList.innerHTML='';
-        if(!customerPublicTransportVehicles.length){
-          publicTransportProviderList.innerHTML='<div class="service-provider-public-empty">Approved Transport & Parcel Providers will appear here after Admin approves their vehicles.</div>';
-        }else{
-          customerPublicTransportVehicles.forEach((item)=>publicTransportProviderList.appendChild(createPublicTransportCard(item)));
+        if(selectedPublicTransportProviderId){
+          publicTransportProviderList.insertAdjacentHTML('beforeend','<div class="partner-share-filter-banner"><div><strong>'+receiptEscape(selectedPublicTransportProviderName)+'</strong><small>Shared LEOGO Transport Provider · approved vehicles</small></div><button type="button" data-clear-transport-provider-share>View all providers</button></div>');
         }
+        if(!visibleTransport.length){
+          publicTransportProviderList.insertAdjacentHTML('beforeend','<div class="service-provider-public-empty">Approved Transport & Parcel Providers will appear here after Admin approves their vehicles.</div>');
+        }else{
+          visibleTransport.forEach((item)=>publicTransportProviderList.appendChild(createPublicTransportCard(item)));
+        }
+      }
+
+      if(selectedPublicServiceProviderId){
+        window.setTimeout(()=>publicServiceProviderList.scrollIntoView({behavior:'smooth',block:'start'}),80);
+      }else if(selectedPublicTransportProviderId&&publicTransportProviderList){
+        window.setTimeout(()=>publicTransportProviderList.scrollIntoView({behavior:'smooth',block:'start'}),80);
       }
     }catch(error){
       console.warn('Public Services could not load:',error);
@@ -4685,6 +4722,19 @@
       if(publicTransportProviderList)publicTransportProviderList.innerHTML='<div class="service-provider-public-empty">Approved Transport Providers are temporarily unavailable.</div>';
     }
   };
+
+  publicServiceProviderList?.addEventListener('click',(event)=>{
+    if(!event.target.closest('[data-clear-service-provider-share]'))return;
+    selectedPublicServiceProviderId='';
+    selectedPublicServiceProviderName='';
+    loadPublicServices().catch(()=>{});
+  });
+  publicTransportProviderList?.addEventListener('click',(event)=>{
+    if(!event.target.closest('[data-clear-transport-provider-share]'))return;
+    selectedPublicTransportProviderId='';
+    selectedPublicTransportProviderName='';
+    loadPublicServices().catch(()=>{});
+  });
 
   /* Customer global search: products, services and registered locations */
   const globalSearchTypeMeta={
