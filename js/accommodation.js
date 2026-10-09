@@ -167,6 +167,14 @@
       }))
     }));
     applyFilters();
+    const target=window.leogoPartnerShare?.getTarget?.('accommodation');
+    if(target){
+      const match=properties.find((property)=>String(property.id)===String(target.id));
+      if(match){
+        window.leogoPartnerShare?.markHandled?.();
+        window.setTimeout(()=>openProperty(match.id),80);
+      }
+    }
   };
 
   const unitMinimumRate = (unit) => {
@@ -334,6 +342,12 @@
     if (!selectedProperty || !elements.modal) return;
     const image = safeImage(selectedProperty.cover_image_url);
     elements.modalTitle.textContent = selectedProperty.property_name;
+    const shareButton=document.getElementById('shareAccommodationProperty');
+    if(shareButton){
+      shareButton.dataset.partnerType='accommodation';
+      shareButton.dataset.partnerId=selectedProperty.id;
+      shareButton.dataset.partnerName=selectedProperty.property_name||'Accommodation Partner';
+    }
     elements.profileType.textContent = typeLabel(selectedProperty.property_type).toUpperCase();
     elements.profileName.textContent = selectedProperty.property_name;
     elements.profileLocation.textContent = `📍 ${selectedProperty.public_location}, ${selectedProperty.town}, ${selectedProperty.county}`;
@@ -396,6 +410,17 @@
     }
     renderBookings(data || []);
   };
+
+  document.getElementById('shareAccommodationProperty')?.addEventListener('click',(event)=>{
+    event.preventDefault();
+    if(!selectedProperty)return;
+    window.leogoPartnerShare?.share?.({
+      type:'accommodation',
+      id:selectedProperty.id,
+      name:selectedProperty.property_name||'Accommodation Partner',
+      label:'View rooms and approved accommodation details from '+(selectedProperty.property_name||'this LEOGO accommodation partner')+'.'
+    });
+  });
 
   elements.form?.addEventListener('submit', (event) => {
     event.preventDefault();
