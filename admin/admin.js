@@ -2305,7 +2305,7 @@
       codFeeAdminRpcUnavailable?Promise.resolve({data:[],error:null}):db.rpc('admin_list_cod_delivery_fee_queue')
     ]);
     if(ordersResult.error)throw ordersResult.error;
-    if(codQueueResult.error)codFeeAdminRpcUnavailable=true;
+    if(codQueueResult.error && (codQueueResult.error.code==='PGRST202'||codQueueResult.error.status===404))codFeeAdminRpcUnavailable=true;
     const codFeeQueue=new Map((Array.isArray(codQueueResult.data)?codQueueResult.data:[])
       .map(item=>[item.order_id,item.status]));
     state.marketplaceOrders=(Array.isArray(ordersResult.data)?ordersResult.data:[])
