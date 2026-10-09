@@ -2071,7 +2071,7 @@
           const destinationNode=document.getElementById('codFeeCreatedDestination');
           const destinationNumber=window.leogoPayments?.paymentNumber(marketplacePaymentDestination)||'';
           if(destinationNode)destinationNode.textContent=destinationNumber
-            ? 'LEOGO Admin-assigned payment account: '+destinationNumber
+            ? 'LEOGO '+(window.leogoPayments?.typeLabel(marketplacePaymentDestination)||'payment account')+': '+destinationNumber+' — use the Admin-assigned details only.'
             : 'Ask LEOGO Customer Care for the current order-payment Till or Paybill before paying.';
         }
       }
@@ -4154,9 +4154,14 @@
       const completed=order.order_status==='delivered';
       const fee=order.order_source==='health_medicine'?null:order.cod_delivery_fee;
       const feeStatus=fee?.status||'not_required';
+      const codAccountNumber=window.leogoPayments?.paymentNumber(marketplacePaymentDestination)||'';
+      const codAccountType=window.leogoPayments?.typeLabel(marketplacePaymentDestination)||'LEOGO order account';
+      const codAccountInfo=codAccountNumber
+        ? '<p>Pay to '+receiptEscape(codAccountType)+': <strong>'+receiptEscape(codAccountNumber)+'</strong>. Use only this Admin-assigned account.</p>'
+        : '<p>Ask LEOGO Customer Care for the official order-payment Till or Paybill before sending money.</p>';
       const feeForm=['awaiting_payment','rejected'].includes(feeStatus)
         ? '<form class="cod-fee-activity-form" data-cod-fee-form data-cod-order-id="'+receiptEscape(order.id)+'">'+
-            '<strong>Pay '+money(fee.amount_kes)+' delivery fee before dispatch</strong>'+
+            '<strong>Pay '+money(fee.amount_kes)+' delivery fee before dispatch</strong>'+codAccountInfo+
             (feeStatus==='rejected'?'<p>Earlier payment proof rejected: '+receiptEscape(fee.review_notes||'Please submit a valid payment reference.')+'</p>':'')+
             '<label>Payment reference<textarea name="cod_fee_reference" rows="2" minlength="8" maxlength="600" required placeholder="Paste confirmed M-Pesa message"></textarea></label>'+
             '<button type="submit">Submit fee for Admin verification</button><p data-cod-fee-feedback role="status"></p></form>'
@@ -4225,6 +4230,10 @@
       // On the old backend the fee-status RPC does not exist; treat that as no
       // order-first feature rather than interrupting existing customer orders.
       const feeStates=new Map((Array.isArray(codFeeResult.data)?codFeeResult.data:[]).map(item=>[item.order_id,item]));
+      if(!marketplacePaymentDestination && [...feeStates.values()].some(item=>['awaiting_payment','rejected'].includes(item.status)) && window.leogoPayments){
+        const {data:feeAccount}=await window.leogoPayments.getDestination('marketplace_orders');
+        marketplacePaymentDestination=feeAccount||null;
+      }
       const marketRows=(Array.isArray(marketResult.data)?marketResult.data:[]).map((row)=>({
         ...row,order_source:row.order_source||'marketplace',
         cod_delivery_fee:feeStates.get(row.id)||null
