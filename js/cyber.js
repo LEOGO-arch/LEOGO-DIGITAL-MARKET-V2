@@ -59,7 +59,7 @@ const ensureUI=()=>{
       <section id="cyberCatalogue" class="cyber-catalogue">
         <div class="cyber-catalogue-head">
           <div><small>SELECTED CYBER</small><h3 id="cyberCatalogueTitle">Cyber Shop</h3><small id="cyberCatalogueLocation"></small></div>
-          <div class="cyber-catalogue-tabs"><button id="showCyberServices" class="active" type="button">Services</button><button id="showCyberProducts" type="button">Shop Items</button><button id="closeCyberCatalogue" type="button">Close</button></div>
+          <div class="cyber-catalogue-tabs"><button id="shareSelectedCyber" type="button">↗ Share</button><button id="showCyberServices" class="active" type="button">Services</button><button id="showCyberProducts" type="button">Shop Items</button><button id="closeCyberCatalogue" type="button">Close</button></div>
         </div>
         <div id="cyberItemGrid" class="cyber-item-grid"></div>
       </section>
@@ -152,7 +152,7 @@ const renderShops=()=>{
           <strong>${esc(s.business_name)}</strong><small>📍 ${esc(s.location_details)}, ${esc(s.town)}, ${esc(s.county)}</small>
           <p>${esc(s.business_description||'Approved Cyber Services partner on LEOGO.')}</p>
           <div class="cyber-shop-meta"><span>${s.service_count} services</span><span>${s.product_count} items</span><span>${esc(s.availability_status)}</span></div>
-          <div class="cyber-shop-actions"><button class="primary" type="button" data-open-cyber-shop="${s.provider_id}">View Services</button><button type="button" data-cyber-map="${s.provider_id}">Location</button></div>
+          <div class="cyber-shop-actions"><button class="primary" type="button" data-open-cyber-shop="${s.provider_id}">View Services</button><button type="button" data-cyber-map="${s.provider_id}">Location</button><button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="cyber" data-partner-id="${s.provider_id}" data-partner-name="${esc(s.business_name)}">↗ Share Cyber</button></div>
         </div>
       </article>`;
   }).join(''):'<div class="cyber-empty" style="grid-column:1/-1">No approved Cyber shops are available yet.</div>';
@@ -296,6 +296,14 @@ const loadPublic=async()=>{
   products=productRes.data||[];
   renderShops();
   status(shops.length+' approved Cyber shop'+(shops.length===1?'':'s')+' available.');
+  const target=window.leogoPartnerShare?.getTarget?.('cyber');
+  if(target){
+    const match=shops.find((shop)=>String(shop.provider_id)===String(target.id));
+    if(match){
+      window.leogoPartnerShare?.markHandled?.();
+      window.setTimeout(()=>openShop(String(match.provider_id)),60);
+    }
+  }
 };
 
 const loadPayment=async()=>{
@@ -383,6 +391,10 @@ const category=$('[data-system-category="cyber-branding"]');if(category)category
 const menu=document.querySelector('.customer-mobile-menu-group a[href="#services"]');
 if(menu&&!document.querySelector('.customer-mobile-menu-group a[href="#cyberMarketplace"]'))menu.insertAdjacentHTML('afterend','<a href="#cyberMarketplace" data-mobile-menu-close><i>🖥️</i><span>Cyber Services</span></a>');
 
+$('#shareSelectedCyber')?.addEventListener('click',()=>{
+  if(!selectedShop)return;
+  window.leogoPartnerShare?.share?.({type:'cyber',id:selectedShop.provider_id,name:selectedShop.business_name||'Cyber Partner'});
+});
 $('#showCyberServices')?.addEventListener('click',()=>{activeTab='services';renderCatalogue();});
 $('#showCyberProducts')?.addEventListener('click',()=>{activeTab='products';renderCatalogue();});
 $('#closeCyberCatalogue')?.addEventListener('click',()=>$('#cyberCatalogue').classList.remove('active'));

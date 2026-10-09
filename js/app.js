@@ -2,6 +2,72 @@
 (() => {
   'use strict';
 
+  const partnerShareTarget=(()=>{
+    try{
+      const params=new URLSearchParams(window.location.search);
+      const type=String(params.get('partner_type')||'').trim();
+      const id=String(params.get('partner_id')||'').trim();
+      const name=String(params.get('partner_name')||'').trim();
+      return type&&id?{type,id,name,handled:false}:null;
+    }catch(_error){return null;}
+  })();
+
+  const buildPartnerShareUrl=({type,id,name=''})=>{
+    const url=new URL(window.location.href);
+    url.hash='';
+    url.search='';
+    url.searchParams.set('partner_type',String(type||''));
+    url.searchParams.set('partner_id',String(id||''));
+    if(name)url.searchParams.set('partner_name',String(name).slice(0,100));
+    else url.searchParams.delete('partner_name');
+    return url.toString();
+  };
+
+  const sharePartnerStorefront=async({type,id,name='LEOGO Partner',label=''})=>{
+    if(!type||!id)return false;
+    const url=buildPartnerShareUrl({type,id,name});
+    const title='View '+name+' on LEOGO';
+    const text=label||('See approved products or services from '+name+' on LEOGO Digital Market.');
+    try{
+      if(navigator.share){
+        await navigator.share({title,text,url});
+        return true;
+      }
+    }catch(error){
+      if(error?.name==='AbortError')return false;
+    }
+    try{
+      await navigator.clipboard.writeText(url);
+      window.alert('LEOGO partner link copied. You can now share it.');
+      return true;
+    }catch(_error){
+      window.prompt('Copy this LEOGO partner link:',url);
+      return true;
+    }
+  };
+
+  window.leogoPartnerShare={
+    share:sharePartnerStorefront,
+    buildUrl:buildPartnerShareUrl,
+    getTarget:(type='')=>{
+      if(!partnerShareTarget||partnerShareTarget.handled)return null;
+      return !type||partnerShareTarget.type===type?partnerShareTarget:null;
+    },
+    markHandled:()=>{if(partnerShareTarget)partnerShareTarget.handled=true;}
+  };
+
+  document.addEventListener('click',(event)=>{
+    const button=event.target.closest?.('[data-share-partner]');
+    if(!button)return;
+    event.preventDefault();
+    sharePartnerStorefront({
+      type:button.dataset.partnerType||'',
+      id:button.dataset.partnerId||'',
+      name:button.dataset.partnerName||'LEOGO Partner',
+      label:button.dataset.partnerShareText||''
+    }).catch(()=>{});
+  });
+
   // Initialize shared customer cart state before any auth/data events can call
   // checkout helpers. Keeping this above event registration prevents temporal
   // dead-zone failures during fast session restoration on mobile.
@@ -2669,7 +2735,8 @@
         '<div class="live-product-details" data-product-details hidden>'+
           '<div class="live-product-details-head"><span>'+receiptEscape(categoryDisplayName(product.category_name || product.category_code || 'Marketplace'))+
             (product.subcategory_name ? ' · '+receiptEscape(product.subcategory_name) : '')+'</span>'+
-            '<small>Seller: '+receiptEscape(product.seller_name || 'LEOGO Seller')+'</small></div>'+
+            '<small>Seller: '+receiptEscape(product.seller_name || 'LEOGO Seller')+'</small>'+
+            '<button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="seller" data-partner-id="'+receiptEscape(product.seller_id||'')+'" data-partner-name="'+receiptEscape(product.seller_name||'LEOGO Seller')+'">↗ Share Seller</button></div>'+
           (ordinaryOrderAvailable
             ? '<div class="live-product-detail-stock"><small>'+(localAvailable?'Local availability':'Pre-order availability')+'</small><strong data-live-product-stock>Qty '+Number(hasVariants?effectiveVariantStock:effectiveProductStock)+' '+receiptEscape(product.measurement_unit || 'item')+(flashActive?' on Flash Sale':'')+'</strong></div>'
             : '')+
@@ -2927,8 +2994,25 @@
     customerFlashSales=!flashSaleResult.error&&Array.isArray(flashSaleResult.data)?flashSaleResult.data:[];
     renderCustomerFlashSales();
     renderMarketplacePreview();
+
+    const sellerShareTarget=window.leogoPartnerShare?.getTarget?.('seller');
+    if(sellerShareTarget){
+      const sellerProduct=marketplaceProducts.find((row)=>String(row.seller_id||'')===String(sellerShareTarget.id));
+      if(sellerProduct){
+        selectedMarketplaceSellerId=String(sellerShareTarget.id);
+        selectedMarketplaceSellerName=sellerShareTarget.name||sellerProduct.seller_name||'LEOGO Seller';
+        selectedMarketplaceCategory='all';
+        marketplaceVisibleCount=Number.MAX_SAFE_INTEGER;
+        window.leogoPartnerShare?.markHandled?.();
+      }
+    }
+
     renderLiveCatalogue();
     await loadHomeSellerSections();
+
+    if(selectedMarketplaceSellerId){
+      window.setTimeout(()=>document.getElementById('live-product-catalogue')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+    }
   };
 
   const addLiveProductToCart = (button) => {
@@ -4320,6 +4404,10 @@
   const transportRequestForm=document.getElementById('transportRequestForm');
   let customerPublicServices=[];
   let customerPublicTransportVehicles=[];
+  let selectedPublicServiceProviderId='';
+  let selectedPublicServiceProviderName='';
+  let selectedPublicTransportProviderId='';
+  let selectedPublicTransportProviderName='';
   let customerPublicServiceReviews=[];
   let customerOwnServiceReviews=[];
   let customerServiceConfig={direct_request_fee_kes:50,quotation_fee_kes:50,payment_destination:null};
@@ -4446,6 +4534,7 @@
         '<div class="leogo-compact-actions">'+
           '<button class="direct" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="direct">Request Service · '+receiptEscape(money(directFee))+'</button>'+
           '<button class="reviews" type="button" data-view-public-reviews="service_provider" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-service-id="'+receiptEscape(item.service_id||'')+'" data-review-title="'+receiptEscape(item.business_name||'Service Provider')+'">Reviews</button>'+
+          '<button class="leogo-partner-share-button" type="button" data-share-partner data-partner-type="service_provider" data-partner-id="'+receiptEscape(item.provider_id||'')+'" data-partner-name="'+receiptEscape(item.business_name||'Service Provider')+'">↗ Share Provider</button>'+
           '<button class="quote" type="button" data-request-service="'+receiptEscape(item.service_id)+'" data-request-type="quotation">Request Quotation · '+receiptEscape(money(quotationFee))+'</button>'+
         '</div>'+
       '</div>';
@@ -4475,6 +4564,7 @@
         '<div class="leogo-compact-actions">'+
           '<button class="direct" type="button" data-request-transport="'+receiptEscape(item.vehicle_id||'')+'">Request Transport</button>'+
           '<button class="reviews" type="button" data-view-public-reviews="transport" data-review-provider-id="'+receiptEscape(item.provider_id||'')+'" data-review-vehicle-id="'+receiptEscape(item.vehicle_id||'')+'" data-review-title="'+receiptEscape(item.provider_name||'Transport Provider')+'">Reviews</button>'+
+          '<button class="leogo-partner-share-button" type="button" data-share-partner data-partner-type="transport" data-partner-id="'+receiptEscape(item.provider_id||'')+'" data-partner-name="'+receiptEscape(item.provider_name||'Transport Provider')+'">↗ Share Provider</button>'+
           '<button class="quote" type="button" data-view-transport-vehicle="'+receiptEscape(item.vehicle_id||'')+'">View Vehicle Details</button>'+
         '</div>'+
       '</div>';
@@ -4575,20 +4665,57 @@
       customerPublicServiceReviews=Array.isArray(reviewsResult.data)?reviewsResult.data:[];
       customerOwnServiceReviews=Array.isArray(ownReviewsResult?.data)?ownReviewsResult.data:[];
 
+      const serviceShareTarget=window.leogoPartnerShare?.getTarget?.('service_provider');
+      if(serviceShareTarget){
+        const match=customerPublicServices.find((item)=>String(item.provider_id||'')===String(serviceShareTarget.id));
+        if(match){
+          selectedPublicServiceProviderId=String(serviceShareTarget.id);
+          selectedPublicServiceProviderName=serviceShareTarget.name||match.business_name||'Service Provider';
+          window.leogoPartnerShare?.markHandled?.();
+        }
+      }
+      const transportShareTarget=window.leogoPartnerShare?.getTarget?.('transport');
+      if(transportShareTarget){
+        const match=customerPublicTransportVehicles.find((item)=>String(item.provider_id||'')===String(transportShareTarget.id));
+        if(match){
+          selectedPublicTransportProviderId=String(transportShareTarget.id);
+          selectedPublicTransportProviderName=transportShareTarget.name||match.provider_name||'Transport Provider';
+          window.leogoPartnerShare?.markHandled?.();
+        }
+      }
+
+      const visibleServices=selectedPublicServiceProviderId
+        ? customerPublicServices.filter((item)=>String(item.provider_id||'')===selectedPublicServiceProviderId)
+        : customerPublicServices;
       publicServiceProviderList.innerHTML='';
-      if(!customerPublicServices.length){
-        publicServiceProviderList.innerHTML='<div class="service-provider-public-empty">Approved services will appear here after provider listings are approved.</div>';
+      if(selectedPublicServiceProviderId){
+        publicServiceProviderList.insertAdjacentHTML('beforeend','<div class="partner-share-filter-banner"><div><strong>'+receiptEscape(selectedPublicServiceProviderName)+'</strong><small>Shared LEOGO Service Provider · approved services</small></div><button type="button" data-clear-service-provider-share>View all providers</button></div>');
+      }
+      if(!visibleServices.length){
+        publicServiceProviderList.insertAdjacentHTML('beforeend','<div class="service-provider-public-empty">Approved services will appear here after provider listings are approved.</div>');
       }else{
-        customerPublicServices.forEach((item)=>publicServiceProviderList.appendChild(createPublicServiceCard(item)));
+        visibleServices.forEach((item)=>publicServiceProviderList.appendChild(createPublicServiceCard(item)));
       }
 
       if(publicTransportProviderList){
+        const visibleTransport=selectedPublicTransportProviderId
+          ? customerPublicTransportVehicles.filter((item)=>String(item.provider_id||'')===selectedPublicTransportProviderId)
+          : customerPublicTransportVehicles;
         publicTransportProviderList.innerHTML='';
-        if(!customerPublicTransportVehicles.length){
-          publicTransportProviderList.innerHTML='<div class="service-provider-public-empty">Approved Transport & Parcel Providers will appear here after Admin approves their vehicles.</div>';
-        }else{
-          customerPublicTransportVehicles.forEach((item)=>publicTransportProviderList.appendChild(createPublicTransportCard(item)));
+        if(selectedPublicTransportProviderId){
+          publicTransportProviderList.insertAdjacentHTML('beforeend','<div class="partner-share-filter-banner"><div><strong>'+receiptEscape(selectedPublicTransportProviderName)+'</strong><small>Shared LEOGO Transport Provider · approved vehicles</small></div><button type="button" data-clear-transport-provider-share>View all providers</button></div>');
         }
+        if(!visibleTransport.length){
+          publicTransportProviderList.insertAdjacentHTML('beforeend','<div class="service-provider-public-empty">Approved Transport & Parcel Providers will appear here after Admin approves their vehicles.</div>');
+        }else{
+          visibleTransport.forEach((item)=>publicTransportProviderList.appendChild(createPublicTransportCard(item)));
+        }
+      }
+
+      if(selectedPublicServiceProviderId){
+        window.setTimeout(()=>publicServiceProviderList.scrollIntoView({behavior:'smooth',block:'start'}),80);
+      }else if(selectedPublicTransportProviderId&&publicTransportProviderList){
+        window.setTimeout(()=>publicTransportProviderList.scrollIntoView({behavior:'smooth',block:'start'}),80);
       }
     }catch(error){
       console.warn('Public Services could not load:',error);
@@ -4596,6 +4723,19 @@
       if(publicTransportProviderList)publicTransportProviderList.innerHTML='<div class="service-provider-public-empty">Approved Transport Providers are temporarily unavailable.</div>';
     }
   };
+
+  publicServiceProviderList?.addEventListener('click',(event)=>{
+    if(!event.target.closest('[data-clear-service-provider-share]'))return;
+    selectedPublicServiceProviderId='';
+    selectedPublicServiceProviderName='';
+    loadPublicServices().catch(()=>{});
+  });
+  publicTransportProviderList?.addEventListener('click',(event)=>{
+    if(!event.target.closest('[data-clear-transport-provider-share]'))return;
+    selectedPublicTransportProviderId='';
+    selectedPublicTransportProviderName='';
+    loadPublicServices().catch(()=>{});
+  });
 
   /* Customer global search: products, services and registered locations */
   const globalSearchTypeMeta={
@@ -5307,7 +5447,8 @@
       '<div class="customer-service-request-meta"><div><small>LATITUDE</small><strong>'+receiptEscape(item.waiting_point_latitude??'—')+'</strong></div><div><small>LONGITUDE</small><strong>'+receiptEscape(item.waiting_point_longitude??'—')+'</strong></div></div>'+
       (mapLink?'<p><a class="download-quote" href="'+receiptEscape(mapLink)+'" target="_blank" rel="noopener noreferrer">📍 Open Waiting Point in Google Maps ↗</a></p>':'')+
       '</div>'+
-      '<p><strong>Customer rating:</strong> '+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</p>';
+      '<p><strong>Customer rating:</strong> '+receiptEscape(serviceReviewSummaryText(item.rating_average,item.rating_count))+'</p>'+
+      '<button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="transport" data-partner-id="'+receiptEscape(item.provider_id||'')+'" data-partner-name="'+receiptEscape(item.provider_name||'Transport Provider')+'">↗ Share this Transport Provider</button>';
     transportVehicleDetailsModal.classList.add('open');
     transportVehicleDetailsModal.setAttribute('aria-hidden','false');
     document.body.style.overflow='hidden';

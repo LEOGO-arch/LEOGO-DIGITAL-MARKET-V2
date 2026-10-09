@@ -27,6 +27,8 @@
   };
 
   let services=[];
+  let sharedProviderId='';
+  let sharedProviderName='';
   let bookingFee=0;
   let payment=null;
   let customerBookings=[];
@@ -61,8 +63,9 @@
     const type=$('#healthMarketTypeFilter')?.value||'';
     const query=$('#healthMarketSearch')?.value.trim().toLowerCase()||'';
     if(type&&type!=='health_specialist')return [];
-    if(!query)return services;
-    return services.filter((row)=>[
+    const base=sharedProviderId?services.filter((row)=>String(row.provider_id)===sharedProviderId):services;
+    if(!query)return base;
+    return base.filter((row)=>[
       row.service_name,row.specialty,row.description,row.provider_name,row.specialist_name,
       row.availability_notes,row.county,row.sub_county,row.town,row.location_details
     ].filter(Boolean).join(' ').toLowerCase().includes(query));
@@ -83,16 +86,23 @@
     const feeNode=$('#healthSpecialistBookingFee');
     if(feeNode)feeNode.textContent=money(bookingFee);
 
-    status(rows.length
-      ? rows.length+' approved Health Specialist service'+(rows.length===1?'':'s')+' available.'
-      : 'No approved Health Specialist services match this filter yet.');
+    status(sharedProviderId
+      ? (rows.length
+          ? 'Shared Health Specialist: '+sharedProviderName+' · '+rows.length+' approved service'+(rows.length===1?'':'s')+'.'
+          : 'No approved services are available from '+sharedProviderName+'.')
+      : (rows.length
+          ? rows.length+' approved Health Specialist service'+(rows.length===1?'':'s')+' available.'
+          : 'No approved Health Specialist services match this filter yet.'));
 
     if(!rows.length){
       grid.innerHTML='<div class="health-market-empty">Approved Health Specialist / Doctor services will appear here after LEOGO Admin approval.</div>';
       return;
     }
 
-    grid.innerHTML=rows.map((row)=>{
+    const sharedBanner=sharedProviderId
+      ? '<div class="partner-share-filter-banner"><div><strong>'+esc(sharedProviderName)+'</strong><small>Shared LEOGO Health Specialist · approved services</small></div><button type="button" data-clear-health-specialist-share>View all specialists</button></div>'
+      : '';
+    grid.innerHTML=sharedBanner+rows.map((row)=>{
       const image=publicMedia(row.image_path||row.profile_picture_path);
       const mode=String(row.service_mode||'in_person').replaceAll('_',' ');
       const location=[row.location_details,row.town,row.county].filter(Boolean).join(' · ')||'Kenya';
@@ -108,6 +118,7 @@
           (row.availability_notes?'<p class="availability">'+esc(row.availability_notes)+'</p>':'')+
           '<div class="health-specialist-public-prices"><span><small>Provider fee</small><b>'+money(row.consultation_fee_kes)+'</b></span><span><small>LEOGO booking fee</small><b>'+money(bookingFee)+'</b></span></div>'+
           '<button type="button" data-book-health-specialist="'+esc(row.id)+'">Book Service</button>'+
+          '<button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="health_specialist" data-partner-id="'+esc(row.provider_id)+'" data-partner-name="'+esc(row.provider_name||row.specialist_name||'Health Specialist')+'">↗ Share Specialist</button>'+
         '</div>'+
       '</article>';
     }).join('');
@@ -165,7 +176,19 @@
       services=Array.isArray(data?.services)?data.services:[];
       bookingFee=Number(data?.booking_fee_kes||0);
       payment=data?.payment||null;
+      const target=window.leogoPartnerShare?.getTarget?.('health_specialist');
+      if(target){
+        const match=services.find((row)=>String(row.provider_id)===String(target.id));
+        if(match){
+          sharedProviderId=String(target.id);
+          sharedProviderName=target.name||match.provider_name||match.specialist_name||'Health Specialist';
+          const typeFilter=$('#healthMarketTypeFilter'); if(typeFilter)typeFilter.value='health_specialist';
+          const search=$('#healthMarketSearch'); if(search)search.value='';
+          window.leogoPartnerShare?.markHandled?.();
+        }
+      }
       renderServices();
+      if(sharedProviderId)window.setTimeout(()=>section.scrollIntoView({behavior:'smooth',block:'start'}),100);
       await loadCustomerBookings();
     }catch(error){
       console.warn('Health Specialist services could not load:',error);
@@ -231,6 +254,12 @@
   };
 
   $('#healthSpecialistServiceGrid')?.addEventListener('click',async(event)=>{
+    if(event.target.closest('[data-clear-health-specialist-share]')){
+      sharedProviderId='';
+      sharedProviderName='';
+      renderServices();
+      return;
+    }
     const button=event.target.closest('[data-book-health-specialist]');
     if(!button)return;
     const serviceId=button.dataset.bookHealthSpecialist;
