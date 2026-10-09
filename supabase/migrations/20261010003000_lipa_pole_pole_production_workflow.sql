@@ -1237,7 +1237,7 @@ returns integer
 language plpgsql
 security definer
 set search_path=''
-as $
+as $lppreminder$
 declare
   v_days integer:=3;
   v_count integer:=0;
@@ -1290,7 +1290,7 @@ begin
 
   return v_count;
 end;
-$;
+$lppreminder$;
 
 drop trigger if exists lpp_payment_admin_signal on public.lipa_pole_pole_payments;
 create trigger lpp_payment_admin_signal
@@ -1302,7 +1302,7 @@ create trigger lpp_account_admin_signal
 after update of status,refund_status,cancellation_requested_at on public.lipa_pole_pole_accounts
 for each statement execute function private.bump_admin_notification_signal('approvals');
 
-do $
+do $lppcron$
 begin
   if not exists(select 1 from cron.job where jobname='leogo-lpp-overdue-scan') then
     perform cron.schedule(
@@ -1318,7 +1318,7 @@ begin
       'select private.send_lipa_pole_pole_deadline_reminders();'
     );
   end if;
-end $;
+end $lppcron$;
 
 revoke all on function public.customer_open_lipa_pole_pole_account(uuid,uuid,numeric,text,text,text,text,text,text,text,text,uuid,text) from public,anon;
 revoke all on function public.customer_list_lipa_pole_pole_accounts() from public,anon;
