@@ -3502,6 +3502,19 @@
       '<div class="admin-order-info-row admin-order-address-row"><small>Destination</small><strong>'+escapeHtml(orderDeliveryAddress(order))+'</strong></div>'+
       (locationUrl?'<a class="admin-order-location-link" href="'+escapeHtml(locationUrl)+'" target="_blank" rel="noopener">Open customer location pin ↗</a>':'');
 
+    const fee=detail.cod_delivery_fee||null;
+    const feeReviewAvailable=String(order.payment_method)==='cod' && Number(order.delivery_fee_kes||0)>0 && fee && fee.status!=='not_required';
+    const feeReviewActions=feeReviewAvailable && fee.status==='submitted' && adminHas('orders.payment_verify')
+      ? '<div class="admin-order-payment-actions"><button type="button" data-cod-fee-review="approve">Verify COD Delivery Fee</button><button type="button" class="danger" data-cod-fee-review="reject">Reject Fee Proof</button></div>'
+      : '';
+    const feeReviewHtml=feeReviewAvailable
+      ? '<div class="admin-order-payment-proof-full"><strong>COD delivery fee — '+escapeHtml(String(fee.status).replaceAll('_',' '))+'</strong>'+
+          '<p>Delivery fee: '+formatMoney(fee.amount_kes)+' · separate from the COD balance payable at handover.</p>'+
+          '<p>Customer fee reference: '+escapeHtml(fee.reference||'Not submitted')+'</p>'+
+          (fee.review_notes?'<p>Review notes: '+escapeHtml(fee.review_notes)+'</p>':'')+
+          (fee.status!=='verified'?'<p>Rider assignment / dispatch must wait until this fee is verified.</p>':'')+
+          feeReviewActions+'</div>'
+      : '';
     const paymentActions=order.payment_status==='submitted' && adminHas('orders.payment_verify')
       ? '<div class="admin-order-payment-actions"><button type="button" data-detail-payment="paid">Verify Paid</button><button type="button" class="danger" data-detail-payment="reject">Reject Payment</button></div>'
       : '';
@@ -3522,7 +3535,7 @@
           : '')+
       '</div>'+
       (order.payment_verified_at?'<p class="admin-order-verified-note">Verified '+escapeHtml(formatDate(order.payment_verified_at,true))+(order.payment_verified_by_name?' by '+escapeHtml(order.payment_verified_by_name):'')+'</p>':'')+
-      paymentActions;
+      paymentActions+feeReviewHtml;
 
     $('#adminOrderItemList').innerHTML=items.length?items.map((item)=>{
       const imageUrl=orderItemMediaUrl(item.variant_image_path||item.product_image_path);
@@ -3622,8 +3635,24 @@
             : '<div class="admin-order-no-rider"><strong>No active LEOGO rider account exists yet.</strong><p>Create a Rider from Staff Management and the Rider will become selectable here automatically.</p><button type="button" disabled>Assign Rider</button></div>'
       );
 
-    $$('[data-detail-payment]').forEach((button)=>button.addEventListener('click',()=>{
+    $('[data-detail-payment]').forEach((button)=>button.addEventListener('click',()=>{
       verifyMarketplaceOrderPayment(button,order.id,button.dataset.detailPayment==='paid');
+    }));
+    $('[data-cod-fee-review]').forEach((button)=>button.addEventListener('click',async()=>{
+      if(!adminHas('orders.payment_verify'))return;
+      const approved=button.dataset.codFeeReview==='approve';
+      const notes=approved?'':window.prompt('Reason for COD delivery fee rejection:','');
+      if(!approved && (!notes||notes.trim().length<3))return;
+      if(approved && !window.confirm('Confirm the full COD delivery fee arrived in the official LEOGO account? This is NOT verification of the remaining COD balance.'))return;
+      await withButtonLock(button,approved?'Verifying fee…':'Rejecting fee…',async()=>{
+        const {error}=await db.rpc('admin_review_cod_delivery_fee',{
+          p_order_id:order.id,p_verified:approved,p_notes:notes||null
+        });
+        if(error){globalStatus(friendlyError(error),'error');return;}
+        await Promise.all([loadMarketplaceOrders({refreshActiveDetail:false}),loadAuditLog()]);
+        await loadMarketplaceOrderDetail(order.id,{scroll:false});
+        globalStatus(approved?'Delivery fee verified — rider assignment now permitted.':'Delivery fee proof rejected; customer may resubmit.');
+      });
     }));
 
 
@@ -3764,11 +3793,12 @@
 
     renderMarketplaceOrders();
 
-    const [detailResult,riderResult,sortingResult,handoverResult]=await Promise.all([
+    const [detailResult,riderResult,sortingResult,handoverResult,codFeeResult]=await Promise.all([
       db.rpc('admin_get_marketplace_order_detail',{p_order_id:orderId}),
       db.rpc('admin_list_riders'),
       db.rpc('admin_get_delivery_sorting_state',{p_order_id:orderId}),
-      db.rpc('admin_get_pickup_handover_evidence',{p_order_id:orderId})
+      db.rpc('admin_get_pickup_handover_evidence',{p_order_id:orderId}),
+      db.rpc('admin_get_cod_delivery_fee_status',{p_order_id:orderId})
     ]);
     if(loadToken!==state.orderDetailLoadToken || state.activeMarketplaceOrderId!==orderId) return;
     if(detailResult.error){
@@ -3780,6 +3810,7 @@
 
     state.activeMarketplaceOrderDetail={
       ...(detailResult.data||{}),
+      cod_delivery_fee:codFeeResult.error?null:(codFeeResult.data||null),
       pickup_station_handover:handoverResult.error?null:(handoverResult.data||null),
       pickup_station_handover_error:handoverResult.error?friendlyError(handoverResult.error):''
     };
