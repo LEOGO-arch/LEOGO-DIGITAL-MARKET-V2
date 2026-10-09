@@ -19,7 +19,7 @@ begin
     v_replacement :=
       'o.reward_points_redeemed_kes,' ||
       'case when o.payment_method=''cod'' and o.cod_delivery_fee_status=''verified'' ' ||
-      'then greatest(0,o.external_amount_due_kes-coalesce(o.delivery_fee_kes,0)) ' ||
+      'then greatest(0,o.external_amount_due_kes-least(coalesce(o.delivery_fee_kes,0),greatest(0,o.external_amount_due_kes))) ' ||
       'else o.external_amount_due_kes end,';
     if position(v_anchor in v_definition)>0 then
       execute replace(v_definition,v_anchor,v_replacement);
@@ -39,7 +39,7 @@ declare v_definition text;
   v_replacement text :=
     '''external_amount_due_kes'','||
     'case when o.payment_method=''cod'' and o.cod_delivery_fee_status=''verified'' '||
-    'then greatest(0,o.external_amount_due_kes-coalesce(o.delivery_fee_kes,0)) '||
+    'then greatest(0,o.external_amount_due_kes-least(coalesce(o.delivery_fee_kes,0),greatest(0,o.external_amount_due_kes))) '||
     'else o.external_amount_due_kes end,';
 begin
   select pg_get_functiondef('public.pickup_partner_lookup_parcel(text)'::regprocedure)
