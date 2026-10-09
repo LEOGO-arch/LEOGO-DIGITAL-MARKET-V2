@@ -72,7 +72,7 @@
     if($('#adminHealthOrderTotal'))$('#adminHealthOrderTotal').textContent=orders.length;
     const orderFilter=$('#adminHealthOrderFilter')?.value||'all';
     let orderRows=orders;
-    if(orderFilter==='payment_pending')orderRows=orders.filter((row)=>row.payment_status==='submitted');
+    if(orderFilter==='payment_pending')orderRows=orders.filter((row)=>row.payment_status==='submitted'||(row.payment_method==='cod'&&row.cod_delivery_fee_status==='submitted'));
     if(orderFilter==='active')orderRows=orders.filter((row)=>!['delivered','cancelled'].includes(row.order_status));
     if(orderFilter==='closed')orderRows=orders.filter((row)=>['delivered','cancelled'].includes(row.order_status));
     const orderList=$('#adminHealthOrderList');
@@ -82,11 +82,46 @@
         return '<article class="admin-health-order-card" data-admin-health-order="'+esc(row.id)+'">'+
           '<header><div><span>'+esc(row.order_reference)+'</span><strong>'+esc(row.provider_name||'Health Partner')+'</strong><small>'+esc(new Date(row.created_at).toLocaleString('en-KE'))+'</small></div><b>KSh '+Number(row.grand_total_kes||0).toLocaleString('en-KE')+'</b></header>'+
           '<div class="admin-health-order-meta"><span><small>Customer</small><strong>'+esc(row.receiver_name||'Customer')+'</strong></span><span><small>Contact</small><strong>'+esc(row.contact_number||'')+'</strong></span><span><small>Payment</small><strong>'+esc(String(row.payment_status||'').replaceAll('_',' '))+'</strong></span><span><small>Order Status</small><strong>'+esc(String(row.order_status||'').replaceAll('_',' '))+'</strong></span></div>'+
+          (row.payment_method==='cod'?'<div class="admin-health-order-meta"><span><small>COD Delivery Fee</small><strong>KSh '+Number(row.delivery_fee_kes||0).toLocaleString('en-KE')+'</strong></span><span><small>Fee Status</small><strong>'+esc(String(row.cod_delivery_fee_status||'not_required').replaceAll('_',' '))+'</strong></span></div>':'')+
           '<div class="admin-health-order-items">'+items.map((item)=>'<span>'+esc(item.product_name)+' × '+Number(item.quantity)+' <b>KSh '+Number(item.line_total_kes||0).toLocaleString('en-KE')+'</b></span>').join('')+'</div>'+
-          (row.payment_message?'<div class="admin-health-payment-message"><small>Payment confirmation</small><p>'+esc(row.payment_message)+'</p></div>':'')+
+          (row.payment_message?'<div class="admin-health-payment-message"><small>'+(row.payment_method==='cod'?'COD delivery fee confirmation':'Payment confirmation')+'</small><p>'+esc(row.payment_message)+'</p></div>':'')+
+          (row.payment_method==='cod'&&row.cod_delivery_fee_status==='submitted'?'<div class="admin-health-order-actions"><button type="button" data-health-cod-fee-action="verify" data-health-cod-fee-order="'+esc(row.id)+'">Verify COD Delivery Fee</button><button type="button" class="danger" data-health-cod-fee-action="reject" data-health-cod-fee-order="'+esc(row.id)+'">Reject Fee Proof</button></div>':'')+
+          (row.payment_method==='cod'&&row.cod_delivery_fee_status==='rejected'?'<div class="admin-health-note">COD delivery-fee proof was rejected. Customer must resolve payment before LEOGO handover.</div>':'')+
           (row.payment_status==='submitted'?'<div class="admin-health-order-actions"><button type="button" data-health-payment-action="verify" data-health-payment-order="'+esc(row.id)+'">Verify Payment</button><button type="button" class="danger" data-health-payment-action="reject" data-health-payment-order="'+esc(row.id)+'">Reject Payment</button></div>':'')+
         '</article>';
       }).join(''):'<div class="loading-card">No Health & Medicine orders match this filter.</div>';
+      orderList.querySelectorAll('[data-health-cod-fee-action]').forEach((button)=>button.addEventListener('click',async()=>{
+        const decision=button.dataset.healthCodFeeAction;
+        const verified=decision==='verify';
+        let notes=null;
+        if(!verified){
+          notes=window.prompt('Reason for rejecting this Health COD delivery-fee payment:','')||'';
+          if(notes.trim().length<3)return;
+        }
+        if(verified&&!window.confirm('Confirm the full Health COD delivery fee arrived in the official LEOGO account? The remaining COD balance stays due at handover.'))return;
+        const original=button.textContent;button.disabled=true;button.textContent=verified?'Verifying…':'Rejecting…';
+        try{
+          const {error}=await db.rpc('admin_review_health_cod_delivery_fee',{
+            p_order_id:button.dataset.healthCodFeeOrder,
+            p_verified:verified,
+            p_notes:notes||null
+          });
+          if(error)throw error;
+          const status=$('#adminHealthOrderStatus');
+          if(status){
+            status.textContent=verified
+              ?'COD delivery fee verified. Health Partner may hand the order to LEOGO when ready.'
+              :'COD delivery-fee proof rejected. Health Partner remains blocked from LEOGO handover.';
+            status.className='form-status success';
+          }
+          await load();
+        }catch(error){
+          const status=$('#adminHealthOrderStatus');
+          if(status){status.textContent=error?.message||'Health COD delivery-fee action failed.';status.className='form-status error';}
+        }finally{
+          button.disabled=false;button.textContent=original;
+        }
+      }));
       orderList.querySelectorAll('[data-health-payment-action]').forEach((button)=>button.addEventListener('click',async()=>{
         const decision=button.dataset.healthPaymentAction;
         let notes=null;
