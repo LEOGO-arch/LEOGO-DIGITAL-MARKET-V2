@@ -4213,8 +4213,9 @@
       const [marketResult,healthResult,codFeeResult]=await Promise.all([
         client.rpc('customer_list_marketplace_orders_v3'),
         client.rpc('customer_list_health_medicine_orders'),
-        client.rpc('customer_list_cod_delivery_fee_status')
+        codFeeStatusRpcUnavailable?Promise.resolve({data:[],error:null}):client.rpc('customer_list_cod_delivery_fee_status')
       ]);
+      if(codFeeResult.error)codFeeStatusRpcUnavailable=true;
       const error=marketResult.error||healthResult.error;
       if(error){
         console.error('LEOGO customer orders could not load:',error.message||error);
