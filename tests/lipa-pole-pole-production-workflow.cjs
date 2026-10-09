@@ -8,6 +8,8 @@ const adminHtml=fs.readFileSync('admin/index.html','utf8');
 const partner=fs.readFileSync('partner/partner.js','utf8');
 const partnerHtml=fs.readFileSync('partner/index.html','utf8');
 const migration=fs.readFileSync('supabase/migrations/20261010003000_lipa_pole_pole_production_workflow.sql','utf8');
+const guard=fs.readFileSync('supabase/migrations/20261010004500_lpp_active_reservation_guard.sql','utf8');
+const externalDue=fs.readFileSync('supabase/migrations/20261010005000_lpp_fully_paid_external_due.sql','utf8');
 
 assert.doesNotThrow(()=>new Function(customer),'customer app.js must parse');
 assert.doesNotThrow(()=>new Function(admin),'admin.js must parse');
@@ -47,5 +49,9 @@ assert.match(migration,/leogo-lpp-overdue-scan/,'overdue accounts must be scanne
 assert.match(migration,/leogo-lpp-deadline-reminders/,'deadline reminders must be automated');
 assert.match(migration,/lpp_payment_admin_signal/,'new payments must wake Admin activity');
 assert.match(migration,/This M-Pesa reference has already been submitted/,'payment references must be duplicate-protected');
+assert.match(guard,/lpp_active_customer_product_variant_uq/,'duplicate active reservations must be blocked');
+assert.match(guard,/status in \('deposit_pending','active','overdue','cancellation_pending'\)/,'only live reservations should be unique');
+assert.match(externalDue,/new\.payment_method='lipa_pole_pole'/,'fully paid LPP order must be recognized by amount-due trigger');
+assert.match(externalDue,/new\.external_amount_due_kes:=0/,'fully paid LPP order must have zero external amount due');
 
 console.log('Lipa Pole Pole production workflow regression checks passed.');
