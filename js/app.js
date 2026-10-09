@@ -2,6 +2,71 @@
 (() => {
   'use strict';
 
+  const partnerShareTarget=(()=>{
+    try{
+      const params=new URLSearchParams(window.location.search);
+      const type=String(params.get('partner_type')||'').trim();
+      const id=String(params.get('partner_id')||'').trim();
+      const name=String(params.get('partner_name')||'').trim();
+      return type&&id?{type,id,name,handled:false}:null;
+    }catch(_error){return null;}
+  })();
+
+  const buildPartnerShareUrl=({type,id,name=''})=>{
+    const url=new URL(window.location.href);
+    url.hash='';
+    url.searchParams.set('partner_type',String(type||''));
+    url.searchParams.set('partner_id',String(id||''));
+    if(name)url.searchParams.set('partner_name',String(name).slice(0,100));
+    else url.searchParams.delete('partner_name');
+    return url.toString();
+  };
+
+  const sharePartnerStorefront=async({type,id,name='LEOGO Partner',label=''})=>{
+    if(!type||!id)return false;
+    const url=buildPartnerShareUrl({type,id,name});
+    const title='View '+name+' on LEOGO';
+    const text=label||('See approved products or services from '+name+' on LEOGO Digital Market.');
+    try{
+      if(navigator.share){
+        await navigator.share({title,text,url});
+        return true;
+      }
+    }catch(error){
+      if(error?.name==='AbortError')return false;
+    }
+    try{
+      await navigator.clipboard.writeText(url);
+      window.alert('LEOGO partner link copied. You can now share it.');
+      return true;
+    }catch(_error){
+      window.prompt('Copy this LEOGO partner link:',url);
+      return true;
+    }
+  };
+
+  window.leogoPartnerShare={
+    share:sharePartnerStorefront,
+    buildUrl:buildPartnerShareUrl,
+    getTarget:(type='')=>{
+      if(!partnerShareTarget||partnerShareTarget.handled)return null;
+      return !type||partnerShareTarget.type===type?partnerShareTarget:null;
+    },
+    markHandled:()=>{if(partnerShareTarget)partnerShareTarget.handled=true;}
+  };
+
+  document.addEventListener('click',(event)=>{
+    const button=event.target.closest?.('[data-share-partner]');
+    if(!button)return;
+    event.preventDefault();
+    sharePartnerStorefront({
+      type:button.dataset.partnerType||'',
+      id:button.dataset.partnerId||'',
+      name:button.dataset.partnerName||'LEOGO Partner',
+      label:button.dataset.partnerShareText||''
+    }).catch(()=>{});
+  });
+
   // Initialize shared customer cart state before any auth/data events can call
   // checkout helpers. Keeping this above event registration prevents temporal
   // dead-zone failures during fast session restoration on mobile.
