@@ -642,6 +642,18 @@ begin
     raise exception 'Payment cannot exceed the outstanding amount awaiting submission: KSh %',v_available;
   end if;
 
+  if a.status='deposit_pending' then
+    if exists(
+      select 1 from public.lipa_pole_pole_payments p
+      where p.account_id=a.id and p.status='pending' and p.payment_type='deposit'
+    ) then
+      raise exception 'Wait for LEOGO to verify the first deposit before submitting another payment';
+    end if;
+    if p_amount_kes < greatest(a.required_first_deposit_kes-a.approved_paid_kes,0) then
+      raise exception 'The first verified deposit must be at least KSh %',greatest(a.required_first_deposit_kes-a.approved_paid_kes,0);
+    end if;
+  end if;
+
   insert into public.lipa_pole_pole_payments(
     account_id,customer_id,payment_type,amount_kes,payment_reference,status
   )
@@ -798,7 +810,8 @@ begin
     set approved_paid_kes=v_new_paid,
         status=case
           when v_new_paid>=total_payable_kes then 'fully_paid'
-          when status in ('deposit_pending','overdue') then 'active'
+          when status='deposit_pending' and v_new_paid>=required_first_deposit_kes then 'active'
+          when status='overdue' then 'active'
           else status
         end,
         fully_paid_at=case when v_new_paid>=total_payable_kes then coalesce(fully_paid_at,now()) else fully_paid_at end,
@@ -838,18 +851,39 @@ begin
         review_notes=btrim(p_notes),updated_at=now()
     where id=pay.id;
 
+    if pay.payment_type='deposit' and a.approved_paid_kes=0 then
+      perform private.lpp_release_reserved_stock(a.id);
+      update public.lipa_pole_pole_accounts
+      set status='cancelled',updated_at=now()
+      where id=a.id;
+
+      perform private.notify_partner(
+        a.seller_id,'seller','lpp_deposit_rejected','Lipa Pole Pole deposit rejected',
+        a.account_reference||' was closed because the first deposit was not verified. Reserved stock has been returned.',
+        'lipa_pole_pole_account',a.id,'lipa-pole-pole',
+        jsonb_build_object('account_reference',a.account_reference)
+      );
+    end if;
+
     insert into public.customer_notifications(
       user_id,notification_type,title,message,source_type,source_id,event_key,action_view,metadata
     )
     values(
       a.customer_id,'payment','Lipa Pole Pole payment needs attention',
-      'A payment for '||a.account_reference||' was not verified. '||btrim(p_notes),
+      case when pay.payment_type='deposit' and a.approved_paid_kes=0
+        then 'The first deposit for '||a.account_reference||' was not verified and the reservation was cancelled. '||btrim(p_notes)
+        else 'A payment for '||a.account_reference||' was not verified. '||btrim(p_notes)
+      end,
       'lipa_pole_pole_account',a.id,'lpp_payment_rejected_'||pay.id::text,'lipapolepole',
       jsonb_build_object('account_reference',a.account_reference,'payment_id',pay.id,'amount_kes',pay.amount_kes)
     )
     on conflict do nothing;
 
-    perform private.lpp_write_event(a.id,'payment_rejected','admin',p_notes,jsonb_build_object('payment_id',pay.id,'amount_kes',pay.amount_kes));
+    perform private.lpp_write_event(
+      a.id,
+      case when pay.payment_type='deposit' and a.approved_paid_kes=0 then 'deposit_rejected_account_cancelled' else 'payment_rejected' end,
+      'admin',p_notes,jsonb_build_object('payment_id',pay.id,'amount_kes',pay.amount_kes)
+    );
   end if;
 
   perform private.write_admin_audit(
@@ -1059,6 +1093,7 @@ begin
         total_payable_kes=total_payable_kes+v_charge,
         deadline_at=p_new_deadline,
         status='active',
+        last_reminder_at=null,
         updated_at=now()
     where id=a.id;
 
@@ -1197,7 +1232,77 @@ begin
 end;
 $$;
 
-do $$
+create or replace function private.send_lipa_pole_pole_deadline_reminders()
+returns integer
+language plpgsql
+security definer
+set search_path=''
+as $
+declare
+  v_days integer:=3;
+  v_count integer:=0;
+  r record;
+begin
+  select coalesce(reminder_days_before_due,3)
+  into v_days
+  from public.lipa_pole_pole_settings
+  where id=1;
+
+  for r in
+    select id,customer_id,account_reference,deadline_at,total_payable_kes,approved_paid_kes
+    from public.lipa_pole_pole_accounts
+    where status in ('deposit_pending','active')
+      and marketplace_order_id is null
+      and approved_paid_kes<total_payable_kes
+      and deadline_at>now()
+      and deadline_at<=now()+make_interval(days=>v_days)
+      and (
+        last_reminder_at is null
+        or last_reminder_at<deadline_at-make_interval(days=>v_days)
+      )
+    for update skip locked
+  loop
+    insert into public.customer_notifications(
+      user_id,notification_type,title,message,source_type,source_id,event_key,action_view,metadata
+    )
+    values(
+      r.customer_id,'payment','Lipa Pole Pole deadline reminder',
+      r.account_reference||' is due on '||to_char(r.deadline_at at time zone 'Africa/Nairobi','DD Mon YYYY')||
+        '. Verified balance remaining: KSh '||greatest(r.total_payable_kes-r.approved_paid_kes,0)||'.',
+      'lipa_pole_pole_account',r.id,
+      'lpp_deadline_reminder_'||r.id::text||'_'||to_char(r.deadline_at,'YYYYMMDDHH24MISS'),
+      'lipapolepole',
+      jsonb_build_object(
+        'account_reference',r.account_reference,
+        'deadline_at',r.deadline_at,
+        'balance_kes',greatest(r.total_payable_kes-r.approved_paid_kes,0)
+      )
+    )
+    on conflict do nothing;
+
+    update public.lipa_pole_pole_accounts
+    set last_reminder_at=now(),updated_at=now()
+    where id=r.id;
+
+    perform private.lpp_write_event(r.id,'deadline_reminder','system','Upcoming payment deadline reminder sent.','{}'::jsonb);
+    v_count:=v_count+1;
+  end loop;
+
+  return v_count;
+end;
+$;
+
+drop trigger if exists lpp_payment_admin_signal on public.lipa_pole_pole_payments;
+create trigger lpp_payment_admin_signal
+after insert on public.lipa_pole_pole_payments
+for each statement execute function private.bump_admin_notification_signal('approvals');
+
+drop trigger if exists lpp_account_admin_signal on public.lipa_pole_pole_accounts;
+create trigger lpp_account_admin_signal
+after update of status,refund_status,cancellation_requested_at on public.lipa_pole_pole_accounts
+for each statement execute function private.bump_admin_notification_signal('approvals');
+
+do $
 begin
   if not exists(select 1 from cron.job where jobname='leogo-lpp-overdue-scan') then
     perform cron.schedule(
@@ -1206,7 +1311,14 @@ begin
       'select private.mark_lipa_pole_pole_overdue();'
     );
   end if;
-end $$;
+  if not exists(select 1 from cron.job where jobname='leogo-lpp-deadline-reminders') then
+    perform cron.schedule(
+      'leogo-lpp-deadline-reminders',
+      '43 * * * *',
+      'select private.send_lipa_pole_pole_deadline_reminders();'
+    );
+  end if;
+end $;
 
 revoke all on function public.customer_open_lipa_pole_pole_account(uuid,uuid,numeric,text,text,text,text,text,text,text,text,uuid,text) from public,anon;
 revoke all on function public.customer_list_lipa_pole_pole_accounts() from public,anon;
