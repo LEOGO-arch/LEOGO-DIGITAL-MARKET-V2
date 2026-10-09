@@ -1248,6 +1248,40 @@
             <div class="form-status" id="lipaPolePoleSettingsStatus"></div>
             <div class="locked-front-note">This keeps each Seller's own deposit amount and maximum payment period intact. Only the LEOGO-wide policy percentages are controlled here.</div>
           </form>
+
+          <section class="content-card" id="lppOperationsCard">
+            <div class="card-head"><div><span>LIVE INSTALMENT ACCOUNTS</span><h3>Lipa Pole Pole Operations</h3><p>Verify customer payments, review cancellations, resolve overdue accounts and complete refunds. Fully paid accounts automatically enter the normal Seller fulfilment workflow.</p></div><button id="refreshAdminLppAccounts" type="button">↻ Refresh Accounts</button></div>
+            <div class="seller-admin-summary lpp-admin-summary">
+              <article><span>Total Accounts</span><strong id="adminLppTotal">0</strong><small>All permanent instalment accounts</small></article>
+              <article><span>Pending Payments</span><strong id="adminLppPendingPayments">0</strong><small>Waiting verification</small></article>
+              <article><span>Cancellation Review</span><strong id="adminLppCancellationPending">0</strong><small>Needs Admin decision</small></article>
+              <article><span>Overdue</span><strong id="adminLppOverdue">0</strong><small>Needs resolution</small></article>
+              <article><span>Refunds Pending</span><strong id="adminLppRefundPending">0</strong><small>Refund not yet marked paid</small></article>
+            </div>
+            <div class="seller-admin-toolbar">
+              <input id="adminLppSearch" type="search" placeholder="Search account, customer, Seller or product…">
+              <select id="adminLppStatusFilter">
+                <option value="all">All account statuses</option>
+                <option value="deposit_pending">Deposit pending</option>
+                <option value="active">Active</option>
+                <option value="fully_paid">Paid in full</option>
+                <option value="overdue">Overdue</option>
+                <option value="cancellation_pending">Cancellation pending</option>
+                <option value="refund_pending">Refund pending</option>
+                <option value="refunded">Refunded</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div class="table-card">
+              <div class="responsive-table">
+                <table>
+                  <thead><tr><th>Account</th><th>Customer / Seller</th><th>Product</th><th>Paid / Balance</th><th>Deadline / Status</th><th>Action Required</th></tr></thead>
+                  <tbody id="adminLppAccountBody"><tr><td colspan="6">Open Lipa Pole Pole settings to load accounts.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="form-status" id="adminLppOperationsStatus" role="status" aria-live="polite"></div>
+          </section>
         </div>
 
         <div class="settings-panel" data-settings-content="data">
@@ -1712,7 +1746,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
-  <script src="admin.js?v=staff-location-assignment-1" defer></script>
+  <script src="admin.js?v=lpp-production-workflow-1" defer></script>
   <script src="vacant-houses.js?v=property-sale-rent-v1" defer></script>
   <script src="system-diagnostics.js?v=diagnostics-trend-collapse-1" defer></script>
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
