@@ -3678,6 +3678,12 @@
   const lppPaymentDestinationNumber = document.getElementById('lppPaymentDestinationNumber');
   const lppPaymentDestinationInstructions = document.getElementById('lppPaymentDestinationInstructions');
   const copyLppPaymentDestination = document.getElementById('copyLppPaymentDestination');
+  const lppDashboardPaymentDestination = document.getElementById('lppDashboardPaymentDestination');
+  const lppDashboardPaymentDestinationTitle = document.getElementById('lppDashboardPaymentDestinationTitle');
+  const lppDashboardPaymentDestinationName = document.getElementById('lppDashboardPaymentDestinationName');
+  const lppDashboardPaymentDestinationNumber = document.getElementById('lppDashboardPaymentDestinationNumber');
+  const lppDashboardPaymentDestinationInstructions = document.getElementById('lppDashboardPaymentDestinationInstructions');
+  const copyLppDashboardPaymentDestination = document.getElementById('copyLppDashboardPaymentDestination');
   let lppPlans = [];
   let lppPaymentAccount = null;
 
@@ -3744,6 +3750,16 @@
     if (lppPaymentDestinationInstructions) lppPaymentDestinationInstructions.textContent =
       destination?.instructions || 'Pay the required amount to this LEOGO account, then paste the M-Pesa confirmation/reference below.';
     if (copyLppPaymentDestination) copyLppPaymentDestination.disabled = !number;
+
+    if (lppDashboardPaymentDestination) lppDashboardPaymentDestination.hidden = !destination;
+    if (lppDashboardPaymentDestinationTitle) lppDashboardPaymentDestinationTitle.textContent = destination
+      ? typeLabel + ' — ' + (destination.display_name || 'LEOGO')
+      : 'Lipa Pole Pole payment account unavailable';
+    if (lppDashboardPaymentDestinationName) lppDashboardPaymentDestinationName.textContent = name;
+    if (lppDashboardPaymentDestinationNumber) lppDashboardPaymentDestinationNumber.textContent = number || '—';
+    if (lppDashboardPaymentDestinationInstructions) lppDashboardPaymentDestinationInstructions.textContent =
+      destination?.instructions || 'Pay each instalment to this LEOGO account, then submit the M-Pesa confirmation/reference for verification.';
+    if (copyLppDashboardPaymentDestination) copyLppDashboardPaymentDestination.disabled = !number;
   };
 
   const loadLppPaymentDestination = async () => {
@@ -3761,18 +3777,20 @@
     return destination;
   };
 
-  copyLppPaymentDestination?.addEventListener('click', async () => {
+  const copyLppNumber = async (button) => {
     const number = window.leogoPayments?.paymentNumber(lppPaymentAccount) || '';
     if(!number) return;
     try {
       await navigator.clipboard.writeText(number);
-      const original=copyLppPaymentDestination.textContent;
-      copyLppPaymentDestination.textContent='Copied';
-      window.setTimeout(()=>{if(copyLppPaymentDestination.isConnected)copyLppPaymentDestination.textContent=original;},900);
+      const original=button.textContent;
+      button.textContent='Copied';
+      window.setTimeout(()=>{if(button.isConnected)button.textContent=original;},900);
     } catch {
       if(lppDepositStatus) lppDepositStatus.textContent='Payment number: '+number;
     }
-  });
+  };
+  copyLppPaymentDestination?.addEventListener('click',()=>copyLppNumber(copyLppPaymentDestination));
+  copyLppDashboardPaymentDestination?.addEventListener('click',()=>copyLppNumber(copyLppDashboardPaymentDestination));
 
   const openLppDepositForm = () => {
     populateLppCartItems();
