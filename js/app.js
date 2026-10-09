@@ -1530,6 +1530,8 @@
   const checkoutWalletRewards = document.getElementById('checkoutWalletRewards');
   const paymentRuleNotice = checkoutPaymentStep?.querySelector('[data-admin-managed="cod-payment-rules"]');
   const paymentOrderSummary = checkoutPaymentStep?.querySelector('.payment-order-summary');
+  const codOrderFirstNote = document.getElementById('codOrderFirstNote');
+  const codFeeCreatedOrderForm = document.getElementById('codFeeCreatedOrderForm');
   const lppDepositForm = document.getElementById('lppDepositForm');
   const standardPaymentProof = document.getElementById('standardPaymentProof');
   const standardPaymentActions = document.getElementById('standardPaymentActions');
@@ -1562,6 +1564,7 @@
   const checkoutPaymentDestinationInstructions = document.getElementById('checkoutPaymentDestinationInstructions');
   const copyCheckoutPaymentDestination = document.getElementById('copyCheckoutPaymentDestination');
   let selectedCheckoutPayment = '';
+  let codOrderFirstReady = false;
   let previewOrderReference = '';
   let marketplacePaymentDestination = null;
 
@@ -1629,6 +1632,7 @@
       if(standardPaymentProof)standardPaymentProof.hidden=true;
       if(checkoutPaymentDestination)checkoutPaymentDestination.hidden=true;
       if(paymentRuleNotice)paymentRuleNotice.hidden=true;
+      if(codOrderFirstNote)codOrderFirstNote.hidden=true;
       if(paymentOrderSummary)paymentOrderSummary.hidden=true;
       if(makeCheckoutOrder)makeCheckoutOrder.hidden=true;
       if(standardPaymentActions)standardPaymentActions.hidden=false;
@@ -1646,9 +1650,11 @@
 
     const isLipaPolePole=selectedCheckoutPayment==='lipapolepole';
     const isWallet=selectedCheckoutPayment==='wallet';
+    const isCodOrderFirst=selectedCheckoutPayment==='cod' && codOrderFirstReady && !cartHasSource('health_medicine');
     if(lppDepositForm)lppDepositForm.hidden=!isLipaPolePole;
     if(walletCheckoutPanel)walletCheckoutPanel.hidden=!isWallet;
-    if(standardPaymentProof)standardPaymentProof.hidden=isLipaPolePole||isWallet;
+    if(standardPaymentProof)standardPaymentProof.hidden=isLipaPolePole||isWallet||isCodOrderFirst;
+    if(codOrderFirstNote)codOrderFirstNote.hidden=!isCodOrderFirst;
     if(checkoutPaymentDestination)checkoutPaymentDestination.hidden=!['till','paybill'].includes(selectedCheckoutPayment);
     if(paymentRuleNotice)paymentRuleNotice.hidden=selectedCheckoutPayment!=='cod';
     if(paymentOrderSummary)paymentOrderSummary.hidden=false;
@@ -1664,6 +1670,7 @@
       const walletOrderTotal=document.getElementById('walletCheckoutOrderTotal');
       if(walletOrderTotal)walletOrderTotal.textContent=deliveryMoney(due);
     }else if(selectedCheckoutPayment==='cod'){
+      if(isCodOrderFirst && selectedPaymentStatus)selectedPaymentStatus.textContent='Order first · delivery fee verified before dispatch';
       paymentProofLabel.textContent='Paste M-Pesa message for the Transport & Parcel Delivery fee';
       markPaymentPaidLabel.textContent=checkoutPointsAppliedNumber()>0
         ? 'I confirm that I paid the required delivery fee first. my Shopping Voucher has been applied and I will pay the remaining COD amount on delivery.'
@@ -1832,6 +1839,16 @@
     field?.addEventListener('change', updateCheckoutReadiness);
   });
 
+  const checkCodOrderFirstCapability = async () => {
+    codOrderFirstReady = false;
+    if(!window.leogoAuth?.isAuthenticated?.()) return false;
+    try{
+      const {data,error}=await window.leogoAuth.client.rpc('customer_cod_order_first_ready');
+      codOrderFirstReady = !error && data === true;
+    }catch(_error){codOrderFirstReady=false;}
+    syncSelectedPaymentPresentation();
+    return codOrderFirstReady;
+  };
   continueToPayment?.addEventListener('click', async () => {
     if (!testCart.length) {
       openCustomerShell('cart');
@@ -1840,7 +1857,8 @@
     showCheckoutStep('payment');
     await Promise.all([
       loadMarketplacePaymentDestination(true),
-      loadCheckoutRewardPoints()
+      loadCheckoutRewardPoints(),
+      checkCodOrderFirstCapability()
     ]);
   });
   backToCheckoutDetails?.addEventListener('click', () => showCheckoutStep('details'));
@@ -1917,14 +1935,15 @@
       paymentStepStatus.textContent = 'For the remaining amount, use Till, Paybill or Cash on Delivery.';
       return;
     }
-    if (!mpesaPaymentMessage.value.trim()) {
+    const isCodOrderFirst = selectedCheckoutPayment==='cod' && codOrderFirstReady && !healthCheckout;
+    if (!isCodOrderFirst && !mpesaPaymentMessage.value.trim()) {
       paymentStepStatus.textContent = selectedCheckoutPayment === 'cod'
         ? 'Paste the M-Pesa confirmation for the Transport & Parcel Delivery fee.'
         : 'Paste the complete M-Pesa payment confirmation message for the remaining amount.';
       mpesaPaymentMessage.focus();
       return;
     }
-    if (!markPaymentPaid.checked) {
+    if (!isCodOrderFirst && !markPaymentPaid.checked) {
       paymentStepStatus.textContent = 'Tick the payment confirmation box before making the order.';
       markPaymentPaid.focus();
       return;
@@ -2004,7 +2023,7 @@
         p_location_link: document.getElementById('checkoutLocationLink')?.value.trim() || null,
         p_pickup_station_id: pickupStation?.id || null,
         p_payment_method: selectedCheckoutPayment,
-        p_payment_message: mpesaPaymentMessage.value.trim()
+        p_payment_message: isCodOrderFirst ? '' : mpesaPaymentMessage.value.trim()
       };
       const orderRequest=healthCheckout
         ? await window.leogoAuth.client.rpc('customer_create_health_medicine_order',{
@@ -2029,7 +2048,7 @@
       const actualPoints=Number(data?.reward_points_redeemed_kes||0);
       const actualDue=Number(data?.external_amount_due_kes??data?.grand_total_kes??0);
       selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod'
-        ? 'COD — '+deliveryMoney(actualDue)+' remaining'
+        ? (isCodOrderFirst?'COD created — delivery fee pending verification · '+deliveryMoney(actualDue)+' at handover':'COD — '+deliveryMoney(actualDue)+' remaining')
         : 'Payment submitted — '+deliveryMoney(actualDue)+' awaiting Admin verification';
       paymentStepStatus.textContent = actualPoints>0
         ? 'Order created successfully. '+deliveryMoney(actualPoints)+' from your Shopping Voucher was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
@@ -2038,6 +2057,20 @@
           : 'Order created successfully and sent to the Seller.';
 
       orderCreatedPanel.hidden = false;
+      if(codFeeCreatedOrderForm){
+        const requiresCodFee=isCodOrderFirst && Number(data?.delivery_fee_kes||0)>0;
+        codFeeCreatedOrderForm.hidden=!requiresCodFee;
+        codFeeCreatedOrderForm.dataset.codOrderId=requiresCodFee ? String(data.order_id||'') : '';
+        if(requiresCodFee){
+          const feeNode=document.getElementById('codFeeCreatedAmount');
+          if(feeNode)feeNode.textContent='Pay '+deliveryMoney(data.delivery_fee_kes)+' for transport before your rider can be assigned.';
+          const destinationNode=document.getElementById('codFeeCreatedDestination');
+          const destinationNumber=window.leogoPayments?.paymentNumber(marketplacePaymentDestination)||'';
+          if(destinationNode)destinationNode.textContent=destinationNumber
+            ? 'LEOGO Admin-assigned payment account: '+destinationNumber
+            : 'Ask LEOGO Customer Care for the current order-payment Till or Paybill before paying.';
+        }
+      }
       testCart = [];
       saveTestCart();
       if(healthPrescriptionFile)healthPrescriptionFile.value='';
