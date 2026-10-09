@@ -2734,7 +2734,8 @@
         '<div class="live-product-details" data-product-details hidden>'+
           '<div class="live-product-details-head"><span>'+receiptEscape(categoryDisplayName(product.category_name || product.category_code || 'Marketplace'))+
             (product.subcategory_name ? ' · '+receiptEscape(product.subcategory_name) : '')+'</span>'+
-            '<small>Seller: '+receiptEscape(product.seller_name || 'LEOGO Seller')+'</small></div>'+
+            '<small>Seller: '+receiptEscape(product.seller_name || 'LEOGO Seller')+'</small>'+
+            '<button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="seller" data-partner-id="'+receiptEscape(product.seller_id||'')+'" data-partner-name="'+receiptEscape(product.seller_name||'LEOGO Seller')+'">↗ Share Seller</button></div>'+
           (ordinaryOrderAvailable
             ? '<div class="live-product-detail-stock"><small>'+(localAvailable?'Local availability':'Pre-order availability')+'</small><strong data-live-product-stock>Qty '+Number(hasVariants?effectiveVariantStock:effectiveProductStock)+' '+receiptEscape(product.measurement_unit || 'item')+(flashActive?' on Flash Sale':'')+'</strong></div>'
             : '')+
