@@ -1565,6 +1565,7 @@
   const copyCheckoutPaymentDestination = document.getElementById('copyCheckoutPaymentDestination');
   let selectedCheckoutPayment = '';
   let codOrderFirstReady = false;
+  let codFeeStatusRpcUnavailable = false;
   let previewOrderReference = '';
   let marketplacePaymentDestination = null;
 
