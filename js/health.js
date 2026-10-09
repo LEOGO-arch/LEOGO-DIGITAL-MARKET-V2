@@ -9,6 +9,8 @@
 
   let providers=[];
   let products=[];
+  let sharedProviderId='';
+  let sharedProviderName='';
 
   const esc=(value='')=>String(value??'').replace(/[&<>'"]/g,(ch)=>({
     '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'
@@ -50,14 +52,16 @@
   const filtered=()=>{
     const type=$('#healthMarketTypeFilter')?.value||'';
     const query=$('#healthMarketSearch')?.value.trim().toLowerCase()||'';
-    const providerIds=new Set(providers.filter((row)=>{
+    const baseProviders=sharedProviderId?providers.filter((row)=>String(row.provider_id)===sharedProviderId):providers;
+    const baseProducts=sharedProviderId?products.filter((row)=>String(row.provider_id)===sharedProviderId):products;
+    const providerIds=new Set(baseProviders.filter((row)=>{
       if(type&&row.business_type!==type)return false;
       if(!query)return true;
       return [row.business_name,row.business_type,row.other_business_type,row.county,row.sub_county,row.town,row.location_details,row.business_description]
         .filter(Boolean).join(' ').toLowerCase().includes(query);
     }).map((row)=>String(row.provider_id)));
 
-    const filteredProducts=products.filter((row)=>{
+    const filteredProducts=baseProducts.filter((row)=>{
       if(type&&row.business_type!==type)return false;
       if(!query)return true;
       return [row.product_name,row.brand,row.description,row.product_kind,row.medicine_classification,row.provider_name,row.county,row.sub_county,row.town,row.location_details]
@@ -73,11 +77,16 @@
   const render=()=>{
     const rows=filtered();
     const status=$('#healthMarketStatus');
-    if(status)status.textContent=rows.providers.length+' approved Health partner'+(rows.providers.length===1?'':'s')+' · '+rows.products.length+' approved product'+(rows.products.length===1?'':'s');
+    if(status)status.textContent=sharedProviderId
+      ? 'Shared Health Partner: '+sharedProviderName+' · '+rows.products.length+' approved product'+(rows.products.length===1?'':'s')
+      : rows.providers.length+' approved Health partner'+(rows.providers.length===1?'':'s')+' · '+rows.products.length+' approved product'+(rows.products.length===1?'':'s');
 
     const partnerGrid=$('#healthPartnerGrid');
     if(partnerGrid){
-      partnerGrid.innerHTML=rows.providers.length?rows.providers.map((row)=>{
+      const sharedBanner=sharedProviderId
+        ? '<div class="partner-share-filter-banner"><div><strong>'+esc(sharedProviderName)+'</strong><small>Shared LEOGO Health Partner</small></div><button type="button" data-clear-health-partner-share>View all Health partners</button></div>'
+        : '';
+      partnerGrid.innerHTML=sharedBanner+(rows.providers.length?rows.providers.map((row)=>{
         const image=imageUrl(row.profile_picture_path);
         return '<article class="health-partner-card" data-health-provider-id="'+esc(row.provider_id)+'">'+
           '<div class="health-partner-photo">'+(image?'<img src="'+esc(image)+'" alt="'+esc(row.business_name)+'">':'⚕️')+'</div>'+
@@ -85,9 +94,10 @@
           '<small>📍 '+esc([row.location_details,row.town,row.sub_county,row.county].filter(Boolean).join(' · '))+'</small>'+
           '<em>'+(row.business_type==='health_specialist'
             ? Number(row.approved_service_count||0)+' approved professional service'+(Number(row.approved_service_count||0)===1?'':'s')
-            : Number(row.approved_product_count||0)+' approved Health product'+(Number(row.approved_product_count||0)===1?'':'s'))+'</em></div>'+
+            : Number(row.approved_product_count||0)+' approved Health product'+(Number(row.approved_product_count||0)===1?'':'s'))+'</em>'+
+          '<button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="health_medicine" data-partner-id="'+esc(row.provider_id)+'" data-partner-name="'+esc(row.business_name)+'">↗ Share Partner</button></div>'+
         '</article>';
-      }).join(''):'<div class="health-market-empty">No approved Health & Medicine partners match this filter yet.</div>';
+      }).join(''):'<div class="health-market-empty">No approved Health & Medicine partners match this filter yet.</div>');
     }
 
     const productGrid=$('#healthProductGrid');
@@ -110,6 +120,7 @@
             : row.order_mode==='cart'
               ? '<button class="health-public-enquiry" type="button" disabled>Out of Stock</button>'
               : '<button class="health-public-enquiry" type="button" data-health-enquiry="'+esc(row.id)+'">Ask LEOGO about this item</button>')+
+          '<button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="health_medicine" data-partner-id="'+esc(row.provider_id)+'" data-partner-name="'+esc(row.provider_name||'Health Partner')+'">↗ Share Provider</button>'+
           '</div>'+
         '</article>';
       }).join(''):'<div class="health-market-empty">No approved Health & Medicine products match this filter yet.</div>';
@@ -161,8 +172,20 @@
       if(error)throw error;
       providers=Array.isArray(data?.providers)?data.providers:[];
       products=Array.isArray(data?.products)?data.products:[];
+      const target=window.leogoPartnerShare?.getTarget?.('health_medicine');
+      if(target){
+        const match=providers.find((row)=>String(row.provider_id)===String(target.id));
+        if(match){
+          sharedProviderId=String(target.id);
+          sharedProviderName=target.name||match.business_name||'Health Partner';
+          const typeFilter=$('#healthMarketTypeFilter'); if(typeFilter)typeFilter.value='';
+          const search=$('#healthMarketSearch'); if(search)search.value='';
+          window.leogoPartnerShare?.markHandled?.();
+        }
+      }
       publishMarketplaceProducts();
       render();
+      if(sharedProviderId)window.setTimeout(()=>section.scrollIntoView({behavior:'smooth',block:'start'}),80);
     }catch(error){
       console.warn('Health & Medicine marketplace could not load:',error);
       if(status)status.textContent='Health & Medicine listings are temporarily unavailable.';
@@ -171,6 +194,12 @@
     }
   };
 
+  $('#healthPartnerGrid')?.addEventListener('click',(event)=>{
+    if(!event.target.closest('[data-clear-health-partner-share]'))return;
+    sharedProviderId='';
+    sharedProviderName='';
+    render();
+  });
   $('#healthMarketTypeFilter')?.addEventListener('change',render);
   $('#healthMarketSearch')?.addEventListener('input',render);
   document.addEventListener('leogo:authchange',()=>load().catch(()=>{}));
