@@ -2298,12 +2298,14 @@
     });
   };
 
+  let codFeeAdminRpcUnavailable=false;
   const loadMarketplaceOrders = async ({refreshActiveDetail=false}={}) => {
     const [ordersResult,codQueueResult]=await Promise.all([
       db.rpc('admin_list_marketplace_orders'),
-      db.rpc('admin_list_cod_delivery_fee_queue')
+      codFeeAdminRpcUnavailable?Promise.resolve({data:[],error:null}):db.rpc('admin_list_cod_delivery_fee_queue')
     ]);
     if(ordersResult.error)throw ordersResult.error;
+    if(codQueueResult.error)codFeeAdminRpcUnavailable=true;
     const codFeeQueue=new Map((Array.isArray(codQueueResult.data)?codQueueResult.data:[])
       .map(item=>[item.order_id,item.status]));
     state.marketplaceOrders=(Array.isArray(ordersResult.data)?ordersResult.data:[])
