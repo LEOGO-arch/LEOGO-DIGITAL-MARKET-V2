@@ -2299,9 +2299,15 @@
   };
 
   const loadMarketplaceOrders = async ({refreshActiveDetail=false}={}) => {
-    const {data,error}=await db.rpc('admin_list_marketplace_orders');
-    if(error) throw error;
-    state.marketplaceOrders=Array.isArray(data)?data:[];
+    const [ordersResult,codQueueResult]=await Promise.all([
+      db.rpc('admin_list_marketplace_orders'),
+      db.rpc('admin_list_cod_delivery_fee_queue')
+    ]);
+    if(ordersResult.error)throw ordersResult.error;
+    const codFeeQueue=new Map((Array.isArray(codQueueResult.data)?codQueueResult.data:[])
+      .map(item=>[item.order_id,item.status]));
+    state.marketplaceOrders=(Array.isArray(ordersResult.data)?ordersResult.data:[])
+      .map(order=>({...order,cod_fee_status:codFeeQueue.get(order.id)||'not_required'}));
     renderMarketplaceOrders();
 
     if(refreshActiveDetail && state.activeMarketplaceOrderId && !$('#adminOrderDetailPanel')?.hidden){
@@ -2546,7 +2552,7 @@
     const orders=filteredMarketplaceOrders();
 
     $('#adminOrderTotal').textContent=all.length;
-    $('#adminOrderPaymentPending').textContent=all.filter((o)=>o.payment_status==='submitted').length;
+    $('#adminOrderPaymentPending').textContent=all.filter((o)=>o.payment_status==='submitted'||o.cod_fee_status==='submitted').length;
     $('#adminOrderWithRider').textContent=all.filter((o)=>o.order_status==='with_rider').length;
     $('#adminOrderDelivered').textContent=all.filter((o)=>o.order_status==='delivered').length;
     updateSidebarActionCounts();
@@ -2555,11 +2561,11 @@
       <td><strong>${escapeHtml(o.order_reference)}</strong><small>${formatDate(o.created_at,true)}</small></td>
       <td><strong>${escapeHtml(o.receiver_name)}</strong><small>${escapeHtml(o.customer_email||o.contact_number||'')}</small></td>
       <td><strong>${formatMoney(o.grand_total_kes)}</strong><small>${Number(o.seller_count||0)} Seller(s)</small></td>
-      <td><span class="status-chip">${escapeHtml(paymentStatusLabel(o.payment_status))}</span><small>${escapeHtml(String(o.payment_method||'').replaceAll('_',' '))}</small></td>
+      <td><span class="status-chip">${escapeHtml(paymentStatusLabel(o.payment_status))}</span><small>${escapeHtml(String(o.payment_method||'').replaceAll('_',' '))}</small>${o.cod_fee_status==='submitted'?'<small>⚠ COD delivery fee awaiting verification</small>':o.cod_fee_status==='awaiting_payment'?'<small>Delivery fee payment required</small>':''}</td>
       <td><span class="status-chip">${escapeHtml(orderStatusLabel(o.order_status))}</span></td>
       <td><small class="order-payment-proof">${escapeHtml(o.payment_message||'No payment message')}</small></td>
       <td class="settlement-admin-actions admin-order-row-actions">
-        <button type="button" data-open-marketplace-order="${escapeHtml(o.id)}">View Order</button>
+        <button type="button" data-open-marketplace-order="${escapeHtml(o.id)}">${o.cod_fee_status==='submitted'?'Review COD Fee':'View Order'}</button>
         ${o.payment_status==='submitted' && adminHas('orders.payment_verify')
           ? '<button type="button" data-order-payment="paid" data-order-id="'+escapeHtml(o.id)+'">Verify Paid</button><button type="button" class="danger" data-order-payment="reject" data-order-id="'+escapeHtml(o.id)+'">Reject</button>'
           : ''}
