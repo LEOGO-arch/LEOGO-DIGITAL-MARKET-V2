@@ -121,6 +121,19 @@ begin
       raise exception 'Set up and enable the LEOGO Gmail SMTP sender before sending email';
     end if;
   end if;
+  if (select count(*) from public.admin_customer_message_campaigns
+        where created_by=(select auth.uid()) and created_at>now()-interval '1 hour')>=10 then
+    raise exception 'Customer messaging limit reached: maximum 10 campaigns per hour';
+  end if;
+  if exists (
+    select 1 from public.admin_customer_message_campaigns
+    where created_by=(select auth.uid()) and created_at>now()-interval '10 minutes'
+      and channel=p_channel and purpose=p_purpose and message_body=btrim(p_message)
+      and coalesce(subject,'')=case when p_channel='sms' then '' else btrim(coalesce(p_subject,'')) end
+  ) then
+    raise exception 'This identical message was already queued recently; check message history';
+  end if;
+
   insert into public.admin_customer_message_campaigns(
     created_by,request_key,channel,purpose,subject,message_body,requested_customers
   ) values (
@@ -137,6 +150,8 @@ begin
     left join public.customer_profiles p on p.user_id=u.id
     left join public.customer_message_preferences pref on pref.user_id=u.id
     where u.id=any(p_customers)
+      and not exists(select 1 from public.admin_users au where au.user_id=u.id and au.status='active')
+      and not exists(select 1 from public.leogo_staff staff where staff.user_id=u.id and staff.status='active')
     order by u.id
   loop
     v_mobile:=regexp_replace(coalesce(v_row.phone,''),'[^0-9]','','g');
@@ -169,10 +184,8 @@ begin
         insert into public.order_email_outbox(order_id,event_key,recipient_email,recipient_name,subject,template_data)
         values(null,'admin_custom_'||v_id,v_address,v_row.name,btrim(p_subject),
           jsonb_build_object('kind','admin_custom','customer_name',v_row.name,
-            'custom_message',v_body,'purpose',p_purpose));
-        select id into v_email_job from public.order_email_outbox
-          where event_key='admin_custom_'||v_id and recipient_email=v_address
-          order by created_at desc limit 1;
+            'custom_message',v_body,'purpose',p_purpose))
+        returning id into v_email_job;
         insert into public.admin_customer_message_recipients(campaign_id,customer_id,channel,email_job_id)
         values(v_id,v_row.id,'email',v_email_job);
         v_seen_emails:=array_append(v_seen_emails,v_address);
