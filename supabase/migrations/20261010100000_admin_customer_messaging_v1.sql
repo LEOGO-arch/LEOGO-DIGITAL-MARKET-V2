@@ -91,8 +91,9 @@ begin
   if p_channel not in ('sms','email','both') or p_purpose not in ('service','promotion') then
     raise exception 'Choose a valid channel and purpose';
   end if;
-  if p_message is null or length(btrim(p_message))<3 or length(p_message)>400 then
-    raise exception 'Message must contain 3–400 characters (for SMS compatibility)';
+  if p_message is null or length(btrim(p_message))<3 or length(p_message)>
+     case when p_channel='email' then 4000 else 400 end then
+    raise exception 'Message length exceeds the selected channel limit (SMS: 400, Email: 4000 characters)';
   end if;
   if p_channel in ('email','both') and (p_subject is null or length(btrim(p_subject))<3 or length(p_subject)>120) then
     raise exception 'Email subject must contain 3–120 characters';
