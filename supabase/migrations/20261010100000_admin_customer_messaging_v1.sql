@@ -125,14 +125,6 @@ begin
         where created_by=(select auth.uid()) and created_at>now()-interval '1 hour')>=10 then
     raise exception 'Customer messaging limit reached: maximum 10 campaigns per hour';
   end if;
-  if exists (
-    select 1 from public.admin_customer_message_campaigns
-    where created_by=(select auth.uid()) and created_at>now()-interval '10 minutes'
-      and channel=p_channel and purpose=p_purpose and message_body=btrim(p_message)
-      and coalesce(subject,'')=case when p_channel='sms' then '' else btrim(coalesce(p_subject,'')) end
-  ) then
-    raise exception 'This identical message was already queued recently; check message history';
-  end if;
 
   insert into public.admin_customer_message_campaigns(
     created_by,request_key,channel,purpose,subject,message_body,requested_customers
