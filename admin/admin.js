@@ -553,6 +553,7 @@
       flashsales: () => adminHas('approvals.read'),
       aftersales: () => adminHas('orders.read'),
       customers: () => adminHas('customers.read'),
+      customer_messages: () => adminHas('customers.read') && adminHas('settings.manage'),
       chat: () => adminHas('support.chat'),
       products: () => adminHas('products.read'),
       sellers: () => adminHas('sellers.read'),
