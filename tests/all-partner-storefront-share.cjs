@@ -37,12 +37,15 @@ assert.match(accommodation,/getTarget\?\.\('accommodation'\)/,'Accommodation sha
 assert.match(accommodation,/String\(property\.host_id\|\|''\) !== sharedAccommodationHostId/,'Accommodation shared links must filter all approved properties for that host');
 assert.match(accommodation,/id:selectedProperty\.host_id\|\|selectedProperty\.id/,'Accommodation share must prefer the host id');
 
-assert.match(premium,/data\.partnerType='premium_profile'/,'Verified Premium Profile cards must expose a share action');
+assert.match(premium,/shareButton\.dataset\.partnerType='premium_profile'/,'Verified Premium Profile cards must expose a share action');
 assert.match(premium,/getTarget\?\.\('premium_profile'\)/,'Premium shared links must resolve the selected approved profile');
 assert.match(premium,/Shared LEOGO Verified Premium Profile/,'Premium shared links must show a focused shared-profile view');
 
 assert.match(html,/js\/app\.js\?v=all-partner-storefront-share-2/,'Customer app cache key must refresh');
 assert.match(html,/js\/accommodation\.js\?v=all-partner-storefront-share-2/,'Accommodation cache key must refresh');
 assert.match(html,/js\/premium\.js\?v=all-partner-storefront-share-2/,'Premium cache key must refresh');
+assert.match(html,/js\/cyber\.js\?v=all-partner-storefront-share-2/,'Cyber cache key must refresh');
+assert.match(html,/js\/health\.js\?v=all-partner-storefront-share-2/,'Health cache key must refresh');
+assert.match(html,/js\/health-specialist\.js\?v=all-partner-storefront-share-2/,'Health Specialist cache key must refresh');
 
 console.log('All partner storefront share regression checks passed.');
