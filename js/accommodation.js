@@ -58,6 +58,8 @@
   let selectedProperty = null;
   let selectedUnit = null;
   let currentUser = null;
+  let sharedAccommodationHostId = '';
+  let sharedAccommodationHostName = '';
   let accommodationFinanceSettings = { hotel_commission_percent: 10, customer_service_fee_percent: 3 };
   let submissionKey = crypto.randomUUID();
 
@@ -104,11 +106,14 @@
 
   const renderProperties = (items) => {
     if (!elements.grid) return;
+    const sharedBanner = sharedAccommodationHostId
+      ? '<div class="partner-share-filter-banner"><div><strong>'+escapeHtml(sharedAccommodationHostName||'Accommodation Partner')+'</strong><small>Shared LEOGO Accommodation Partner · approved properties and rooms</small></div><button type="button" data-clear-accommodation-share>View all accommodation</button></div>'
+      : '';
     if (!items.length) {
-      elements.grid.innerHTML = '<div class="accommodation-empty"><span>🏨</span><h3>No approved stays match this search yet</h3><p>Hotels and Airbnb hosts will appear here after LEOGO Admin verifies and publishes their property profiles.</p></div>';
+      elements.grid.innerHTML = sharedBanner+'<div class="accommodation-empty"><span>🏨</span><h3>No approved stays match this search yet</h3><p>Hotels and Airbnb hosts will appear here after LEOGO Admin verifies and publishes their property profiles.</p></div>';
       return;
     }
-    elements.grid.innerHTML = items.map((property) => {
+    elements.grid.innerHTML = sharedBanner + items.map((property) => {
       const units = property.units || [];
       const minimum = units.length ? Math.min(...units.map((unit) => Number(unit.nightly_price_kes))) : 0;
       const image = safeImage(property.cover_image_url);
@@ -137,19 +142,22 @@
     const propertyType = elements.type?.value || '';
     const guestCount = Math.max(1, Number(elements.guests?.value || 1));
     const filtered = properties.filter((property) => {
+      if (sharedAccommodationHostId && String(property.host_id||'') !== sharedAccommodationHostId) return false;
       const place = `${property.county} ${property.town} ${property.public_location} ${property.property_name}`.toLowerCase();
       const hasUnit = (property.units || []).some((unit) => Number(unit.max_guests) >= guestCount);
       return (!query || place.includes(query)) && (!propertyType || property.property_type === propertyType) && hasUnit;
     });
     renderProperties(filtered);
-    setMessage(elements.publicStatus, `${filtered.length} approved accommodation profile${filtered.length === 1 ? '' : 's'} found.`);
+    setMessage(elements.publicStatus, sharedAccommodationHostId
+      ? `Shared Accommodation Partner: ${sharedAccommodationHostName||'Accommodation Partner'} · ${filtered.length} approved propert${filtered.length === 1 ? 'y' : 'ies'} found.`
+      : `${filtered.length} approved accommodation profile${filtered.length === 1 ? '' : 's'} found.`);
   };
 
   const loadProperties = async () => {
     setMessage(elements.publicStatus, 'Loading approved accommodation…');
     const { data, error } = await client
       .from('accommodation_properties')
-      .select('id,property_name,property_type,county,town,public_location,description,cover_image_url,gallery_image_urls,amenities,house_rules,check_in_time,check_out_time,children_allowed,pets_allowed,parking_available,wifi_available,breakfast_available,smoking_zone_allowed,units:accommodation_units(id,room_category,unit_name,description,nightly_price_kes,max_guests,beds_description,inventory_count,is_active,approval_status,unit_image_url,gallery_image_urls,amenities,rates:accommodation_unit_rates(id,rate_name,meal_plan,occupancy_type,occupancy_pax,nightly_price_kes,is_active),reviews:accommodation_unit_reviews(id,rating,comment,moderation_status,created_at))')
+      .select('id,host_id,property_name,property_type,county,town,public_location,description,cover_image_url,gallery_image_urls,amenities,house_rules,check_in_time,check_out_time,children_allowed,pets_allowed,parking_available,wifi_available,breakfast_available,smoking_zone_allowed,units:accommodation_units(id,room_category,unit_name,description,nightly_price_kes,max_guests,beds_description,inventory_count,is_active,approval_status,unit_image_url,gallery_image_urls,amenities,rates:accommodation_unit_rates(id,rate_name,meal_plan,occupancy_type,occupancy_pax,nightly_price_kes,is_active),reviews:accommodation_unit_reviews(id,rating,comment,moderation_status,created_at))')
       .eq('approval_status', 'approved')
       .eq('is_published', true)
       .order('created_at', { ascending: false });
@@ -166,14 +174,22 @@
         reviews:(unit.reviews||[]).filter((review)=>review.moderation_status==='approved')
       }))
     }));
-    applyFilters();
     const target=window.leogoPartnerShare?.getTarget?.('accommodation');
     if(target){
-      const match=properties.find((property)=>String(property.id)===String(target.id));
+      const hostMatch=properties.find((property)=>String(property.host_id||'')===String(target.id));
+      const legacyPropertyMatch=properties.find((property)=>String(property.id)===String(target.id));
+      const match=hostMatch||legacyPropertyMatch;
       if(match){
+        sharedAccommodationHostId=String(match.host_id||'');
+        sharedAccommodationHostName=target.name||match.property_name||'Accommodation Partner';
+        if(elements.location)elements.location.value='';
+        if(elements.type)elements.type.value='';
         window.leogoPartnerShare?.markHandled?.();
-        window.setTimeout(()=>openProperty(match.id),80);
       }
+    }
+    applyFilters();
+    if(sharedAccommodationHostId){
+      window.setTimeout(()=>document.getElementById('accommodation')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
     }
   };
 
@@ -416,9 +432,9 @@
     if(!selectedProperty)return;
     window.leogoPartnerShare?.share?.({
       type:'accommodation',
-      id:selectedProperty.id,
+      id:selectedProperty.host_id||selectedProperty.id,
       name:selectedProperty.property_name||'Accommodation Partner',
-      label:'View rooms and approved accommodation details from '+(selectedProperty.property_name||'this LEOGO accommodation partner')+'.'
+      label:'View approved properties, rooms and accommodation services from '+(selectedProperty.property_name||'this LEOGO accommodation partner')+'.'
     });
   });
 
@@ -427,6 +443,13 @@
     applyFilters();
   });
   elements.grid?.addEventListener('click', (event) => {
+    const clearShare=event.target.closest('[data-clear-accommodation-share]');
+    if(clearShare){
+      sharedAccommodationHostId='';
+      sharedAccommodationHostName='';
+      applyFilters();
+      return;
+    }
     const button = event.target.closest('[data-accommodation-property]');
     if (button) openProperty(button.dataset.accommodationProperty);
   });
