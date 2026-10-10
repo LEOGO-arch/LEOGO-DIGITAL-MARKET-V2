@@ -28,11 +28,13 @@
     if(!form)return;
     const channel=form.elements.channel.value;
     const purpose=form.elements.purpose.value;
+    const maxChars=channel==='email'?4000:400;
+    form.elements.message.maxLength=maxChars;
     const subject=form.elements.subject.value.trim();
     const body=form.elements.message.value.trim();
     $('#messageSubjectRow').hidden=channel==='sms';
     form.elements.subject.required=channel!=='sms';
-    $('#messageCharacters').textContent=String(form.elements.message.value.length)+' / 400 characters';
+    $('#messageCharacters').textContent=String(form.elements.message.value.length)+' / '+maxChars+' characters';
     $('#messageSelectedCount').textContent=selected.size+' selected';
     $('#messagePreviewSubject').textContent=channel==='sms'?'Afrinet SMS':subject||'Email subject';
     const first=customers.find(c=>selected.has(c.user_id));
@@ -126,7 +128,8 @@
     const purpose=form.elements.purpose.value;
     const subject=form.elements.subject.value.trim();
     const body=form.elements.message.value.trim();
-    if(body.length<3||body.length>400){setStatus('Message must be 3–400 characters.','error');return;}
+    if(body.length<3||body.length>(channel==='email'?4000:400)){
+      setStatus('Message exceeds the selected channel length limit.','error');return;}
     if(channel!=='sms'&&(subject.length<3||subject.length>120)){
       setStatus('Enter an email subject between 3 and 120 characters.','error');return;
     }
