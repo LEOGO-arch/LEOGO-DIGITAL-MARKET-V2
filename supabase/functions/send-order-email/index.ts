@@ -36,7 +36,15 @@ const renderEmail = (subject: string, data: Record<string, unknown>) => {
   let action = "";
   let heading = "Order Update";
   let footer = "This is an automatic LEOGO order notification. If you did not place this order, contact LEOGO customer support.";
-  if (kind === "order_created") {
+  if (kind === "admin_custom") {
+    heading = escapeHtml(subject.slice(0, 120));
+    message = escapeHtml(safeText(data.custom_message, "Message from LEOGO DIGITAL MARKET").slice(0, 10000))
+      .replace(/\n/g, "<br>");
+    action = "";
+    footer = safeText(data.purpose) === "promotion"
+      ? "You received this because you opted in to LEOGO offers. Change your messaging preferences in My Profile."
+      : "This message was sent by LEOGO Customer Care. Contact LEOGO support if you have any questions.";
+  } else if (kind === "order_created") {
     heading = "Order Created Successfully";
     message =
       `Your order <strong>${order}</strong> has been placed successfully and received by LEOGO.`;
@@ -98,7 +106,7 @@ const renderEmail = (subject: string, data: Record<string, unknown>) => {
         <tr><td style="padding:28px;">
           <p style="margin:0 0 16px;font-size:16px;">Hello <strong>${name}</strong>,</p>
           <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">${message}</p>
-          <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px 16px;margin:18px 0;font-size:14px;line-height:1.55;">${escapeHtml(action)}</div>
+          ${action ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px 16px;margin:18px 0;font-size:14px;line-height:1.55;">${escapeHtml(action)}</div>` : ""}
           ${stationRows ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:18px;border-top:1px solid #eef1f5;padding-top:10px;">${stationRows}</table>` : ""}
           <p style="font-size:12px;color:#6b7280;line-height:1.5;margin:24px 0 0;">${escapeHtml(footer)}</p>
         </td></tr>
@@ -192,7 +200,9 @@ Deno.serve(async (req: Request) => {
       to: String(job.recipient_email),
       subject: String(job.subject),
       html: renderEmail(String(job.subject), (job.template_data || {}) as Record<string, unknown>),
-      text: securityEmail
+      text: emailKind === "admin_custom"
+        ? `LEOGO DIGITAL MARKET\\n\\n${String(job.subject)}\\n\\nHello ${safeText(job.recipient_name, "Customer")},\\n\\n${safeText(job.template_data?.custom_message)}\\n\\n${safeText(job.template_data?.purpose) === "promotion" ? "Manage offers in your LEOGO My Profile." : "Contact LEOGO support for assistance."}`
+        : securityEmail
         ? `LEOGO DIGITAL MARKET\n\n${String(job.subject)}\n\n${safeText(job.template_data?.security_message, "A Super Admin security action was completed.")}\n\nIf this was not you, use Admin recovery immediately and revoke all sessions.\n`
         : `LEOGO DIGITAL MARKET\n\n${String(job.subject)}\n\nOrder: ${safeText(job.template_data?.order_reference, "LEOGO order")}\n\n${emailKind === "order_created" ? "Your order has been placed successfully and will be shipped as soon as possible." : emailKind === "order_shipped" ? "Your order has been shipped / dispatched and is on the way." : emailKind === "order_delivered" ? "Your order has been delivered successfully." : ""}\n`,
     });

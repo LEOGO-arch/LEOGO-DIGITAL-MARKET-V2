@@ -2977,3 +2977,15 @@ body.advertisement-lightbox-open{overflow:hidden}
 #codFeeCreatedOrderForm button,.cod-fee-activity-form button{width:max-content;max-width:100%;padding:10px 12px;background:#1d3455;color:white;border:0;border-radius:8px;cursor:pointer;font-weight:800}
 #codFeeCreatedOrderForm button:disabled,.cod-fee-activity-form button:disabled{opacity:.55}
 .cod-fee-activity-status{padding:10px;margin:9px 0;background:#f3f6ff;border-radius:8px;font-size:11px}
+
+/* Optional customer SMS/email promotional opt-in: independent of profile edit state. */
+.customer-message-preferences{margin-top:14px;padding:17px;border:1px solid #dae4ef;border-radius:14px;background:#f9fbff;color:#13284a}
+.customer-message-preferences h4{font-size:14px;margin:0 0 7px}
+.customer-message-preferences p{font-size:11px;line-height:1.6;color:#61738a;margin:0 0 10px}
+#customerMessagePreferencesForm{display:grid;gap:10px}
+#customerMessagePreferencesForm label{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:750}
+#customerMessagePreferencesForm input{width:17px;height:17px}
+#customerMessagePreferencesForm button{justify-self:start;background:#09244d;color:white;padding:10px 14px;border:0;border-radius:9px;font-weight:800;cursor:pointer}
+#customerMessagePreferencesForm button:disabled{opacity:.5}
+#customerMessagePreferencesStatus{font-size:11px;color:#4b6381}
+.customer-message-preferences[hidden]{display:none!important}
