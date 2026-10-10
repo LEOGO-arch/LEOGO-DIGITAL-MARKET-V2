@@ -2907,13 +2907,14 @@
         '</div>'+
         '<div class="live-product-details" data-product-details hidden>'+
           '<div class="live-product-details-head"><span>'+receiptEscape(healthProductKindLabel(product.product_kind))+'</span>'+
-            '<small>Health Partner: '+receiptEscape(product.provider_name||'LEOGO Health Partner')+'</small></div>'+
+            '<small>Health Partner: '+receiptEscape(product.provider_name||'LEOGO Health Partner')+'</small>'+
+            '<button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="health_medicine" data-partner-id="'+receiptEscape(product.provider_id||'')+'" data-partner-name="'+receiptEscape(product.provider_name||'LEOGO Health Partner')+'">↗ Share Health Partner</button></div>'+
           '<div class="live-product-detail-stock"><small>Availability</small><strong>'+receiptEscape(product.availability_status==='available'?'Available':'Unavailable')+
             (product.cart_eligible?' · Qty '+Number(product.quantity_available||0):'')+'</strong></div>'+
           '<div class="live-product-detail-section"><div class="live-product-detail-label">Health classification</div><p class="live-product-description">'+receiptEscape(classification)+'</p></div>'+
           (product.description?'<div class="live-product-detail-section"><div class="live-product-detail-label">Description</div><p class="live-product-description">'+receiptEscape(product.description)+'</p></div>':'')+
           '<div class="live-product-detail-section"><div class="live-product-detail-label">Location</div><p class="live-product-description">📍 '+receiptEscape(location)+'</p></div>'+
-          (product.requires_prescription?'<div class="health-marketplace-safety-note">Prescription-required medicine remains enquiry-only and cannot use normal cart checkout.</div>':'')+
+          (product.requires_prescription?'<div class="health-marketplace-safety-note">Doctor prescription required at checkout for this medicine.</div>':'')+
         '</div>'+
       '</div>'+
     '</article>';
