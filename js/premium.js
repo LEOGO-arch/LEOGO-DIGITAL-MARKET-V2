@@ -45,6 +45,8 @@
   let premiumPeerChatProfile = null;
   let premiumPeerChatTimer = null;
   let premiumPeerChatLoading = false;
+  let sharedPremiumProfileId = '';
+  let sharedPremiumProfileName = '';
 
   const fields = {
     realName: document.getElementById('premiumRealName'),
@@ -606,8 +608,34 @@
       return { ...profile, imageUrl, galleryUrls };
     }));
 
+    const shareTarget=window.leogoPartnerShare?.getTarget?.('premium_profile');
+    if(shareTarget){
+      const match=profiles.find((profile)=>String(profile.profile_user_id||'')===String(shareTarget.id));
+      if(match){
+        sharedPremiumProfileId=String(match.profile_user_id);
+        sharedPremiumProfileName=shareTarget.name||match.display_name||'Verified Premium Profile';
+        window.leogoPartnerShare?.markHandled?.();
+      }
+    }
+
+    const visibleProfiles=sharedPremiumProfileId
+      ? profiles.filter((profile)=>String(profile.profile_user_id||'')===sharedPremiumProfileId)
+      : profiles;
+
     profileDirectory.innerHTML = '';
-    profiles.forEach((profile) => {
+    if(sharedPremiumProfileId){
+      const banner=document.createElement('div');
+      banner.className='partner-share-filter-banner';
+      banner.innerHTML='<div><strong>'+escapeHtml(sharedPremiumProfileName||'Verified Premium Profile')+'</strong><small>Shared LEOGO Verified Premium Profile</small></div><button type="button" data-clear-premium-share>View all profiles</button>';
+      banner.querySelector('[data-clear-premium-share]')?.addEventListener('click',async()=>{
+        sharedPremiumProfileId='';
+        sharedPremiumProfileName='';
+        await loadVerifiedProfileDirectory(currentCustomer, activePlan);
+      });
+      profileDirectory.appendChild(banner);
+    }
+
+    visibleProfiles.forEach((profile) => {
       const fullAccess = profile.access_level === 'full';
       const card = document.createElement('article');
       card.className = 'premium-directory-card' + (fullAccess ? ' full-access' : ' limited-access');
@@ -643,6 +671,17 @@
       about.textContent = profile.about || '';
 
       body.append(meta, about);
+
+      const shareButton=document.createElement('button');
+      shareButton.type='button';
+      shareButton.className='leogo-partner-share-button premium-profile-share-button';
+      shareButton.dataset.sharePartner='';
+      shareButton.dataset.partnerType='premium_profile';
+      shareButton.dataset.partnerId=profile.profile_user_id;
+      shareButton.dataset.partnerName=profile.display_name||'Verified Premium Profile';
+      shareButton.dataset.partnerShareText='View this verified Premium Profile on LEOGO. Premium age, consent and subscription rules still apply.';
+      shareButton.textContent='↗ Share Profile';
+      body.appendChild(shareButton);
 
       if (!fullAccess) {
         const lock = document.createElement('div');
@@ -704,6 +743,13 @@
       card.append(image, body);
       profileDirectory.appendChild(card);
     });
+
+    if(sharedPremiumProfileId){
+      window.setTimeout(()=>{
+        const card=[...profileDirectory.querySelectorAll('.premium-directory-card')][0];
+        (card||profileDirectory).scrollIntoView({behavior:'smooth',block:'center'});
+      },80);
+    }
   };
 
   const fillExistingCustomer = (customer, privateDetails) => {
@@ -945,14 +991,17 @@
   const handleUser = (user) => {
     currentUser = user || null;
     loadingFor = '';
+    const shareTarget=window.leogoPartnerShare?.getTarget?.('premium_profile');
     if (!currentUser) {
       resetDashboard();
       setMessage(applicationMessage, 'Log in to start or view your Premium application.');
+      if(shareTarget)window.setTimeout(()=>window.leogoOpenCustomerView?.('premiumaccess'),80);
       return;
     }
     const metadata = currentUser.user_metadata || {};
     if (!fields.realName.value) fields.realName.value = metadata.full_name || metadata.name || '';
     if (!fields.phone.value) fields.phone.value = metadata.phone || '';
+    if(shareTarget)window.setTimeout(()=>window.leogoOpenCustomerView?.('premiumaccess'),80);
     loadPremiumAccount(currentUser);
   };
 
@@ -968,4 +1017,7 @@
   }
   loadPlans();
   handleUser(auth.getUser());
+  if(window.leogoPartnerShare?.getTarget?.('premium_profile')){
+    window.setTimeout(()=>window.leogoOpenCustomerView?.('premiumaccess'),120);
+  }
 })();
