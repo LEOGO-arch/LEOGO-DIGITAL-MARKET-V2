@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="health.css?v=health-specialist-v1">
   <link rel="stylesheet" href="flash-sales.css?v=flash-sale-v1">
   <link rel="stylesheet" href="vacant-houses.css?v=property-sale-rent-v1">
+  <link rel="stylesheet" href="customer-messaging.css?v=messaging-v1">
 <style>
 .service-operations-card{margin-top:18px}.service-fee-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.service-fee-form label{display:grid;gap:6px;font-weight:800}.service-fee-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px;width:180px}.service-fee-form button,.admin-service-request-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.service-fee-form small{width:100%;font-weight:800}.admin-service-request-list{display:grid;gap:14px}.admin-service-request-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.admin-service-request-card header{display:flex;justify-content:space-between;gap:12px}.admin-service-request-card header strong,.admin-service-request-card header small{display:block}.admin-service-request-card header b{font-size:11px;text-transform:capitalize;background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;height:max-content}.admin-service-request-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.admin-service-request-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.admin-service-request-grid small,.admin-service-request-grid strong{display:block}.admin-service-request-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-service-request-actions .verify{background:#157f3d}.admin-service-request-actions .reject,.admin-service-request-actions .cancel{background:#a42832}.admin-service-request-actions .dispatch{background:#ff7200}.admin-service-request-card p{margin:0;color:#526177}.service-request-summary-grid{margin:14px 0}@media(max-width:720px){.admin-service-request-grid{grid-template-columns:1fr}.admin-service-request-card header{display:grid}}
 </style></head>
@@ -56,6 +57,7 @@
         <button data-admin-view="aftersales"><i>↺</i><span>Aftersales</span><em id="sidebarAftersalesCount">0</em></button>
         <button data-admin-view="customers"><i>♙</i><span>Customers</span><em id="sidebarFeedbackCount">0</em></button>
         <button data-admin-view="chat"><i>💬</i><span>Customer Care Chats</span><em id="sidebarChatCount">0</em></button>
+        <button data-admin-view="customer_messages"><i>✉</i><span>Customer SMS &amp; Email</span></button>
         <button data-admin-view="products"><i>□</i><span>Products &amp; Categories</span><em id="sidebarProductCount">0</em></button>
         <button data-admin-view="sellers"><i>▣</i><span>Sellers</span><em id="sidebarSellerCount">0</em></button>
         <button data-admin-view="health"><i>⚕️</i><span>Health &amp; Medicine</span><em id="sidebarHealthCount">0</em></button>
@@ -405,6 +407,36 @@
           <div id="adminFeedbackStatus" class="form-status" aria-live="polite"></div>
           <div id="adminFeedbackList" class="admin-product-review-list"><div class="loading-card">Loading Feedback &amp; Testimonies…</div></div>
         </section>
+      </section>
+
+      <section class="admin-panel" data-admin-panel="customer_messages">
+        <div class="section-head"><div><span>CUSTOMER COMMUNICATIONS</span><h2>SMS &amp; Email Messaging</h2><p>Send a customized message to one customer or a selected group using LEOGO's Afrinet SMS and configured email sender. Existing automatic order notifications are unchanged.</p></div><button id="messageRefresh" type="button" class="primary-button">↻ Refresh</button></div>
+        <div class="message-layout">
+          <article class="content-card">
+            <div class="card-head"><div><span>STEP 1</span><h3>Select Recipients</h3></div><strong id="messageSelectedCount">0 selected</strong></div>
+            <label class="message-field"><span>Search by name, phone, email or county</span><input id="messageCustomerSearch" type="search" placeholder="Search registered customers…"></label>
+            <div class="message-pick-actions"><button type="button" id="messageSelectVisible">Select matching</button><button type="button" id="messageClearSelection">Clear selection</button><small>Maximum 100 customers per send</small></div>
+            <div class="message-recipient-list" id="messageCustomerList">Open this screen to load customers…</div>
+          </article>
+          <article class="content-card">
+            <div class="card-head"><div><span>STEP 2</span><h3>Compose Message</h3></div></div>
+            <form id="customerMessageForm" class="message-compose">
+              <label class="message-field"><span>Send using</span><select name="channel" id="messageChannel"><option value="sms">SMS (Afrinet)</option><option value="email">Email (Gmail)</option><option value="both">SMS + Email</option></select></label>
+              <label class="message-field"><span>Message purpose</span><select name="purpose" id="messagePurpose"><option value="service">Customer care / service notice</option><option value="promotion">Promotion / offers (opt-in only)</option></select></label>
+              <label id="messageSubjectRow" class="message-field" hidden><span>Email subject</span><input name="subject" maxlength="120" placeholder="e.g. Important update from LEOGO"></label>
+              <label class="message-field"><span>Your message</span><textarea name="message" rows="6" maxlength="400" placeholder="Write a message for your selected LEOGO customers… Use {name} for each customer's name." required></textarea></label>
+              <small id="messageCharacters">0 / 400 characters</small>
+              <p class="message-info">Use <code>{name}</code> for personalization. Promotional SMS/email is sent only where the customer has opted in. Missing or duplicate contacts are skipped. SMS may incur provider charges.</p>
+              <div class="message-preview"><span>PREVIEW</span><strong id="messagePreviewSubject"></strong><p id="messagePreviewText">Your message will appear here.</p><small id="messagePreviewRecipients">Choose one or more customers.</small></div>
+              <button type="submit" id="messageSendButton" class="primary-button" disabled>Review &amp; Send</button>
+              <div id="messageFormStatus" class="form-status" role="status" aria-live="polite"></div>
+            </form>
+          </article>
+        </div>
+        <article class="content-card message-history-card">
+          <div class="card-head"><div><span>DELIVERY RECORDS</span><h3>Recent Messages</h3><p>“Accepted” means the SMS/email provider accepted the message; it does not guarantee delivery or opening.</p></div><button type="button" id="messageRefreshHistory">Refresh history</button></div>
+          <div id="messageHistoryList">No messages sent yet.</div>
+        </article>
       </section>
 
       <section class="admin-panel" data-admin-panel="chat">
@@ -1718,6 +1750,7 @@
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
   <script src="loyalty-rewards.js?v=admin-runtime-hotfix-1" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=order-lifecycle-emails-1" defer></script>
+  <script src="customer-messaging.js?v=messaging-v1" defer></script>
   <script src="advertisements.js?v=advert-popup-5s-load-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
   <script src="health.js?v=health-cod-fee-hold-1" defer></script>
