@@ -39,7 +39,7 @@ const renderEmail = (subject: string, data: Record<string, unknown>) => {
   if (kind === "admin_custom") {
     heading = escapeHtml(subject.slice(0, 120));
     message = escapeHtml(safeText(data.custom_message, "Message from LEOGO DIGITAL MARKET").slice(0, 10000))
-      .replace(/\\n/g, "<br>");
+      .replace(/\n/g, "<br>");
     action = "";
     footer = safeText(data.purpose) === "promotion"
       ? "You received this because you opted in to LEOGO offers. Change your messaging preferences in My Profile."
