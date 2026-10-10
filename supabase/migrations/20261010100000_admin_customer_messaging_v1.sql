@@ -107,10 +107,11 @@ begin
   end if;
 
   perform pg_advisory_xact_lock(hashtextextended((select auth.uid())::text||p_request_key::text,0));
-  select id into v_id from public.admin_customer_message_campaigns
+  select id,queued_messages into v_id,v_count from public.admin_customer_message_campaigns
     where created_by=(select auth.uid()) and request_key=p_request_key;
   if found then
-    return jsonb_build_object('ok',true,'campaign_id',v_id,'duplicate',true);
+    return jsonb_build_object('ok',true,'campaign_id',v_id,'duplicate',true,
+      'queued',v_count,'skipped',0);
   end if;
 
   -- No marketing email may be queued if the configured sender is disabled.
