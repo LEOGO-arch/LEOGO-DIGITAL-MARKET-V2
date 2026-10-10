@@ -20,7 +20,7 @@ for(const rpc of ['admin_queue_customer_message','admin_customer_message_history
 has(sql,"private.is_leogo_admin('customers.read') and private.is_leogo_admin('settings.manage')",'Messaging must require both permissions');
 has(sql,'v_requested>100','Maximum batch size missing');
 has(sql,"interval '1 hour'",'Campaign rate limit missing');
-has(sql,"interval '10 minutes'",'Duplicate-content cooldown missing');
+has(sql,'unique(created_by,request_key)','Idempotent re-submission constraint missing');
 has(sql,'p_request_key','Idempotency key missing');
 has(sql,"promotion_sms_opt_in boolean not null default false",'SMS marketing must be opt-in');
 has(sql,"promotion_email_opt_in boolean not null default false",'Email marketing must be opt-in');
