@@ -131,3 +131,40 @@ begin
 end;$fn$;
 revoke all on function public.customer_choose_aftersales_return_station(uuid,uuid) from public,anon;
 grant execute on function public.customer_choose_aftersales_return_station(uuid,uuid) to authenticated;
+
+create or replace function public.customer_list_aftersales_return_stations()
+returns table(id uuid,station_name text,county text,town text)
+language sql stable security definer set search_path='' as $fn$
+ select s.id,s.station_name,s.county,s.town from public.pickup_stations s
+ where s.is_active=true and auth.uid() is not null order by s.station_name
+$fn$;
+revoke all on function public.customer_list_aftersales_return_stations() from public,anon;
+grant execute on function public.customer_list_aftersales_return_stations() to authenticated;
+create or replace function private.expire_aftersales_customer_responses()
+returns integer language plpgsql security definer set search_path='' as $fn$
+declare v record; v_count int:=0;
+begin
+ for v in
+  select n.case_id,c.customer_id,c.case_reference,n.seller_id
+    from public.marketplace_aftersales_negotiations n
+    join public.marketplace_aftersales_cases c on c.id=n.case_id
+    where n.stage='seller_proposed' and n.response_due_at<now()
+    and c.status not in ('cancelled','resolved','rejected')
+    for update of n skip locked
+ loop
+  update public.marketplace_aftersales_negotiations
+    set stage='closed',updated_at=now(),customer_comment='Automatically cancelled: customer did not respond within 3 days'
+    where case_id=v.case_id;
+  update public.marketplace_aftersales_cases set status='cancelled',updated_at=now() where id=v.case_id;
+  insert into public.marketplace_aftersales_negotiation_events(case_id,actor_id,actor_role,event_type,comment)
+    values(v.case_id,v.customer_id,'customer','response_deadline_expired',
+      'System automatically closed case after three-day response deadline');
+  insert into public.customer_notifications(user_id,notification_type,title,message,source_type,source_id,event_key,action_view)
+    values(v.customer_id,'aftersales','Aftersales response expired',
+    'Case '||v.case_reference||' was cancelled because the proposed seller solution was not accepted or rejected within 3 days.',
+    'marketplace_aftersales_case',v.case_id,'aftersales_response_expired','aftersales');
+  v_count:=v_count+1;
+ end loop;
+ return v_count;
+end;$fn$;
+revoke all on function private.expire_aftersales_customer_responses() from public,anon,authenticated;
