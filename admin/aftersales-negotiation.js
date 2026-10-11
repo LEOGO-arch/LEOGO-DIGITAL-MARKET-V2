@@ -19,6 +19,7 @@ root.innerHTML=`
   <details class="aftersales-negotiation-history"><summary>Reactivate expired Aftersales application</summary><form id="aftersalesExtensionForm" class="aftersales-negotiation-form"><label>Valid until (Kenya local time)<input type="datetime-local" name="until" required></label><label class="wide">Reason for reactivation<textarea name="reason" required minlength="5" maxlength="1000" rows="2"></textarea></label><button class="primary-button" type="submit">Approve reactivation</button><p id="aftersalesExtensionStatus" role="status"></p></form></details>
   <p role="status" id="aftersalesNegotiationAdminStatus" aria-live="polite"></p>
   <section class="aftersales-negotiation-history" id="aftersalesNegotiationHistory" hidden><h4>Seller & Customer Negotiation</h4><div id="aftersalesNegotiationSummary"></div><details><summary>View case activity timeline</summary><div id="aftersalesNegotiationEvents"></div></details></section>
+  <section class="aftersales-negotiation-history" id="aftersalesRefundControl" hidden><h4>Return inspection & refund control</h4><p>Confirm the return was physically received in the Pickup Station returns system. Refunds must be paid separately; this form records authorized external settlement only.</p><p id="aftersalesRefundReviewStatus">Not yet reviewed</p><form id="aftersalesRefundControlForm" class="aftersales-negotiation-form"><label>Action<select name="action"><option value="approve_inspection">Approve physical inspection</option><option value="reject_inspection">Reject physical inspection</option><option value="record_payment_pending">Approve refund for manual payment</option><option value="record_payment_paid">Record completed refund payment</option></select></label><label class="wide">Inspection or payment note<textarea name="note" rows="2" maxlength="2000"></textarea></label><label>External payment reference (required if recording paid)<input name="reference" maxlength="120"></label><button type="submit" class="primary-button">Record Authorized Action</button><p role="status" id="aftersalesRefundActionStatus"></p></form></section>
   <section class="aftersales-negotiation-intervention" id="aftersalesIntervention" hidden><h4>LEOGO Intervention</h4><p>This case requires LEOGO Customer Care review. Review the seller response and customer comments, then use the existing <strong>Update the case</strong> section above to record the decision and notify the customer.</p></section>`;
 detail.insertAdjacentElement('afterend',root);
 const $=s=>root.querySelector(s);
@@ -32,6 +33,22 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const stageLabel=x=>String(x||'Not forwarded').replaceAll('_',' ').replace(/\\b\\w/g,c=>c.toUpperCase());
 const signal=(message,bad=false)=>{status.textContent=message;status.classList.toggle('is-error',bad);};
 const activeRecord=()=>negotiations.find(x=>x.case_id===selected?.case_id);
+async function loadRefundReview(){
+const pane=$('#aftersalesRefundControl');
+const n=activeRecord();
+pane.hidden=!(n?.stage==='customer_accepted'&&n?.solution_kind==='return_refund');
+if(pane.hidden||!selected)return;
+const {data,error}=await db.rpc('admin_get_aftersales_refund_review',{p_case_id:selected.case_id});
+$('#aftersalesRefundReviewStatus').textContent=error?error.message:'Current refund control status: '+(data?.status||'Awaiting physical return and inspection');
+}
+$('#aftersalesRefundControlForm').addEventListener('submit',async event=>{
+ event.preventDefault();if(!selected)return;
+ const form=event.currentTarget;
+ const {data,error}=await db.rpc('admin_aftersales_refund_action',{p_case_id:selected.case_id,p_action:form.elements.action.value,
+ p_note:form.elements.note.value.trim()||null,p_reference:form.elements.reference.value.trim()||null});
+ $('#aftersalesRefundActionStatus').textContent=error?error.message:'Recorded: '+data.status+'. No payment was initiated by LEOGO.';
+ if(!error)await loadRefundReview();
+});
 function renderNegotiation(){
 const n=activeRecord();
 $('#negotiationStage').textContent=stageLabel(n?.stage);
@@ -49,6 +66,7 @@ if(token!==loadToken)return;
 if(error){signal('Unable to load negotiation history: '+error.message,true);return;}
 negotiations=Array.isArray(data)?data:[];
 renderNegotiation();
+await loadRefundReview();
 }
 async function loadSellers(){
 if(!selected)return;
