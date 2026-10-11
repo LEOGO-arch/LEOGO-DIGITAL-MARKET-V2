@@ -41,6 +41,13 @@ assert.ok(wallet.includes('running_cash_balance') && wallet.includes('running_re
 assert.ok(admin.includes("rpc('admin_complete_wallet_withdrawal'"),
   'Admin must confirm actual payout through protected RPC');
 assert.ok(adminHtml.includes('id="walletPayoutList"'),'Admin payout queue missing');
+assert.ok(customerHtml.includes('id="walletStatementPreview"'),
+  'Customer must be able to preview loyalty and voucher entries without a paid download');
+assert.ok(wallet.includes('const renderStatementPreview = () =>'),
+  'Customer statement preview implementation missing');
+assert.ok(wallet.includes('cash_credit')&&wallet.includes('rewards_credit'),
+  'Excel/PDF must distinguish cash and non-withdrawable points/vouchers');
+
 assert.ok(customerHtml.includes('It is marked completed only when LEOGO verifies'),
   'Customer must not be told elapsed time means transfer succeeded');
 
