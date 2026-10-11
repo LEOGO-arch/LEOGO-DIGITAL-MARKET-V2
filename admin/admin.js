@@ -55,6 +55,8 @@
     pickupStationEvents: [],
     pickupStationWithdrawals: [],
     pickupStationReturns: [],
+    pickupStationParcels: [],
+    pickupStationParcelPage: 1,
     walletSettings: null,
     transportFinanceSettings: null,
     deliveryRateSettings: null,
@@ -5032,6 +5034,169 @@
     });
   };
 
+  const pickupParcelPageSize=100;
+  const pickupParcelFetchSize=500;
+  let pickupParcelReportLoadToken=0;
+  const pickupParcelStatusLabel=(status)=>({
+    booked:'Booked / en route',
+    arrived_pending_receipt:'Pending receive',
+    received:'Pending handover',
+    handed_over:'Handed over',
+    cancelled:'Cancelled'
+  })[String(status||'')]||String(status||'Unknown').replaceAll('_',' ');
+  const pickupParcelDay=(value)=>{
+    if(!value)return '';
+    try{
+      const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(value));
+      const part=type=>parts.find(item=>item.type===type)?.value||'';
+      return part('year')+'-'+part('month')+'-'+part('day');
+    }
+    catch{return String(value).slice(0,10);}
+  };
+  const pickupParcelRowsForFilters=({includeStatus=true}={})=>{
+    const stationId=$('#pickupParcelStationFilter')?.value||'all';
+    const status=$('#pickupParcelStatusFilter')?.value||'all';
+    const term=String($('#pickupParcelSearch')?.value||'').trim().toLowerCase();
+    const from=$('#pickupParcelFrom')?.value||'';
+    const to=$('#pickupParcelTo')?.value||'';
+    return state.pickupStationParcels.filter(row=>{
+      if(stationId!=='all'&&String(row.pickup_station_id)!==stationId)return false;
+      const day=pickupParcelDay(row.booked_at);
+      if(from&&(!day||day<from))return false;
+      if(to&&(!day||day>to))return false;
+      if(term&&![
+        row.parcel_reference,row.order_reference,row.customer_name,row.customer_phone,
+        row.station_name,row.seller_names,row.item_summary
+      ].some(value=>String(value||'').toLowerCase().includes(term)))return false;
+      return !includeStatus||status==='all'||String(row.parcel_status)===status;
+    });
+  };
+  const renderPickupStationParcelReport=()=>{
+    const stationFilter=$('#pickupParcelStationFilter');
+    if(stationFilter){
+      const selected=stationFilter.value||'all';
+      stationFilter.innerHTML='<option value="all">All Pickup Stations</option>'+
+        state.pickupStations.map(station=>'<option value="'+escapeHtml(station.id)+'">'+escapeHtml(station.station_name)+'</option>').join('');
+      stationFilter.value=[...stationFilter.options].some(option=>option.value===selected)?selected:'all';
+    }
+    const dateFiltered=pickupParcelRowsForFilters({includeStatus:false});
+    const rows=pickupParcelRowsForFilters();
+    const counts={
+      all:dateFiltered.length,
+      pending_receive:dateFiltered.filter(row=>row.parcel_status==='arrived_pending_receipt').length,
+      pending_handover:dateFiltered.filter(row=>row.parcel_status==='received').length,
+      handed_over:dateFiltered.filter(row=>row.parcel_status==='handed_over').length
+    };
+    if($('#pickupParcelCountAll'))$('#pickupParcelCountAll').textContent=counts.all.toLocaleString('en-KE');
+    if($('#pickupParcelCountReceive'))$('#pickupParcelCountReceive').textContent=counts.pending_receive.toLocaleString('en-KE');
+    if($('#pickupParcelCountHandover'))$('#pickupParcelCountHandover').textContent=counts.pending_handover.toLocaleString('en-KE');
+    if($('#pickupParcelCountHanded'))$('#pickupParcelCountHanded').textContent=counts.handed_over.toLocaleString('en-KE');
+
+    const pageCount=Math.max(1,Math.ceil(rows.length/pickupParcelPageSize));
+    state.pickupStationParcelPage=Math.max(1,Math.min(state.pickupStationParcelPage,pageCount));
+    const start=(state.pickupStationParcelPage-1)*pickupParcelPageSize;
+    const pageRows=rows.slice(start,start+pickupParcelPageSize);
+    const body=$('#pickupParcelReportBody');
+    if(body)body.innerHTML=pageRows.length?pageRows.map(row=>{
+      const evidence=[
+        '<span>Receive: '+(row.receive_photo_captured?'captured':'missing')+'</span>',
+        '<span>Handover: '+(row.handover_photo_captured?'captured':'missing')+'</span>'
+      ].join('<br>');
+      const days=value=>value==null?'—':Number(value).toLocaleString('en-KE')+' d';
+      return '<tr>'+
+        '<td><b>'+escapeHtml(row.parcel_reference||'—')+'</b><br><small>'+escapeHtml(row.order_reference||'')+'</small></td>'+
+        '<td>'+escapeHtml(row.station_name||'—')+'</td>'+
+        '<td>'+escapeHtml(row.customer_name||'—')+'<br><small>'+escapeHtml(row.customer_phone||'')+'</small></td>'+
+        '<td><span class="status-chip">'+escapeHtml(pickupParcelStatusLabel(row.parcel_status))+'</span></td>'+
+        '<td>'+escapeHtml(row.item_summary||'—')+'<br><small>'+escapeHtml(row.seller_names||'')+'</small></td>'+
+        '<td>'+escapeHtml(formatDate(row.booked_at,true))+'</td>'+
+        '<td>'+escapeHtml(formatDate(row.arrived_at,true))+'</td>'+
+        '<td>'+escapeHtml(formatDate(row.received_at,true))+'</td>'+
+        '<td>'+escapeHtml(formatDate(row.handed_over_at,true))+'</td>'+
+        '<td>'+days(row.days_to_arrival)+'</td>'+
+        '<td>'+days(row.days_waiting_to_receive)+'</td>'+
+        '<td>'+days(row.days_to_handover)+'</td>'+
+        '<td>'+evidence+'</td>'+
+        '<td>'+escapeHtml(row.received_by_email||'—')+'</td>'+
+        '<td>'+escapeHtml(row.handed_over_by_email||'—')+'</td>'+
+        '<td>'+escapeHtml(formatMoney(row.grand_total_kes))+'</td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="16">No Pickup Station parcels match these filters.</td></tr>';
+    if($('#pickupParcelPageInfo'))$('#pickupParcelPageInfo').textContent=rows.length
+      ?'Showing '+(start+1).toLocaleString('en-KE')+'–'+Math.min(start+pageRows.length,rows.length).toLocaleString('en-KE')+' of '+rows.length.toLocaleString('en-KE')+' matching parcels · Page '+state.pickupStationParcelPage+' of '+pageCount
+      :'No matching parcels';
+    const previous=$('#pickupParcelPrevPage'),next=$('#pickupParcelNextPage');
+    if(previous)previous.disabled=state.pickupStationParcelPage<=1;
+    if(next)next.disabled=state.pickupStationParcelPage>=pageCount;
+    if($('#exportPickupParcelReport'))$('#exportPickupParcelReport').disabled=rows.length===0;
+  };
+  const loadPickupStationParcelReport=async()=>{
+    const token=++pickupParcelReportLoadToken;
+    const status=$('#pickupParcelReportStatus');
+    const body=$('#pickupParcelReportBody');
+    if(body)body.innerHTML='<tr><td colspan="16">Loading all Pickup Station parcels…</td></tr>';
+    if(status){status.textContent='Loading every station parcel in batches…';status.className='form-status';}
+    const rows=[];
+    let before=null;
+    while(true){
+      const {data,error}=await db.rpc('admin_list_pickup_station_parcels',{
+        p_limit:pickupParcelFetchSize,
+        p_before_booked_at:before?.booked_at||null,
+        p_before_id:before?.parcel_id||null
+      });
+      if(error)throw error;
+      const batch=Array.isArray(data)?data:[];
+      rows.push(...batch);
+      if(batch.length<pickupParcelFetchSize)break;
+      const last=batch[batch.length-1];
+      if(!last?.booked_at||!last?.parcel_id)throw new Error('The Pickup Station parcel page did not include a valid continuation cursor.');
+      before={booked_at:last.booked_at,parcel_id:last.parcel_id};
+    }
+    if(token!==pickupParcelReportLoadToken)return;
+    state.pickupStationParcels=rows;
+    state.pickupStationParcelPage=1;
+    renderPickupStationParcelReport();
+    if(status){status.textContent=rows.length.toLocaleString('en-KE')+' parcel record(s) loaded across all Pickup Stations. Age values show full elapsed 24-hour days.';status.className='form-status success';}
+  };
+  const exportPickupStationParcelReport=()=>{
+    const rows=pickupParcelRowsForFilters();
+    if(!rows.length){
+      globalStatus('There are no Pickup Station parcels in the current filtered view to export.','error');
+      return;
+    }
+    const columns=[
+      ['parcel_reference','Parcel reference'],['order_reference','Order reference'],
+      ['station_name','Pickup Station'],['customer_name','Customer name'],['customer_phone','Customer phone'],
+      ['parcel_status','Parcel status'],['order_status','Order status'],['payment_method','Payment method'],
+      ['payment_status','Payment status'],['item_summary','Items'],['seller_names','Sellers'],
+      ['pickup_fee_kes','Pickup fee KSh'],['grand_total_kes','Order total KSh'],
+      ['booked_at','Booked at'],['arrived_at','Rider arrived at'],['received_at','Station received at'],
+      ['handed_over_at','Handed over at'],['days_to_arrival','Days to arrival'],
+      ['days_waiting_to_receive','Days waiting for station receipt'],['days_to_handover','Days to handover'],
+      ['receive_photo_captured','Receive photo captured'],['handover_photo_captured','Handover photo captured'],
+      ['received_by_email','Received by'],['handed_over_by_email','Handed over by']
+    ];
+    const csvCell=value=>{
+      let text=String(value??'');
+      if(/^[\s]*[=+\-@]/.test(text))text="'"+text;
+      return '"'+text.replaceAll('"','""')+'"';
+    };
+    const csv=String.fromCharCode(0xFEFF)+[
+      columns.map(([,label])=>csvCell(label)).join(','),
+      ...rows.map(row=>columns.map(([key])=>csvCell(key==='parcel_status'?pickupParcelStatusLabel(row[key]):row[key])).join(','))
+    ].join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=url;
+    link.download='leogo-pickup-station-parcels-'+new Date().toISOString().slice(0,10)+'.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(url),1500);
+    globalStatus(rows.length.toLocaleString('en-KE')+' Pickup Station parcel record(s) exported as CSV.');
+  };
+
   const loadPickupStations = async () => {
     const withdrawalBody=$('#pickupWithdrawalBody');
     const returnBody=$('#pickupReturnBody');
@@ -5084,6 +5249,12 @@
     const partnerMap=new Map(state.pickupStationPartners.map(row=>[String(row.pickup_station_id),row]));
     state.pickupStations=(Array.isArray(stationsResult.data)?stationsResult.data:[]).map(station=>({...station,partner:partnerMap.get(String(station.id))||null}));
     renderPickupStations();
+    loadPickupStationParcelReport().catch(error=>{
+      const reportStatus=$('#pickupParcelReportStatus');
+      const reportBody=$('#pickupParcelReportBody');
+      if(reportStatus){reportStatus.textContent='Pickup Station parcel data could not load: '+friendlyError(error);reportStatus.className='form-status error';}
+      if(reportBody)reportBody.innerHTML='<tr><td colspan="16">Pickup Station parcel data could not load. Use Refresh Parcels to retry.</td></tr>';
+    });
 
     if(financeResult.error)globalStatus('Pickup Station finance settings could not load: '+friendlyError(financeResult.error),'error');
   };
@@ -7473,6 +7644,15 @@
       renderApprovals();
     });
     $('#deliveryRateSettingsForm')?.addEventListener('submit',saveDeliveryRateSettings);
+    $('#pickupParcelStationFilter')?.addEventListener('change',()=>{state.pickupStationParcelPage=1;renderPickupStationParcelReport();});
+    $('#pickupParcelStatusFilter')?.addEventListener('change',()=>{state.pickupStationParcelPage=1;renderPickupStationParcelReport();});
+    $('#pickupParcelFrom')?.addEventListener('change',()=>{state.pickupStationParcelPage=1;renderPickupStationParcelReport();});
+    $('#pickupParcelTo')?.addEventListener('change',()=>{state.pickupStationParcelPage=1;renderPickupStationParcelReport();});
+    $('#pickupParcelSearch')?.addEventListener('input',()=>{state.pickupStationParcelPage=1;renderPickupStationParcelReport();});
+    $('#pickupParcelPrevPage')?.addEventListener('click',()=>{state.pickupStationParcelPage--;renderPickupStationParcelReport();});
+    $('#pickupParcelNextPage')?.addEventListener('click',()=>{state.pickupStationParcelPage++;renderPickupStationParcelReport();});
+    $('#refreshPickupParcelReport')?.addEventListener('click',()=>withButtonLock($('#refreshPickupParcelReport'),'Loading…',loadPickupStationParcelReport));
+    $('#exportPickupParcelReport')?.addEventListener('click',exportPickupStationParcelReport);
     $('#pickupStationFinanceForm')?.addEventListener('submit',savePickupStationFinanceSettings);
     $('#adminAddRiderForm').addEventListener('submit', addRider);
     $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
