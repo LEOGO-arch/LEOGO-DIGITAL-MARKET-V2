@@ -237,9 +237,22 @@ const renderReturns=()=>{
   $('#returnList').innerHTML=returns.length?returns.map(r=>`
     <article class="compact-row"><header><strong>${esc(r.return_reference)}</strong><span class="pill">${esc(String(r.status||'').replaceAll('_',' '))}</span></header>
     <p>${esc(r.customer_name)} · ${esc(r.customer_phone)}<br>${esc(r.item_description)}<br><b>Reason:</b> ${esc(r.return_reason)}${r.original_order_reference?'<br><b>Original:</b> '+esc(r.original_order_reference):''}</p>
-    <small>${esc(fmt(r.booked_at))}</small></article>`).join(''):'<div class="compact-row"><strong>No return parcels yet.</strong></div>';
+    <small>${esc(fmt(r.booked_at))}</small>${r.status==='awaiting_dispatch'&&r.return_reference?.startsWith('AFR-')?'<button type="button" data-receive-aftersales-return="'+esc(r.id)+'">Receive physical return</button>':''}</article>`).join(''):'<div class="compact-row"><strong>No return parcels yet.</strong></div>';
 };
 
+$('#returnList').addEventListener('click',async event=>{
+ const button=event.target.closest('[data-receive-aftersales-return]');
+ if(!button)return;
+ const id=button.dataset.receiveAftersalesReturn;
+ const note=window.prompt('Describe parcel condition, packaging and any visible damage (at least 5 characters):');
+ if(note===null)return;
+ if(note.trim().length<5){window.alert('Describe the parcel condition before receiving.');return;}
+ button.disabled=true;
+ const {data,error}=await client.rpc('pickup_partner_receive_aftersales_return',{p_return_id:id,p_note:note.trim()});
+ if(error){window.alert(error.message);button.disabled=false;return;}
+ await loadReturns();
+ window.alert('Return received at this station: '+(data?.return_reference||''));
+});
 const renderWithdrawals=()=>{
   $('#withdrawalList').innerHTML=withdrawals.length?withdrawals.map(w=>`
     <article class="compact-row"><header><strong>${esc(money(w.requested_amount_kes))}</strong><span class="pill">${esc(String(w.status||'').replaceAll('_',' '))}</span></header>
