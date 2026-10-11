@@ -104,6 +104,12 @@
           document.dispatchEvent(new CustomEvent('leogo:customer-data-refresh',{
             detail:{source:'aftersales-notification-open'}
           }));
+        } else if (action === 'wallet') {
+          closePanel();
+          window.leogoOpenCustomerView?.('wallet');
+          document.dispatchEvent(new CustomEvent('leogo:customer-data-refresh', {
+            detail: { source: 'wallet-notification-open' }
+          }));
         } else if (action === 'chat') {
           closePanel();
           window.leogoOpenCustomerView?.('chat');
