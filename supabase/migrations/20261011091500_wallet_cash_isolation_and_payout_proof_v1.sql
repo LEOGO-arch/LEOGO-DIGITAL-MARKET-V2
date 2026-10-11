@@ -49,7 +49,7 @@ begin
       admin_notes=coalesce(nullif(btrim(coalesce(p_notes,'')),''),admin_notes)
   where id=v_request.id;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.enforce_wallet_withdrawal_insert()
@@ -94,7 +94,7 @@ begin
   end if;
   return new;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.submit_wallet_withdrawal(p_amount_kes numeric, p_settlement_method text, p_account_name text, p_account_number text, p_client_request_id uuid, p_pin text)
@@ -172,7 +172,7 @@ begin
 
   return jsonb_build_object('success',true,'code','submitted','request_id',v_request_id);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.charge_wallet_statement_download(p_statement_format text, p_consent_confirmed boolean, p_client_request_id uuid, p_statement_from date, p_statement_to date)
@@ -317,7 +317,7 @@ exception
       'ledger_entry',case when v_ledger.id is null then null else to_jsonb(v_ledger) end
     );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.apply_monthly_wallet_maintenance_fees()
@@ -382,7 +382,7 @@ begin
   end loop;
   return v_count;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.wallet_loan_eligibility(p_user_id uuid)
@@ -459,7 +459,7 @@ begin
     'has_open_application',v_has_open_application
   );
 end
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.set_wallet_loan_snapshot()
@@ -494,7 +494,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 
 -- A 24-hour SLA is an operational target, NOT evidence that a payout completed.
