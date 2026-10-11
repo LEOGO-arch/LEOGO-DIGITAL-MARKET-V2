@@ -518,6 +518,7 @@
     const rewardResult=await client.from('wallet_shopping_rewards')
       .select('id,credit_source').eq('user_id',user.id)
       .order('credited_at',{ascending:false}).limit(1000);
+    if(version!==loadVersion||currentUser?.id!==user.id)return;
     if(!rewardResult.error)rewardCreditSources=new Map(
       (rewardResult.data||[]).map(row=>[row.id,row.credit_source]));
     walletSecurity = securityResult.data?.success ? securityResult.data : { pin_is_set: false, pin_locked_until: null };
@@ -792,23 +793,27 @@
   });
 
   const fetchStatementLedger = async () => {
+    const ownerId=currentUser?.id;
+    if(!ownerId)throw new Error('Sign in to view this statement.');
     const entries = [];
     const pageSize = 1000;
     for (let offset = 0; ; offset += pageSize) {
       const { data, error } = await client
         .from('wallet_ledger_entries')
         .select('*')
-        .eq('user_id', currentUser.id)
+        .eq('user_id', ownerId)
         .order('created_at', { ascending: true })
         .range(offset, offset + pageSize - 1);
       if (error) throw error;
+      if(currentUser?.id!==ownerId)throw new Error('Wallet session changed. Sign in and retry.');
       entries.push(...(data || []));
       if (!data || data.length < pageSize) break;
     }
     // Classify each credited reward without creating separate loyalty and voucher wallets.
     const {data:rewardCredits,error:rewardError}=await client.from('wallet_shopping_rewards')
-      .select('id,credit_source').eq('user_id',currentUser.id)
+      .select('id,credit_source').eq('user_id',ownerId)
       .order('credited_at',{ascending:false}).limit(1000);
+    if(currentUser?.id!==ownerId)throw new Error('Wallet session changed. Sign in and retry.');
     if(!rewardError)rewardCreditSources=new Map(
       (rewardCredits||[]).map(row=>[row.id,row.credit_source]));
     return entries;
