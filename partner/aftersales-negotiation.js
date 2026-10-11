@@ -17,6 +17,17 @@ function attachOrderLinks(){
   button.className='secondary seller-aftersales-order-link';
   button.addEventListener('click',()=>document.querySelector('[data-aftersales-case="'+n.case_id+'"]')?.scrollIntoView({behavior:'smooth',block:'start'}));
   footer.append(button);
+  const details=document.createElement('details');details.style.margin='12px 0';
+  const summary=document.createElement('summary');summary.textContent='Aftersales application · '+(n.case_reference||'Open case');
+  const info=document.createElement('div');info.style.cssText='margin:8px 0;padding:12px;border:1px solid #d9e2ef;border-radius:10px';
+  const add=(label,value)=>{const p=document.createElement('p');const strong=document.createElement('strong');strong.textContent=label+': ';p.append(strong,document.createTextNode(String(value??'Not provided')));info.append(p);};
+  add('Complaint',n.issue_type);
+  add('Customer explanation',n.details);
+  add('Requested solution',n.preferred_solution);
+  add('Current case status',n.stage);
+  if(n.return_tracking){add('Return parcel status',n.return_tracking.status);add('Return reference',n.return_tracking.return_reference);}
+  if(n.evidence_path)add('Photo proof','Open the full case below to view the protected image.');
+  details.append(summary,info);orderCard.append(details);
  }
 }
 window.addEventListener('leogo:seller-orders-rendered',attachOrderLinks);
