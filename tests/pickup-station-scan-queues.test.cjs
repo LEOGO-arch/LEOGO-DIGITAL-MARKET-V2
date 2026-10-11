@@ -28,4 +28,22 @@ assert.ok(js.includes('Math.min(2,2048/sw)'), 'small QR codes should be upscaled
 assert.ok(js.includes('QR could not be read. Enter the order / waybill number below'), 'failed scans should close the modal and expose manual entry');
 assert.ok(js.includes("'pickup_partner_receive_parcel'") && js.includes("'pickup_partner_handover_parcel'"), 'existing arrival and handover RPCs should remain intact');
 
+assert.ok(js.includes('const reportScannerIssue='), 'scanner failures should reach System Diagnosis runtime monitoring');
+for (const operation of [
+  'pickup_qr_scan.start',
+  'pickup_qr_scan.decode',
+  'pickup_qr_scan.no_result',
+  'pickup_qr_scan.parcel_lookup'
+]) {
+  assert.ok(js.includes(operation), 'scanner telemetry should identify '+operation);
+}
+assert.ok(js.includes("module:'transport'") && js.includes("errorType:'js_error'"), 'scanner telemetry should use the existing runtime monitor contract');
+assert.ok(js.includes('elapsed>60000&&!scannerNoResultReported'), 'a scan without a decoded QR should report once after 60 seconds');
+assert.ok(html.includes('pickup.js?v=diagnostics-telemetry-1'), 'scanner telemetry script cache version should be refreshed');
+const scannerTelemetryCalls=[...js.matchAll(/reportScannerIssue\(([\s\S]*?)\);/g)].map((match)=>match[1]);
+assert.ok(scannerTelemetryCalls.length>=4, 'scanner startup, decode, no-result and lookup paths should report');
+for(const call of scannerTelemetryCalls) {
+  assert.ok(!/\b(?:rawValue|order_reference|receiveCode|handoverCode)\b/.test(call), 'scanner telemetry must not include QR/order identifiers');
+}
+
 console.log('Pickup station scan and queue navigation checks passed.');

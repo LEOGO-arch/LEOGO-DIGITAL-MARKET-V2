@@ -755,6 +755,20 @@ $('#pinApplicationLocation')?.addEventListener('click',()=>{
 const scannerCanvas=document.createElement('canvas');
 const scannerContext=scannerCanvas.getContext('2d',{willReadFrequently:true});
 let scannerStartedAt=0;
+let scannerNoResultReported=false;
+let scannerDecodeErrorReported=false;
+
+const reportScannerIssue=(operation,message,errorCode)=>{
+  try{
+    window.leogoRuntimeMonitor?.report({
+      module:'transport',
+      operation,
+      errorType:'js_error',
+      message,
+      errorCode:errorCode||'pickup_scanner_issue'
+    });
+  }catch(_error){}
+};
 
 const stopScanner=()=>{
   if(scannerTimer){clearTimeout(scannerTimer);scannerTimer=null;}
@@ -829,6 +843,11 @@ const finishQrScan=async(rawValue)=>{
 
   if(error||!data?.order_reference){
     stopScanner();
+    reportScannerIssue(
+      'pickup_qr_scan.parcel_lookup',
+      'A scanned LEOGO QR could not be matched to a Pickup Station parcel.',
+      error?'parcel_lookup_failed':'parcel_not_found'
+    );
     const reason=error?.message||'No matching parcel was found for this Pickup Station.';
     setStatus(statusEl,'QR scanned and order number filled ('+code+'), but parcel lookup failed: '+reason,'error');
     window.setTimeout(()=>{
@@ -860,6 +879,19 @@ const finishQrScan=async(rawValue)=>{
 const scanLoop=async(detector)=>{
   if(!scannerStream)return;
   const video=$('#scannerVideo');
+  const elapsed=Date.now()-scannerStartedAt;
+  if(elapsed>60000&&!scannerNoResultReported){
+    scannerNoResultReported=true;
+    reportScannerIssue(
+      'pickup_qr_scan.no_result',
+      'No QR code was decoded during a Pickup Station scan after 60 seconds.',
+      'qr_not_detected'
+    );
+    const statusEl=scannerMode==='receive'?$('#receiveStatus'):$('#handoverStatus');
+    stopScanner();
+    setStatus(statusEl,'QR could not be read. Enter the order / waybill number below and submit manually.','error');
+    return;
+  }
 
   try{
     if(video?.readyState>=2){
@@ -884,14 +916,22 @@ const scanLoop=async(detector)=>{
         if(complete)return;
       }
 
-      const elapsed=Date.now()-scannerStartedAt;
       if(elapsed>15000){
         $('#scannerStatus').textContent='Still scanning… move closer, keep the QR inside the orange frame, or use the phone flashlight. Tap Cancel Scan when finished.';
       }else if(elapsed>3500){
         $('#scannerStatus').textContent='Looking for QR… keep it inside the orange frame and hold the phone steady.';
       }
     }
-  }catch(_error){}
+  }catch(error){
+    if(!scannerDecodeErrorReported){
+      scannerDecodeErrorReported=true;
+      reportScannerIssue(
+        'pickup_qr_scan.decode',
+        'Pickup Station QR decoding encountered a camera frame error.',
+        error?.name||'decode_error'
+      );
+    }
+  }
 
   scannerTimer=setTimeout(()=>scanLoop(detector),180);
 };
@@ -905,6 +945,8 @@ const startScanner=async(mode)=>{
 
   scannerMode=mode;
   scannerStartedAt=Date.now();
+  scannerNoResultReported=false;
+  scannerDecodeErrorReported=false;
   $('#scannerTitle').textContent=mode==='receive'?'Scan to Receive Parcel':'Scan to Hand Over Parcel';
   $('#scannerModal').hidden=false;
   $('#scannerStatus').textContent='Starting camera…';
@@ -952,6 +994,11 @@ const startScanner=async(mode)=>{
     scanLoop(detector);
   }catch(err){
     if(scannerStream){scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null;}
+    reportScannerIssue(
+      'pickup_qr_scan.start',
+      'Pickup Station QR scanner could not start the camera.',
+      err?.name||'camera_start_failed'
+    );
     $('#scannerStatus').textContent=err.message||'Camera could not start. Enter the order / waybill manually.';
   }
 };
