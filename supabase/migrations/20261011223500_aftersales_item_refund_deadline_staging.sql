@@ -194,3 +194,30 @@ begin
 end;$fn$;
 revoke all on function public.aftersales_extend_selected_case_order(uuid,timestamptz,text) from public,anon;
 grant execute on function public.aftersales_extend_selected_case_order(uuid,timestamptz,text) to authenticated;
+
+-- Link accepted Aftersales returns to existing Pickup Station return workflow; no automatic refund.
+alter table public.pickup_station_return_parcels add column if not exists aftersales_case_id uuid references public.marketplace_aftersales_cases(id);
+create unique index if not exists pickup_return_aftersales_case_unique on public.pickup_station_return_parcels(aftersales_case_id) where aftersales_case_id is not null;
+create or replace function public.customer_book_aftersales_return(p_case_id uuid)
+returns jsonb language plpgsql security definer set search_path='' as $fn$
+declare v_case public.marketplace_aftersales_cases%rowtype; v_order public.marketplace_orders%rowtype; v_item text; v_return uuid;
+begin
+ select c.* into v_case from public.marketplace_aftersales_cases c
+ join public.marketplace_aftersales_negotiations n on n.case_id=c.id
+ where c.id=p_case_id and c.customer_id=auth.uid() and n.stage='customer_accepted'
+   and n.solution_kind in ('return_refund','return_exchange') for update of c;
+ if not found then raise exception 'The seller return solution must first be accepted'; end if;
+ if v_case.return_pickup_station_id is null then raise exception 'Choose a Pickup Station first'; end if;
+ if not exists(select 1 from public.pickup_stations where id=v_case.return_pickup_station_id and is_active) then raise exception 'Selected Pickup Station is unavailable'; end if;
+ select * into v_order from public.marketplace_orders where id=v_case.order_id;
+ select product_name into v_item from public.marketplace_order_items where id=v_case.order_item_id;
+ insert into public.pickup_station_return_parcels
+ (return_reference,pickup_station_id,original_order_id,original_order_reference,customer_name,customer_phone,item_description,return_reason,status,booked_by,aftersales_case_id)
+ values ('AFR-'||substr(replace(p_case_id::text,'-',''),1,12),v_case.return_pickup_station_id,v_order.id,v_order.order_reference,
+ v_order.receiver_name,v_order.contact_number,coalesce(v_item,'Aftersales item'),v_case.issue_type,'awaiting_dispatch',auth.uid(),p_case_id)
+ on conflict(aftersales_case_id) do nothing returning id into v_return;
+ if v_return is null then select id into v_return from public.pickup_station_return_parcels where aftersales_case_id=p_case_id; end if;
+ return jsonb_build_object('ok',true,'return_id',v_return,'return_reference','AFR-'||substr(replace(p_case_id::text,'-',''),1,12));
+end;$fn$;
+revoke all on function public.customer_book_aftersales_return(uuid) from public,anon;
+grant execute on function public.customer_book_aftersales_return(uuid) to authenticated;
