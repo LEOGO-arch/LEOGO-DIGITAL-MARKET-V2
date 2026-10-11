@@ -884,8 +884,8 @@
     const rows=statement.rows.slice(-20).reverse();
     if(!rows.length){host.textContent='No confirmed transactions in the selected period.';return;}
     const heading=document.createElement('p');
-    heading.textContent='Cash balance: '+money(statement.closingCash)+
-      ' · Loyalty & Shopping Vouchers: '+Number(statement.closingRewards).toFixed(2)+' points';
+    heading.textContent='Current verified savings cash: '+money(walletSummary.cash_balance??walletSummary.balance)+
+      ' · Current loyalty & Shopping Vouchers: '+Number(walletSummary.points||0).toFixed(2)+' points';
     host.append(heading);
     for(const entry of rows){
       const row=document.createElement('div');
@@ -904,14 +904,14 @@
       amount.textContent=change;
       const balance=document.createElement('small');
       balance.textContent=isReward
-        ?'Rewards: '+Number(entry.running_rewards_balance).toFixed(2)+' pts'
-        :'Cash: '+money(entry.running_cash_balance);
+        ?'Non-withdrawable loyalty / voucher movement'
+        :'Verified savings cash movement';
       value.append(amount,balance);
       row.append(info,value);
       host.append(row);
     }
     const note=document.createElement('small');
-    note.textContent='Showing up to 20 recent entries from your latest 200 ledger records. Download for full-period transactions.';
+    note.textContent='Preview shows up to 20 entries from your latest 200 records. Account totals above are current; download Excel/PDF for full-period running balances.';
     host.append(note);
   };
 
