@@ -879,6 +879,19 @@ const finishQrScan=async(rawValue)=>{
 const scanLoop=async(detector)=>{
   if(!scannerStream)return;
   const video=$('#scannerVideo');
+  const elapsed=Date.now()-scannerStartedAt;
+  if(elapsed>60000&&!scannerNoResultReported){
+    scannerNoResultReported=true;
+    reportScannerIssue(
+      'pickup_qr_scan.no_result',
+      'No QR code was decoded during a Pickup Station scan after 60 seconds.',
+      'qr_not_detected'
+    );
+    const statusEl=scannerMode==='receive'?$('#receiveStatus'):$('#handoverStatus');
+    stopScanner();
+    setStatus(statusEl,'QR could not be read. Enter the order / waybill number below and submit manually.','error');
+    return;
+  }
 
   try{
     if(video?.readyState>=2){
@@ -903,19 +916,6 @@ const scanLoop=async(detector)=>{
         if(complete)return;
       }
 
-      const elapsed=Date.now()-scannerStartedAt;
-      if(elapsed>60000&&!scannerNoResultReported){
-        scannerNoResultReported=true;
-        reportScannerIssue(
-          'pickup_qr_scan.no_result',
-          'No QR code was decoded during a Pickup Station scan after 60 seconds.',
-          'qr_not_detected'
-        );
-        const statusEl=scannerMode==='receive'?$('#receiveStatus'):$('#handoverStatus');
-        stopScanner();
-        setStatus(statusEl,'QR could not be read. Enter the order / waybill number below and submit manually.','error');
-        return;
-      }
       if(elapsed>15000){
         $('#scannerStatus').textContent='Still scanning… move closer, keep the QR inside the orange frame, or use the phone flashlight. Tap Cancel Scan when finished.';
       }else if(elapsed>3500){
