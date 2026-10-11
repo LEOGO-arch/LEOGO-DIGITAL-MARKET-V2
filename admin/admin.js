@@ -2410,6 +2410,7 @@
     $('#openAftersalesEvidence').disabled=!item.evidence_path;
     $('#openAftersalesEvidence').textContent=item.evidence_path?'View Customer Evidence':'No Evidence Attached';
     setFormStatus($('#adminAftersalesStatus'),'');
+    document.dispatchEvent(new CustomEvent('leogo:admin-aftersales-case-selected',{detail:{case_id:item.case_id,case_reference:item.case_reference,order_reference:item.order_reference}}));
   };
 
   const loadAftersalesCases=async()=>{
