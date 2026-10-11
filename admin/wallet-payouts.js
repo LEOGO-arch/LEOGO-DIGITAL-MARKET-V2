@@ -19,7 +19,6 @@
     status.className='form-status'+(level?' '+level:'');
   };
   const listPayouts=async()=>{
-    if(busy)return;
     setStatus('Checking approved withdrawals…');
     const {data,error}=await db.rpc('admin_list_wallet_pending_payout_confirmations');
     if(error){
