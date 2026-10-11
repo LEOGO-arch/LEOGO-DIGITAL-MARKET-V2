@@ -3650,10 +3650,10 @@
             : '<div class="admin-order-no-rider"><strong>No active LEOGO rider account exists yet.</strong><p>Create a Rider from Staff Management and the Rider will become selectable here automatically.</p><button type="button" disabled>Assign Rider</button></div>'
       );
 
-    $('[data-detail-payment]').forEach((button)=>button.addEventListener('click',()=>{
+    $$('[data-detail-payment]').forEach((button)=>button.addEventListener('click',()=>{
       verifyMarketplaceOrderPayment(button,order.id,button.dataset.detailPayment==='paid');
     }));
-    $('[data-cod-fee-review]').forEach((button)=>button.addEventListener('click',async()=>{
+    $$('[data-cod-fee-review]').forEach((button)=>button.addEventListener('click',async()=>{
       if(!adminHas('orders.payment_verify'))return;
       const approved=button.dataset.codFeeReview==='approve';
       const notes=approved?'':window.prompt('Reason for COD delivery fee rejection:','');
