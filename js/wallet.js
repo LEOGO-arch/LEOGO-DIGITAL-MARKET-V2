@@ -70,6 +70,21 @@
   let savingsChallengeDestination = null;
   let walletSecurity = { pin_is_set: false, pin_locked_until: null };
   let walletSummary = { balance: 0, withdrawable: 0, reserved: 0, total_saved: 0, points: 0, statement_transaction_count: 0, statement_download_fee: 0 };
+  let rewardCreditSources = new Map();
+  const rewardLedgerTypes = new Set(['shopping_reward','reward_redemption','reward_redemption_restore']);
+  const rewardSourceLabel = (entry) => {
+    if(entry.entry_type==='reward_redemption')return 'Shopping Voucher used at checkout';
+    if(entry.entry_type==='reward_redemption_restore')return 'Shopping Voucher restored after cancellation';
+    if(entry.entry_type!=='shopping_reward')return entry.description||'Savings Wallet transaction';
+    const source=entry.credit_source||rewardCreditSources.get(entry.reward_id)||'';
+    return ({
+      automatic_delivery:'Loyalty points earned from completed order',
+      manual_admin:'Admin-approved loyalty points added',
+      referral_referrer:'Referral Shopping Voucher credited',
+      referral_welcome:'Welcome Shopping Voucher credited',
+      vacant_house_submission:'Property listing Shopping Voucher credited'
+    })[source]||entry.description||'Loyalty points / Shopping Voucher credited';
+  };
   let loadVersion = 0;
 
   const numberFormat = (value) => Number(value || 0).toLocaleString('en-KE', {
@@ -273,8 +288,8 @@
     if (!elements.transactions) return;
     const records = [];
     ledgerEntries.forEach((entry) => records.push(transactionRecord({
-      title: entry.description,
-      detail: prettyStatus(entry.entry_type),
+      title: rewardSourceLabel(entry),
+      detail: rewardLedgerTypes.has(entry.entry_type)?'Non-withdrawable loyalty & voucher rewards':prettyStatus(entry.entry_type),
       status: 'Confirmed',
       date: entry.created_at,
       amount: `${entry.direction === 'credit' ? '+' : '−'} ${money(entry.amount_kes)}`,
@@ -444,6 +459,7 @@
     savingsChallengeDestination = null;
     walletSecurity = { pin_is_set: false, pin_locked_until: null };
     walletSummary = { balance: 0, withdrawable: 0, reserved: 0, total_saved: 0, points: 0, statement_transaction_count: 0, statement_download_fee: 0 };
+    rewardCreditSources = new Map();
     if (elements.statementConsent) elements.statementConsent.checked = false;
     setBadge('SIGN IN REQUIRED');
     renderSummary();
@@ -497,6 +513,12 @@
       walletDepositDestination = depositDestinationResult.error ? null : depositDestinationResult.data;
       savingsChallengeDestination = challengeDestinationResult.error ? null : challengeDestinationResult.data;
     }
+    // Source labels are display-only. Failures never block saving/withdrawal history.
+    const rewardResult=await client.from('wallet_shopping_rewards')
+      .select('id,credit_source').eq('user_id',user.id)
+      .order('credited_at',{ascending:false}).limit(1000);
+    if(!rewardResult.error)rewardCreditSources=new Map(
+      (rewardResult.data||[]).map(row=>[row.id,row.credit_source]));
     walletSecurity = securityResult.data?.success ? securityResult.data : { pin_is_set: false, pin_locked_until: null };
     walletSummary = summaryResult.data?.success ? summaryResult.data : walletSummary;
     setBadge(account?.account_status === 'frozen' ? 'ACCOUNT FROZEN' : 'LIVE & SECURE', account?.account_status === 'frozen' ? '' : 'live');
@@ -781,6 +803,12 @@
       entries.push(...(data || []));
       if (!data || data.length < pageSize) break;
     }
+    // Classify each credited reward without creating separate loyalty and voucher wallets.
+    const {data:rewardCredits,error:rewardError}=await client.from('wallet_shopping_rewards')
+      .select('id,credit_source').eq('user_id',currentUser.id)
+      .order('credited_at',{ascending:false}).limit(1000);
+    if(!rewardError)rewardCreditSources=new Map(
+      (rewardCredits||[]).map(row=>[row.id,row.credit_source]));
     return entries;
   };
 
@@ -810,28 +838,37 @@
   };
 
   const statementData = (statementEntries) => {
-    const fromValue = document.getElementById('walletStatementFrom')?.value;
-    const toValue = document.getElementById('walletStatementTo')?.value;
-    const fromDate = fromValue ? new Date(`${fromValue}T00:00:00+03:00`) : null;
-    const toDate = toValue ? new Date(`${toValue}T23:59:59.999+03:00`) : null;
-    if (fromDate && toDate && fromDate > toDate) throw new Error('The statement start date must be before the end date.');
-    const all = [...statementEntries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    let running = 0;
-    let opening = 0;
-    const rows = [];
-    all.forEach((entry) => {
-      const date = new Date(entry.created_at);
-      const signed = (entry.direction === 'credit' ? 1 : -1) * Number(entry.amount_kes);
-      if (fromDate && date < fromDate) {
-        running += signed;
-        opening = running;
-        return;
+    const fromValue=document.getElementById('walletStatementFrom')?.value;
+    const toValue=document.getElementById('walletStatementTo')?.value;
+    const fromDate=fromValue?new Date(`${fromValue}T00:00:00+03:00`):null;
+    const toDate=toValue?new Date(`${toValue}T23:59:59.999+03:00`):null;
+    if(fromDate&&toDate&&fromDate>toDate)throw new Error('Statement start date must precede end date.');
+    const all=[...statementEntries].sort((a,b)=>
+      new Date(a.created_at)-new Date(b.created_at)||String(a.id).localeCompare(String(b.id)));
+    let cash=0,rewards=0,openingCash=0,openingRewards=0;
+    const rows=[];
+    for(const entry of all){
+      const date=new Date(entry.created_at);
+      const value=(entry.direction==='credit'?1:-1)*Number(entry.amount_kes||0);
+      const reward=rewardLedgerTypes.has(entry.entry_type);
+      if(fromDate&&date<fromDate){
+        if(reward)rewards+=value;else cash+=value;
+        openingCash=cash;openingRewards=rewards;
+        continue;
       }
-      if (toDate && date > toDate) return;
-      running += signed;
-      rows.push({ ...entry, running_balance: running });
-    });
-    return { rows, opening, closing: rows.length ? rows.at(-1).running_balance : opening, fromValue, toValue };
+      if(toDate&&date>toDate)continue;
+      if(reward)rewards+=value;else cash+=value;
+      rows.push({
+        ...entry,statement_label:rewardSourceLabel(entry),
+        cash_credit:!reward&&value>0?value:0,
+        cash_debit:!reward&&value<0?-value:0,
+        rewards_credit:reward&&value>0?value:0,
+        rewards_debit:reward&&value<0?-value:0,
+        running_cash_balance:Math.round(cash*100)/100,
+        running_rewards_balance:Math.round(rewards*100)/100
+      });
+    }
+    return {rows,openingCash,openingRewards,closingCash:cash,closingRewards:rewards,fromValue,toValue};
   };
 
   const saveDownload = (blob, filename) => {
@@ -850,67 +887,87 @@
     .replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 
   const downloadStatementExcel = (statementEntries) => {
-    const statement = statementData(statementEntries);
-    if (!statement.rows.length) throw new Error('There are no confirmed wallet transactions in the selected period.');
-    const customer = currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.name || currentUser?.email || 'LEOGO Customer';
-    const rows = statement.rows.map((entry) => `
-      <Row><Cell><Data ss:Type="String">${xmlEscape(kenyaDateTime(entry.created_at))}</Data></Cell><Cell><Data ss:Type="String">${xmlEscape(prettyStatus(entry.entry_type))}</Data></Cell><Cell><Data ss:Type="String">${xmlEscape(entry.description)}</Data></Cell><Cell><Data ss:Type="String">${xmlEscape(entry.external_reference || '')}</Data></Cell><Cell><Data ss:Type="Number">${entry.direction === 'credit' ? Number(entry.amount_kes) : 0}</Data></Cell><Cell><Data ss:Type="Number">${entry.direction === 'debit' ? Number(entry.amount_kes) : 0}</Data></Cell><Cell><Data ss:Type="Number">${entry.running_balance}</Data></Cell></Row>`).join('');
-    const workbook = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#D9E7F7" ss:Pattern="Solid"/></Style><Style ss:ID="Money"><NumberFormat ss:Format="#,##0.00"/></Style></Styles><Worksheet ss:Name="Wallet Statement"><Table><Row><Cell ss:MergeAcross="6"><Data ss:Type="String">LEOGO DIGITAL MARKET — WALLET STATEMENT</Data></Cell></Row><Row><Cell ss:MergeAcross="6"><Data ss:Type="String">Customer: ${xmlEscape(customer)}</Data></Cell></Row><Row><Cell ss:MergeAcross="6"><Data ss:Type="String">Period: ${xmlEscape(statement.fromValue || 'Account opening')} to ${xmlEscape(statement.toValue || 'Present')}</Data></Cell></Row><Row><Cell ss:MergeAcross="6"><Data ss:Type="String">Opening balance: ${xmlEscape(money(statement.opening))} | Closing balance: ${xmlEscape(money(statement.closing))}</Data></Cell></Row><Row ss:StyleID="Header"><Cell><Data ss:Type="String">Date</Data></Cell><Cell><Data ss:Type="String">Type</Data></Cell><Cell><Data ss:Type="String">Description</Data></Cell><Cell><Data ss:Type="String">Reference</Data></Cell><Cell><Data ss:Type="String">Credit (KSh)</Data></Cell><Cell><Data ss:Type="String">Debit (KSh)</Data></Cell><Cell><Data ss:Type="String">Balance (KSh)</Data></Cell></Row>${rows}</Table></Worksheet></Workbook>`;
-    saveDownload(new Blob([workbook], { type: 'application/vnd.ms-excel;charset=utf-8' }), `LEOGO-Wallet-Statement-${localDateKey()}.xls`);
+    const statement=statementData(statementEntries);
+    if(!statement.rows.length)throw new Error('There are no confirmed wallet transactions in the selected period.');
+    const customer=currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||currentUser?.email||'LEOGO Customer';
+    const cols=['Date','Type','Description / source','Reference','Cash credit (KSh)',
+      'Cash debit (KSh)','Rewards credit (points)','Rewards debit (points)',
+      'Cash balance (KSh)','Loyalty + voucher balance (points)'];
+    const number=n=>`<Cell><Data ss:Type="Number">${Number(n||0)}</Data></Cell>`;
+    const str=v=>`<Cell><Data ss:Type="String">${xmlEscape(v)}</Data></Cell>`;
+    const rows=statement.rows.map(e=>`<Row>${[
+      str(kenyaDateTime(e.created_at)),str(prettyStatus(e.entry_type)),
+      str(e.statement_label),str(e.external_reference||''),
+      number(e.cash_credit),number(e.cash_debit),number(e.rewards_credit),number(e.rewards_debit),
+      number(e.running_cash_balance),number(e.running_rewards_balance)
+    ].join('')}</Row>`).join('');
+    const banner=v=>`<Row><Cell ss:MergeAcross="9"><Data ss:Type="String">${xmlEscape(v)}</Data></Cell></Row>`;
+    const workbook=`<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#D9E7F7" ss:Pattern="Solid"/></Style></Styles><Worksheet ss:Name="Wallet Statement"><Table>${banner('LEOGO DIGITAL MARKET — SAVINGS AND REWARDS STATEMENT')}${banner('Customer: '+customer)}${banner('Period: '+(statement.fromValue||'Account opening')+' to '+(statement.toValue||'Present'))}${banner('Opening cash: '+money(statement.openingCash)+' | Closing cash: '+money(statement.closingCash))}${banner('Opening loyalty + vouchers: '+statement.openingRewards.toFixed(2)+' points | Closing: '+statement.closingRewards.toFixed(2)+' points')}${banner('Loyalty points and vouchers share one non-withdrawable reward balance. 1 point = KSh 1 for eligible shopping.')}`+
+      `<Row ss:StyleID="Header">${cols.map(str).join('')}</Row>${rows}</Table></Worksheet></Workbook>`;
+    saveDownload(new Blob([workbook],{type:'application/vnd.ms-excel;charset=utf-8'}),`LEOGO-Wallet-Statement-${localDateKey()}.xls`);
   };
 
   const pdfEscape = (value) => String(value ?? '').replace(/[^\x20-\x7E]/g, '?').replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
 
   const downloadStatementPdf = (statementEntries) => {
-    const statement = statementData(statementEntries);
-    if (!statement.rows.length) throw new Error('There are no confirmed wallet transactions in the selected period.');
-    const customer = currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.name || currentUser?.email || 'LEOGO Customer';
-    const lines = [
-      'LEOGO DIGITAL MARKET - WALLET STATEMENT',
-      `Customer: ${customer}`,
-      `Period: ${statement.fromValue || 'Account opening'} to ${statement.toValue || 'Present'}`,
-      `Opening balance: ${money(statement.opening)}    Closing balance: ${money(statement.closing)}`,
-      `Monthly maintenance: ${money(walletSettings.maintenance_fee_kes)} | Shopping reward: ${Number(walletSettings.reward_rate) * 100}% from ${money(walletSettings.reward_minimum_spend_kes)}`,
+    const statement=statementData(statementEntries);
+    if(!statement.rows.length)throw new Error('There are no confirmed wallet transactions in the selected period.');
+    const customer=currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||currentUser?.email||'LEOGO Customer';
+    const lines=[
+      'LEOGO DIGITAL MARKET - SAVINGS & REWARDS STATEMENT',
+      'Customer: '+customer,
+      'Period: '+(statement.fromValue||'Account opening')+' to '+(statement.toValue||'Present'),
+      'Cash: '+money(statement.openingCash)+' opening; '+money(statement.closingCash)+' closing.',
+      'Loyalty + Shopping Voucher points: '+statement.openingRewards.toFixed(2)+
+        ' opening; '+statement.closingRewards.toFixed(2)+' closing.',
+      'One non-withdrawable rewards balance. 1 point = KSh 1 for eligible shopping.',
+      'Reward points NEVER increase withdrawable savings cash.',
       '',
-      'DATE              TYPE                 CREDIT       DEBIT        BALANCE',
+      'DATE        TYPE                CASH +/-   POINTS +/-   CASH BAL   POINTS BAL',
       '--------------------------------------------------------------------------'
     ];
-    statement.rows.forEach((entry) => {
-      const date = new Intl.DateTimeFormat('en-KE', { dateStyle: 'short', timeZone: 'Africa/Nairobi' }).format(new Date(entry.created_at));
-      const type = prettyStatus(entry.entry_type).slice(0, 18).padEnd(19);
-      const credit = (entry.direction === 'credit' ? numberFormat(entry.amount_kes) : '-').padStart(10);
-      const debit = (entry.direction === 'debit' ? numberFormat(entry.amount_kes) : '-').padStart(10);
-      const balance = numberFormat(entry.running_balance).padStart(12);
-      lines.push(`${date.padEnd(17)} ${type} ${credit} ${debit} ${balance}`);
-      lines.push(`  ${String(entry.description || '').slice(0, 78)}`);
-    });
-    lines.push('', 'Statement generated by LEOGO DIGITAL MARKET.', 'Customer care: 0700 192 545 | leogodigitalmarket@gmail.com');
-
-    const pages = [];
-    for (let index = 0; index < lines.length; index += 48) pages.push(lines.slice(index, index + 48));
-    const objects = [];
-    objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
-    const kids = pages.map((_, index) => `${4 + index * 2} 0 R`).join(' ');
-    objects[2] = `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`;
-    objects[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>';
-    pages.forEach((pageLines, index) => {
-      const pageNumber = 4 + index * 2;
-      const contentNumber = pageNumber + 1;
-      const stream = `BT /F1 9 Tf 42 800 Td ${pageLines.map((line, lineIndex) => `${lineIndex ? '0 -15 Td ' : ''}(${pdfEscape(line)}) Tj`).join(' ')} ET`;
-      objects[pageNumber] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentNumber} 0 R >>`;
-      objects[contentNumber] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
-    });
-    let pdf = '%PDF-1.4\n';
-    const offsets = [0];
-    for (let index = 1; index < objects.length; index += 1) {
-      offsets[index] = pdf.length;
-      pdf += `${index} 0 obj\n${objects[index]}\nendobj\n`;
+    for(const entry of statement.rows){
+      const date=new Intl.DateTimeFormat('en-KE',{dateStyle:'short',timeZone:'Africa/Nairobi'})
+        .format(new Date(entry.created_at));
+      const type=prettyStatus(entry.entry_type).slice(0,19).padEnd(19);
+      const cashDelta=entry.cash_credit-entry.cash_debit;
+      const rewardsDelta=entry.rewards_credit-entry.rewards_debit;
+      const delta=(v)=>v===0?'-':(v>0?'+':'')+Number(v).toFixed(2);
+      lines.push(date.padEnd(12)+type+' '+delta(cashDelta).padStart(10)+' '+
+        delta(rewardsDelta).padStart(12)+' '+
+        Number(entry.running_cash_balance).toFixed(2).padStart(10)+' '+
+        Number(entry.running_rewards_balance).toFixed(2).padStart(10));
+      lines.push('  '+String(entry.statement_label||entry.description||'').slice(0,76));
+      if(entry.external_reference)lines.push('  Ref: '+String(entry.external_reference).slice(0,65));
     }
-    const xref = pdf.length;
-    pdf += `xref\n0 ${objects.length}\n0000000000 65535 f \n`;
-    for (let index = 1; index < objects.length; index += 1) pdf += `${String(offsets[index]).padStart(10, '0')} 00000 n \n`;
-    pdf += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-    saveDownload(new Blob([pdf], { type: 'application/pdf' }), `LEOGO-Wallet-Statement-${localDateKey()}.pdf`);
+    lines.push('','Statement generated by LEOGO DIGITAL MARKET.',
+      'Customer care: 0700 192 545 | leogodigitalmarket@gmail.com');
+    const pages=[];
+    for(let i=0;i<lines.length;i+=48)pages.push(lines.slice(i,i+48));
+    const objects=[];
+    objects[1]='<< /Type /Catalog /Pages 2 0 R >>';
+    const kids=pages.map((_,i)=>`${4+i*2} 0 R`).join(' ');
+    objects[2]=`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`;
+    objects[3]='<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>';
+    pages.forEach((pageLines,index)=>{
+      const number=4+index*2;
+      const contentNumber=number+1;
+      const stream=`BT /F1 9 Tf 42 800 Td ${pageLines.map((line,i)=>
+        `${i?'0 -15 Td ':''}(${pdfEscape(line)}) Tj`).join(' ')} ET`;
+      objects[number]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentNumber} 0 R >>`;
+      objects[contentNumber]=`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+    });
+    let pdf='%PDF-1.4\n';
+    const offsets=[0];
+    for(let i=1;i<objects.length;i++){
+      offsets[i]=pdf.length;
+      pdf+=`${i} 0 obj\n${objects[i]}\nendobj\n`;
+    }
+    const xref=pdf.length;
+    pdf+=`xref\n0 ${objects.length}\n0000000000 65535 f \n`;
+    for(let i=1;i<objects.length;i++)pdf+=`${String(offsets[i]).padStart(10,'0')} 00000 n \n`;
+    pdf+=`trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+    saveDownload(new Blob([pdf],{type:'application/pdf'}),`LEOGO-Wallet-Statement-${localDateKey()}.pdf`);
   };
 
   const runStatementDownload = async (button, format) => {
