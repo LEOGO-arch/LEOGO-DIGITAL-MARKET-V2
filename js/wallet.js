@@ -464,6 +464,7 @@
     setBadge('SIGN IN REQUIRED');
     renderSummary();
     renderTransactions();
+    renderStatementPreview();
     renderChallenge();
     renderWithdrawals();
     renderPinSecurity();
@@ -524,6 +525,7 @@
     setBadge(account?.account_status === 'frozen' ? 'ACCOUNT FROZEN' : 'LIVE & SECURE', account?.account_status === 'frozen' ? '' : 'live');
     renderSummary();
     renderTransactions();
+    renderStatementPreview();
     renderChallenge();
     renderWithdrawals();
     renderPinSecurity();
@@ -871,6 +873,48 @@
     return {rows,openingCash,openingRewards,closingCash:cash,closingRewards:rewards,fromValue,toValue};
   };
 
+  const renderStatementPreview = () => {
+    const host=document.getElementById('walletStatementPreview');
+    if(!host)return;
+    host.replaceChildren();
+    if(!currentUser){host.textContent='Sign in to view your statement.';return;}
+    let statement;
+    try{statement=statementData(ledgerEntries);}
+    catch(error){host.textContent=error?.message||'Choose valid statement dates.';return;}
+    const rows=statement.rows.slice(-20).reverse();
+    if(!rows.length){host.textContent='No confirmed transactions in the selected period.';return;}
+    const heading=document.createElement('p');
+    heading.textContent='Cash balance: '+money(statement.closingCash)+
+      ' · Loyalty & Shopping Vouchers: '+Number(statement.closingRewards).toFixed(2)+' points';
+    host.append(heading);
+    for(const entry of rows){
+      const row=document.createElement('div');
+      row.className='wallet-statement-preview-row';
+      const info=document.createElement('div');
+      const title=document.createElement('strong');
+      title.textContent=entry.statement_label||prettyStatus(entry.entry_type);
+      const when=document.createElement('small');
+      when.textContent=kenyaDateTime(entry.created_at);
+      info.append(title,when);
+      const value=document.createElement('div');
+      const isReward=rewardLedgerTypes.has(entry.entry_type);
+      const change=(entry.direction==='credit'?'+':'−')+
+        Number(entry.amount_kes).toFixed(2)+(isReward?' points':' KSh');
+      const amount=document.createElement('strong');
+      amount.textContent=change;
+      const balance=document.createElement('small');
+      balance.textContent=isReward
+        ?'Rewards: '+Number(entry.running_rewards_balance).toFixed(2)+' pts'
+        :'Cash: '+money(entry.running_cash_balance);
+      value.append(amount,balance);
+      row.append(info,value);
+      host.append(row);
+    }
+    const note=document.createElement('small');
+    note.textContent='Showing up to 20 recent entries from your latest 200 ledger records. Download for full-period transactions.';
+    host.append(note);
+  };
+
   const saveDownload = (blob, filename) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1022,8 +1066,8 @@
     renderSummary();
   });
 
-  elements.statementFrom?.addEventListener('change', refreshStatementQuote);
-  elements.statementTo?.addEventListener('change', refreshStatementQuote);
+  elements.statementFrom?.addEventListener('change',()=>{renderStatementPreview();refreshStatementQuote();});
+  elements.statementTo?.addEventListener('change',()=>{renderStatementPreview();refreshStatementQuote();});
 
   elements.downloadExcel?.addEventListener('click', () => {
     runStatementDownload(elements.downloadExcel, 'excel');
