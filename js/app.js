@@ -698,17 +698,17 @@
     return true;
   };
 
-  const pushedAdvertisementSeenKey = (advertisement) => {
-    const revision = Number(advertisement?.popup_revision || 0);
-    return 'leogo_advert_popup_seen_' + String(advertisement?.id || '') + '_' + revision;
-  };
+  // Show each pushed advertisement once per page load, rather than once per
+  // browser/device. Closing and reopening the website (or refreshing it)
+  // starts a new visit and allows the active advertisement to display again.
+  const pushedAdvertisementsOpenedThisPage = new Set();
 
   const maybeOpenPushedAdvertisement = (advertisement) => {
     if (!advertisement?.id || !advertisement.popup_on_entry || !advertisement.poster_path) return;
-    const key = pushedAdvertisementSeenKey(advertisement);
-    try {
-      if (window.localStorage.getItem(key) === '1') return;
-    } catch {}
+    const key = String(advertisement.id) + '_' + String(advertisement.popup_revision || 0);
+    if (pushedAdvertisementsOpenedThisPage.has(key)) return;
+    // Reserve the slot before waiting, to prevent duplicate asynchronous opens.
+    pushedAdvertisementsOpenedThisPage.add(key);
 
     // Start almost immediately. The lightbox itself waits for the poster to be
     // fully loaded before it becomes visible and before the 5-second timer begins.
@@ -716,8 +716,7 @@
       const configuredSeconds = Number(advertisement.popup_auto_close_seconds || 0);
       const autoCloseSeconds = configuredSeconds === 5 || configuredSeconds === 3 ? 5 : 0;
       const opened = await openAdvertisementLightbox({autoCloseSeconds});
-      if (!opened) return;
-      try { window.localStorage.setItem(key,'1'); } catch {}
+      if (!opened) pushedAdvertisementsOpenedThisPage.delete(key);
     }, 75);
   };
 
