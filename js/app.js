@@ -4345,6 +4345,7 @@
     }
     const submit=form?.querySelector('button[type="submit"]');
     if(submit) submit.disabled=Boolean(order?.aftersales_case&&['submitted','in_review','contacted'].includes(order.aftersales_case.status));
+    loadAftersalesItems(orderId);
   };
 
   customerShellModal?.addEventListener('click',(event)=>{
@@ -4488,7 +4489,7 @@
       if(!isRefund)aftersalesRefundInput.value='';
     }
   };
-  const loadAftersalesItems = async(orderId)=>{
+  async function loadAftersalesItems(orderId){
     const version=++aftersalesItemLoadVersion;
     eligibleAftersalesItems=[];
     if(!aftersalesItemSelect)return;
@@ -4506,7 +4507,6 @@
   };
   aftersalesOrderSelect?.addEventListener('change',()=>{
     prepareAftersalesOrder(aftersalesOrderSelect.value);
-    loadAftersalesItems(aftersalesOrderSelect.value);
   });
   aftersalesItemSelect?.addEventListener('change',updateAftersalesRefundForm);
   aftersalesSolutionSelect?.addEventListener('change',updateAftersalesRefundForm);
