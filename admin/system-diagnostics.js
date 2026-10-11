@@ -178,6 +178,22 @@
     if(!state.lastResult&&data?.checks)renderRepairCenter(data);
   };
 
+  const refreshPanels=async(panels)=>{
+    const results=await Promise.allSettled(panels.map((panel)=>panel.load()));
+    results.forEach((result,index)=>{
+      if(result.status==='rejected'){
+        if(panels[index].onError)panels[index].onError(result.reason);
+        else if(panels[index].status)setStatus($(panels[index].status),friendly(result.reason),'error');
+      }
+    });
+    return results;
+  };
+
+  const panelError=(selector,label)=>(error)=>{
+    const node=$(selector);
+    if(node)node.textContent=label+': '+friendly(error);
+  };
+
   const closeFindingModal=()=>{
     const modal=$('#diagnosticsFindingModal');
     if(modal)modal.hidden=true;
@@ -620,7 +636,12 @@
       }
       renderResult(data);
       setStatus($('#diagnosticsRunStatus'),'Diagnosis complete. No repair was applied automatically.','success');
-      await Promise.all([loadHistory(),loadRuntimeIssues(),loadRepairHistory(),loadLatestDiagnosticRun()]);
+      await refreshPanels([
+        {load:loadHistory,onError:panelError('#diagnosticsHistory','History unavailable')},
+        {load:loadRuntimeIssues,status:'#diagnosticsRuntimeStatus'},
+        {load:loadRepairHistory,onError:panelError('#diagnosticsRepairHistory','Repair history unavailable')},
+        {load:loadLatestDiagnosticRun,onError:panelError('#diagnosticsRepairQueue','Latest findings unavailable')}
+      ]);
     }catch(error){
       setStatus($('#diagnosticsRunStatus'),friendly(error),'error');
     }finally{
@@ -742,18 +763,22 @@
 
   window.leogoDiagnostics={
     activate:async()=>{
-      try{
-        await loadStatus();
-        await Promise.all([loadRuntimeIssues(),loadLatestDiagnosticRun(),loadRepairHistory(),loadSystemMonitoring()]);
-      }catch(error){
-        setStatus($('#diagnosticsRunStatus'),friendly(error),'error');
-        setStatus($('#diagnosticsRuntimeStatus'),friendly(error),'error');
-        setStatus($('#diagnosticsMonitoringStatus'),friendly(error),'error');
-      }
+      await refreshPanels([
+        {load:loadStatus,status:'#diagnosticsRunStatus'},
+        {load:loadRuntimeIssues,status:'#diagnosticsRuntimeStatus'},
+        {load:loadLatestDiagnosticRun,onError:panelError('#diagnosticsRepairQueue','Latest findings unavailable')},
+        {load:loadRepairHistory,onError:panelError('#diagnosticsRepairHistory','Repair history unavailable')},
+        {load:loadSystemMonitoring,status:'#diagnosticsMonitoringStatus'}
+      ]);
     },
     refresh:async()=>{
-      await loadStatus();
-      await Promise.all([loadRuntimeIssues(),loadLatestDiagnosticRun(),loadRepairHistory(),loadSystemMonitoring()]);
+      await refreshPanels([
+        {load:loadStatus,status:'#diagnosticsRunStatus'},
+        {load:loadRuntimeIssues,status:'#diagnosticsRuntimeStatus'},
+        {load:loadLatestDiagnosticRun,onError:panelError('#diagnosticsRepairQueue','Latest findings unavailable')},
+        {load:loadRepairHistory,onError:panelError('#diagnosticsRepairHistory','Repair history unavailable')},
+        {load:loadSystemMonitoring,status:'#diagnosticsMonitoringStatus'}
+      ]);
     }
   };
 
