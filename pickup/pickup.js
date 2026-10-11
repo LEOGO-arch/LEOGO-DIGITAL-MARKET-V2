@@ -779,36 +779,18 @@ const stopScanner=()=>{
 
 const decodeQrWithJsQr=(video)=>{
   if(typeof window.jsQR!=='function'||!scannerContext||!video||video.readyState<2)return '';
-  const sourceWidth=Number(video.videoWidth||0);
-  const sourceHeight=Number(video.videoHeight||0);
-  if(!sourceWidth||!sourceHeight)return '';
+  const width=Number(video.videoWidth||0);
+  const height=Number(video.videoHeight||0);
+  if(!width||!height)return '';
 
-  // Scan the same central region shown inside the orange guide first. This
-  // makes a printed LEOGO QR larger for decoding on mobile cameras. Fall back
-  // to the full frame for codes held outside the guide.
-  const crops=[
-    {left:.12,top:.18,width:.76,height:.64},
-    {left:0,top:0,width:1,height:1}
-  ];
-  for(const crop of crops){
-    const sx=Math.round(sourceWidth*crop.left);
-    const sy=Math.round(sourceHeight*crop.top);
-    const sw=Math.max(1,Math.round(sourceWidth*crop.width));
-    const sh=Math.max(1,Math.round(sourceHeight*crop.height));
-    // Keep small printed codes readable on phone cameras while capping the
-    // frame size so repeated decoding remains responsive.
-    const scale=Math.min(2,2048/sw);
-    const width=Math.max(1,Math.round(sw*scale));
-    const height=Math.max(1,Math.round(sh*scale));
-    if(scannerCanvas.width!==width)scannerCanvas.width=width;
-    if(scannerCanvas.height!==height)scannerCanvas.height=height;
-
-    scannerContext.drawImage(video,sx,sy,sw,sh,0,0,width,height);
-    const frame=scannerContext.getImageData(0,0,width,height);
-    const result=window.jsQR(frame.data,width,height,{inversionAttempts:'attemptBoth'});
-    if(result?.data)return result.data;
-  }
-  return '';
+  // Decode the camera's actual video frame at its original pixel dimensions.
+  // Cropping or enlarging the frame resamples pixels and can blur QR modules.
+  if(scannerCanvas.width!==width)scannerCanvas.width=width;
+  if(scannerCanvas.height!==height)scannerCanvas.height=height;
+  scannerContext.drawImage(video,0,0,width,height);
+  const frame=scannerContext.getImageData(0,0,width,height);
+  const result=window.jsQR(frame.data,width,height,{inversionAttempts:'attemptBoth'});
+  return result?.data||'';
 };
 
 const finishQrScan=async(rawValue)=>{
@@ -955,8 +937,8 @@ const startScanner=async(mode)=>{
     scannerStream=await navigator.mediaDevices.getUserMedia({
       video:{
         facingMode:{ideal:'environment'},
-        width:{ideal:1920},
-        height:{ideal:1080},
+        width:{ideal:4096},
+        height:{ideal:2160},
         frameRate:{ideal:30},
         focusMode:{ideal:'continuous'}
       },
@@ -969,8 +951,19 @@ const startScanner=async(mode)=>{
     await video.play();
 
     const track=scannerStream.getVideoTracks()[0];
+    const caps=track.getCapabilities?.()||{};
+    const maxWidth=Number(caps.width?.max||0);
+    const maxHeight=Number(caps.height?.max||0);
+    if(maxWidth>0&&maxHeight>0){
+      try{
+        await track.applyConstraints({width:{exact:maxWidth},height:{exact:maxHeight}});
+      }catch(_error){
+        try{
+          await track.applyConstraints({width:{ideal:maxWidth},height:{ideal:maxHeight}});
+        }catch(_fallbackError){}
+      }
+    }
     try{
-      const caps=track.getCapabilities?.()||{};
       const advanced={};
       if(Array.isArray(caps.focusMode)&&caps.focusMode.includes('continuous'))advanced.focusMode='continuous';
       if(Object.keys(advanced).length)await track.applyConstraints({advanced:[advanced]});
