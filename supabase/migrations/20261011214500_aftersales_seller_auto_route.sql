@@ -13,12 +13,6 @@ begin
     values(new.id,v_seller,'forwarded','Automatically sent to the seller of this order');
   insert into public.marketplace_aftersales_negotiation_events(case_id,actor_id,actor_role,event_type,comment)
     values(new.id,new.customer_id,'customer','submitted_to_seller','Customer submitted an Aftersales case');
-  insert into public.partner_notifications
-   (user_id,partner_type,event_type,title,message,source_type,source_id,action_view,metadata)
-    values(v_seller,'seller','aftersales_submitted','Customer Aftersales request',
-    'Customer requested Aftersales for order '||coalesce(v_order_reference,'')||'. Review the case under Orders.',
-    'marketplace_aftersales_case',new.id,'orders',
-    jsonb_build_object('case_id',new.id,'order_id',new.order_id,'case_reference',new.case_reference));
   return new;
 end;$fn$;
 drop trigger if exists leogo_route_new_aftersales_to_seller on public.marketplace_aftersales_cases;
