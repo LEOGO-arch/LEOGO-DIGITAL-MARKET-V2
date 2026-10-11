@@ -168,3 +168,16 @@ begin
  return v_count;
 end;$fn$;
 revoke all on function private.expire_aftersales_customer_responses() from public,anon,authenticated;
+
+create or replace function public.aftersales_list_negotiations()
+returns jsonb language sql stable security definer set search_path='' as $fn$
+ select coalesce(jsonb_agg(to_jsonb(q) order by q.updated_at desc),'[]'::jsonb) from (
+  select n.*,c.customer_id,c.order_id,c.case_reference,c.issue_type,c.details,c.preferred_solution,c.requested_refund_amount_kes,c.return_pickup_station_id,i.product_name,
+   coalesce((select jsonb_agg(jsonb_build_object('event_type',e.event_type,'actor_role',e.actor_role,'comment',e.comment,'created_at',e.created_at) order by e.created_at)
+    from public.marketplace_aftersales_negotiation_events e where e.case_id=n.case_id),'[]'::jsonb) as history
+  from public.marketplace_aftersales_negotiations n
+  join public.marketplace_aftersales_cases c on c.id=n.case_id
+  left join public.marketplace_order_items i on i.id=c.order_item_id
+  where private.is_leogo_admin('orders.manage') or n.seller_id=auth.uid() or c.customer_id=auth.uid()
+ ) q
+$fn$;
