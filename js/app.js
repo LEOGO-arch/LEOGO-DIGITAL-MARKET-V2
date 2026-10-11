@@ -1815,7 +1815,15 @@
     const requiredFields = isPickup
       ? [...checkoutBaseFields, checkoutPickupStation]
       : [...checkoutBaseFields, ...deliveryAddressFields];
-    const detailsComplete = requiredFields.every((field) => field && field.value.trim() !== '');
+    const shippingPhone = document.getElementById('checkoutContactNumber');
+    const compactPhone = String(shippingPhone?.value || '').replace(/[\s()-]/g, '');
+    const validShippingPhone = /^(?:0[17]\d{8}|(?:\+?254)[17]\d{8})$/.test(compactPhone);
+    if (shippingPhone) {
+      shippingPhone.setCustomValidity(shippingPhone.value.trim() && !validShippingPhone
+        ? 'Enter a valid Kenyan mobile number for delivery or pickup.'
+        : '');
+    }
+    const detailsComplete = requiredFields.every((field) => field && field.value.trim() !== '') && validShippingPhone;
     const cartReady = typeof testCart !== 'undefined' && testCart.length > 0;
     const ready = detailsComplete && cartReady;
     if (continueToPayment) {
@@ -1829,8 +1837,8 @@
         ? '✓ All required details are complete. Continue to payment.'
         : cartReady
           ? isPickup
-            ? 'Complete receiver name, phone and choose an active pickup station.'
-            : 'Complete receiver name, phone, County, Sub-County, Estate, landmark and delivery zone.'
+            ? 'Complete receiver name, valid phone number and choose an active pickup station.'
+            : 'Complete receiver name, valid phone number, County, Sub-County, Estate, landmark and delivery zone.'
           : 'Add an item to the cart and complete all required delivery details.';
     }
   };
