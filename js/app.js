@@ -4345,6 +4345,7 @@
     }
     const submit=form?.querySelector('button[type="submit"]');
     if(submit) submit.disabled=Boolean(order?.aftersales_case&&['submitted','in_review','contacted'].includes(order.aftersales_case.status));
+    loadAftersalesItems(orderId);
   };
 
   customerShellModal?.addEventListener('click',(event)=>{
@@ -4471,7 +4472,44 @@
   const aftersalesPreviewStatus = document.getElementById('aftersalesPreviewStatus');
   const aftersalesOrderSelect = document.getElementById('aftersalesOrderId');
 
-  aftersalesOrderSelect?.addEventListener('change',()=>prepareAftersalesOrder(aftersalesOrderSelect.value));
+  const aftersalesItemSelect = document.getElementById('aftersalesOrderItemId');
+  const aftersalesRefundRow = document.getElementById('aftersalesRefundAmountRow');
+  const aftersalesRefundInput = document.getElementById('aftersalesRefundAmountKes');
+  const aftersalesSolutionSelect = document.getElementById('aftersalesPreferredSolution');
+  let eligibleAftersalesItems = [];
+  let aftersalesItemLoadVersion = 0;
+  const updateAftersalesRefundForm = () => {
+    const isRefund = aftersalesSolutionSelect?.value === 'refund_review';
+    if (aftersalesRefundRow) aftersalesRefundRow.hidden = !isRefund;
+    if (aftersalesRefundInput) {
+      aftersalesRefundInput.required = isRefund;
+      const item=eligibleAftersalesItems.find(x=>x.item_id===aftersalesItemSelect?.value);
+      if(item)aftersalesRefundInput.max=String(item.item_total);
+      else aftersalesRefundInput.removeAttribute('max');
+      if(!isRefund)aftersalesRefundInput.value='';
+    }
+  };
+  async function loadAftersalesItems(orderId){
+    const version=++aftersalesItemLoadVersion;
+    eligibleAftersalesItems=[];
+    if(!aftersalesItemSelect)return;
+    aftersalesItemSelect.innerHTML='<option value="">Loading items…</option>';
+    if(!orderId||!window.leogoAuth?.client){aftersalesItemSelect.innerHTML='<option value="">Choose an order first</option>';return;}
+    const {data,error}=await window.leogoAuth.client.rpc('customer_list_aftersales_order_items',{p_order_id:orderId});
+    if(version!==aftersalesItemLoadVersion)return;
+    if(error){aftersalesItemSelect.innerHTML='<option value="">Could not load items</option>';return;}
+    eligibleAftersalesItems=Array.isArray(data)?data:[];
+    aftersalesItemSelect.innerHTML='<option value="">Select purchased item</option>'+eligibleAftersalesItems.map(item=>
+      '<option value="'+receiptEscape(item.item_id)+'">'+receiptEscape(item.product_name)+' — KSh '+Number(item.item_total||0).toLocaleString('en-KE')+'</option>'
+    ).join('');
+    if(eligibleAftersalesItems.length===1)aftersalesItemSelect.value=eligibleAftersalesItems[0].item_id;
+    updateAftersalesRefundForm();
+  };
+  aftersalesOrderSelect?.addEventListener('change',()=>{
+    prepareAftersalesOrder(aftersalesOrderSelect.value);
+  });
+  aftersalesItemSelect?.addEventListener('change',updateAftersalesRefundForm);
+  aftersalesSolutionSelect?.addEventListener('change',updateAftersalesRefundForm);
 
   aftersalesPreviewForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -4489,6 +4527,8 @@
       return;
     }
 
+    if(!aftersalesItemSelect?.value){aftersalesPreviewStatus.textContent='Select the affected purchased item.';aftersalesPreviewStatus.classList.add('is-error');return;}
+    if(aftersalesSolutionSelect?.value==='refund_review' && !aftersalesRefundInput?.reportValidity())return;
     const file=document.getElementById('aftersalesEvidenceFile')?.files?.[0]||null;
     const allowed=new Set(['image/jpeg','image/png','image/webp','application/pdf']);
     if(file&&!allowed.has(file.type)){
@@ -4523,7 +4563,9 @@
         if(upload.error) throw upload.error;
       }
 
-      const {data,error}=await window.leogoAuth.client.rpc('customer_submit_marketplace_aftersales',{
+      const {data,error}=await window.leogoAuth.client.rpc('customer_submit_marketplace_aftersales_v2',{
+        p_order_item_id:aftersalesItemSelect?.value,
+        p_requested_refund_amount_kes:aftersalesSolutionSelect?.value==='refund_review' ? Number(aftersalesRefundInput?.value) : null,
         p_order_id:orderId,
         p_issue_type:document.getElementById('aftersalesIssueType').value,
         p_preferred_solution:document.getElementById('aftersalesPreferredSolution').value,
@@ -4537,6 +4579,8 @@
       aftersalesPreviewStatus.classList.add('is-success');
       document.getElementById('aftersalesIssueType').value='';
       document.getElementById('aftersalesPreferredSolution').value='';
+      if(aftersalesRefundInput)aftersalesRefundInput.value='';
+      updateAftersalesRefundForm();
       document.getElementById('aftersalesDetails').value='';
       document.getElementById('aftersalesEvidenceFile').value='';
       await loadCustomerMarketplaceOrders();
