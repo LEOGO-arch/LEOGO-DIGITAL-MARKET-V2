@@ -16,6 +16,7 @@ root.innerHTML=`
     <label class="wide">Note to Seller <small>(optional)</small><textarea name="comment" rows="3" maxlength="2000" placeholder="Explain what the seller should review and the response you expect."></textarea></label>
     <div class="aftersales-negotiation-actions"><button type="button" id="aftersalesLookupSeller">↻ Reload Sellers</button><button class="primary-button" type="submit" id="aftersalesForwardSubmit" disabled>Forward to Seller</button></div>
   </form>
+  <details class="aftersales-negotiation-history"><summary>Reactivate expired Aftersales application</summary><form id="aftersalesExtensionForm" class="aftersales-negotiation-form"><label>Valid until (Kenya local time)<input type="datetime-local" name="until" required></label><label class="wide">Reason for reactivation<textarea name="reason" required minlength="5" maxlength="1000" rows="2"></textarea></label><button class="primary-button" type="submit">Approve reactivation</button><p id="aftersalesExtensionStatus" role="status"></p></form></details>
   <p role="status" id="aftersalesNegotiationAdminStatus" aria-live="polite"></p>
   <section class="aftersales-negotiation-history" id="aftersalesNegotiationHistory" hidden><h4>Seller & Customer Negotiation</h4><div id="aftersalesNegotiationSummary"></div><details><summary>View case activity timeline</summary><div id="aftersalesNegotiationEvents"></div></details></section>
   <section class="aftersales-negotiation-intervention" id="aftersalesIntervention" hidden><h4>LEOGO Intervention</h4><p>This case requires LEOGO Customer Care review. Review the seller response and customer comments, then use the existing <strong>Update the case</strong> section above to record the decision and notify the customer.</p></section>`;
@@ -79,6 +80,15 @@ renderNegotiation();
 Promise.all([refreshNegotiations(),loadSellers()]);
 }
 document.addEventListener('leogo:admin-aftersales-case-selected',e=>openCase(e.detail));
+$('#aftersalesExtensionForm').addEventListener('submit',async e=>{
+e.preventDefault();if(!selected?.order_reference)return;
+const form=e.currentTarget,until=new Date(form.elements.until.value);
+const status=$('#aftersalesExtensionStatus');
+if(Number.isNaN(until.getTime())){status.textContent='Choose a valid deadline.';return;}
+const {data,error}=await db.rpc('aftersales_extend_selected_case_order',{p_case_id:selected.case_id,p_valid_until:until.toISOString(),p_reason:form.elements.reason.value.trim()});
+status.textContent=error?error.message:'Aftersales filing reactivated until '+until.toLocaleString('en-KE')+'.';
+if(!error)form.reset();
+});
 $('#aftersalesLookupSeller').addEventListener('click',loadSellers);
 $('#aftersalesNegotiationRefresh').addEventListener('click',refreshNegotiations);
 sellerSelect.addEventListener('change',()=>{$('#aftersalesForwardSubmit').disabled=!sellerSelect.value;});
