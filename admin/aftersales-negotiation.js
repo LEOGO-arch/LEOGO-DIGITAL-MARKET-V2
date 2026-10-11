@@ -7,6 +7,8 @@ const wrap=document.createElement('section');
 wrap.className='content-card';
 wrap.innerHTML='<h3>Forward to Seller & LEOGO Intervention</h3><p>Choose the responsible seller for an existing case. Seller responses and customer decisions appear below.</p><div id="aftersalesNegotiationAdmin"></div><button type="button" id="aftersalesNegotiationRefresh">Refresh seller cases</button>';
 panel.append(wrap);
+const caseDetail=document.getElementById('adminAftersalesDetail');
+if(caseDetail){const useCase=document.createElement('button');useCase.type='button';useCase.textContent='Forward this case to seller';caseDetail.append(useCase);useCase.onclick=()=>{const caseId=document.querySelector('#adminAftersalesDetail [data-case-id]')?.dataset.caseId || document.querySelector('[data-open-aftersales-case].admin-order-row-active')?.dataset.openAftersalesCase || document.querySelector('.admin-order-row-active [data-open-aftersales-case]')?.dataset.openAftersalesCase;const field=wrap.querySelector('input[name=case]');if(caseId&&field)field.value=caseId;wrap.scrollIntoView({behavior:'smooth'});};}
 const list=wrap.querySelector('#aftersalesNegotiationAdmin');
 const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 async function load(){
