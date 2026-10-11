@@ -14,7 +14,7 @@ for(const selector of ['[data-detail-payment]','[data-cod-fee-review]']){
     selector+' controls should be queried as a collection so an empty match is safe'
   );
   assert.ok(
-    !detailRenderer.includes(`$(' ${selector}').forEach(`),
+    !detailRenderer.includes(`$('${selector}').forEach(`),
     selector+' controls must not use the single element selector'
   );
 }
