@@ -5,6 +5,7 @@ const orders=document.querySelector('[data-seller-content="orders"]');
 if(!db||!orders)return;
 const section=document.createElement('section');section.className='panel';section.innerHTML='<h3>Aftersales cases sent by LEOGO</h3><p>Review your assigned cases, propose solutions or reject with a reason.</p><button id="sellerAftersalesRefresh" type="button">Refresh Cases</button><div id="sellerAftersalesNegotiations"></div>';orders.append(section);
 const el=section.querySelector('#sellerAftersalesNegotiations');
+const evidenceBucket='marketplace-aftersales-evidence';
 const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 async function load(){
 const {data,error}=await db.rpc('aftersales_list_negotiations');
@@ -14,6 +15,15 @@ for(const n of data||[]){
 const field=(label,value)=>'<div style="margin:8px 0"><strong>'+esc(label)+':</strong> '+esc(value===null||value===undefined||value===''?'Not provided':value)+'</div>';
 const formatDate=value=>value?new Date(value).toLocaleString('en-KE'):'Not provided';
 const history=Array.isArray(n.history)?n.history:[];
+const returnInfo=n.return_tracking||null;
+const returnReport=returnInfo
+ ? '<section style="padding:12px;margin:12px 0;border:1px solid #d7e2ed;border-radius:10px"><h5>Return Parcel Tracking</h5>'+
+   field('Return reference',returnInfo.return_reference)+field('Current return status',String(returnInfo.status||'').replaceAll('_',' '))+
+   field('Return reason',returnInfo.return_reason)+field('Return item',returnInfo.item_description)+
+   field('Booked at pickup station',formatDate(returnInfo.booked_at))+
+   field('Dispatched from station',formatDate(returnInfo.dispatched_at))+
+   field('Last tracking update',formatDate(returnInfo.updated_at))+'</section>'
+ : '<p>Return parcel: Not booked at a pickup station yet.</p>';
 const customerReport='<section class="seller-aftersales-customer-report" style="padding:14px;margin:14px 0;background:#f4f7fc;border:1px solid #d9e2ef;border-radius:12px">'+
   '<h5 style="margin:0 0 10px">Original Customer Aftersales Application</h5>'+
   field('Product',n.product_name)+field('Order reference',n.order_reference||n.order_id)+
@@ -24,11 +34,32 @@ const customerReport='<section class="seller-aftersales-customer-report" style="
   field('Seller response deadline',formatDate(n.response_due_at))+
   (n.customer_comment?field('Latest customer comment',n.customer_comment):'')+
   (n.admin_comment?field('LEOGO case communication',n.admin_comment):'')+
-  '<p style="font-size:12px">Customer evidence is protected and should be viewed through an authorized case-evidence link.</p>'+
+  (n.evidence_path?'<div class="seller-aftersales-evidence" style="margin:12px 0"><strong>Customer photo proof</strong><p>Loading protected image…</p></div>':'<p>No photo evidence was submitted for this case.</p>')+
   '</section>';
 const caseHistory=history.length?'<details style="margin:12px 0"><summary>Case activity history ('+history.length+')</summary>'+
   history.map(e=>'<div style="border-bottom:1px solid #ddd;padding:8px 0">'+field('Time',formatDate(e.created_at))+field('Action',e.event_type)+field('By',e.actor_role)+(e.comment?field('Comment',e.comment):'')+'</div>').join('')+'</details>':'';
-const card=document.createElement('article');card.className='panel';card.innerHTML='<h4>'+esc(n.case_reference)+'</h4><p>Status: '+esc(n.stage)+'</p>'+customerReport+caseHistory+'<p>Previous solution: '+esc(n.seller_solution||'None')+'</p><form><label>Action <select name="action"><option value="review">Start Review</option><option value="propose">Propose Solution</option><option value="reject">Reject Complaint</option></select></label><label>Solution type <select name="solutionKind"><option value="return_refund">Return and refund</option><option value="return_exchange">Return and exchange</option><option value="replacement">Replacement</option><option value="other">Other agreed solution</option></select></label><label>Solution <textarea name="solution" maxlength="2000"></textarea></label><label>Comments / rejection reason <textarea name="comment" maxlength="2000"></textarea></label><button type="submit">Submit Seller Response</button><p role="status"></p></form>';el.append(card);
+const card=document.createElement('article');card.className='panel';card.innerHTML='<h4>'+esc(n.case_reference)+'</h4><p>Status: '+esc(n.stage)+'</p>'+customerReport+returnReport+caseHistory+'<p>Previous solution: '+esc(n.seller_solution||'None')+'</p><form><label>Action <select name="action"><option value="review">Start Review</option><option value="propose">Propose Solution</option><option value="reject">Reject Complaint</option></select></label><label>Solution type <select name="solutionKind"><option value="return_refund">Return and refund</option><option value="return_exchange">Return and exchange</option><option value="replacement">Replacement</option><option value="other">Other agreed solution</option></select></label><label>Solution <textarea name="solution" maxlength="2000"></textarea></label><label>Comments / rejection reason <textarea name="comment" maxlength="2000"></textarea></label><button type="submit">Submit Seller Response</button><p role="status"></p></form>';el.append(card);
+// Signed URLs are short-lived, and storage RLS restricts access to the assigned seller.
+if(n.evidence_path){
+ const proof=card.querySelector('.seller-aftersales-evidence');
+ const {data:link,error:linkError}=await db.storage.from(evidenceBucket).createSignedUrl(n.evidence_path,300);
+ if(proof){
+  if(linkError||!link?.signedUrl)proof.querySelector('p').textContent='Photo access unavailable. Ask LEOGO Admin to verify the case evidence permission.';
+  else{
+   const img=document.createElement('img');img.src=link.signedUrl;img.alt='Customer-submitted photo evidence';img.loading='lazy';img.style.cssText='max-width:100%;max-height:320px;border-radius:9px;object-fit:contain;display:block;margin-top:10px';
+   const open=document.createElement('a');open.href=link.signedUrl;open.target='_blank';open.rel='noopener noreferrer';open.textContent='View original photo';open.style.display='block';
+   proof.querySelector('p')?.remove();proof.append(img,open);
+  }
+ }
+}
+const orderCard=[...document.querySelectorAll('.seller-order-card')].find(o=>o.dataset.orderReference===n.order_reference);
+if(orderCard){
+ const footer=orderCard.querySelector('footer')||orderCard;
+ const entry=document.createElement('button');entry.type='button';entry.textContent='Aftersales: '+String(n.stage||'Open').replaceAll('_',' ');
+ entry.className='secondary seller-aftersales-order-link';entry.style.cssText='margin:6px;white-space:normal';
+ entry.addEventListener('click',()=>card.scrollIntoView({behavior:'smooth',block:'start'}));
+ footer.append(entry);
+}
 const form=card.querySelector('form');
 form.onsubmit=async e=>{e.preventDefault();const action=form.elements.action.value;const {error}=await db.rpc(action==='propose'?'aftersales_seller_propose_v2':'aftersales_seller_respond',action==='propose'?{p_case_id:n.case_id,p_solution_kind:form.elements.solutionKind.value,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value}:{p_case_id:n.case_id,p_action:action,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value});if(error){form.querySelector('[role=status]').textContent=error.message;return;}await load();};
 }
