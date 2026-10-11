@@ -181,3 +181,16 @@ returns jsonb language sql stable security definer set search_path='' as $fn$
   where private.is_leogo_admin('orders.manage') or n.seller_id=auth.uid() or c.customer_id=auth.uid()
  ) q
 $fn$;
+
+-- Admin resolves filing reactivation using selected case, without manually entering order UUID.
+create or replace function public.aftersales_extend_selected_case_order(p_case_id uuid,p_valid_until timestamptz,p_reason text)
+returns jsonb language plpgsql security definer set search_path='' as $fn$
+declare v_order uuid;
+begin
+ if not private.is_leogo_admin('orders.manage') then raise exception 'Orders management access required'; end if;
+ select order_id into v_order from public.marketplace_aftersales_cases where id=p_case_id;
+ if v_order is null then raise exception 'Aftersales case not found'; end if;
+ return public.admin_extend_aftersales_filing(v_order,p_valid_until,p_reason);
+end;$fn$;
+revoke all on function public.aftersales_extend_selected_case_order(uuid,timestamptz,text) from public,anon;
+grant execute on function public.aftersales_extend_selected_case_order(uuid,timestamptz,text) to authenticated;
