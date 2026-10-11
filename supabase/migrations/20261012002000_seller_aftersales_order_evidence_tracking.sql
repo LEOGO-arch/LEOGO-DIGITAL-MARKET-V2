@@ -4,6 +4,7 @@ returns jsonb language sql stable security definer set search_path='' as $fn$
 select coalesce(jsonb_agg(to_jsonb(q) order by q.updated_at desc),'[]'::jsonb) from (
  select n.*,c.customer_id,c.order_id,c.case_reference,c.issue_type,c.details,c.preferred_solution,
   c.requested_refund_amount_kes,c.return_pickup_station_id,c.evidence_path,c.created_at as complaint_created_at,
+  o.order_reference,
   i.product_name,
   (select jsonb_build_object('return_reference',r.return_reference,'status',r.status,
       'booked_at',r.booked_at,'dispatched_at',r.dispatched_at,'updated_at',r.updated_at,
@@ -16,6 +17,7 @@ select coalesce(jsonb_agg(to_jsonb(q) order by q.updated_at desc),'[]'::jsonb) f
    from public.marketplace_aftersales_negotiation_events e where e.case_id=n.case_id),'[]'::jsonb) as history
  from public.marketplace_aftersales_negotiations n
  join public.marketplace_aftersales_cases c on c.id=n.case_id
+ join public.marketplace_orders o on o.id=c.order_id
  left join public.marketplace_order_items i on i.id=c.order_item_id
  where private.is_leogo_admin('orders.manage') or n.seller_id=(select auth.uid()) or c.customer_id=(select auth.uid())
 ) q
