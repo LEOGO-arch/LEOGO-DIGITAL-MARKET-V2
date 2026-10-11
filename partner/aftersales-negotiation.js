@@ -6,11 +6,26 @@ if(!db||!orders)return;
 const section=document.createElement('section');section.className='panel';section.innerHTML='<h3>Aftersales cases sent by LEOGO</h3><p>Review your assigned cases, propose solutions or reject with a reason.</p><button id="sellerAftersalesRefresh" type="button">Refresh Cases</button><div id="sellerAftersalesNegotiations"></div>';orders.append(section);
 const el=section.querySelector('#sellerAftersalesNegotiations');
 const evidenceBucket='marketplace-aftersales-evidence';
+let linkedCases=[];
+function attachOrderLinks(){
+ for(const n of linkedCases){
+  const orderCard=[...document.querySelectorAll('.seller-order-card')].find(o=>o.dataset.orderReference===n.order_reference);
+  if(!orderCard||orderCard.querySelector('[data-case-link="'+n.case_id+'"]'))continue;
+  const footer=orderCard.querySelector('footer')||orderCard;
+  const button=document.createElement('button');button.type='button';button.dataset.caseLink=n.case_id;
+  button.textContent='View Aftersales · '+String(n.stage||'Open').replaceAll('_',' ');
+  button.className='secondary seller-aftersales-order-link';
+  button.addEventListener('click',()=>document.querySelector('[data-aftersales-case="'+n.case_id+'"]')?.scrollIntoView({behavior:'smooth',block:'start'}));
+  footer.append(button);
+ }
+}
+window.addEventListener('leogo:seller-orders-rendered',attachOrderLinks);
 const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 async function load(){
 const {data,error}=await db.rpc('aftersales_list_negotiations');
 if(error){el.textContent=error.message;return;}
 el.replaceChildren();
+linkedCases=Array.isArray(data)?data:[];
 for(const n of data||[]){
 const field=(label,value)=>'<div style="margin:8px 0"><strong>'+esc(label)+':</strong> '+esc(value===null||value===undefined||value===''?'Not provided':value)+'</div>';
 const formatDate=value=>value?new Date(value).toLocaleString('en-KE'):'Not provided';
@@ -38,7 +53,7 @@ const customerReport='<section class="seller-aftersales-customer-report" style="
   '</section>';
 const caseHistory=history.length?'<details style="margin:12px 0"><summary>Case activity history ('+history.length+')</summary>'+
   history.map(e=>'<div style="border-bottom:1px solid #ddd;padding:8px 0">'+field('Time',formatDate(e.created_at))+field('Action',e.event_type)+field('By',e.actor_role)+(e.comment?field('Comment',e.comment):'')+'</div>').join('')+'</details>':'';
-const card=document.createElement('article');card.className='panel';card.innerHTML='<h4>'+esc(n.case_reference)+'</h4><p>Status: '+esc(n.stage)+'</p>'+customerReport+returnReport+caseHistory+'<p>Previous solution: '+esc(n.seller_solution||'None')+'</p><form><label>Action <select name="action"><option value="review">Start Review</option><option value="propose">Propose Solution</option><option value="reject">Reject Complaint</option></select></label><label>Solution type <select name="solutionKind"><option value="return_refund">Return and refund</option><option value="return_exchange">Return and exchange</option><option value="replacement">Replacement</option><option value="other">Other agreed solution</option></select></label><label>Solution <textarea name="solution" maxlength="2000"></textarea></label><label>Comments / rejection reason <textarea name="comment" maxlength="2000"></textarea></label><button type="submit">Submit Seller Response</button><p role="status"></p></form>';el.append(card);
+const card=document.createElement('article');card.className='panel';card.dataset.aftersalesCase=n.case_id;card.innerHTML='<h4>'+esc(n.case_reference)+'</h4><p>Status: '+esc(n.stage)+'</p>'+customerReport+returnReport+caseHistory+'<p>Previous solution: '+esc(n.seller_solution||'None')+'</p><form><label>Action <select name="action"><option value="review">Start Review</option><option value="propose">Propose Solution</option><option value="reject">Reject Complaint</option></select></label><label>Solution type <select name="solutionKind"><option value="return_refund">Return and refund</option><option value="return_exchange">Return and exchange</option><option value="replacement">Replacement</option><option value="other">Other agreed solution</option></select></label><label>Solution <textarea name="solution" maxlength="2000"></textarea></label><label>Comments / rejection reason <textarea name="comment" maxlength="2000"></textarea></label><button type="submit">Submit Seller Response</button><p role="status"></p></form>';el.append(card);
 // Signed URLs are short-lived, and storage RLS restricts access to the assigned seller.
 if(n.evidence_path){
  const proof=card.querySelector('.seller-aftersales-evidence');
@@ -52,17 +67,10 @@ if(n.evidence_path){
   }
  }
 }
-const orderCard=[...document.querySelectorAll('.seller-order-card')].find(o=>o.dataset.orderReference===n.order_reference);
-if(orderCard){
- const footer=orderCard.querySelector('footer')||orderCard;
- const entry=document.createElement('button');entry.type='button';entry.textContent='Aftersales: '+String(n.stage||'Open').replaceAll('_',' ');
- entry.className='secondary seller-aftersales-order-link';entry.style.cssText='margin:6px;white-space:normal';
- entry.addEventListener('click',()=>card.scrollIntoView({behavior:'smooth',block:'start'}));
- footer.append(entry);
-}
 const form=card.querySelector('form');
 form.onsubmit=async e=>{e.preventDefault();const action=form.elements.action.value;const {error}=await db.rpc(action==='propose'?'aftersales_seller_propose_v2':'aftersales_seller_respond',action==='propose'?{p_case_id:n.case_id,p_solution_kind:form.elements.solutionKind.value,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value}:{p_case_id:n.case_id,p_action:action,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value});if(error){form.querySelector('[role=status]').textContent=error.message;return;}await load();};
 }
+attachOrderLinks();
 if(!data?.length)el.textContent='No Aftersales cases assigned.';
 }
 section.querySelector('#sellerAftersalesRefresh').onclick=load;
