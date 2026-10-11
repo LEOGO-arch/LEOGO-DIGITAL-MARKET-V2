@@ -24,7 +24,13 @@ assert.ok(js.includes("openParcelAction('handover',b.dataset.handover)"), 'Hand 
 
 const finishScan = js.slice(js.indexOf('const finishQrScan='), js.indexOf('const scanLoop='));
 assert.ok(finishScan.indexOf('input.value=code') < finishScan.indexOf('await client.rpc'), 'decoded order reference must populate before parcel lookup');
-assert.ok(js.includes('Math.min(2,2048/sw)'), 'small QR codes should be upscaled for decoding');
+assert.ok(js.includes('width:{ideal:4096}')&&js.includes('height:{ideal:2160}'), 'camera request should prefer the highest common video resolution');
+assert.ok(js.includes('width:{exact:maxWidth},height:{exact:maxHeight}'), 'camera should first request the device-reported maximum dimensions exactly');
+assert.ok(js.includes('width:{ideal:maxWidth},height:{ideal:maxHeight}'), 'camera should fall back to the device-reported maximum dimensions when exact pairing is unsupported');
+const jsQrDecoder=js.slice(js.indexOf('const decodeQrWithJsQr='),js.indexOf('const finishQrScan='));
+assert.ok(jsQrDecoder.includes('const width=Number(video.videoWidth||0)')&&jsQrDecoder.includes('const height=Number(video.videoHeight||0)'), 'fallback decoder should use the actual camera frame dimensions');
+assert.ok(jsQrDecoder.includes('drawImage(video,0,0,width,height)'), 'fallback decoder should draw the source frame without resizing');
+assert.ok(!jsQrDecoder.includes('Math.min(2,2048/sw)')&&!jsQrDecoder.includes('const crops='), 'fallback decoder must not upscale or crop the camera frame');
 assert.ok(js.includes('QR could not be read. Enter the order / waybill number below'), 'failed scans should close the modal and expose manual entry');
 assert.ok(js.includes("'pickup_partner_receive_parcel'") && js.includes("'pickup_partner_handover_parcel'"), 'existing arrival and handover RPCs should remain intact');
 
@@ -39,7 +45,7 @@ for (const operation of [
 }
 assert.ok(js.includes("module:'transport'") && js.includes("errorType:'js_error'"), 'scanner telemetry should use the existing runtime monitor contract');
 assert.ok(js.includes('elapsed>60000&&!scannerNoResultReported'), 'a scan without a decoded QR should report once after 60 seconds');
-assert.ok(html.includes('pickup.js?v=diagnostics-telemetry-1'), 'scanner telemetry script cache version should be refreshed');
+assert.ok(html.includes('pickup.js?v=native-camera-resolution-1'), 'camera resolution script cache version should be refreshed');
 const scannerTelemetryCalls=[...js.matchAll(/reportScannerIssue\(([\s\S]*?)\);/g)].map((match)=>match[1]);
 assert.ok(scannerTelemetryCalls.length>=4, 'scanner startup, decode, no-result and lookup paths should report');
 for(const call of scannerTelemetryCalls) {
