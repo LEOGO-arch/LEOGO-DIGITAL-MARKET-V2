@@ -1,0 +1,15 @@
+#walletPayoutConfirmationCard{margin-top:16px}
+.wallet-payout-item{border:1px solid #dbe4ee;border-radius:12px;padding:14px;margin:12px 0;background:#fff}
+.wallet-payout-item header{display:flex;flex-wrap:wrap;gap:10px;align-items:start;justify-content:space-between}
+.wallet-payout-item header strong,.wallet-payout-item header small{display:block}
+.wallet-payout-item header small{font-size:11px;color:#64748b;margin-top:5px}
+.wallet-payout-item>p{font-size:12px;color:#27364a;overflow-wrap:anywhere}
+.wallet-payout-timing{background:#fff3e7;color:#854d0e;padding:6px 10px;border-radius:20px;font-size:10px;font-weight:800}
+.wallet-payout-item form{display:grid;gap:10px;max-width:620px}
+.wallet-payout-item form label{display:grid;gap:6px;font-size:12px;font-weight:700}
+.wallet-payout-item form input[type=text]{width:100%;box-sizing:border-box;border:1px solid #ccd6e4;padding:10px;border-radius:9px;background:#fff}
+.wallet-payout-item .wallet-payout-check{display:flex;align-items:start;font-size:11px;font-weight:600;line-height:1.5}
+.wallet-payout-check input{margin-top:3px;flex-shrink:0}
+.wallet-payout-item form button{justify-self:start;background:#153962;color:white;border:0;border-radius:8px;padding:10px 14px;font-weight:800;cursor:pointer}
+.wallet-payout-item form button:disabled{opacity:.6;cursor:not-allowed}
+.wallet-payout-item [data-wallet-row-status]{color:#b42318;font-size:11px}
