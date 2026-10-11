@@ -101,3 +101,27 @@ returns jsonb language sql stable security definer set search_path='' as $fn$
 $fn$;
 revoke all on function public.aftersales_list_negotiations() from public,anon;
 grant execute on function public.aftersales_list_negotiations() to authenticated;
+
+create or replace function public.aftersales_order_sellers(p_case_id uuid)
+returns table(seller_id uuid) language sql stable security definer set search_path='' as $fn$
+ select distinct so.seller_id from public.marketplace_seller_orders so
+ join public.marketplace_aftersales_cases c on c.order_id=so.order_id
+ where c.id=p_case_id and private.is_leogo_admin('orders.manage')
+$fn$;
+revoke all on function public.aftersales_order_sellers(uuid) from public,anon;
+grant execute on function public.aftersales_order_sellers(uuid) to authenticated;
+create or replace function private.notify_aftersales_negotiation() returns trigger
+language plpgsql security definer set search_path='' as $fn$
+declare v_customer uuid;
+begin
+ select customer_id into v_customer from public.marketplace_aftersales_cases where id=new.case_id;
+ if new.stage in ('seller_proposed','seller_rejected','forwarded') then
+  insert into public.customer_notifications(user_id,notification_type,title,message,source_type,source_id,event_key,action_view)
+  values(v_customer,'aftersales','Aftersales update','Your Aftersales case is now '||replace(new.stage,'_',' ')||'. Open Aftersales for details.',
+   'marketplace_aftersales_cases',new.case_id,'aftersales-negotiation-'||new.stage||'-'||extract(epoch from now())::text,'aftersales');
+ end if;
+ return new;
+end;$fn$;
+drop trigger if exists notify_aftersales_negotiation on public.marketplace_aftersales_negotiations;
+create trigger notify_aftersales_negotiation after insert or update of stage on public.marketplace_aftersales_negotiations
+for each row execute function private.notify_aftersales_negotiation();
