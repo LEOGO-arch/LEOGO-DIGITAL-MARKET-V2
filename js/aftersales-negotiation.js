@@ -31,7 +31,7 @@ if(n.stage==='customer_accepted' && ['return_refund','return_exchange'].includes
   if(!dropdown.value)return;
   const {error}=await db.rpc('customer_choose_aftersales_return_station',{p_case_id:n.case_id,p_station_id:dropdown.value});
   box.querySelector('[role=status]').textContent=error?error.message:'Return Pickup Station saved. Await LEOGO return instructions.';
-  if(!error)await load();
+  if(!error){ const booking=await db.rpc('customer_book_aftersales_return',{p_case_id:n.case_id}); box.querySelector('[role=status]').textContent=booking.error?booking.error.message:'Return booked: '+booking.data.return_reference+'. Take the parcel to your selected Pickup Station.'; if(!booking.error)await load(); }
  };
 }
 
