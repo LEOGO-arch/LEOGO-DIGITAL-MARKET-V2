@@ -1632,7 +1632,7 @@
       if(lppDepositForm)lppDepositForm.hidden=true;
       if(walletCheckoutPanel)walletCheckoutPanel.hidden=true;
       if(standardPaymentProof)standardPaymentProof.hidden=true;
-      if(checkoutPaymentDestination)checkoutPaymentDestination.hidden=true;
+      if(checkoutPaymentDestination)checkoutPaymentDestination.hidden=marketplacePaymentDestination?.account_type !== 'bank';
       if(paymentRuleNotice)paymentRuleNotice.hidden=true;
       if(codOrderFirstNote)codOrderFirstNote.hidden=true;
       if(paymentOrderSummary)paymentOrderSummary.hidden=true;
