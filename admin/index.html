@@ -816,7 +816,12 @@
       <section class="admin-panel" data-admin-panel="wallet">
         <div class="section-head"><div><span>FINANCIAL SERVICES</span><h2>Wallet &amp; SACCO</h2><p>Deposit verification, withdrawal controls, loan review and customer wallet settings.</p></div><button data-open-view="approvals" data-filter-target="wallet" class="primary-button">Open Wallet Queue</button></div>
         <div class="module-summary-grid"><article><span>Maintenance fee</span><strong id="walletMaintenanceSummary">KSh 0</strong><small>Monthly</small></article><article><span>Statement fee</span><strong id="walletStatementSummary">KSh 0</strong><small>Per 200 transactions</small></article><article><span>Reward minimum spend</span><strong id="walletRewardMinimumSummary">KSh 0</strong><small>Excluding delivery</small></article><article><span>Reward rate</span><strong id="walletRewardRateSummary">0%</strong><small>Customer points</small></article></div>
-        <div class="reserved-module slim"><span>💰</span><h3>Connected to live Wallet tables</h3><p>Pending deposits, withdrawals and loans are available through Approval Center. Settlement automation remains reserved for the future SACCO/payment partner.</p></div>
+        <div class="reserved-module slim"><span>💰</span><h3>Connected to live Wallet tables</h3><p>Use Approval Center for deposit and withdrawal approval. Approved withdrawals remain pending until actual M-Pesa/bank/SACCO payout is separately confirmed.</p></div>
+        <article class="content-card" id="walletPayoutConfirmationCard">
+          <div class="card-head"><div><span>PAYOUT RECONCILIATION</span><h3>Approved Withdrawals Awaiting Payout Proof</h3><p>Do not mark paid because 24 hours passed. Confirm the external transfer really succeeded and record its transaction reference.</p></div><button type="button" id="refreshWalletPayoutQueue">↻ Refresh Payouts</button></div>
+          <div id="walletPayoutStatus" class="form-status" role="status" aria-live="polite"></div>
+          <div id="walletPayoutList"><div class="loading-card">Open Wallet to load pending settlements…</div></div>
+        </article>
       </section>
 
       <section class="admin-panel" data-admin-panel="premium">
@@ -1718,6 +1723,7 @@
   <script src="assisted-shopping.js?v=assisted-shopping-v1" defer></script>
   <script src="loyalty-rewards.js?v=admin-runtime-hotfix-1" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=order-lifecycle-emails-1" defer></script>
+  <script src="wallet-payouts.js?v=cash-isolation-1" defer></script>
   <script src="advertisements.js?v=advert-popup-5s-load-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
   <script src="health.js?v=health-cod-fee-hold-1" defer></script>
