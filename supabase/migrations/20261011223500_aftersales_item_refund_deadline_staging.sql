@@ -215,7 +215,7 @@ begin
  (return_reference,pickup_station_id,original_order_id,original_order_reference,customer_name,customer_phone,item_description,return_reason,status,booked_by,aftersales_case_id)
  values ('AFR-'||substr(replace(p_case_id::text,'-',''),1,12),v_case.return_pickup_station_id,v_order.id,v_order.order_reference,
  v_order.receiver_name,v_order.contact_number,coalesce(v_item,'Aftersales item'),v_case.issue_type,'awaiting_dispatch',auth.uid(),p_case_id)
- on conflict(aftersales_case_id) do nothing returning id into v_return;
+ on conflict do nothing returning id into v_return;
  if v_return is null then select id into v_return from public.pickup_station_return_parcels where aftersales_case_id=p_case_id; end if;
  return jsonb_build_object('ok',true,'return_id',v_return,'return_reference','AFR-'||substr(replace(p_case_id::text,'-',''),1,12));
 end;$fn$;
