@@ -270,8 +270,8 @@
       account.textContent = `${request.account_name} · ${masked} · Requested ${kenyaDateTime(request.submitted_at)}`;
       const detail = document.createElement('small');
       if (request.request_status === 'pending_call') detail.textContent = 'Awaiting Admin/Staff phone confirmation and approval.';
-      if (request.request_status === 'approved_processing') detail.textContent = `Approved and debited. Scheduled completion: ${kenyaDateTime(request.scheduled_completion_at)}.`;
-      if (request.request_status === 'completed') detail.textContent = `24-hour processing completed ${kenyaDateTime(request.completed_at)}.`;
+      if (request.request_status === 'approved_processing') detail.textContent = `Approved and debited. Payout target: ${kenyaDateTime(request.scheduled_completion_at)}. Awaiting confirmed transfer; this is not a completed payout.`;
+      if (request.request_status === 'completed') detail.textContent = `Actual payout confirmed ${kenyaDateTime(request.completed_at)}. Reference: ${request.settlement_reference||'Contact LEOGO for reference'}.`;
       if (request.request_status === 'rejected') detail.textContent = request.admin_notes || 'Request was not approved. Reserved funds are available again.';
       copy.append(title, account, detail);
       const status = document.createElement('b');
