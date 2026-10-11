@@ -1554,6 +1554,8 @@
   const sendOrderWhatsApp = document.getElementById('sendOrderWhatsApp');
   const checkoutTillNumber = customerShellModal?.querySelector('[data-admin-managed="mpesa-till-number"]');
   const checkoutPaybillNumber = customerShellModal?.querySelector('[data-admin-managed="mpesa-paybill-number"]');
+  const checkoutPaybillAccountNumber = document.getElementById('checkoutPaybillAccountNumber');
+  const checkoutPaymentDestinationDetails = document.getElementById('checkoutPaymentDestinationDetails');
   const checkoutTillButton = customerShellModal?.querySelector('[data-payment-method="till"]');
   const checkoutPaybillButton = customerShellModal?.querySelector('[data-payment-method="paybill"]');
   const checkoutPaymentDestination = document.getElementById('checkoutAdminPaymentDestination');
@@ -1707,10 +1709,11 @@
     const typeLabel = window.leogoPayments?.typeLabel(destination) || 'Order Payment Account';
 
     const tillAvailable = accountType === 'mpesa_till' && Boolean(destination?.till_number);
-    const paybillAvailable = accountType === 'mpesa_paybill' && Boolean(destination?.paybill_number);
+    const paybillAvailable = accountType === 'mpesa_paybill' && Boolean(destination?.paybill_number) && Boolean(destination?.account_number);
 
     if (checkoutTillNumber) checkoutTillNumber.textContent = tillAvailable ? destination.till_number : 'Not assigned';
     if (checkoutPaybillNumber) checkoutPaybillNumber.textContent = paybillAvailable ? destination.paybill_number : 'Not assigned';
+    if (checkoutPaybillAccountNumber) checkoutPaybillAccountNumber.textContent = paybillAvailable ? destination.account_number : 'Not assigned';
 
     if (checkoutTillButton) {
       checkoutTillButton.classList.toggle('is-disabled', !tillAvailable);
@@ -1733,10 +1736,30 @@
     }
     if (checkoutPaymentDestinationNumber) {
       if (accountType === 'bank') {
-        checkoutPaymentDestinationNumber.textContent = [destination.bank_name, destination.account_number].filter(Boolean).join(' · ') || 'Bank details configured';
+        checkoutPaymentDestinationNumber.textContent = destination.account_number || 'Account number not configured';
       } else {
         checkoutPaymentDestinationNumber.textContent = number || '—';
       }
+    }
+    if (checkoutPaymentDestinationDetails) {
+      const fields = accountType === 'mpesa_paybill'
+        ? [['Business Number', destination?.paybill_number], ['Account Number', destination?.account_number]]
+        : accountType === 'bank'
+          ? [['Bank Name', destination?.bank_name], ['Account Name', destination?.account_name], ['Account Number', destination?.account_number]]
+          : accountType === 'mpesa_till'
+            ? [['Till Number', destination?.till_number], ['Account Name', destination?.account_name || destination?.business_name]]
+            : [];
+      checkoutPaymentDestinationDetails.replaceChildren();
+      fields.forEach(([label, value]) => {
+        const row = document.createElement('div');
+        const heading = document.createElement('strong');
+        const content = document.createElement('span');
+        heading.textContent = label + ':';
+        content.textContent = value || 'Not configured by Admin';
+        row.append(heading, content);
+        checkoutPaymentDestinationDetails.appendChild(row);
+      });
+      checkoutPaymentDestinationDetails.hidden = fields.length === 0;
     }
     if (checkoutPaymentDestinationInstructions) {
       checkoutPaymentDestinationInstructions.textContent = error
