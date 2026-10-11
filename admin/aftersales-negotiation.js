@@ -2,29 +2,94 @@
 'use strict';
 const db=window.leogoAdminDb;
 const panel=document.querySelector('[data-admin-panel="aftersales"]');
-if(!db||!panel)return;
-const wrap=document.createElement('section');
-wrap.className='content-card';
-wrap.innerHTML='<h3>Forward to Seller & LEOGO Intervention</h3><p>Choose the responsible seller for an existing case. Seller responses and customer decisions appear below.</p><div id="aftersalesNegotiationAdmin"></div><button type="button" id="aftersalesNegotiationRefresh">Refresh seller cases</button>';
-panel.append(wrap);
-const caseDetail=document.getElementById('adminAftersalesDetail');
-if(caseDetail){const useCase=document.createElement('button');useCase.type='button';useCase.textContent='Forward this case to seller';caseDetail.append(useCase);useCase.onclick=()=>{const caseId=document.querySelector('#adminAftersalesDetail [data-case-id]')?.dataset.caseId || document.querySelector('[data-open-aftersales-case].admin-order-row-active')?.dataset.openAftersalesCase || document.querySelector('.admin-order-row-active [data-open-aftersales-case]')?.dataset.openAftersalesCase;const field=wrap.querySelector('input[name=case]');if(caseId&&field)field.value=caseId;wrap.scrollIntoView({behavior:'smooth'});};}
-const list=wrap.querySelector('#aftersalesNegotiationAdmin');
-const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
-async function load(){
-const {data,error}=await db.rpc('aftersales_list_negotiations');
-if(error){list.textContent=error.message;return;}
-const records=Array.isArray(data)?data:[];
-list.innerHTML='<form id="aftersalesForwardForm"><label>Case UUID <input name="case" required placeholder="Select an Aftersales case ID"></label><button type="button" id="aftersalesLookupSeller">Find Sellers</button><label>Seller <select name="seller" required><option value="">Find sellers first</option></select></label><label>Note <textarea name="comment" maxlength="2000"></textarea></label><button type="submit">Forward case</button></form><div id="aftersalesNegotiationAdminStatus"></div>'+records.map(n=>'<article class="content-card"><strong>'+esc(n.case_reference)+'</strong> · '+esc(n.stage)+'<p>Seller: '+esc(n.seller_id)+'</p><p>Seller solution: '+esc(n.seller_solution||'—')+'</p><p>Customer response: '+esc(n.customer_comment||'—')+'</p><details><summary>Case history</summary>'+((n.history||[]).map(e=>'<p>'+esc(e.actor_role)+' — '+esc(e.event_type)+' — '+esc(e.comment||'')+'</p>').join(''))+'</details></article>').join('');
-const form=list.querySelector('#aftersalesForwardForm'), status=list.querySelector('#aftersalesNegotiationAdminStatus');
-list.querySelector('#aftersalesLookupSeller').onclick=async()=>{
-const {data,error}=await db.rpc('aftersales_order_sellers',{p_case_id:form.elements.case.value.trim()});
-if(error){status.textContent=error.message;return;}
-form.elements.seller.innerHTML=(data||[]).map(s=>'<option value="'+esc(s.seller_id)+'">'+esc(s.seller_id)+'</option>').join('');
-if(!data?.length)status.textContent='No eligible sellers on this order.';
-};
-form.onsubmit=async e=>{e.preventDefault();const {error}=await db.rpc('aftersales_forward_to_seller',{p_case_id:form.elements.case.value.trim(),p_seller_id:form.elements.seller.value,p_comment:form.elements.comment.value});if(error){status.textContent=error.message;return;}await load();};
+const detail=document.getElementById('adminAftersalesDetail');
+if(!db||!panel||!detail)return;
+const root=document.createElement('section');
+root.className='content-card aftersales-negotiation-card';
+root.id='aftersalesNegotiationPanel';
+root.hidden=true;
+root.innerHTML=`
+  <div class="aftersales-negotiation-heading"><div><span>SELLER RESOLUTION</span><h3>Forward to Seller</h3><p>Assign this complaint to a seller from the selected order.</p></div><button type="button" id="aftersalesNegotiationRefresh">↻ Refresh Status</button></div>
+  <div class="aftersales-negotiation-reference"><span>Case <strong id="negotiationCaseReference">—</strong></span><span>Order <strong id="negotiationOrderReference">—</strong></span><span id="negotiationStage" class="aftersales-negotiation-stage">Not forwarded</span></div>
+  <form id="aftersalesForwardForm" class="aftersales-negotiation-form">
+    <label>Responsible seller<select name="seller" required><option value="">Loading sellers…</option></select></label>
+    <label class="wide">Note to Seller <small>(optional)</small><textarea name="comment" rows="3" maxlength="2000" placeholder="Explain what the seller should review and the response you expect."></textarea></label>
+    <div class="aftersales-negotiation-actions"><button type="button" id="aftersalesLookupSeller">↻ Reload Sellers</button><button class="primary-button" type="submit" id="aftersalesForwardSubmit" disabled>Forward to Seller</button></div>
+  </form>
+  <p role="status" id="aftersalesNegotiationAdminStatus" aria-live="polite"></p>
+  <section class="aftersales-negotiation-history" id="aftersalesNegotiationHistory" hidden><h4>Seller & Customer Negotiation</h4><div id="aftersalesNegotiationSummary"></div><details><summary>View case activity timeline</summary><div id="aftersalesNegotiationEvents"></div></details></section>
+  <section class="aftersales-negotiation-intervention" id="aftersalesIntervention" hidden><h4>LEOGO Intervention</h4><p>This case requires LEOGO Customer Care review. Review the seller response and customer comments, then use the existing <strong>Update the case</strong> section above to record the decision and notify the customer.</p></section>`;
+detail.insertAdjacentElement('afterend',root);
+const $=s=>root.querySelector(s);
+const form=$('#aftersalesForwardForm');
+const status=$('#aftersalesNegotiationAdminStatus');
+const sellerSelect=form.elements.seller;
+let selected=null;
+let loadToken=0;
+let negotiations=[];
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const stageLabel=x=>String(x||'Not forwarded').replaceAll('_',' ').replace(/\\b\\w/g,c=>c.toUpperCase());
+const signal=(message,bad=false)=>{status.textContent=message;status.classList.toggle('is-error',bad);};
+const activeRecord=()=>negotiations.find(x=>x.case_id===selected?.case_id);
+function renderNegotiation(){
+const n=activeRecord();
+$('#negotiationStage').textContent=stageLabel(n?.stage);
+const history=$('#aftersalesNegotiationHistory');
+history.hidden=!n;
+if(!n){$('#aftersalesIntervention').hidden=true;return;}
+$('#aftersalesNegotiationSummary').innerHTML='<p><strong>Seller response:</strong> '+esc(n.seller_solution||n.seller_comment||'Awaiting seller response')+'</p><p><strong>Customer response:</strong> '+esc(n.customer_comment||'Awaiting customer')+'</p>';
+$('#aftersalesNegotiationEvents').innerHTML=(n.history||[]).map(e=>'<p><b>'+esc(stageLabel(e.actor_role))+'</b> · '+esc(stageLabel(e.event_type))+(e.comment?' — '+esc(e.comment):'')+'</p>').join('')||'<p>No history recorded yet.</p>';
+$('#aftersalesIntervention').hidden=!['seller_rejected','customer_rejected','intervention_requested','admin_review'].includes(n.stage);
 }
-wrap.querySelector('#aftersalesNegotiationRefresh').onclick=load;
-load();
+async function refreshNegotiations(){
+const token=loadToken;
+const {data,error}=await db.rpc('aftersales_list_negotiations');
+if(token!==loadToken)return;
+if(error){signal('Unable to load negotiation history: '+error.message,true);return;}
+negotiations=Array.isArray(data)?data:[];
+renderNegotiation();
+}
+async function loadSellers(){
+if(!selected)return;
+const token=loadToken;
+sellerSelect.disabled=true;
+sellerSelect.innerHTML='<option value="">Loading sellers…</option>';
+$('#aftersalesForwardSubmit').disabled=true;
+const {data,error}=await db.rpc('aftersales_order_sellers',{p_case_id:selected.case_id});
+if(token!==loadToken)return;
+if(error){sellerSelect.innerHTML='<option value="">Unable to load sellers</option>';signal(error.message,true);return;}
+const sellers=Array.isArray(data)?data:[];
+sellerSelect.innerHTML='<option value="">Select responsible seller</option>'+sellers.map(s=>'<option value="'+esc(s.seller_id)+'">'+esc(s.display_name||s.business_name||s.seller_name||s.seller_id)+'</option>').join('');
+sellerSelect.disabled=!sellers.length;
+if(sellers.length===1)sellerSelect.value=sellers[0].seller_id;
+else if(activeRecord()?.seller_id && sellers.some(s=>s.seller_id===activeRecord().seller_id))sellerSelect.value=activeRecord().seller_id;
+$('#aftersalesForwardSubmit').disabled=!sellerSelect.value;
+if(!sellers.length)signal('No eligible sellers were found for this order.',true);
+}
+function openCase(item){
+if(!item?.case_id)return;
+selected=item;
+loadToken++;
+root.hidden=false;
+$('#negotiationCaseReference').textContent=item.case_reference||item.case_id;
+$('#negotiationOrderReference').textContent=item.order_reference||'—';
+form.reset();
+signal('');
+renderNegotiation();
+Promise.all([refreshNegotiations(),loadSellers()]);
+}
+document.addEventListener('leogo:admin-aftersales-case-selected',e=>openCase(e.detail));
+$('#aftersalesLookupSeller').addEventListener('click',loadSellers);
+$('#aftersalesNegotiationRefresh').addEventListener('click',refreshNegotiations);
+sellerSelect.addEventListener('change',()=>{$('#aftersalesForwardSubmit').disabled=!sellerSelect.value;});
+form.addEventListener('submit',async e=>{
+e.preventDefault();
+if(!selected||!sellerSelect.value)return;
+const existing=activeRecord();
+if(existing&&!window.confirm('Forwarding again will restart the seller negotiation for this case. Continue?'))return;
+const button=$('#aftersalesForwardSubmit');button.disabled=true;signal('Forwarding complaint…');
+const {error}=await db.rpc('aftersales_forward_to_seller',{p_case_id:selected.case_id,p_seller_id:sellerSelect.value,p_comment:form.elements.comment.value.trim()||null});
+if(error){signal(error.message,true);button.disabled=false;return;}
+signal('Case forwarded to the selected seller.');await refreshNegotiations();button.disabled=false;
+});
 })();
