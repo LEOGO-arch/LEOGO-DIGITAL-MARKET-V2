@@ -2977,3 +2977,16 @@ body.advertisement-lightbox-open{overflow:hidden}
 #codFeeCreatedOrderForm button,.cod-fee-activity-form button{width:max-content;max-width:100%;padding:10px 12px;background:#1d3455;color:white;border:0;border-radius:8px;cursor:pointer;font-weight:800}
 #codFeeCreatedOrderForm button:disabled,.cod-fee-activity-form button:disabled{opacity:.55}
 .cod-fee-activity-status{padding:10px;margin:9px 0;background:#f3f6ff;border-radius:8px;font-size:11px}
+
+/* Wallet statement preview: distinct non-cash reward activity, no fee for viewing. */
+.wallet-statement-preview{border:1px solid #d9e3f1;border-radius:12px;padding:12px;margin-top:13px;background:#f8fbff}
+.wallet-statement-preview h5{margin:0 0 6px;color:#112d56;font-size:13px}
+.wallet-statement-preview>p{margin:0 0 10px;font-size:11px;color:#63758c;line-height:1.5}
+#walletStatementPreview{display:grid;gap:6px}
+#walletStatementPreview>p{margin:0 0 5px;padding:7px 9px;background:#ecf4ff;border-radius:8px;font-size:11px;font-weight:800}
+.wallet-statement-preview-row{display:flex;justify-content:space-between;gap:10px;padding:9px;border-bottom:1px solid #dfe8f2;font-size:11px}
+.wallet-statement-preview-row>div{min-width:0}
+.wallet-statement-preview-row>div:last-child{text-align:right}
+.wallet-statement-preview-row strong,.wallet-statement-preview-row small{display:block;overflow-wrap:anywhere}
+.wallet-statement-preview-row small{margin-top:4px;color:#687992;font-size:10px}
+#walletStatementPreview>small{font-size:10px;color:#697b91}

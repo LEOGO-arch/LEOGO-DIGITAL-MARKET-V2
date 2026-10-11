@@ -27,7 +27,7 @@ need(files.index,'id="checkoutAmountDue"','checkout amount due');
 need(files.app,'get_my_reward_points_balance','points balance RPC');
 need(files.app,'customer_create_marketplace_order_v2','points marketplace checkout RPC');
 need(files.app,'customer_list_marketplace_orders_v3','points-aware order history');
-need(files.app,'p_use_reward_points: usePoints','server redemption flag');
+if(!/p_use_reward_points:\s*usePoints/.test(files.app))throw new Error('Missing server redemption flag');
 need(files.wallet,'elements.pointsEarned.textContent = money(totals.points)','wallet Shopping Voucher balance label');
 need(files.wallet,'leogo:walletrefresh','wallet refresh after point use');
 need(files.assisted,'customer_accept_assisted_shopping_quote_v2','Assisted Shopping points RPC');
