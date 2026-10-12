@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const db=window.leogoPartnerClient;
-const orders=document.querySelector('[data-seller-content="orders"]');
+const orders=document.querySelector('#sellerAftersalesHome');
 if(!db||!orders)return;
 const section=document.createElement('section');section.className='panel';section.innerHTML='<h3>Aftersales cases sent by LEOGO</h3><p>Review your assigned cases, propose solutions or reject with a reason.</p><button id="sellerAftersalesRefresh" type="button">Refresh Cases</button><div id="sellerAftersalesNegotiations"></div>';orders.append(section);
 const el=section.querySelector('#sellerAftersalesNegotiations');
@@ -15,7 +15,7 @@ function attachOrderLinks(){
   const button=document.createElement('button');button.type='button';button.dataset.caseLink=n.case_id;
   button.textContent='View Aftersales · '+String(n.stage||'Open').replaceAll('_',' ');
   button.className='secondary seller-aftersales-order-link';
-  button.addEventListener('click',()=>document.querySelector('[data-aftersales-case="'+n.case_id+'"]')?.scrollIntoView({behavior:'smooth',block:'start'}));
+  button.addEventListener('click',()=>{document.querySelector('[data-seller-view="aftersales"]')?.click();window.setTimeout(()=>document.querySelector('[data-aftersales-case="'+n.case_id+'"]')?.scrollIntoView({behavior:'smooth',block:'start'}),90);});
   footer.append(button);
   const details=document.createElement('details');details.style.margin='12px 0';
   const summary=document.createElement('summary');summary.textContent='Aftersales application · '+(n.case_reference||'Open case');
@@ -52,7 +52,7 @@ const returnReport=returnInfo
  : '<p>Return parcel: Not booked at a pickup station yet.</p>';
 const customerReport='<section class="seller-aftersales-customer-report" style="padding:14px;margin:14px 0;background:#f4f7fc;border:1px solid #d9e2ef;border-radius:12px">'+
   '<h5 style="margin:0 0 10px">Original Customer Aftersales Application</h5>'+
-  field('Product',n.product_name)+field('Order reference',n.order_reference||n.order_id)+
+  field('Product',n.product_name||(n.order_item_id?'Product name unavailable':'Original complaint did not identify a specific order item'))+field('Order reference',n.order_reference||n.order_id)+
   field('Complaint type',n.issue_type)+field('Customer explanation',n.details)+
   field('Customer requested solution',n.preferred_solution)+
   (n.requested_refund_amount_kes!=null?field('Requested refund (KSh)',Number(n.requested_refund_amount_kes).toLocaleString('en-KE')):'')+
