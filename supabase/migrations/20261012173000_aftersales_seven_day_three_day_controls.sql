@@ -29,7 +29,11 @@ begin
   if v_handover_at is null then
     raise exception 'Delivery handover timestamp is missing. Contact LEOGO Customer Care for assistance';
   end if;
-  if clock_timestamp() > v_handover_at + interval '7 days' then
+  if clock_timestamp() > v_handover_at + interval '7 days'
+    and not exists (
+      select 1 from public.aftersales_deadline_extensions e
+      where e.order_id=p_order_id and e.valid_until>=clock_timestamp()
+    ) then
     raise exception 'Seven-day aftersales window has expired. Contact LEOGO Customer Care for a reviewed exception';
   end if;
 
