@@ -46,6 +46,29 @@ if(shipping){
   ' · Status: '+String(shipping.status||'').replaceAll('_',' ')+
   (shipping.due_at?' · Pay by '+new Date(shipping.due_at).toLocaleString('en-KE'):'');
  wrap.append(title,message);
+ if(['awaiting_payment','payment_rejected'].includes(shipping.status)){
+  const destination=document.createElement('div');destination.className='aftersales-return-payment-destination';
+  destination.style.cssText='background:#f4f7fc;border:1px solid #dbe4ef;border-radius:10px;padding:12px;margin:10px 0';
+  destination.textContent='Loading LEOGO Admin-assigned transport payment account…';wrap.append(destination);
+  try{
+   const result=await window.leogoPayments?.getDestination('transport_payments',{force:true});
+   const d=result?.data;
+   if(!d||result?.error){destination.textContent='LEOGO return-shipping payment account is not available. Contact Customer Care before paying.';}
+   else{
+    const fields=d.account_type==='mpesa_paybill'
+      ? [['Business Number',d.paybill_number],['Account Number',d.account_number]]
+      : d.account_type==='bank'
+       ? [['Bank Name',d.bank_name],['Account Name',d.account_name],['Account Number',d.account_number]]
+       : [['Till Number',d.till_number],['Account Name',d.account_name||d.business_name]];
+    destination.replaceChildren();
+    const heading=document.createElement('strong');heading.textContent='LEOGO Return Shipping Payment Details';destination.append(heading);
+    fields.forEach(([label,value])=>{const p=document.createElement('p');p.textContent=label+': '+(value||'Not configured');destination.append(p);});
+    const number=d.till_number||d.paybill_number||d.account_number;
+    if(number){const copy=document.createElement('button');copy.type='button';copy.textContent='Copy Payment Number';copy.onclick=()=>navigator.clipboard?.writeText(number);destination.append(copy);}
+   }
+  }catch(_err){destination.textContent='Payment instructions unavailable. Contact LEOGO Customer Care before paying.';}
+ }
+
  if(shipping.verification_notes){const notes=document.createElement('p');notes.textContent='LEOGO instructions: '+shipping.verification_notes;wrap.append(notes);}
  if(['awaiting_payment','payment_rejected'].includes(shipping.status)){
   const form=document.createElement('form');
