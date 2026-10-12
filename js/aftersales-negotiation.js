@@ -106,7 +106,7 @@ if(invoice){
  }
  card.append(box);
 }
-const form=card.querySelector('form'), actions=form.querySelector('div');const expired=n.stage==='seller_proposed'&&n.response_due_at&&Date.now()>new Date(n.response_due_at).getTime();
+const form=card.querySelector('form'), actions=form.querySelector('div');const expired=n.stage==='seller_proposed'&&(!n.response_due_at||Date.now()>new Date(n.response_due_at).getTime());
 const options=expired?[]:
  n.stage==='seller_proposed'?[['accept','Accept solution'],['reject','Reject solution'],['intervene','Ask LEOGO to Intervene']]:
  ['seller_rejected','customer_rejected'].includes(n.stage)?[['intervene','Request LEOGO intervention']]:[];
