@@ -70,7 +70,7 @@ if(n.evidence_path){
  const proof=card.querySelector('.seller-aftersales-evidence');
  const {data:link,error:linkError}=await db.storage.from(evidenceBucket).createSignedUrl(n.evidence_path,300);
  if(proof){
-  if(linkError||!link?.signedUrl)proof.querySelector('p').textContent='Photo access unavailable. Ask LEOGO Admin to verify the case evidence permission.';
+  if(linkError||!link?.signedUrl)proof.querySelector('p').textContent='Photo temporarily unavailable: '+String(linkError?.message||'unable to open file')+'. Refresh to retry. No Admin approval is needed.';
   else{
    const img=document.createElement('img');img.src=link.signedUrl;img.alt='Customer-submitted photo evidence';img.loading='lazy';img.style.cssText='max-width:100%;max-height:320px;border-radius:9px;object-fit:contain;display:block;margin-top:10px';
    const open=document.createElement('a');open.href=link.signedUrl;open.target='_blank';open.rel='noopener noreferrer';open.textContent='View original photo';open.style.display='block';
