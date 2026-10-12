@@ -34,6 +34,9 @@ window.addEventListener('leogo:seller-orders-rendered',attachOrderLinks);
 const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 async function load(){
 const {data,error}=await db.rpc('aftersales_list_negotiations');
+const {data:inspectionData,error:inspectionError}=await db.rpc('aftersales_seller_list_inspections');
+const inspections=Array.isArray(inspectionData)?inspectionData:[];
+if(inspectionError)console.warn('Seller inspection list not yet available:',inspectionError.message);
 if(error){el.textContent=error.message;return;}
 el.replaceChildren();
 linkedCases=Array.isArray(data)?data:[];
@@ -77,6 +80,42 @@ if(n.evidence_path){
    proof.querySelector('p')?.remove();proof.append(img,open);
   }
  }
+}
+const inspection=inspections.find(row=>row.case_id===n.case_id);
+if(inspection){
+ const summary=document.createElement('section');summary.className='panel';summary.style.margin='12px 0';
+ const title=document.createElement('h5');title.textContent='Returned Product Inspection';
+ const details=document.createElement('p');details.textContent='Received: '+new Date(inspection.received_at).toLocaleString('en-KE')+
+  (inspection.recommendation?' · Recommendation: '+inspection.recommendation.replaceAll('_',' '):' · Awaiting inspection');
+ summary.append(title,details);card.append(summary);
+}
+if(n.stage==='customer_accepted' && n.return_tracking && ['dispatched','completed'].includes(n.return_tracking.status) && !inspection){
+ const receipt=document.createElement('form');receipt.className='panel';receipt.style.margin='12px 0';
+ receipt.innerHTML='<h5>Step 1 — Receive Returned Product</h5><p>Confirm physical receipt only after the parcel reaches you.</p><label>Condition of parcel and item<textarea name="condition" required minlength="5" maxlength="2000"></textarea></label><button type="submit">Confirm Receipt</button><p role="status" aria-live="polite"></p>';
+ receipt.onsubmit=async ev=>{ev.preventDefault();const button=receipt.querySelector('button');button.disabled=true;
+ const {error}=await db.rpc('aftersales_seller_receive_return',{p_case_id:n.case_id,p_condition:receipt.elements.condition.value});
+ if(error){receipt.querySelector('[role=status]').textContent=error.message;button.disabled=false;return;}
+ await load();};card.append(receipt);
+}
+if(inspection && !inspection.inspected_at){
+ const review=document.createElement('form');review.className='panel';review.style.margin='12px 0';
+ review.innerHTML='<h5>Step 2 — Inspect Returned Product</h5><p>Record the cause and your recommendation. Any refund requires LEOGO review and excludes original delivery charges.</p>'+
+ '<label>Inspection finding<select name="finding"><option value="seller_liability">Seller responsibility</option><option value="customer_damage">Customer-caused damage</option><option value="undetermined">Undetermined</option></select></label>'+
+ '<label>Recommended outcome<select name="recommendation"><option value="refund">Refund product amount</option><option value="exchange">Exchange item</option><option value="replacement">Replace item</option><option value="reject">Reject and return item to customer</option></select></label>'+
+ '<label>Inspection findings and reasons<textarea name="notes" required minlength="10" maxlength="2000"></textarea></label>'+
+ '<button type="submit">Submit Inspection</button><p role="status" aria-live="polite"></p>';
+ review.onsubmit=async ev=>{ev.preventDefault();const button=review.querySelector('button');button.disabled=true;
+ const {error}=await db.rpc('aftersales_seller_record_inspection',{p_case_id:n.case_id,p_finding:review.elements.finding.value,p_recommendation:review.elements.recommendation.value,p_notes:review.elements.notes.value});
+ if(error){review.querySelector('[role=status]').textContent=error.message;button.disabled=false;return;}
+ await load();};card.append(review);
+}
+if(inspection?.recommendation==='reject' && !inspection.ready_return_at){
+ const repack=document.createElement('form');repack.className='panel';repack.style.margin='12px 0';
+ repack.innerHTML='<h5>Step 3 — Prepare Rejected Item for Customer Return</h5><p>Only after inspection rejection. LEOGO will issue return-shipping instructions.</p><label>Repacking notes<textarea name="note" required minlength="5" maxlength="2000"></textarea></label><button type="submit">Mark Repacked & Ready</button><p role="status" aria-live="polite"></p>';
+ repack.onsubmit=async ev=>{ev.preventDefault();const button=repack.querySelector('button');button.disabled=true;
+ const {error}=await db.rpc('aftersales_seller_mark_repacked',{p_case_id:n.case_id,p_note:repack.elements.note.value});
+ if(error){repack.querySelector('[role=status]').textContent=error.message;button.disabled=false;return;}
+ await load();};card.append(repack);
 }
 const form=card.querySelector('form');
 form.onsubmit=async e=>{e.preventDefault();const action=form.elements.action.value;const {error}=await db.rpc(action==='propose'?'aftersales_seller_propose_v2':'aftersales_seller_respond',action==='propose'?{p_case_id:n.case_id,p_solution_kind:form.elements.solutionKind.value,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value}:{p_case_id:n.case_id,p_action:action,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value});if(error){form.querySelector('[role=status]').textContent=error.message;return;}await load();};
