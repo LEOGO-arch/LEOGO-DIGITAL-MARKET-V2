@@ -51,7 +51,7 @@ begin
    raise exception 'Provide inspection reasons (10-2000 characters)';end if;
  update public.aftersales_seller_inspections set inspected_at=now(),finding=p_finding,
    recommendation=p_recommendation,inspection_notes=btrim(p_notes),updated_at=now(),
-   ready_return_at=case when p_recommendation='reject' then now() else null end
+   ready_return_at=null
  where case_id=p_case_id and seller_id=v_seller and received_at is not null and inspected_at is null;
  if not found then raise exception 'You must first receive and inspect this assigned return (or inspection is already recorded)';end if;
  insert into public.marketplace_aftersales_negotiation_events(case_id,actor_id,actor_role,event_type,comment)
