@@ -78,7 +78,7 @@ async function runReturnAction(form,fn,args){
   const {data,error}=await db.rpc(fn,{p_case_id:selected.case_id,...args});
   if(error){status.textContent='Unable to continue: '+error.message;return;}
   status.textContent='Recorded: '+(data?.status||'completed')+'.';
-  await Promise.all([refreshNegotiations(),loadReturnShipping()]);
+  await refreshNegotiations();
  }finally{if(button)button.disabled=false;}
 }
 rs('#adminAftersalesIssueReturnShipping').addEventListener('submit',async e=>{
@@ -96,6 +96,51 @@ rs('#adminAftersalesDispatchReturnShipping').addEventListener('submit',async e=>
 rs('#adminAftersalesCloseReturnShipping').addEventListener('submit',async e=>{
  e.preventDefault();await runReturnAction(e.currentTarget,'admin_aftersales_close_rejected_return',{
  p_note:e.currentTarget.elements.note.value.trim()});
+});
+const routePanel=document.createElement('section');
+routePanel.id='adminAftersalesReturnRoute';
+routePanel.className='content-card aftersales-negotiation-card';
+routePanel.hidden=true;
+routePanel.innerHTML=`
+<h3>Physical Return Route</h3><p>Confirm each parcel handover. The assigned seller can only inspect an item after receiving it physically.</p>
+<p id="adminAftersalesRouteStatus" role="status"></p>
+<form id="adminAftersalesRouteForm" hidden>
+ <label>Next parcel movement<select name="step" required></select></label>
+ <label>Physical condition / handover notes<textarea name="notes" minlength="5" maxlength="1000" required></textarea></label>
+ <button type="submit" class="primary-button">Confirm Return Handover</button>
+</form>`;
+root.append(routePanel);
+const routeForm=routePanel.querySelector('#adminAftersalesRouteForm');
+async function loadReturnRoute(){
+ const n=activeRecord(),parcel=n?.return_tracking||null;
+ if(!parcel?.id){routePanel.hidden=true;return;}
+ routePanel.hidden=false;
+ const events=Array.isArray(n.route_events)?n.route_events:[];
+ const last=events.at(-1)?.step||'';
+ const next=parcel.status==='received_at_station'&&!last
+  ? [['station_dispatched_to_sorting','Pickup Station → Sorting Center'],['station_dispatched_to_seller','Pickup Station → Seller']]
+  : last==='station_dispatched_to_sorting'?[['sorting_received','Confirm received at Sorting Center']]
+  : last==='sorting_received'?[['sorting_dispatched_to_seller','Sorting Center → Seller']]
+  : [];
+ routeForm.hidden=next.length===0;
+ const select=routeForm.elements.step;select.replaceChildren();
+ next.forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);});
+ routePanel.querySelector('#adminAftersalesRouteStatus').textContent=
+  'Parcel: '+String(parcel.return_reference||'—')+' · Pickup status: '+String(parcel.status||'—').replaceAll('_',' ')+
+  (events.length?' · Last route step: '+String(last).replaceAll('_',' '):' · No route handover recorded yet')+
+  (next.length?' · Next step is ready to confirm.':' · Awaiting next physical action or seller receipt.');
+}
+routeForm.addEventListener('submit',async event=>{
+ event.preventDefault();
+ const n=activeRecord();if(!n?.return_tracking?.id)return;
+ const button=routeForm.querySelector('button[type="submit"]');button.disabled=true;
+ try{
+  const {error}=await db.rpc('admin_aftersales_route_return',{
+   p_return_id:n.return_tracking.id,p_step:routeForm.elements.step.value,p_notes:routeForm.elements.notes.value.trim()
+  });
+  if(error){routePanel.querySelector('#adminAftersalesRouteStatus').textContent=error.message;return;}
+  routeForm.reset();await refreshNegotiations();
+ }finally{button.disabled=false;}
 });
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const stageLabel=x=>String(x||'Not forwarded').replaceAll('_',' ').replace(/\\b\\w/g,c=>c.toUpperCase());
@@ -117,6 +162,7 @@ $('#aftersalesRefundControlForm').addEventListener('submit',async event=>{
  $('#aftersalesRefundActionStatus').textContent=error?error.message:'Recorded: '+data.status+'. No payment was initiated by LEOGO.';
  if(!error)await loadRefundReview();
 await loadReturnShipping();
+await loadReturnRoute();
 });
 function renderNegotiation(){
 const n=activeRecord();
