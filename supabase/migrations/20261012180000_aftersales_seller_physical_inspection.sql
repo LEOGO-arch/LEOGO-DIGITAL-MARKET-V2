@@ -32,6 +32,11 @@ begin
  if not found then raise exception 'Seller has already recorded receipt';end if;
  insert into public.marketplace_aftersales_negotiation_events(case_id,actor_id,actor_role,event_type,comment)
  values(p_case_id,v_seller,'seller','return_received_for_inspection',left(btrim(p_condition),2000));
+ insert into public.customer_notifications(user_id,notification_type,title,message,source_type,source_id,event_key,action_view)
+ select c.customer_id,'aftersales','Seller received return for inspection',
+ 'The seller has received your returned item for case '||c.case_reference||'. Inspection is pending.',
+ 'marketplace_aftersales_case',c.id,'aftersales_seller_received_return','aftersales'
+ from public.marketplace_aftersales_cases c where c.id=p_case_id;
  return jsonb_build_object('ok',true,'case_id',p_case_id,'status','received_for_inspection');
 end;$fn$;
 create or replace function public.aftersales_seller_record_inspection(
@@ -52,6 +57,17 @@ begin
  insert into public.marketplace_aftersales_negotiation_events(case_id,actor_id,actor_role,event_type,comment)
  values(p_case_id,v_seller,'seller','return_inspected_'||p_recommendation,
  left(p_finding||': '||btrim(p_notes),2000));
+ if p_recommendation='reject' then
+  update public.marketplace_aftersales_negotiations set stage='seller_rejected',
+  seller_comment=btrim(p_notes),updated_at=now() where case_id=p_case_id and seller_id=v_seller;
+ end if;
+ insert into public.customer_notifications(user_id,notification_type,title,message,source_type,source_id,event_key,action_view)
+ select c.customer_id,'aftersales',
+ case when p_recommendation='reject' then 'Seller declined after inspection' else 'Seller inspection completed' end,
+ 'Aftersales '||c.case_reference||' inspection: '||replace(p_recommendation,'_',' ')||'. Reason: '||left(btrim(p_notes),800)||
+ case when p_recommendation='reject' then ' You may request LEOGO intervention.' else ' LEOGO will review the recommendation.' end,
+ 'marketplace_aftersales_case',c.id,'aftersales_seller_inspection_'||p_recommendation,'aftersales'
+ from public.marketplace_aftersales_cases c where c.id=p_case_id;
  return jsonb_build_object('ok',true,'case_id',p_case_id,'recommendation',p_recommendation,
   'requires_admin_review',true,'refund_automatically_issued',false);
 end;$fn$;
