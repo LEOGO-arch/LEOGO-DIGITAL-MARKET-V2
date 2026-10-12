@@ -16,6 +16,23 @@ if(error){el.textContent=error.message;return;}
 el.replaceChildren();
 for(const n of data||[]){
 const card=document.createElement('article');card.className='aftersales-case-card';card.innerHTML='<h4>'+esc(n.case_reference)+'</h4><p>Seller status: '+esc(n.stage.replaceAll('_',' '))+'</p><p>Proposed solution: '+esc(n.seller_solution||'Awaiting seller')+'</p><p>Seller comment: '+esc(n.seller_comment||'—')+'</p>'+(n.response_due_at?'<p>Respond by: '+esc(new Date(n.response_due_at).toLocaleString('en-KE'))+'</p>':'')+'<form><label>Your feedback <textarea name="comment" maxlength="2000"></textarea></label><div></div><p role="status"></p></form>';el.append(card);
+const events=Array.isArray(n.history)?n.history:[];
+if(n.return_tracking){
+ const parcel=document.createElement('p');parcel.textContent='Return parcel '+(n.return_tracking.return_reference||'')+
+ ' · '+String(n.return_tracking.status||'Awaiting update').replaceAll('_',' ')+
+ (n.return_tracking.updated_at?' · Last updated '+new Date(n.return_tracking.updated_at).toLocaleString('en-KE'):'');
+ card.append(parcel);
+}
+if(events.length){
+ const history=document.createElement('details');history.style.margin='12px 0';
+ const summary=document.createElement('summary');summary.textContent='Full Aftersales Activity ('+events.length+' updates)';
+ history.append(summary);
+ events.forEach(event=>{const item=document.createElement('p');item.style.cssText='padding:8px 0;border-bottom:1px solid #e1e8f0';
+ item.textContent=new Date(event.created_at).toLocaleString('en-KE')+' · '+
+ String(event.actor_role||'LEOGO').replaceAll('_',' ')+' · '+String(event.event_type||'update').replaceAll('_',' ')+
+ (event.comment?' — '+event.comment:'');history.append(item);});
+ card.append(history);
+}
 const form=card.querySelector('form'), actions=form.querySelector('div');const options=n.stage==='seller_proposed'?[['accept','Accept solution'],['reject','Reject solution']]:['seller_rejected','customer_rejected'].includes(n.stage)?[['intervene','Request LEOGO intervention']]:[];
 for(const [action,label] of options){const btn=document.createElement('button');btn.type='button';btn.textContent=label;actions.append(btn);btn.onclick=async()=>{const {error}=await db.rpc('aftersales_customer_respond',{p_case_id:n.case_id,p_action:action,p_comment:form.elements.comment.value});if(error){form.querySelector('[role=status]').textContent=error.message;return;}await load();};}
 if(n.stage==='customer_accepted' && ['return_refund','return_exchange'].includes(n.solution_kind)){
