@@ -13,6 +13,27 @@ if(error){el.textContent=error.message;return;}
 el.replaceChildren();
 for(const n of data||[]){
 const card=document.createElement('article');card.className='aftersales-case-card';card.innerHTML='<h4>'+esc(n.case_reference)+'</h4><p>Seller status: '+esc(n.stage.replaceAll('_',' '))+'</p><p>Proposed solution: '+esc(n.seller_solution||'Awaiting seller')+'</p><p>Seller comment: '+esc(n.seller_comment||'—')+'</p>'+(n.response_due_at?'<p>Respond by: '+esc(new Date(n.response_due_at).toLocaleString('en-KE'))+'</p>':'')+'<form><label>Your feedback <textarea name="comment" maxlength="2000"></textarea></label><div></div><p role="status"></p></form>';el.append(card);
+if(n.return_tracking){
+ const tracking=document.createElement('details');tracking.open=true;
+ const label=document.createElement('summary');label.textContent='Return parcel tracking';
+ const info=document.createElement('p');info.textContent=
+  'Reference: '+String(n.return_tracking.return_reference||'—')+
+  ' · Status: '+String(n.return_tracking.status||'—').replaceAll('_',' ')+
+  (n.return_tracking.dispatched_at?' · Dispatched: '+new Date(n.return_tracking.dispatched_at).toLocaleString('en-KE'):'');
+ tracking.append(label,info);card.append(tracking);
+}
+if(n.inspection?.received_at){
+ const inspection=document.createElement('section');
+ inspection.className='aftersales-inspection-progress';
+ const title=document.createElement('strong');title.textContent='Seller return inspection';
+ const body=document.createElement('p');
+ body.textContent=n.inspection.inspected_at
+  ? 'Inspected: '+String(n.inspection.finding||'—').replaceAll('_',' ')+
+    ' · Recommendation: '+String(n.inspection.recommendation||'—').replaceAll('_',' ')+
+    ' · Reason: '+String(n.inspection.inspection_notes||'Awaiting details')
+  : 'Returned product received by seller; waiting for inspection.';
+ inspection.append(title,body);card.append(inspection);
+}
 const form=card.querySelector('form'), actions=form.querySelector('div');const options=n.stage==='seller_proposed'?[['accept','Accept solution'],['reject','Reject solution']]:['seller_rejected','customer_rejected'].includes(n.stage)?[['intervene','Request LEOGO intervention']]:[];
 for(const [action,label] of options){const btn=document.createElement('button');btn.type='button';btn.textContent=label;actions.append(btn);btn.onclick=async()=>{const {error}=await db.rpc('aftersales_customer_respond',{p_case_id:n.case_id,p_action:action,p_comment:form.elements.comment.value});if(error){form.querySelector('[role=status]').textContent=error.message;return;}await load();};}
 if(n.stage==='customer_accepted' && ['return_refund','return_exchange'].includes(n.solution_kind)){
