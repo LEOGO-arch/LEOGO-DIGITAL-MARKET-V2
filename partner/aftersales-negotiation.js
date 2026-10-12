@@ -15,7 +15,7 @@ function attachOrderLinks(){
   const button=document.createElement('button');button.type='button';button.dataset.caseLink=n.case_id;
   button.textContent='View Aftersales · '+String(n.stage||'Open').replaceAll('_',' ');
   button.className='secondary seller-aftersales-order-link';
-  button.addEventListener('click',()=>document.querySelector('[data-aftersales-case="'+n.case_id+'"]')?.scrollIntoView({behavior:'smooth',block:'start'}));
+  button.addEventListener('click',()=>{document.querySelector('[data-seller-view="aftersales"]')?.click();window.setTimeout(()=>document.querySelector('[data-aftersales-case="'+n.case_id+'"]')?.scrollIntoView({behavior:'smooth',block:'start'}),90);});
   footer.append(button);
   const details=document.createElement('details');details.style.margin='12px 0';
   const summary=document.createElement('summary');summary.textContent='Aftersales application · '+(n.case_reference||'Open case');
