@@ -57,7 +57,8 @@ const customerReport='<section class="seller-aftersales-customer-report" style="
   field('Customer requested solution',n.preferred_solution)+
   (n.requested_refund_amount_kes!=null?field('Requested refund (KSh)',Number(n.requested_refund_amount_kes).toLocaleString('en-KE')):'')+
   (n.return_pickup_station_id?field('Return pickup station ID',n.return_pickup_station_id):'')+
-  field('Seller response deadline',formatDate(n.response_due_at))+
+  field('Customer decision deadline',formatDate(n.response_due_at))+
+  (n.stage==='seller_proposed'?'<p style="font-size:12px;font-weight:700">Customer has three days from the seller proposal to respond.</p>':'')+
   (n.customer_comment?field('Latest customer comment',n.customer_comment):'')+
   (n.admin_comment?field('LEOGO case communication',n.admin_comment):'')+
   (n.evidence_path?'<div class="seller-aftersales-evidence" style="margin:12px 0"><strong>Customer photo proof</strong><p>Loading protected image…</p></div>':'<p>No photo evidence was submitted for this case.</p>')+
