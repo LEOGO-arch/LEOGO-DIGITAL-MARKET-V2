@@ -4575,7 +4575,7 @@
       if(error) throw error;
       if(data?.error) throw new Error(data.error);
 
-      aftersalesPreviewStatus.textContent='✓ Aftersales case '+data.case_reference+' submitted successfully. LEOGO Customer Care will review it.';
+      aftersalesPreviewStatus.textContent='✓ Aftersales case '+data.case_reference+' submitted successfully. The product seller has been notified. You can track their response in Aftersales.';
       aftersalesPreviewStatus.classList.add('is-success');
       document.getElementById('aftersalesIssueType').value='';
       document.getElementById('aftersalesPreferredSolution').value='';
