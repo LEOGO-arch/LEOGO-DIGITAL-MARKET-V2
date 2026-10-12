@@ -19,6 +19,9 @@ create table if not exists public.aftersales_return_shipping(
  created_by uuid not null,
  updated_at timestamptz not null default now()
 );
+create unique index if not exists aftersales_return_shipping_payment_ref_unique
+ on public.aftersales_return_shipping(lower(btrim(payment_reference)))
+ where payment_reference is not null and status in ('payment_submitted','verified','dispatched','received_by_customer');
 alter table public.aftersales_return_shipping enable row level security;
 revoke all on public.aftersales_return_shipping from anon,authenticated;
 create or replace function public.aftersales_seller_mark_repacked(p_case_id uuid,p_note text)
@@ -29,7 +32,9 @@ begin
  update public.aftersales_seller_inspections set ready_return_at=now(),
  inspection_notes=concat_ws(' | ',inspection_notes,'Repacked: '||btrim(p_note)),updated_at=now()
  where case_id=p_case_id and seller_id=v_seller and recommendation='reject'
-  and inspected_at is not null and ready_return_at is null;
+  and inspected_at is not null and ready_return_at is null
+  and exists(select 1 from public.marketplace_aftersales_negotiations n
+   where n.case_id=p_case_id and n.seller_id=v_seller and n.stage='seller_rejected');
  if not found then raise exception 'Only a rejected, inspected item may be marked repacked once';end if;
  insert into public.marketplace_aftersales_negotiation_events(case_id,actor_id,actor_role,event_type,comment)
  values(p_case_id,v_seller,'seller','repacked_for_customer_return',left(p_note,2000));
@@ -69,7 +74,8 @@ begin
  update public.aftersales_return_shipping set payment_reference=btrim(p_reference),
   payment_submitted_at=now(),status='payment_submitted',updated_at=now()
  where case_id=p_case_id and customer_id=(select auth.uid())
-   and status in ('awaiting_payment','payment_rejected') and due_at>=clock_timestamp();
+   and status in ('awaiting_payment','payment_rejected') and due_at>=clock_timestamp()
+   and exists(select 1 from public.marketplace_aftersales_negotiations n where n.case_id=p_case_id and n.stage='seller_rejected');
  if not found then raise exception 'Return shipping invoice unavailable or expired';end if;
  insert into public.marketplace_aftersales_negotiation_events(case_id,actor_id,actor_role,event_type,comment)
  values(p_case_id,(select auth.uid()),'customer','return_shipping_payment_submitted','Payment proof submitted for LEOGO verification');
@@ -100,7 +106,9 @@ begin
  if length(btrim(coalesce(p_tracking_reference,'')))<5 then raise exception 'Provide return dispatch tracking reference';end if;
  update public.aftersales_return_shipping set status='dispatched',
  dispatch_reference=btrim(p_tracking_reference),dispatched_at=now(),updated_at=now()
- where case_id=p_case_id and status='verified' returning customer_id into v_customer;
+ where case_id=p_case_id and status='verified'
+ and exists(select 1 from public.marketplace_aftersales_negotiations n where n.case_id=p_case_id and n.stage='seller_rejected')
+ returning customer_id into v_customer;
  if v_customer is null then raise exception 'Payment must be verified before return dispatch';end if;
  insert into public.customer_notifications(user_id,notification_type,title,message,source_type,source_id,event_key,action_view)
  values(v_customer,'aftersales','Your rejected item is on its way',
@@ -129,7 +137,7 @@ begin
  join public.marketplace_aftersales_negotiations n on n.case_id=r.case_id
  where r.case_id=p_case_id and n.stage='seller_rejected' for update of r;
  if v_status is null then raise exception 'Case is not eligible for rejection closure or intervention is pending';end if;
- if v_status='awaiting_payment' and exists(select 1 from public.aftersales_return_shipping where case_id=p_case_id and due_at<clock_timestamp()) then
+ if v_status in ('awaiting_payment','payment_rejected') and exists(select 1 from public.aftersales_return_shipping where case_id=p_case_id and due_at<clock_timestamp()) then
   update public.aftersales_return_shipping set status='expired',updated_at=now() where case_id=p_case_id;
   v_status='expired';
  end if;
