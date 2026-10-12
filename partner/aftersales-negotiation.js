@@ -33,7 +33,12 @@ function attachOrderLinks(){
 window.addEventListener('leogo:seller-orders-rendered',attachOrderLinks);
 const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 async function load(){
-const {data,error}=await db.rpc('aftersales_list_negotiations');
+const [{data,error}, {data:inspectionRows, error:inspectionError}]=await Promise.all([
+  db.rpc('aftersales_list_negotiations'),
+  db.rpc('aftersales_seller_list_inspections')
+]);
+const inspections=new Map((Array.isArray(inspectionRows)?inspectionRows:[]).map(item=>[item.case_id,item]));
+if(inspectionError)console.warn('Aftersales inspection history could not load:',inspectionError.message);
 if(error){el.textContent=error.message;return;}
 el.replaceChildren();
 linkedCases=Array.isArray(data)?data:[];
@@ -42,6 +47,7 @@ const field=(label,value)=>'<div style="margin:8px 0"><strong>'+esc(label)+':</s
 const formatDate=value=>value?new Date(value).toLocaleString('en-KE'):'Not provided';
 const history=Array.isArray(n.history)?n.history:[];
 const returnInfo=n.return_tracking||null;
+const inspection=inspections.get(n.case_id)||null;
 const returnReport=returnInfo
  ? '<section style="padding:12px;margin:12px 0;border:1px solid #d7e2ed;border-radius:10px"><h5>Return Parcel Tracking</h5>'+
    field('Return reference',returnInfo.return_reference)+field('Current return status',String(returnInfo.status||'').replaceAll('_',' '))+
@@ -65,7 +71,21 @@ const customerReport='<section class="seller-aftersales-customer-report" style="
   '</section>';
 const caseHistory=history.length?'<details style="margin:12px 0"><summary>Case activity history ('+history.length+')</summary>'+
   history.map(e=>'<div style="border-bottom:1px solid #ddd;padding:8px 0">'+field('Time',formatDate(e.created_at))+field('Action',e.event_type)+field('By',e.actor_role)+(e.comment?field('Comment',e.comment):'')+'</div>').join('')+'</details>':'';
-const card=document.createElement('article');card.className='panel';card.dataset.aftersalesCase=n.case_id;card.innerHTML='<h4>'+esc(n.case_reference)+'</h4><p>Status: '+esc(n.stage)+'</p>'+customerReport+returnReport+caseHistory+'<p>Previous solution: '+esc(n.seller_solution||'None')+'</p><form><label>Action <select name="action"><option value="review">Start Review</option><option value="propose">Propose Solution</option><option value="reject">Reject Complaint</option></select></label><label>Solution type <select name="solutionKind"><option value="return_refund">Return and refund</option><option value="return_exchange">Return and exchange</option><option value="replacement">Replacement</option><option value="other">Other agreed solution</option></select></label><label>Solution <textarea name="solution" maxlength="2000"></textarea></label><label>Comments / rejection reason <textarea name="comment" maxlength="2000"></textarea></label><button type="submit">Submit Seller Response</button><p role="status"></p></form>';el.append(card);
+const inspectionReport=inspection
+ ? '<section style="padding:12px;margin:12px 0;border:1px solid #d7e2ed;border-radius:10px"><h5>Seller Physical Inspection</h5>'+
+   field('Received by seller',formatDate(inspection.received_at))+
+   field('Condition at receipt',inspection.received_condition)+
+   (inspection.inspected_at?field('Inspection completed',formatDate(inspection.inspected_at))+
+    field('Liability finding',inspection.finding)+field('Recommended resolution',inspection.recommendation)+
+    field('Inspection notes',inspection.inspection_notes):'<p>Awaiting physical inspection</p>')+
+   '</section>' : '';
+const eligibleReturn=n.stage==='customer_accepted'&&
+ n.return_tracking&&['dispatched','completed'].includes(n.return_tracking.status);
+const receiptForm=eligibleReturn&&!inspection
+ ? '<form class="seller-return-receive" style="padding:12px;margin:12px 0;border:1px solid #d7e2ed;border-radius:10px"><strong>Receive Returned Product</strong><p>Only confirm after receiving the parcel physically from LEOGO.</p><label>Condition on receipt<textarea name="condition" minlength="5" maxlength="2000" required></textarea></label><button type="submit">Confirm Physical Receipt</button><p role="status"></p></form>' : '';
+const inspectionForm=eligibleReturn&&inspection?.received_at&&!inspection?.inspected_at
+ ? '<form class="seller-return-inspect" style="padding:12px;margin:12px 0;border:1px solid #d7e2ed;border-radius:10px"><strong>Inspection and Recommendation</strong><label>Responsibility<select name="finding"><option value="seller_liability">Seller liable</option><option value="customer_damage">Customer caused damage</option><option value="undetermined">Undetermined — request intervention</option></select></label><label>Recommended outcome<select name="recommendation"><option value="refund">Refund product amount only</option><option value="exchange">Exchange</option><option value="replacement">Replacement</option><option value="reject">Reject — return to customer</option></select></label><label>Reason and inspection findings<textarea name="notes" minlength="10" maxlength="2000" required></textarea></label><p>A recommendation is not a payout approval. LEOGO must review financial decisions.</p><button type="submit">Submit Inspection</button><p role="status"></p></form>' : '';
+const card=document.createElement('article');card.className='panel';card.dataset.aftersalesCase=n.case_id;card.innerHTML='<h4>'+esc(n.case_reference)+'</h4><p>Status: '+esc(n.stage)+'</p>'+customerReport+returnReport+inspectionReport+receiptForm+inspectionForm+caseHistory+'<p>Previous solution: '+esc(n.seller_solution||'None')+'</p><form><label>Action <select name="action"><option value="review">Start Review</option><option value="propose">Propose Solution</option><option value="reject">Reject Complaint</option></select></label><label>Solution type <select name="solutionKind"><option value="return_refund">Return and refund</option><option value="return_exchange">Return and exchange</option><option value="replacement">Replacement</option><option value="other">Other agreed solution</option></select></label><label>Solution <textarea name="solution" maxlength="2000"></textarea></label><label>Comments / rejection reason <textarea name="comment" maxlength="2000"></textarea></label><button type="submit">Submit Seller Response</button><p role="status"></p></form>';el.append(card);
 // Signed URLs are short-lived, and storage RLS restricts access to the assigned seller.
 if(n.evidence_path){
  const proof=card.querySelector('.seller-aftersales-evidence');
@@ -79,6 +99,21 @@ if(n.evidence_path){
   }
  }
 }
+const receipt=card.querySelector('form.seller-return-receive');
+if(receipt)receipt.addEventListener('submit',async event=>{
+ event.preventDefault();const button=receipt.querySelector('button');button.disabled=true;
+ const {error}=await db.rpc('aftersales_seller_receive_return',{p_case_id:n.case_id,p_condition:receipt.elements.condition.value});
+ if(error){receipt.querySelector('[role=status]').textContent=error.message;button.disabled=false;return;}await load();
+});
+const inspect=card.querySelector('form.seller-return-inspect');
+if(inspect)inspect.addEventListener('submit',async event=>{
+ event.preventDefault();const button=inspect.querySelector('button');button.disabled=true;
+ const {error}=await db.rpc('aftersales_seller_record_inspection',{
+   p_case_id:n.case_id,p_finding:inspect.elements.finding.value,
+   p_recommendation:inspect.elements.recommendation.value,p_notes:inspect.elements.notes.value
+ });
+ if(error){inspect.querySelector('[role=status]').textContent=error.message;button.disabled=false;return;}await load();
+});
 const form=card.querySelector('form');
 form.onsubmit=async e=>{e.preventDefault();const action=form.elements.action.value;const {error}=await db.rpc(action==='propose'?'aftersales_seller_propose_v2':'aftersales_seller_respond',action==='propose'?{p_case_id:n.case_id,p_solution_kind:form.elements.solutionKind.value,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value}:{p_case_id:n.case_id,p_action:action,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value});if(error){form.querySelector('[role=status]').textContent=error.message;return;}await load();};
 }
