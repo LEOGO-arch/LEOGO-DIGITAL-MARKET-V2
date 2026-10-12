@@ -78,6 +78,16 @@ if(n.evidence_path){
   }
  }
 }
+if(n.stage==='customer_accepted' && n.return_tracking?.status==='dispatched'){
+ const wrap=document.createElement('section');wrap.className='panel';wrap.style.marginTop='12px';
+ const h=document.createElement('h5');h.textContent='Returned Product Inspection';wrap.append(h);
+ const hint=document.createElement('p');hint.textContent='Only confirm receipt when the parcel physically reaches you. Inspect it before recommending any refund, exchange or return to customer.';wrap.append(hint);
+ const receive=document.createElement('form');receive.innerHTML='<label>Condition when received<textarea name="condition" required minlength="5" maxlength="2000"></textarea></label><button type="submit">Confirm Physical Receipt</button><p role="status"></p>';
+ receive.onsubmit=async ev=>{ev.preventDefault();const button=receive.querySelector('button');button.disabled=true;const {error}=await db.rpc('seller_receive_aftersales_return',{p_case_id:n.case_id,p_condition:receive.elements.condition.value});receive.querySelector('[role=status]').textContent=error?.message||'Receipt recorded. You may now submit inspection.';button.disabled=false;};
+ const inspect=document.createElement('form');inspect.innerHTML='<label>Who caused the issue?<select name="responsibility"><option value="undetermined">Undetermined</option><option value="seller">Seller liability</option><option value="customer">Customer damage</option><option value="transport">Transport damage</option></select></label><label>Inspection decision<select name="decision"><option value="refund_recommended">Recommend product refund (excluding shipping)</option><option value="exchange_recommended">Recommend exchange</option><option value="return_to_customer">Reject and return item to customer</option><option value="intervention">Request LEOGO intervention</option></select></label><label>Inspection findings<textarea name="reason" required minlength="10" maxlength="2000"></textarea></label><button type="submit">Submit Inspection to LEOGO</button><p role="status"></p>';
+ inspect.onsubmit=async ev=>{ev.preventDefault();const button=inspect.querySelector('button');button.disabled=true;const {data,error}=await db.rpc('seller_inspect_aftersales_return',{p_case_id:n.case_id,p_responsibility:inspect.elements.responsibility.value,p_decision:inspect.elements.decision.value,p_reason:inspect.elements.reason.value});inspect.querySelector('[role=status]').textContent=error?.message||(data?.ok?'Inspection submitted for LEOGO resolution. No refund has been paid.':'Unable to submit inspection.');button.disabled=false;};
+ wrap.append(receive,inspect);card.append(wrap);
+}
 const form=card.querySelector('form');
 form.onsubmit=async e=>{e.preventDefault();const action=form.elements.action.value;const {error}=await db.rpc(action==='propose'?'aftersales_seller_propose_v2':'aftersales_seller_respond',action==='propose'?{p_case_id:n.case_id,p_solution_kind:form.elements.solutionKind.value,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value}:{p_case_id:n.case_id,p_action:action,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value});if(error){form.querySelector('[role=status]').textContent=error.message;return;}await load();};
 }
