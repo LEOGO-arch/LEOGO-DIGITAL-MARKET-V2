@@ -9,6 +9,9 @@ async function load(){
 const db=window.leogoAuth?.client;
 if(!db||!window.leogoAuth?.isAuthenticated?.()){el.textContent='Sign in to view your Aftersales responses.';return;}
 const {data,error}=await db.rpc('aftersales_list_negotiations');
+const {data:shippingRows,error:shippingError}=await db.rpc('aftersales_customer_return_shipping_status');
+const shippingByCase=new Map((Array.isArray(shippingRows)?shippingRows:[]).map(row=>[row.case_id,row]));
+if(shippingError && !String(shippingError.message).includes('function'))console.warn('Return shipping status:',shippingError.message);
 if(error){el.textContent=error.message;return;}
 el.replaceChildren();
 for(const n of data||[]){
@@ -33,6 +36,57 @@ if(n.stage==='customer_accepted' && ['return_refund','return_exchange'].includes
   box.querySelector('[role=status]').textContent=error?error.message:'Return Pickup Station saved. Await LEOGO return instructions.';
   if(!error){ const booking=await db.rpc('customer_book_aftersales_return',{p_case_id:n.case_id}); box.querySelector('[role=status]').textContent=booking.error?booking.error.message:'Return booked: '+booking.data.return_reference+'. Take the parcel to your selected Pickup Station.'; if(!booking.error)await load(); }
  };
+}
+
+const shipping=shippingByCase.get(n.case_id);
+if(shipping){
+ const wrap=document.createElement('section');wrap.className='panel';wrap.style.cssText='margin-top:14px;padding:14px;border:1px solid #d5dfeb;border-radius:12px';
+ const title=document.createElement('h5');title.textContent='Rejected Item — Return Shipping';
+ const message=document.createElement('p');message.textContent='Return fee: KSh '+Number(shipping.amount_kes||0).toLocaleString('en-KE')+
+  ' · Status: '+String(shipping.status||'').replaceAll('_',' ')+
+  (shipping.due_at?' · Pay by '+new Date(shipping.due_at).toLocaleString('en-KE'):'');
+ wrap.append(title,message);
+ if(['awaiting_payment','payment_rejected'].includes(shipping.status)){
+  const destination=document.createElement('div');destination.className='aftersales-return-payment-destination';
+  destination.style.cssText='background:#f4f7fc;border:1px solid #dbe4ef;border-radius:10px;padding:12px;margin:10px 0';
+  destination.textContent='Loading LEOGO Admin-assigned transport payment account…';wrap.append(destination);
+  try{
+   const result=await window.leogoPayments?.getDestination('transport_payments',{force:true});
+   const d=result?.data;
+   if(!d||result?.error){destination.textContent='LEOGO return-shipping payment account is not available. Contact Customer Care before paying.';}
+   else{
+    const fields=d.account_type==='mpesa_paybill'
+      ? [['Business Number',d.paybill_number],['Account Number',d.account_number]]
+      : d.account_type==='bank'
+       ? [['Bank Name',d.bank_name],['Account Name',d.account_name],['Account Number',d.account_number]]
+       : [['Till Number',d.till_number],['Account Name',d.account_name||d.business_name]];
+    destination.replaceChildren();
+    const heading=document.createElement('strong');heading.textContent='LEOGO Return Shipping Payment Details';destination.append(heading);
+    fields.forEach(([label,value])=>{const p=document.createElement('p');p.textContent=label+': '+(value||'Not configured');destination.append(p);});
+    const number=d.till_number||d.paybill_number||d.account_number;
+    if(number){const copy=document.createElement('button');copy.type='button';copy.textContent='Copy Payment Number';copy.onclick=()=>navigator.clipboard?.writeText(number);destination.append(copy);}
+   }
+  }catch(_err){destination.textContent='Payment instructions unavailable. Contact LEOGO Customer Care before paying.';}
+ }
+
+ if(shipping.verification_notes){const notes=document.createElement('p');notes.textContent='LEOGO instructions: '+shipping.verification_notes;wrap.append(notes);}
+ if(['awaiting_payment','payment_rejected'].includes(shipping.status)){
+  const form=document.createElement('form');
+  form.innerHTML='<label>Payment confirmation/reference<textarea name="reference" rows="2" required minlength="5" maxlength="500" placeholder="Paste your verified payment reference"></textarea></label><button type="submit">Submit Return Shipping Payment Reference</button><p role="status" aria-live="polite"></p>';
+  const note=document.createElement('small');note.textContent='Only pay to a verified LEOGO payment destination. Your payment will be checked by LEOGO Admin.';form.prepend(note);
+  form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector('button');button.disabled=true;
+   const {error}=await db.rpc('customer_aftersales_submit_return_shipping_payment',{p_case_id:n.case_id,p_reference:form.elements.reference.value.trim()});
+   if(error){form.querySelector('[role=status]').textContent=error.message;button.disabled=false;return;}await load();};
+  wrap.append(form);
+ }
+ if(shipping.status==='dispatched'){
+  const shipment=document.createElement('p');shipment.textContent='Parcel tracking: '+(shipping.dispatch_reference||'Pending update');wrap.append(shipment);
+  const received=document.createElement('button');received.type='button';received.textContent='Confirm I Received My Returned Item';
+  received.onclick=async()=>{if(!window.confirm('Confirm only after physically receiving your returned item.'))return;
+   received.disabled=true;const {error}=await db.rpc('customer_aftersales_confirm_rejected_item_received',{p_case_id:n.case_id});
+   if(error){received.disabled=false;received.textContent=error.message;return;}await load();};wrap.append(received);
+ }
+ card.append(wrap);
 }
 
 }
