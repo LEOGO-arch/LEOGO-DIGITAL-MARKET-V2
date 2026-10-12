@@ -106,7 +106,11 @@ if(invoice){
  }
  card.append(box);
 }
-const form=card.querySelector('form'), actions=form.querySelector('div');const options=n.stage==='seller_proposed'?[['accept','Accept solution'],['reject','Reject solution']]:['seller_rejected','customer_rejected'].includes(n.stage)?[['intervene','Request LEOGO intervention']]:[];
+const form=card.querySelector('form'), actions=form.querySelector('div');const expired=n.stage==='seller_proposed'&&n.response_due_at&&Date.now()>new Date(n.response_due_at).getTime();
+const options=expired?[]:
+ n.stage==='seller_proposed'?[['accept','Accept solution'],['reject','Reject solution'],['intervene','Ask LEOGO to Intervene']]:
+ ['seller_rejected','customer_rejected'].includes(n.stage)?[['intervene','Request LEOGO intervention']]:[];
+if(expired){const notice=document.createElement('p');notice.textContent='Your three-day seller-response period has expired. Contact LEOGO Customer Care to request assistance.';card.append(notice);}
 for(const [action,label] of options){const btn=document.createElement('button');btn.type='button';btn.textContent=label;actions.append(btn);btn.onclick=async()=>{const {error}=await db.rpc('aftersales_customer_respond',{p_case_id:n.case_id,p_action:action,p_comment:form.elements.comment.value});if(error){form.querySelector('[role=status]').textContent=error.message;return;}await load();};}
 if(n.stage==='customer_accepted' && ['return_refund','return_exchange'].includes(n.solution_kind)){
  const box=document.createElement('div');
