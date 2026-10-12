@@ -29,6 +29,74 @@ const sellerSelect=form.elements.seller;
 let selected=null;
 let loadToken=0;
 let negotiations=[];
+const returnPanel=document.createElement('section');
+returnPanel.id='adminAftersalesReturnShipping';
+returnPanel.className='content-card aftersales-negotiation-card';
+returnPanel.hidden=true;
+returnPanel.innerHTML=`
+<h3>Rejected Item — Return Shipping & Closure</h3>
+<p>Only use after seller physical inspection and repacking. LEOGO quotes return shipping, checks proof of payment, dispatches the parcel and closes after receipt or an unpaid seven-day deadline.</p>
+<p id="adminAftersalesReturnShippingStatus" role="status"></p>
+<form id="adminAftersalesIssueReturnShipping" hidden><label>Return shipping fee (KSh)<input name="amount" type="number" min="1" step="0.01" required></label><label>Shipping calculation / reason<textarea name="note" minlength="5" maxlength="2000" required></textarea></label><button class="primary-button" type="submit">Issue Return Shipping Invoice</button></form>
+<form id="adminAftersalesVerifyReturnShipping" hidden><label>Payment decision<select name="approve"><option value="true">Verified payment received</option><option value="false">Reject payment proof</option></select></label><label>Verification details<textarea name="note" minlength="5" maxlength="2000" required></textarea></label><button class="primary-button" type="submit">Save Payment Verification</button></form>
+<form id="adminAftersalesDispatchReturnShipping" hidden><label>Dispatch reference<input name="tracking" minlength="5" maxlength="250" required></label><button class="primary-button" type="submit">Confirm Dispatch to Customer</button></form>
+<form id="adminAftersalesCloseReturnShipping" hidden><label>Closure reason<textarea name="note" minlength="5" maxlength="2000" required></textarea></label><button class="primary-button" type="submit">Close Completed / Expired Return</button></form>`;
+root.append(returnPanel);
+const rs=s=>returnPanel.querySelector(s);
+let currentReturnInvoice=null;
+async function loadReturnShipping(){
+ const n=activeRecord();
+ const status=rs('#adminAftersalesReturnShippingStatus');
+ if(!n){returnPanel.hidden=true;return;}
+ const eligible=n.inspection?.recommendation==='reject'&&Boolean(n.inspection?.ready_return_at);
+ const {data,error}=await db.rpc('admin_aftersales_return_shipping_list');
+ if(error){returnPanel.hidden=true;return;}
+ const invoice=(Array.isArray(data)?data:[]).find(r=>r.case_id===n.case_id);
+ currentReturnInvoice=invoice||null;
+ returnPanel.hidden=!eligible&&!invoice;
+ if(returnPanel.hidden)return;
+ status.textContent=invoice
+  ? 'Case: '+(n.case_reference||n.case_id)+' · Fee KSh '+Number(invoice.amount_kes).toLocaleString('en-KE')+
+    ' · Status: '+String(invoice.status).replaceAll('_',' ')+
+    ' · Due: '+new Date(invoice.due_at).toLocaleString('en-KE')+
+    (invoice.payment_reference?' · Submitted reference: '+invoice.payment_reference:'')+
+    (invoice.dispatch_reference?' · Dispatch: '+invoice.dispatch_reference:'')
+  : 'Seller has inspected, rejected and repacked the item. Set the actual customer return shipping fee.';
+ const stagePermitted=n.stage==='seller_rejected';
+ rs('#adminAftersalesIssueReturnShipping').hidden=!eligible||!!invoice||!stagePermitted;
+ rs('#adminAftersalesVerifyReturnShipping').hidden=!invoice||invoice.status!=='payment_submitted'||!stagePermitted;
+ rs('#adminAftersalesDispatchReturnShipping').hidden=!invoice||invoice.status!=='verified'||!stagePermitted;
+ rs('#adminAftersalesCloseReturnShipping').hidden=!invoice||!stagePermitted||
+   !(invoice.status==='received_by_customer' ||
+     (['awaiting_payment','payment_rejected'].includes(invoice.status) && Date.parse(invoice.due_at)<Date.now()) ||
+     invoice.status==='expired');
+}
+async function runReturnAction(form,fn,args){
+ const status=rs('#adminAftersalesReturnShippingStatus');
+ const button=form.querySelector('button[type="submit"]');if(button)button.disabled=true;
+ try{
+  const {data,error}=await db.rpc(fn,{p_case_id:selected.case_id,...args});
+  if(error){status.textContent='Unable to continue: '+error.message;return;}
+  status.textContent='Recorded: '+(data?.status||'completed')+'.';
+  await Promise.all([refreshNegotiations(),loadReturnShipping()]);
+ }finally{if(button)button.disabled=false;}
+}
+rs('#adminAftersalesIssueReturnShipping').addEventListener('submit',async e=>{
+ e.preventDefault();await runReturnAction(e.currentTarget,'admin_aftersales_issue_return_shipping',{
+ p_amount_kes:Number(e.currentTarget.elements.amount.value),p_note:e.currentTarget.elements.note.value.trim()});
+});
+rs('#adminAftersalesVerifyReturnShipping').addEventListener('submit',async e=>{
+ e.preventDefault();await runReturnAction(e.currentTarget,'admin_aftersales_verify_return_shipping_payment',{
+ p_approve:e.currentTarget.elements.approve.value==='true',p_note:e.currentTarget.elements.note.value.trim()});
+});
+rs('#adminAftersalesDispatchReturnShipping').addEventListener('submit',async e=>{
+ e.preventDefault();await runReturnAction(e.currentTarget,'admin_aftersales_dispatch_customer_return',{
+ p_tracking_reference:e.currentTarget.elements.tracking.value.trim()});
+});
+rs('#adminAftersalesCloseReturnShipping').addEventListener('submit',async e=>{
+ e.preventDefault();await runReturnAction(e.currentTarget,'admin_aftersales_close_rejected_return',{
+ p_note:e.currentTarget.elements.note.value.trim()});
+});
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const stageLabel=x=>String(x||'Not forwarded').replaceAll('_',' ').replace(/\\b\\w/g,c=>c.toUpperCase());
 const signal=(message,bad=false)=>{status.textContent=message;status.classList.toggle('is-error',bad);};
@@ -48,6 +116,7 @@ $('#aftersalesRefundControlForm').addEventListener('submit',async event=>{
  p_note:form.elements.note.value.trim()||null,p_reference:form.elements.reference.value.trim()||null});
  $('#aftersalesRefundActionStatus').textContent=error?error.message:'Recorded: '+data.status+'. No payment was initiated by LEOGO.';
  if(!error)await loadRefundReview();
+await loadReturnShipping();
 });
 function renderNegotiation(){
 const n=activeRecord();
