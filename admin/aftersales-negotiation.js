@@ -29,6 +29,81 @@ const sellerSelect=form.elements.seller;
 let selected=null;
 let loadToken=0;
 let negotiations=[];
+let currentReturnId='';
+const returnOps=document.createElement('section');
+returnOps.className='content-card aftersales-negotiation-card';
+returnOps.hidden=true;
+returnOps.innerHTML=`
+ <div class="aftersales-negotiation-heading"><div><span>PHYSICAL RETURN & RESOLUTION</span><h3>Aftersales Return Operations</h3><p>Record parcel handoffs, verify return shipping, and close only after delivery or expiry. Refund recommendations require separate LEOGO authorization.</p></div><button type="button" id="refreshReturnOperations">↻ Refresh</button></div>
+ <p id="returnOperationsSummary" role="status"></p>
+ <details><summary>1. Parcel: Pickup Station → Sorting Center → Seller</summary>
+  <form data-return-action="route" class="aftersales-negotiation-form">
+   <label>Verified handover<select name="step"><option value="station_dispatched_to_sorting">Station → Sorting Center</option><option value="sorting_received">Sorting Center received</option><option value="sorting_dispatched_to_seller">Sorting Center → Seller</option><option value="station_dispatched_to_seller">Station → Seller</option></select></label>
+   <label class="wide">Physical handover notes<textarea name="note" required minlength="5" maxlength="1000"></textarea></label>
+   <button type="submit">Record Physical Handover</button><p role="status"></p>
+  </form>
+ </details>
+ <details><summary>2. Rejected Product: Return Shipping Fee</summary>
+  <form data-return-action="fee" class="aftersales-negotiation-form"><label>Return shipping fee (KSh)<input name="amount" type="number" min="1" max="100000" step="0.01" required></label>
+   <label class="wide">Fee calculation / reason<textarea name="note" required minlength="5" maxlength="1000"></textarea></label>
+   <button type="submit">Issue Fee & 7-Day Payment Deadline</button><p role="status"></p></form>
+ </details>
+ <details><summary>3. Verify Customer Return Shipping Payment</summary>
+  <form data-return-action="verify" class="aftersales-negotiation-form"><label>Verification result<select name="approve"><option value="yes">Approve verified payment</option><option value="no">Reject payment reference</option></select></label>
+   <label class="wide">Verification reason and reference check<textarea name="note" required minlength="5" maxlength="1000"></textarea></label>
+   <button type="submit">Record Payment Verification</button><p role="status"></p></form>
+ </details>
+ <details><summary>4. Dispatch Rejected Item Back to Customer</summary>
+  <form data-return-action="dispatch" class="aftersales-negotiation-form">
+   <label>Parcel tracking reference<input name="tracking" required minlength="5" maxlength="120"></label>
+   <button type="submit">Confirm Physical Dispatch</button><p role="status"></p></form>
+ </details>
+ <details><summary>5. Admin Final Closure</summary>
+  <form data-return-action="close" class="aftersales-negotiation-form"><p>Backend permits closure only after confirmed customer receipt or expiration of an unpaid seven-day return fee; unresolved intervention blocks closure.</p>
+   <label class="wide">Closure reason<textarea name="note" required minlength="5" maxlength="1000"></textarea></label>
+   <button type="submit">Close Eligible Case</button><p role="status"></p></form>
+ </details>`;
+root.after(returnOps);
+const returnStatus=returnOps.querySelector('#returnOperationsSummary');
+async function refreshReturnOperations(){
+ const n=activeRecord();
+ returnOps.hidden=!n||!selected;
+ currentReturnId='';
+ if(!n||!selected)return;
+ const [returns,shipping]=await Promise.all([db.rpc('admin_list_pickup_station_returns'),db.rpc('admin_aftersales_return_shipping_list')]);
+ const ref=n.return_tracking?.return_reference;
+ const physical=Array.isArray(returns.data)?returns.data.find(row=>row.return_reference===ref):null;
+ if(physical)currentReturnId=physical.id;
+ const fee=Array.isArray(shipping.data)?shipping.data.find(row=>row.case_id===selected.case_id):null;
+ returnStatus.textContent='Case '+n.case_reference+' · '+n.stage.replaceAll('_',' ')+
+  (physical?' · Return '+physical.return_reference+' ('+physical.status.replaceAll('_',' ')+')':' · No linked physical return recorded')+
+  (fee?' · Shipping fee KSh '+Number(fee.amount_kes).toLocaleString('en-KE')+' ('+fee.status.replaceAll('_',' ')+')':'')+
+  (returns.error?' · Parcel list: '+returns.error.message:'')+
+  (shipping.error?' · Shipping list: '+shipping.error.message:'');
+}
+returnOps.querySelector('#refreshReturnOperations').addEventListener('click',refreshReturnOperations);
+returnOps.querySelectorAll('form[data-return-action]').forEach(frm=>frm.addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(!selected)return;
+ const kind=frm.dataset.returnAction;
+ const button=frm.querySelector('button[type=submit]');
+ const note=frm.elements.note?.value.trim()||'';
+ const map={
+  route:['admin_aftersales_route_return',{p_return_id:currentReturnId,p_step:frm.elements.step?.value,p_notes:note}],
+  fee:['admin_aftersales_issue_return_shipping',{p_case_id:selected.case_id,p_amount_kes:Number(frm.elements.amount?.value),p_note:note}],
+  verify:['admin_aftersales_verify_return_shipping_payment',{p_case_id:selected.case_id,p_approve:frm.elements.approve?.value==='yes',p_note:note}],
+  dispatch:['admin_aftersales_dispatch_customer_return',{p_case_id:selected.case_id,p_tracking_reference:frm.elements.tracking?.value.trim()}],
+  close:['admin_aftersales_close_rejected_return',{p_case_id:selected.case_id,p_note:note}]
+ };
+ if(kind==='route'&&!currentReturnId){frm.querySelector('[role=status]').textContent='A matching booked return parcel is required first.';return;}
+ const [rpc,args]=map[kind];
+ button.disabled=true;
+ const {data,error}=await db.rpc(rpc,args);
+ frm.querySelector('[role=status]').textContent=error?.message||(data?.ok?'Recorded successfully. Refresh the case timeline.':'Operation returned no confirmation.');
+ button.disabled=false;
+ if(!error){await refreshNegotiations();await refreshReturnOperations();}
+}));
+
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const stageLabel=x=>String(x||'Not forwarded').replaceAll('_',' ').replace(/\\b\\w/g,c=>c.toUpperCase());
 const signal=(message,bad=false)=>{status.textContent=message;status.classList.toggle('is-error',bad);};
@@ -67,6 +142,7 @@ if(error){signal('Unable to load negotiation history: '+error.message,true);retu
 negotiations=Array.isArray(data)?data:[];
 renderNegotiation();
 await loadRefundReview();
+await refreshReturnOperations();
 }
 async function loadSellers(){
 if(!selected)return;
