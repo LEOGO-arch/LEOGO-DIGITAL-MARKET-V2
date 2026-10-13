@@ -38,7 +38,7 @@ returnOps.innerHTML=`
  <p id="returnOperationsSummary" role="status"></p>
  <section style="padding:14px;border:1px solid #d5dfed;border-radius:12px;background:#f6f9ff"><h4>Rider Assignment & Return Waybill</h4><p>Assign a courier, print the QR-coded return waybill, or open the handover proof uploaded by the Pickup Station.</p>
   <form id="aftersalesCourierAssignment" class="aftersales-negotiation-form">
-   <label>Assigned rider / courier name<input name="courier" minlength="2" maxlength="120" required placeholder="Enter the rider or courier"></label>
+   <label>Registered LEOGO rider / approved courier<select name="assignee" required><option value="">Loading available riders and couriers…</option></select></label>
    <button type="submit">Assign Rider / Courier</button><p role="status"></p>
   </form>
   <p id="aftersalesWaybillInfo">Select an Aftersales return to view waybill status.</p>
@@ -84,6 +84,11 @@ async function refreshReturnOperations(){
  const physical=Array.isArray(returns.data)?returns.data.find(row=>row.return_reference===ref):null;
  if(physical)currentReturnId=physical.id;
  const waybill=physical?await db.rpc('admin_aftersales_waybill_status',{p_return_id:physical.id}):null;
+ const roster=await db.rpc('admin_aftersales_available_couriers');
+ const picker=returnOps.querySelector('#aftersalesCourierAssignment [name=assignee]');
+ const options=Array.isArray(roster.data)?roster.data:[];
+ picker.replaceChildren(new Option(roster.error?'Unable to load: '+roster.error.message:'Select available registered rider or courier',''));
+ for(const item of options)picker.add(new Option((item.kind==='rider'?'LEOGO rider: ':'Approved courier: ')+item.label,item.kind+':'+item.id));
  const waybillInfo=returnOps.querySelector('#aftersalesWaybillInfo');
  waybillInfo.textContent=!physical?'No booked return linked to this case':waybill?.error?'Unable to load waybill: '+waybill.error.message:!waybill?.data?.assigned?'Courier not assigned':('Courier: '+waybill.data.courier_name+(waybill.data.waybill_path?' · Waybill uploaded':' · Awaiting station waybill upload'));
  returnOps.querySelector('#downloadAftersalesWaybill').hidden=!waybill?.data?.waybill_path;
@@ -97,7 +102,8 @@ async function refreshReturnOperations(){
 returnOps.querySelector('#aftersalesCourierAssignment').addEventListener('submit',async event=>{
  event.preventDefault();const frm=event.currentTarget,status=frm.querySelector('[role=status]');if(!currentReturnId){status.textContent='Select a case with an existing physical return';return;}
  const button=frm.querySelector('button');button.disabled=true;
- const {error}=await db.rpc('admin_assign_aftersales_return_courier',{p_return_id:currentReturnId,p_courier_name:frm.elements.courier.value.trim()});
+ const [type,id]=frm.elements.assignee.value.split(':');
+ const {error}=await db.rpc('admin_assign_aftersales_registered_courier',{p_return_id:currentReturnId,p_assignee_id:id,p_assignee_type:type});
  button.disabled=false;status.textContent=error?.message||'Courier assigned. Pickup Station can now upload the waybill.';if(!error)await refreshReturnOperations();
 });
 returnOps.querySelector('#printAftersalesReturnWaybill').addEventListener('click',async()=>{
