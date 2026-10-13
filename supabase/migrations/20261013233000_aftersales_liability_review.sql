@@ -34,7 +34,7 @@ begin
  elsif p_party='pickup_station' then
   if not exists(select 1 from public.pickup_station_return_parcels r where r.id=p_return_id and r.pickup_station_id=p_account and r.aftersales_case_id=p_case_id) then raise exception 'Pickup Station not linked to return';end if;
  elsif p_party='transport_provider' then
-  if not exists(select 1 from public.transport_provider_accounts where user_id=p_account and application_status='approved') then raise exception 'Not an approved transport provider';end if;
+  if not exists(select 1 from public.aftersales_return_waybills w join public.pickup_station_return_parcels r on r.id=w.return_id where r.aftersales_case_id=p_case_id and r.id=p_return_id and w.assignee_id=p_account and w.assignee_type='courier') then raise exception 'Transport provider not assigned to this return';end if;
  elsif p_party='staff_rider' then
   if not exists(select 1 from public.aftersales_return_waybills w where w.return_id=p_return_id and w.assignee_id=p_account and w.assignee_type='rider') then raise exception 'Rider not assigned to return';end if;
  else raise exception 'Invalid liable party';end if;
