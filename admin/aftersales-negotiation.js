@@ -99,7 +99,7 @@ async function refreshExchangeAdmin(){
  exchangeOps.querySelector('#exchangeAdminCostForm').hidden=!shipment||!['packed_ready','assigned'].includes(shipment.status);
  exchangeOps.querySelector('#exchangeAdminRiderForm').hidden=!shipment||shipment.status!=='packed_ready';
  if(result.error){exchangeStatus.textContent=result.error.message;return;}
- exchangeStatus.textContent=shipment?'Exchange '+shipment.reference+' · '+shipment.status.replaceAll('_',' ')+' · Station handover commission: KSh 0':'Seller has not packed an approved exchange yet.';
+ exchangeStatus.textContent=shipment?'Exchange '+shipment.reference+' · '+shipment.status.replaceAll('_',' ')+' · Customer delivery choice: '+(shipment.customer_delivery_choice==='door'?'Door (fee and payment verification required)':shipment.customer_delivery_choice==='pickup_station'?'Pickup Station collection':'Awaiting customer choice')+' · Sorting Center transit optional · Station handover commission: KSh 0':'Seller has not packed an approved exchange yet.';
  if(!shipment)return;
  const form=exchangeOps.querySelector('#exchangeAdminCostForm');
  form.elements.payer.value=shipment.payer||'';
