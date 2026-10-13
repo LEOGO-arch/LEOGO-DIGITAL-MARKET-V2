@@ -213,7 +213,38 @@ async function loadRiderAftersales(){
   const station=document.createElement('p');station.textContent='Collect from: '+record.pickup_station_name+' • Destination: '+String(record.route_destination||'seller').replaceAll('_',' ');
   const customer=document.createElement('p');customer.textContent='Customer: '+(record.customer_name||'Not recorded')+' • '+(record.customer_phone||'');
   const detail=document.createElement('p');detail.textContent='Order: '+(record.order_reference||'Not linked')+' • '+(record.has_waybill?'Waybill uploaded':'Awaiting waybill');
-  card.append(heading,line,station,customer,detail);container.append(card);
+  card.append(heading,line,station,customer,detail);
+  if(record.rider_received_at){
+   const confirmed=document.createElement('p');
+   confirmed.textContent='Parcel received and condition recorded: '+record.rider_condition+' — '+record.rider_notes;
+   confirmed.style.cssText='padding:10px;border-radius:8px;background:#eef6f0';
+   card.append(confirmed);
+  }else if(record.return_status==='dispatched'&&record.has_waybill){
+   const form=document.createElement('form');form.style.cssText='display:grid;gap:9px;padding:12px;background:#f7f9fc;border-radius:9px';
+   const title=document.createElement('strong');title.textContent='Confirm physical receipt & parcel condition';
+   const selection=document.createElement('select');selection.required=true;
+   for(const [value,label] of [['','Select parcel condition'],['good','Good / Intact'],['damaged','Damaged'],['tampered','Tampered / Opened'],['other','Other condition']]){
+    const option=document.createElement('option');option.value=value;option.textContent=label;selection.append(option);
+   }
+   const notes=document.createElement('textarea');notes.required=true;notes.minLength=5;notes.maxLength=1000;notes.placeholder='Describe packaging, seals and any damage (at least 5 characters)';
+   const button=document.createElement('button');button.type='submit';button.textContent='Confirm Parcel Received';button.className='primary-button';
+   const feedback=document.createElement('p');feedback.setAttribute('role','status');
+   form.append(title,selection,notes,button,feedback);
+   form.addEventListener('submit',async event=>{
+    event.preventDefault();if(!form.reportValidity())return;
+    if(!confirm('Confirm you have physically received '+record.return_reference+' and accurately documented its condition?'))return;
+    button.disabled=true;
+    try{
+     const result=await client.rpc('staff_confirm_aftersales_rider_receipt',{p_return_id:record.return_id,p_condition:selection.value,p_notes:notes.value.trim()});
+     if(result.error)throw result.error;
+     await loadRiderAftersales();
+    }catch(error){feedback.textContent='Not confirmed: '+(error.message||String(error));button.disabled=false;}
+   });
+   card.append(form);
+  }else{
+   const pending=document.createElement('p');pending.textContent='Awaiting station dispatch and waybill before rider receipt confirmation.';card.append(pending);
+  }
+  container.append(card);
  }
 }
 $('#refreshRiderAftersales')?.addEventListener('click',loadRiderAftersales);
