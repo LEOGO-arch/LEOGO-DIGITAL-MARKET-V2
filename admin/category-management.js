@@ -1,0 +1,50 @@
+(() => {
+'use strict';
+const db=window.leogoAdminDb, list=document.getElementById('adminCatalogueCategoryList');
+if(!db||!list)return;
+const host=document.createElement('section');host.style.cssText='border:1px solid #dbe3ed;border-radius:14px;padding:16px;margin:12px 0 18px;background:#f8fafc';
+host.innerHTML='<strong>Manage Categories & Sub-categories</strong><p style="margin:6px 0 12px">Create or rename categories without changing existing product approvals. Disable unused categories instead of deleting them.</p>'+
+'<form id="taxonomyAdminForm" style="display:grid;gap:10px;max-width:650px">'+
+'<label>Manage <select name="entity"><option value="category">Category</option><option value="subcategory">Sub-category</option></select></label>'+
+'<label>Operation <select name="mode"><option value="create">Add new</option><option value="edit">Edit existing</option></select></label>'+
+'<label class="taxonomy-parent-field" hidden>Parent category <select name="parent"></select></label>'+
+'<label class="taxonomy-existing-field" hidden>Existing entry <select name="existing"></select></label>'+
+'<label>Name <input name="title" required minlength="2" maxlength="100" placeholder="Category name" autocomplete="off"></label>'+
+'<label><input type="checkbox" name="active" checked> Active (available in seller catalogue)</label>'+
+'<button type="submit" class="primary-button">Save Category</button><p id="taxonomyAdminFeedback" role="status" aria-live="polite"></p></form>';
+list.before(host);
+const form=host.querySelector('form'), note=host.querySelector('#taxonomyAdminFeedback');
+let categories=[];
+const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const allEntries=()=>form.elements.entity.value==='category'?categories:categories.flatMap(c=>(c.subcategories||[]).map(s=>({...s,parent_name:c.name,category_id:c.id})));
+function refresh(){
+ const sub=form.elements.entity.value==='subcategory',editing=form.elements.mode.value==='edit';
+ host.querySelector('.taxonomy-parent-field').hidden=!sub||editing;
+ host.querySelector('.taxonomy-existing-field').hidden=!editing;
+ form.elements.parent.innerHTML=categories.filter(c=>c.is_assignable&&!c.is_aggregator&&c.code!=='pharmacy').map(c=>'<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.name)+'</option>').join('');
+ form.elements.existing.innerHTML=allEntries().map(e=>'<option value="'+escapeHtml(e.id)+'">'+escapeHtml(e.parent_name?e.parent_name+' — '+e.name:e.name)+'</option>').join('');
+ selectEntry();
+}
+function selectEntry(){
+ if(form.elements.mode.value!=='edit'){form.elements.title.value='';form.elements.active.checked=true;return;}
+ const e=allEntries().find(e=>e.id===form.elements.existing.value);
+ if(e){form.elements.title.value=e.name;form.elements.active.checked=!!e.is_active;}
+}
+async function load(){
+ const {data,error}=await db.rpc('admin_list_catalogue_categories');
+ if(error){note.textContent='Unable to load taxonomy: '+error.message;return;}
+ categories=Array.isArray(data)?data:[];
+ refresh();
+}
+form.elements.entity.onchange=refresh;form.elements.mode.onchange=refresh;form.elements.existing.onchange=selectEntry;
+form.onsubmit=async event=>{
+ event.preventDefault(); const btn=form.querySelector('button[type=submit]');btn.disabled=true;note.textContent='Saving…';
+ const args={p_entity:form.elements.entity.value,p_name:form.elements.title.value.trim(),p_active:form.elements.active.checked,p_id:form.elements.mode.value==='edit'?form.elements.existing.value:null,p_parent_id:form.elements.entity.value==='subcategory'&&form.elements.mode.value==='create'?form.elements.parent.value:null};
+ const {error}=await db.rpc('admin_manage_product_taxonomy',args);
+ btn.disabled=false;
+ if(error){note.textContent='Not saved: '+error.message;return;}
+ note.textContent='Saved. Reloading directory and seller/customer taxonomy…';
+ window.location.reload();
+};
+load();
+})();
