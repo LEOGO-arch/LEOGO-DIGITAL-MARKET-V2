@@ -25,7 +25,7 @@ const showView=(name)=>{
   $$('[data-panel]').forEach(p=>p.classList.toggle('active',p.dataset.panel===name));
   window.scrollTo({top:0,behavior:'smooth'});
 };
-$('#pickupNav [data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
+$$('#pickupNav [data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 // Return Parcels opens overdue physical returns; other statuses are one tap away.
 document.querySelector('#pickupNav [data-view="returns"]')?.addEventListener('click',()=>{returnFilter='overdue';renderReturns();});
 
