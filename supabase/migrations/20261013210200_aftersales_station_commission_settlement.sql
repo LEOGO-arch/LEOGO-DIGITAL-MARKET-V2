@@ -129,5 +129,4 @@ begin
 
   return jsonb_build_object('ok',true,'withdrawal_id',v_id,'requested_amount_kes',round(p_amount_kes,2),'status','pending');
 end
-$function$
-
+$function$;
