@@ -1244,6 +1244,11 @@
         </div>
 
         <div class="settings-panel" data-settings-content="fees">
+<form class="settings-form" id="aftersalesStationCommissionSettingsForm">
+ <div class="form-section-head"><div><span>📦</span><div><h3>Pickup Station Aftersales Return Commission</h3><p>Earned once per return only after the seller confirms physical receipt. Existing earned amounts are not recalculated when this rate changes.</p></div></div><button type="submit">Save Return Commission</button></div>
+ <div class="form-grid"><label><span>Commission per completed return (KSh)</span><input name="amount" type="number" min="0" max="10000" step="0.01" required></label></div>
+ <div class="form-status" id="aftersalesStationCommissionSettingsStatus" role="status"></div>
+ </form>
           <form class="settings-form" id="partnerSubscriptionSettingsForm">
             <div class="form-section-head"><div><span>🤝</span><div><h3>Partner Subscription Fees</h3><p>Control monthly and yearly access fees. New payment submissions snapshot the saved price.</p></div></div><button type="submit">Save Partner Fees</button></div>
             <div id="partnerSubscriptionSettingsList" class="form-grid"><div class="loading-card wide">Loading partner subscription fees…</div></div>
@@ -1788,7 +1793,8 @@
 <script src="flash-sales.js?v=flash-sale-v1" defer></script>
   <script src="shipping-moq.js?v=diagnostics-repair-1" defer></script>
 <script src="loans.js?v=sidebar-action-badges-2" defer></script>
-<script src="aftersales-negotiation.js?v=return-station-control-1" defer></script>
+<script src="aftersales-negotiation.js?v=commission-moved-1" defer></script>
+<script src="aftersales-fee-settings.js?v=central-fees-1" defer></script>
   <script src="category-management.js?v=taxonomy-admin-1" defer></script>\n</body>
 </html>
 
