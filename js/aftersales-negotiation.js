@@ -165,7 +165,8 @@ async function loadCustomerExchange(){
   const route=document.createElement('p');route.textContent='Delivery: '+(item.pickup_station_id?'Pickup Station collection':'Direct delivery')+' · Delivery cost payer: '+(item.payer||'Admin reviewing responsibility');
   const safe=document.createElement('p');safe.textContent='This replacement does not create a new product sale or extra Pickup Station commission.';
   card.append(title,line,route,safe);
-  if(item.status==='packed_ready'){
+  {
+   const deliveryLocked=item.status!=='awaiting_pack'||!!item.packed_at||!!item.rider_id;
    const chooser=document.createElement('form');chooser.style.cssText='display:grid;gap:8px;margin:12px 0;padding:10px;border:1px solid #dce5ee;border-radius:10px';
    const label=document.createElement('label');label.textContent='Receive your replacement';
    const method=document.createElement('select');method.required=true;
@@ -175,8 +176,13 @@ async function loadCustomerExchange(){
    const button=document.createElement('button');button.type='submit';button.textContent='Confirm Delivery Method';
    const feedback=document.createElement('p');feedback.setAttribute('role','status');
    chooser.append(label,method,button,feedback);
+   if(deliveryLocked){
+    method.disabled=true;button.disabled=true;
+    feedback.textContent='Delivery address and method locked: replacement is ready for delivery or has already started delivery. Contact LEOGO support for an exceptional delivery problem.';
+    feedback.style.cssText='color:#945d16;font-weight:650;font-size:13px';
+   }
    chooser.onsubmit=async e=>{
-    e.preventDefault();if(!method.value)return;
+    e.preventDefault();if(deliveryLocked||!method.value)return;
     if(method.value==='door'&&!confirm('Door delivery requires a delivery fee and LEOGO payment verification before rider assignment. Continue?'))return;
     button.disabled=true;
     const updated=await db.rpc('customer_aftersales_exchange_choose_delivery',{p_shipment_id:item.id,p_method:method.value});
