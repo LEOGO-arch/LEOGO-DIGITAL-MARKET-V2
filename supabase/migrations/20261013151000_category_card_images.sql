@@ -28,3 +28,6 @@ returns table(code text,image_path text) language sql stable security definer se
 $fn$;
 revoke all on function public.customer_category_images() from public;
 grant execute on function public.customer_category_images() to anon,authenticated;
+create or replace function public.admin_category_images() returns table(id uuid,image_path text) language plpgsql security definer set search_path='' as $fn$ begin if not private.is_leogo_admin('products.read') then raise exception 'Admin access required'; end if; return query select c.id,c.image_path from public.product_categories c; end;$fn$;
+revoke all on function public.admin_category_images() from public,anon;
+grant execute on function public.admin_category_images() to authenticated;
