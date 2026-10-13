@@ -52,6 +52,23 @@
       return;
     }
 
+    if(/^AFS-/i.test(code)){
+      result.innerHTML='<p>Checking LEOGO Aftersales return…</p>';
+      const {data,error}=await client.rpc('pickup_partner_track_aftersales',{p_code:code});
+      if(error){result.innerHTML='<p class="lookup-error">'+esc(error.message)+'</p>';return;}
+      if(!data){result.innerHTML='<p class="lookup-error">No authorized Aftersales case matches that reference.</p>';return;}
+      const label=x=>String(x||'Pending').replaceAll('_',' ');
+      result.innerHTML='<div class="tracking-result-head"><div><small>LEOGO AFTERSALES</small><h3>'+esc(data.aftersales_number)+'</h3></div><span class="pill">'+esc(label(data.return_status||data.negotiation_status||data.case_status))+'</span></div>'+
+       '<div class="tracking-grid">'+
+       '<div><small>Item</small><strong>'+esc(data.item_name)+'</strong></div>'+
+       '<div><small>Aftersales case status</small><strong>'+esc(label(data.case_status))+'</strong></div>'+
+       '<div><small>Seller / customer resolution</small><strong>'+esc(label(data.negotiation_status))+'</strong></div>'+
+       '<div><small>Return parcel status</small><strong>'+esc(data.return_status?label(data.return_status):'Not booked at station')+'</strong></div>'+
+       '<div><small>Return reference</small><strong>'+esc(data.return_reference||'Not booked')+'</strong></div>'+
+       '<div><small>Pickup Station</small><strong>'+esc(data.station_name||'Not yet assigned')+'</strong></div>'+
+       '<div><small>Last updated</small><strong>'+esc(fmt(data.last_updated))+'</strong></div></div>';
+      return;
+    }
     result.innerHTML='<p>Checking LEOGO order…</p>';
     const {data,error}=await client.rpc('pickup_partner_track_any_order',{p_code:code});
 
