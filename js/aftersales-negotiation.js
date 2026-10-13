@@ -2,7 +2,7 @@
 'use strict';
 const panel=document.querySelector('[data-customer-panel="aftersales"]');
 if(!panel)return;
-const section=document.createElement('section');section.className='aftersales-layout';section.innerHTML='<div class="afs-customer-heading"><div><span class="afs-eyebrow">AFTERSALES CENTRE</span><h3>My Aftersales Cases</h3><p>Track your return, review seller solutions and follow every update in one place.</p></div><button id="customerAftersalesRefresh" type="button">↻ Refresh Cases</button></div><div id="customerAftersalesNegotiations" class="afs-customer-cases"></div>';panel.append(section);
+const section=document.createElement('section');section.className='aftersales-layout';section.innerHTML='<div class="afs-customer-heading"><div><span class="afs-eyebrow">AFTERSALES CENTRE</span><h3>Seller Responses & Case Actions</h3><p>Track your return, review seller solutions and follow every update in one place.</p></div><button id="customerAftersalesRefresh" type="button">↻ Refresh Cases</button></div><div id="customerAftersalesNegotiations" class="afs-customer-cases"></div>';panel.append(section);
 const el=section.querySelector('#customerAftersalesNegotiations');
 const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const styles=document.createElement('style');styles.textContent=`
@@ -46,6 +46,9 @@ const {data:shippingRows,error:shippingError}=await db.rpc('aftersales_customer_
 const shippingByCase=new Map((Array.isArray(shippingRows)?shippingRows:[]).map(row=>[row.case_id,row]));
 if(shippingError && !String(shippingError.message).includes('function'))console.warn('Return shipping status:',shippingError.message);
 if(error){el.textContent=error.message;return;}
+// Reuse the existing My Cases History cards as the single location for event activity.
+window.leogoAftersalesActivityByCase=new Map((data||[]).filter(n=>n.case_reference).map(n=>[n.case_reference,Array.isArray(n.history)?n.history:[]]));
+document.dispatchEvent(new Event('leogo:customer-aftersales-activity-loaded'));
 el.replaceChildren();
 for(const n of data||[]){
 const card=document.createElement('article');card.className='aftersales-case-card afs-customer-case';
@@ -67,16 +70,7 @@ if(n.return_tracking){
  fact('Last update',r.updated_at?new Date(r.updated_at).toLocaleString('en-KE'):'Not recorded')+'</div>';
  card.append(parcel);
 }
-if(events.length){
- const history=document.createElement('details');history.className='afs-activity';
- const summary=document.createElement('summary');summary.textContent='Full Aftersales Activity ('+events.length+' updates)';
- history.append(summary);
- events.forEach(event=>{const item=document.createElement('div');item.className='afs-activity-entry';
- item.textContent=new Date(event.created_at).toLocaleString('en-KE')+' · '+
- String(event.actor_role||'LEOGO').replaceAll('_',' ')+' · '+String(event.event_type||'update').replaceAll('_',' ')+
- (event.comment?' — '+event.comment:'');history.append(item);});
- card.append(history);
-}
+
 const form=card.querySelector('form'), actions=form.querySelector('.afs-case-actions');const options=n.stage==='seller_proposed'?[['accept','Accept solution'],['reject','Reject solution']]:['seller_rejected','customer_rejected'].includes(n.stage)?[['intervene','Request LEOGO intervention']]:[];
 for(const [action,label] of options){const btn=document.createElement('button');btn.type='button';btn.textContent=label;actions.append(btn);btn.onclick=async()=>{const {error}=await db.rpc('aftersales_customer_respond',{p_case_id:n.case_id,p_action:action,p_comment:form.elements.comment.value});if(error){form.querySelector('[role=status]').textContent=error.message;return;}await load();};}
 if(n.stage==='customer_accepted' && ['return_refund','return_exchange'].includes(n.solution_kind)){
