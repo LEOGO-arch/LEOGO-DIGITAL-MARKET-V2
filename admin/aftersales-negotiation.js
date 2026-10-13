@@ -78,8 +78,51 @@ returnOps.innerHTML=`
    <button type="submit">Close Eligible Case</button><p role="status"></p></form>
  </details>`;
 root.before(returnOps);
+const exchangeOps=document.createElement('section');exchangeOps.className='content-card aftersales-negotiation-card';exchangeOps.hidden=true;
+exchangeOps.innerHTML='<h3>Outbound Exchange / Replacement Shipment</h3><p>Admin decides responsibility for delivery cost. Replacement dispatch never creates a new sale or station commission.</p><div id="exchangeAdminStatus"></div>'+
+'<form id="exchangeAdminCostForm" style="display:grid;gap:10px;margin:12px 0">'+
+'<label>Delivery cost payer<select name="payer" required><option value="">Select responsibility</option><option value="seller">Seller</option><option value="customer">Customer</option><option value="leogo">LEOGO</option></select></label>'+
+'<label>Delivery cost (KSh)<input name="cost" type="number" min="0" step="0.01" required></label>'+
+'<label>Reason for assigning liability<textarea name="reason" minlength="10" required></textarea></label>'+
+'<label><input type="checkbox" name="verified"> Delivery payment or approved internal charge independently verified</label>'+
+'<button type="submit">Save Responsibility & Verified Charge</button><p role="status"></p></form>'+
+'<form id="exchangeAdminRiderForm" style="display:grid;gap:10px"><label>Registered Rider<select name="rider" required></select></label><button type="submit">Assign Replacement Rider</button><p role="status"></p></form>';
+returnOps.before(exchangeOps);
+const exchangeStatus=exchangeOps.querySelector('#exchangeAdminStatus');
+async function refreshExchangeAdmin(){
+ const n=activeRecord();
+ exchangeOps.hidden=!n||!selected;
+ if(!n||!selected)return;
+ const result=await db.rpc('aftersales_exchange_list',{p_role:'admin'});
+ const shipment=Array.isArray(result.data)?result.data.find(s=>s.case_id===n.case_id):null;
+ exchangeOps.querySelector('#exchangeAdminCostForm').hidden=!shipment||!['packed_ready','assigned'].includes(shipment.status);
+ exchangeOps.querySelector('#exchangeAdminRiderForm').hidden=!shipment||shipment.status!=='packed_ready';
+ if(result.error){exchangeStatus.textContent=result.error.message;return;}
+ exchangeStatus.textContent=shipment?'Exchange '+shipment.reference+' · '+shipment.status.replaceAll('_',' ')+' · Station handover commission: KSh 0':'Seller has not packed an approved exchange yet.';
+ if(!shipment)return;
+ const form=exchangeOps.querySelector('#exchangeAdminCostForm');
+ form.elements.payer.value=shipment.payer||'';
+ form.elements.cost.value=shipment.delivery_cost_kes??'';
+ form.elements.reason.value=shipment.responsibility_reason||'';
+ form.elements.verified.checked=!!shipment.payment_verified;
+ const list=await db.rpc('admin_aftersales_available_couriers');
+ const select=exchangeOps.querySelector('#exchangeAdminRiderForm [name=rider]');select.replaceChildren(new Option('Choose active LEOGO rider',''));
+ for(const operator of (Array.isArray(list.data)?list.data:[]).filter(x=>x.kind==='rider'))select.add(new Option(operator.label,operator.id));
+}
+exchangeOps.querySelector('#exchangeAdminCostForm').addEventListener('submit',async e=>{
+ e.preventDefault();const form=e.currentTarget,n=activeRecord();if(!n||!selected)return;
+ const result=await db.rpc('admin_aftersales_exchange_decide_cost',{p_case_id:n.case_id,p_payer:form.elements.payer.value,p_cost:Number(form.elements.cost.value),p_reason:form.elements.reason.value,p_payment_verified:form.elements.verified.checked});
+ form.querySelector('[role=status]').textContent=result.error?.message||'Charge decision recorded.';if(!result.error)await refreshExchangeAdmin();
+});
+exchangeOps.querySelector('#exchangeAdminRiderForm').addEventListener('submit',async e=>{
+ e.preventDefault();const form=e.currentTarget,n=activeRecord();if(!n||!selected)return;
+ const result=await db.rpc('admin_aftersales_exchange_assign',{p_case_id:n.case_id,p_rider_id:form.elements.rider.value});
+ form.querySelector('[role=status]').textContent=result.error?.message||'Registered rider assigned.';if(!result.error)await refreshExchangeAdmin();
+});
+
 const returnStatus=returnOps.querySelector('#returnOperationsSummary');
 async function refreshReturnOperations(){
+ await refreshExchangeAdmin();
  const n=activeRecord();
  returnOps.hidden=!n||!selected;
  currentReturnId='';
