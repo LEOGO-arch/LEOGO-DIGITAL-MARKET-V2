@@ -30,7 +30,7 @@ async function refresh(){
   const details=document.createElement('p');details.textContent=row.evidence_notes;
   card.append(head,details);
   const actions=row.status==='pending_review'?['approve','reject']:row.status==='approved'?['reverse']:[];
-  for(const action of actions){const btn=document.createElement('button');btn.type='button';btn.textContent=action[0].toUpperCase()+action.slice(1);btn.style.marginRight='8px';btn.onclick=async()=>{
+  for(const action of actions){const btn=document.createElement('button');btn.type='button';btn.textContent=action==='approve'?'Approve Finding (No Debit)':action[0].toUpperCase()+action.slice(1);btn.style.marginRight='8px';btn.onclick=async()=>{
    const notes=window.prompt('Record documented reason for '+action+' (minimum 10 characters)');if(!notes||notes.trim().length<10)return;
    btn.disabled=true;const res=await db.rpc('admin_decide_aftersales_liability',{p_id:row.id,p_action:action,p_notes:notes.trim()});btn.disabled=false;
    if(res.error)status.textContent=res.error.message;else await refresh();
