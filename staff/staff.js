@@ -209,19 +209,32 @@ async function loadExchangeRiderJobs(){
   const detail=document.createElement('p');detail.textContent='Case '+job.case_reference+' · Status '+job.status.replaceAll('_',' ')+' · Customer '+job.receiver_name;
   const form=document.createElement('form');form.style.cssText='display:grid;gap:8px';
   const choice=document.createElement('select');
-  const steps={assigned:[['pickup','Collected from seller — record parcel condition']],picked_up:[['sorting','Received at LEOGO Sorting Center'],['transit','On the way to customer']],sorting_received:[['transit','On the way to customer']],on_the_way:job.pickup_station_id?[['arrive_station','Delivered to Pickup Station']]:[['deliver_customer','Delivered directly to customer']]};
+  const steps={assigned:[['pickup','Collected from seller — record parcel condition']],picked_up:[['sorting','Received at LEOGO Sorting Center'],['transit','On the way to customer']],sorting_received:[['transit','On the way to customer']],on_the_way:job.pickup_station_id?[['arrive_station','Delivered to Pickup Station']]:[['deliver_customer','Deliver directly to customer (photo required)']]};
   for(const [value,label] of steps[job.status]||[]){const option=document.createElement('option');option.value=value;option.textContent=label;choice.add(option);}
   const condition=document.createElement('select');
   for(const [value,label] of [['','Choose parcel condition'],['good','Good / Intact'],['damaged','Damaged'],['tampered','Tampered'],['other','Other']])condition.add(new Option(label,value));
   const notes=document.createElement('textarea');notes.placeholder='Condition notes on pickup, or customer handover proof notes';notes.maxLength=1000;
+  const deliveryPhoto=document.createElement('input');deliveryPhoto.type='file';deliveryPhoto.accept='image/jpeg,image/png';deliveryPhoto.hidden=true;
   const button=document.createElement('button');button.type='submit';button.textContent='Update Exchange Delivery';
   const status=document.createElement('p');status.setAttribute('role','status');
   if((steps[job.status]||[]).length){
-   form.append(choice,condition,notes,button,status);
+   form.append(choice,condition,notes,deliveryPhoto,button,status);
    condition.hidden=job.status!=='assigned';notes.hidden=!['assigned','on_the_way'].includes(job.status);
+   function adjustExchangeFields(){deliveryPhoto.hidden=choice.value!=='deliver_customer';deliveryPhoto.required=choice.value==='deliver_customer';notes.hidden=!['pickup','deliver_customer'].includes(choice.value);}
+   choice.addEventListener('change',adjustExchangeFields);adjustExchangeFields();
    form.addEventListener('submit',async event=>{
     event.preventDefault();button.disabled=true;
-    const result=await client.rpc('aftersales_exchange_rider_update',{p_shipment_id:job.id,p_action:choice.value,p_condition:condition.value||null,p_note:notes.value.trim()||null});
+    let result;
+    if(choice.value==='deliver_customer'){
+      const file=deliveryPhoto.files[0];
+      if(!file||!['image/png','image/jpeg'].includes(file.type)||file.size>5242880){status.textContent='A JPG/PNG handover photo under 5 MB is required';button.disabled=false;return;}
+      const path=job.id+'/'+Date.now().toString(36)+'.'+(file.type==='image/png'?'png':'jpg');
+      const upload=await client.storage.from('aftersales-exchange-rider-proof').upload(path,file,{upsert:false,contentType:file.type});
+      if(upload.error){status.textContent=upload.error.message;button.disabled=false;return;}
+      result=await client.rpc('aftersales_exchange_rider_deliver',{p_shipment_id:job.id,p_path:path,p_note:notes.value.trim()});
+    }else{
+      result=await client.rpc('aftersales_exchange_rider_update',{p_shipment_id:job.id,p_action:choice.value,p_condition:condition.value||null,p_note:notes.value.trim()||null});
+    }
     if(result.error){status.textContent=result.error.message;button.disabled=false;return;}
     await loadExchangeRiderJobs();
    });
