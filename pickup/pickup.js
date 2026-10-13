@@ -1078,18 +1078,22 @@ $('#scannerModal').addEventListener('click',e=>{if(e.target===$('#scannerModal')
 
 $('#pickupLogout').addEventListener('click',async()=>{await client.auth.signOut();location.replace('../partner/');});
 
+const pickupStartupDeadline=(promise,label)=>Promise.race([
+ Promise.resolve(promise),
+ new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+' timed out. Check connection and sign in again.')),18000))
+]);
 const boot=async()=>{
   try {
   $('#historyFrom').value=monthStart();$('#historyTo').value=today();$('#earningsFrom').value=monthStart();$('#earningsTo').value=today();
-  const {data:{session},error}=await client.auth.getSession();
+  const {data:{session},error}=await pickupStartupDeadline(client.auth.getSession(),'Session verification');
   if(error||!session){stopScanner();$('#authGate').hidden=false;$('#assignmentGate').hidden=true;$('#portal').hidden=true;document.getElementById('pickupStartupNotice')?.remove();return;}
   if(await redirectAdminIdentity(session.user))return;
   document.getElementById('pickupStartupNotice')?.remove();
   currentUser=session.user;$('#authGate').hidden=true;
   startPickupNotificationRealtime();
   try{
-    await loadPickupLocations();
-    await loadAll();
+    await pickupStartupDeadline(loadPickupLocations(),'Pickup location loading');
+    await pickupStartupDeadline(loadAll(),'Pickup Station dashboard loading');
     const params=new URLSearchParams(location.search);
     const incoming=(params.get('ref')||params.get('order')||'').trim();
     if(incoming&&dashboard?.assigned){
