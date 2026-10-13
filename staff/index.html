@@ -82,6 +82,11 @@
       <div><span>DELIVERY OPERATIONS</span><h1 id="riderName">Rider Dashboard</h1><p>Only orders assigned to you are shown here.</p></div>
       <button id="refreshRiderJobs" type="button">↻ Refresh</button>
     </header>
+<nav id="riderTaskShortcuts" aria-label="Rider task shortcuts" hidden style="padding:12px 16px;display:flex;gap:9px;flex-wrap:wrap;background:#fff;border-radius:14px;margin:12px 0">
+ <a href="#riderJobList" style="padding:12px;border:1px solid #d9e1eb;border-radius:10px;font-weight:700">Active Deliveries <span id="riderDeliveryShortcutCount">0</span></a>
+ <a href="#riderAftersalesList" style="padding:12px;border:1px solid #d9e1eb;border-radius:10px;font-weight:700">Aftersales Returns <span id="riderReturnShortcutCount">0</span></a>
+ <a href="#riderExchangeList" style="padding:12px;border:1px solid #d9e1eb;border-radius:10px;font-weight:700">Exchange Deliveries <span id="riderExchangeShortcutCount">0</span></a>
+ </nav>
     <div class="rider-stats">
       <article><span>Assigned</span><strong id="riderAssignedCount">0</strong></article>
       <article><span>Picked Up</span><strong id="riderPickedCount">0</strong></article>
@@ -96,11 +101,7 @@
     </div>
     <div id="riderJobList" class="rider-job-list"><div class="empty">No delivery jobs assigned.</div></div>
     <p id="riderStatus" class="status"></p>
-  </section><nav id="riderTaskShortcuts" aria-label="Rider task shortcuts" hidden style="padding:12px 16px;display:flex;gap:9px;flex-wrap:wrap;background:#fff;border-radius:14px;margin:12px 0">
- <a href="#riderJobList" style="padding:12px;border:1px solid #d9e1eb;border-radius:10px;font-weight:700">Delivery Jobs</a>
- <a href="#riderAftersalesList" style="padding:12px;border:1px solid #d9e1eb;border-radius:10px;font-weight:700">Aftersales Returns <span id="riderReturnShortcutCount">0</span></a>
- <a href="#riderExchangeList" style="padding:12px;border:1px solid #d9e1eb;border-radius:10px;font-weight:700">Exchange Deliveries <span id="riderExchangeShortcutCount">0</span></a>
- </nav>
+  </section>
 <section id="riderAftersalesPanel" hidden style="padding:16px;margin:12px 0;background:#f7f9fc;border-radius:14px">
  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2>Assigned Aftersales Returns <span id="riderAftersalesCount">0</span></h2><button id="refreshRiderAftersales" type="button">↻ Refresh Returns</button></div>
  <p>Only returns assigned to your registered LEOGO rider account are shown. Pickup Station records the dispatch and seller confirms final receipt.</p>
@@ -113,6 +114,6 @@
   <script src="../js/runtime-monitor.js?v=network-storm-fix-2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
-<script src="staff.js?v=delivery-first-dashboard-1" defer></script>
+<script src="staff.js?v=rider-top-work-counts-1" defer></script>
 </body>
 </html>
