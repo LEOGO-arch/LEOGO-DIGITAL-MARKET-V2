@@ -77,16 +77,17 @@
     <p id="assistedStaffStatus" class="status"></p>
   </section>
 
-  <section id="riderAftersalesPanel" hidden style="padding:16px;margin:12px 0;background:#f7f9fc;border-radius:14px">
- <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2>Assigned Aftersales Returns <span id="riderAftersalesCount">0</span></h2><button id="refreshRiderAftersales" type="button">↻ Refresh Returns</button></div>
- <p>Only returns assigned to your registered LEOGO rider account are shown. Pickup Station records the dispatch and seller confirms final receipt.</p>
- <p id="riderAftersalesLiability" role="status" style="font-size:12px;padding:10px;background:#fff7ed;border-radius:10px"></p><div id="riderAftersalesList">Loading assigned returns…</div><h3>Outbound Exchange Deliveries</h3><div id="riderExchangeList">Loading assigned exchange shipments…</div>
- </section>
 <section id="riderApp" class="rider-app" hidden>
     <header class="rider-welcome">
       <div><span>DELIVERY OPERATIONS</span><h1 id="riderName">Rider Dashboard</h1><p>Only orders assigned to you are shown here.</p></div>
       <button id="refreshRiderJobs" type="button">↻ Refresh</button>
     </header>
+    <nav id="riderQuickActions" aria-label="Rider work shortcuts" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0">
+      <button type="button" data-rider-jump="active" style="padding:12px;border-radius:12px">Active Deliveries <strong id="shortcutActiveDeliveries">0</strong></button>
+      <button type="button" data-rider-jump="delivered" style="padding:12px;border-radius:12px">Delivered <strong id="shortcutDelivered">0</strong></button>
+      <button type="button" data-rider-jump="returns" style="padding:12px;border-radius:12px">Aftersales Returns <strong id="shortcutReturns">0</strong></button>
+      <button type="button" data-rider-jump="exchanges" style="padding:12px;border-radius:12px">Exchange Deliveries <strong id="shortcutExchanges">0</strong></button>
+    </nav>
     <div class="rider-stats">
       <article><span>Assigned</span><strong id="riderAssignedCount">0</strong></article>
       <article><span>Picked Up</span><strong id="riderPickedCount">0</strong></article>
@@ -101,12 +102,18 @@
     <div id="riderJobList" class="rider-job-list"><div class="empty">No delivery jobs assigned.</div></div>
     <p id="riderStatus" class="status"></p>
   </section>
+  <section id="riderAftersalesPanel" hidden style="padding:16px;margin:12px 0;background:#f7f9fc;border-radius:14px">
+ <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2>Assigned Aftersales Returns <span id="riderAftersalesCount">0</span></h2><button id="refreshRiderAftersales" type="button">↻ Refresh Returns</button></div>
+ <p>Only returns assigned to your registered LEOGO rider account are shown. Pickup Station records the dispatch and seller confirms final receipt.</p>
+ <p id="riderAftersalesLiability" role="status" style="font-size:12px;padding:10px;background:#fff7ed;border-radius:10px"></p><div id="riderAftersalesList">Loading assigned returns…</div><h3>Outbound Exchange Deliveries</h3><div id="riderExchangeList">Loading assigned exchange shipments…</div>
+ </section>
+
 </main>
 
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
   <script src="../js/runtime-monitor.js?v=network-storm-fix-2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
-<script src="staff.js?v=exchange-delivery-production-1" defer></script>
+<script src="staff.js?v=rider-priority-quicklinks-1" defer></script>
 </body>
 </html>
