@@ -56,6 +56,7 @@ function show(mode){
   $('#riderApp').hidden=mode!=='app'||staff?.staff_role!=='rider';
   $('#assistedStaffApp').hidden=mode!=='app'||staff?.staff_role==='rider';
   $('#riderAftersalesPanel').hidden=mode!=='app'||staff?.staff_role!=='rider';
+  $('#riderTaskShortcuts').hidden=mode!=='app'||staff?.staff_role!=='rider';
   $('#staffLogout').hidden=['login','forgot','password'].includes(mode);
 }
 
@@ -201,6 +202,7 @@ async function loadExchangeRiderJobs(){
  const {data,error}=await client.rpc('aftersales_exchange_list',{p_role:'rider'});
  if(error){container.textContent=error.message;return;}
  const jobs=Array.isArray(data)?data:[];
+ const exchangeCount=$('#riderExchangeShortcutCount');if(exchangeCount)exchangeCount.textContent=String(jobs.length);
  container.replaceChildren();
  if(!jobs.length){container.textContent='No exchange deliveries assigned.';return;}
  for(const job of jobs){
@@ -257,6 +259,7 @@ async function loadRiderAftersales(){
  }
  const cases=Array.isArray(data)?data:[];
  $('#riderAftersalesCount').textContent=String(cases.length);
+ const shortcutCount=$('#riderReturnShortcutCount');if(shortcutCount)shortcutCount.textContent=String(cases.length);
  if(!cases.length){container.textContent='No Aftersales return parcels currently assigned to your rider account.';return;}
  container.replaceChildren();
  for(const record of cases){
