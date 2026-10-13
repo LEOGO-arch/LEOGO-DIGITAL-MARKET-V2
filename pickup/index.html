@@ -89,7 +89,7 @@
     <nav class="portal-nav" id="pickupNav">
       <button class="active" data-view="operations">Scan / Receive</button>
       <button data-view="parcels">Parcels</button>
-      <button data-view="returns">Return Parcel</button>
+      <button data-view="returns">Return Parcels</button>
       <button data-view="history">History</button>
       <button data-view="earnings">Earnings</button>
     </nav>
@@ -151,7 +151,16 @@
         </article>
         <article class="card">
           <div class="card-head"><div><span>RETURN REGISTER</span><h2>Recent Returns</h2></div><button id="refreshReturns" type="button">↻ Refresh</button></div>
-          <div id="returnList" class="compact-list"></div>
+          <nav class="return-submenu" aria-label="Aftersales return status" style="display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 16px">
+<button type="button" data-return-filter="pending">Pending Receive <b id="returnCountPending">0</b></button>
+<button type="button" data-return-filter="received">Received <b id="returnCountReceived">0</b></button>
+<button type="button" data-return-filter="dispatched">Dispatched <b id="returnCountDispatched">0</b></button>
+<button type="button" data-return-filter="complete">Complete <b id="returnCountComplete">0</b></button>
+<button type="button" data-return-filter="overdue">Overstayed (48h+) <b id="returnCountOverdue">0</b></button>
+<button type="button" data-return-filter="all">All Aftersales</button><button type="button" data-return-filter="manual">Manual Returns</button>
+</nav>
+<p id="returnsCommissionSummary" class="status">Return commission is earned once the seller confirms physical receipt.</p>
+<div id="returnList" class="compact-list"></div>
         </article>
       </div>
     </section>
@@ -213,7 +222,7 @@
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
   <script src="../js/runtime-monitor.js?v=network-storm-fix-2" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
-<script src="pickup.js?v=aftersales-waybill-1" defer></script>
+<script src="pickup.js?v=return-status-commission-1" defer></script>
 <script src="tracker-any.js?v=aftersales-tracking-1" defer></script>
 <script src="loan-assets.js?v=loan-assets-3" defer></script>
 </body>

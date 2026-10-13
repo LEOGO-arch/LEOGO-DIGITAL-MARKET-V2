@@ -36,13 +36,22 @@ returnOps.hidden=true;
 returnOps.innerHTML=`
  <div class="aftersales-negotiation-heading"><div><span>PHYSICAL RETURN & RESOLUTION</span><h3>Aftersales Return Operations</h3><p>Record parcel handoffs, verify return shipping, and close only after delivery or expiry. Refund recommendations require separate LEOGO authorization.</p></div><button type="button" id="refreshReturnOperations">↻ Refresh</button></div>
  <p id="returnOperationsSummary" role="status"></p>
+ <details><summary>Pickup Station Aftersales Commission (Admin Settings)</summary>
+ <form id="aftersalesFeeForm" class="aftersales-negotiation-form">
+ <label>Commission per completed return (KSh) <input name="amount" type="number" min="0" max="10000" step="0.01" required value="20"></label>
+ <button type="submit">Save Commission Rate</button><p role="status"></p>
+ </form></details>
  <section style="padding:14px;border:1px solid #d5dfed;border-radius:12px;background:#f6f9ff"><h4>Rider Assignment & Return Waybill</h4><p>Assign a courier, print the QR-coded return waybill, or open the handover proof uploaded by the Pickup Station.</p>
   <form id="aftersalesCourierAssignment" class="aftersales-negotiation-form">
    <label>Registered LEOGO rider / approved courier<select name="assignee" required><option value="">Loading available riders and couriers…</option></select></label>
    <button type="submit">Assign Rider / Courier</button><p role="status"></p>
   </form>
   <p id="aftersalesWaybillInfo">Select an Aftersales return to view waybill status.</p>
-  <button id="printAftersalesReturnWaybill" type="button">Print / Save QR Return Waybill</button>
+  <form id="aftersalesRouteForm" class="aftersales-negotiation-form">
+  <label>Return route <select name="destination"><option value="seller">Direct to Seller</option><option value="sorting_center">Via LEOGO Sorting Center</option></select></label>
+  <button type="submit">Save Route Before Handover</button><p role="status"></p>
+ </form>
+ <button id="printAftersalesReturnWaybill" type="button">Print / Save QR Return Waybill</button>
   <button id="downloadAftersalesWaybill" type="button" hidden>Open Uploaded Rider Receipt</button>
  </section>
  <details><summary>1. Parcel: Pickup Station → Sorting Center → Seller</summary>
@@ -80,6 +89,8 @@ async function refreshReturnOperations(){
  currentReturnId='';
  if(!n||!selected)return;
  const [returns,shipping]=await Promise.all([db.rpc('admin_list_pickup_station_returns'),db.rpc('admin_aftersales_return_shipping_list')]);
+ const rate=await db.rpc('admin_aftersales_station_fee');
+ if(rate.data?.amount_kes!=null)returnOps.querySelector('#aftersalesFeeForm [name=amount]').value=rate.data.amount_kes;
  const ref=n.return_tracking?.return_reference;
  const physical=Array.isArray(returns.data)?returns.data.find(row=>row.return_reference===ref):null;
  if(physical)currentReturnId=physical.id;
@@ -99,6 +110,17 @@ async function refreshReturnOperations(){
   (returns.error?' · Parcel list: '+returns.error.message:'')+
   (shipping.error?' · Shipping list: '+shipping.error.message:'');
 }
+returnOps.querySelector('#aftersalesFeeForm').addEventListener('submit',async ev=>{
+ ev.preventDefault();const frm=ev.currentTarget;
+ const {error}=await db.rpc('admin_set_aftersales_station_fee',{p_amount:Number(frm.elements.amount.value)});
+ frm.querySelector('[role=status]').textContent=error?.message||'New rate saved for future completed returns.';
+});
+returnOps.querySelector('#aftersalesRouteForm').addEventListener('submit',async ev=>{
+ ev.preventDefault();const frm=ev.currentTarget;
+ if(!currentReturnId){frm.querySelector('[role=status]').textContent='Select a received Aftersales return first.';return;}
+ const {error}=await db.rpc('admin_configure_aftersales_return_route',{p_return_id:currentReturnId,p_destination:frm.elements.destination.value});
+ frm.querySelector('[role=status]').textContent=error?.message||'Route saved. Station handover will follow this destination.';
+});
 returnOps.querySelector('#aftersalesCourierAssignment').addEventListener('submit',async event=>{
  event.preventDefault();const frm=event.currentTarget,status=frm.querySelector('[role=status]');if(!currentReturnId){status.textContent='Select a case with an existing physical return';return;}
  const button=frm.querySelector('button');button.disabled=true;
