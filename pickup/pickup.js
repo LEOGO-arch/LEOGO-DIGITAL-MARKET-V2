@@ -237,9 +237,35 @@ const renderReturns=()=>{
   $('#returnList').innerHTML=returns.length?returns.map(r=>`
     <article class="compact-row"><header><strong>${esc(r.return_reference)}</strong><span class="pill">${esc(String(r.status||'').replaceAll('_',' '))}</span></header>
     <p>${esc(r.customer_name)} · ${esc(r.customer_phone)}<br>${esc(r.item_description)}<br><b>Reason:</b> ${esc(r.return_reason)}${r.original_order_reference?'<br><b>Original:</b> '+esc(r.original_order_reference):''}</p>
-    <small>${esc(fmt(r.booked_at))}</small>${r.status==='awaiting_dispatch'&&r.return_reference?.startsWith('AFR-')?'<button type="button" data-receive-aftersales-return="'+esc(r.id)+'">Receive physical return</button>':''}</article>`).join(''):'<div class="compact-row"><strong>No return parcels yet.</strong></div>';
+    <small>${esc(fmt(r.booked_at))}</small>${r.status==='awaiting_dispatch'&&r.return_reference?.startsWith('AFR-')?'<button type="button" data-receive-aftersales-return="'+esc(r.id)+'">Receive physical return</button>':''}${r.return_reference?.startsWith('AFR-')&&['received_at_station','dispatched'].includes(r.status)?'<button type="button" data-return-waybill="'+esc(r.id)+'">Return handover / Waybill</button>':''}</article>`).join(''):'<div class="compact-row"><strong>No return parcels yet.</strong></div>';
 };
 
+$('#returnList').addEventListener('click',async event=>{
+ const btn=event.target.closest('[data-return-waybill]');if(!btn)return;
+ const id=btn.dataset.returnWaybill,record=returns.find(r=>r.id===id);if(!record)return;
+ const {data,error}=await client.rpc('pickup_partner_aftersales_waybill_status',{p_return_id:id});
+ if(error){alert(error.message);return;}
+ if(!data?.assigned){alert('Waiting for LEOGO Admin to assign a rider or courier. This return is already booked — do not book it again.');return;}
+ if(data.waybill_path){alert('Waybill already submitted for '+record.return_reference+'. Admin can download it.');return;}
+ const fileInput=document.createElement('input');fileInput.type='file';fileInput.accept='image/jpeg,image/png,application/pdf';fileInput.style.display='none';document.body.append(fileInput);
+ fileInput.onchange=async()=>{
+  const file=fileInput.files[0];fileInput.remove();if(!file)return;
+  if(file.size>5*1024*1024){alert('Waybill must be 5 MB or smaller');return;}
+  if(!['image/jpeg','image/png','application/pdf'].includes(file.type)){alert('Please upload a JPG, PNG or PDF waybill');return;}
+  if(!confirm('Confirm that the return '+record.return_reference+' was handed to '+data.courier_name+' and this receipt is the rider/courier waybill?'))return;
+  btn.disabled=true;
+  const ext=file.type==='application/pdf'?'pdf':file.type==='image/png'?'png':'jpg';
+  const name=id+'/'+Date.now().toString(36)+Math.random().toString(36).slice(2)+'.'+ext;
+  const upload=await client.storage.from('aftersales-return-waybills').upload(name,file,{contentType:file.type,upsert:false});
+  if(upload.error){alert(upload.error.message);btn.disabled=false;return;}
+  const saved=await client.rpc('pickup_partner_submit_aftersales_waybill',{p_return_id:id,p_path:name});
+  btn.disabled=false;
+  if(saved.error){alert('Waybill uploaded but receipt link failed: '+saved.error.message);return;}
+  alert('Waybill recorded for '+record.return_reference+'. Admin can download it.');
+  await loadReturns();
+ };
+ fileInput.click();
+});
 $('#returnList').addEventListener('click',async event=>{
  const button=event.target.closest('[data-receive-aftersales-return]');
  if(!button)return;
