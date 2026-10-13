@@ -42,8 +42,9 @@ returnOps.innerHTML=`
    <button type="submit">Assign Rider / Courier</button><p role="status"></p>
   </form>
   <p id="aftersalesWaybillInfo">Select an Aftersales return to view waybill status.</p>
-  <button id="downloadAftersalesWaybill" type="button" hidden>Download Return Waybill</button>
- </details>
+  <button id="printAftersalesReturnWaybill" type="button">Print / Save QR Return Waybill</button>
+  <button id="downloadAftersalesWaybill" type="button" hidden>Open Uploaded Rider Receipt</button>
+ </section>
  <details><summary>1. Parcel: Pickup Station → Sorting Center → Seller</summary>
   <form data-return-action="route" class="aftersales-negotiation-form">
    <label>Verified handover<select name="step"><option value="station_dispatched_to_sorting">Station → Sorting Center</option><option value="sorting_received">Sorting Center received</option><option value="sorting_dispatched_to_seller">Sorting Center → Seller</option><option value="station_dispatched_to_seller">Station → Seller</option></select></label>
