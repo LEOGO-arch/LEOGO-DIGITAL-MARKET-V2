@@ -1079,10 +1079,12 @@ $('#scannerModal').addEventListener('click',e=>{if(e.target===$('#scannerModal')
 $('#pickupLogout').addEventListener('click',async()=>{await client.auth.signOut();location.replace('../partner/');});
 
 const boot=async()=>{
+  try {
   $('#historyFrom').value=monthStart();$('#historyTo').value=today();$('#earningsFrom').value=monthStart();$('#earningsTo').value=today();
   const {data:{session},error}=await client.auth.getSession();
-  if(error||!session){stopScanner();$('#authGate').hidden=false;$('#assignmentGate').hidden=true;$('#portal').hidden=true;return;}
+  if(error||!session){stopScanner();$('#authGate').hidden=false;$('#assignmentGate').hidden=true;$('#portal').hidden=true;document.getElementById('pickupStartupNotice')?.remove();return;}
   if(await redirectAdminIdentity(session.user))return;
+  document.getElementById('pickupStartupNotice')?.remove();
   currentUser=session.user;$('#authGate').hidden=true;
   startPickupNotificationRealtime();
   try{
@@ -1095,6 +1097,7 @@ const boot=async()=>{
       showView('operations');lookupParcel(incoming);
     }
   }catch(err){
+    document.getElementById('pickupStartupNotice')?.remove();
     stopScanner();
     $('#portal').hidden=true;$('#assignmentGate').hidden=false;
     $('#pickupApplicationEyebrow').textContent='PORTAL ERROR';
@@ -1102,6 +1105,17 @@ const boot=async()=>{
     $('#pickupApplicationMessage').textContent=err.message||'Refresh and try again.';
     $('#pickupApplicationNotice').textContent='Parcel functions remain locked until the portal loads and confirms an approved station account.';
     $('#pickupApplicationNotice').className='application-notice rejected';
+    $('#pickupApplicationForm').hidden=true;
+  }
+  } catch(err) {
+    document.getElementById('pickupStartupNotice')?.remove();
+    console.error('Pickup Station startup failed:',err);
+    stopScanner();
+    $('#portal').hidden=true;$('#authGate').hidden=true;$('#assignmentGate').hidden=false;
+    $('#pickupApplicationEyebrow').textContent='PORTAL LOAD ERROR';
+    $('#pickupApplicationTitle').textContent='Pickup Station could not initialize';
+    $('#pickupApplicationMessage').textContent=err?.message||'A startup error interrupted loading. Refresh or contact LEOGO support.';
+    $('#pickupApplicationNotice').textContent='Your parcel and earnings data have not been deleted. Operations remain protected until initialization succeeds.';
     $('#pickupApplicationForm').hidden=true;
   }
 };
