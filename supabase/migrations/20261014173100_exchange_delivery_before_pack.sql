@@ -1,3 +1,4 @@
+alter table public.aftersales_exchange_shipments add column if not exists door_delivery_address text;
 create table if not exists public.aftersales_exchange_delivery_preferences(
  case_id uuid primary key references public.marketplace_aftersales_cases(id),
  customer_id uuid not null references auth.users(id),
