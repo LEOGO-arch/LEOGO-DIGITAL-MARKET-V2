@@ -23,11 +23,14 @@ end;$fn$;
 create or replace function public.enforce_exchange_door_payment_on_assignment()
 returns trigger language plpgsql set search_path='' as $fn$
 begin
- if new.status='assigned' and old.status is distinct from 'assigned' and new.customer_delivery_choice='door'
- and (new.pickup_station_id is not null or new.payer is distinct from 'customer'
- or coalesce(new.delivery_cost_kes,0)<=0 or new.payment_verified is distinct from true
- or length(btrim(coalesce(new.delivery_payment_reference,'')))<5)
- then raise exception 'Customer-selected door delivery requires verified customer-paid delivery fee before rider assignment';end if;
+ if new.status='assigned' and old.status is distinct from 'assigned' then
+  if new.customer_delivery_choice is null then raise exception 'Customer must choose exchange delivery method before rider assignment';end if;
+  if new.customer_delivery_choice='pickup_station' and new.pickup_station_id is null then raise exception 'Pickup Station must be assigned for customer collection';end if;
+  if new.customer_delivery_choice='door' and (new.pickup_station_id is not null or new.payer is distinct from 'customer'
+     or coalesce(new.delivery_cost_kes,0)<=0 or new.payment_verified is distinct from true
+     or length(btrim(coalesce(new.delivery_payment_reference,'')))<5) then
+   raise exception 'Door delivery requires verified customer-paid delivery fee before rider assignment';end if;
+ end if;
  return new;
 end;$fn$;
 drop trigger if exists enforce_exchange_door_payment_assignment on public.aftersales_exchange_shipments;
