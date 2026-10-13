@@ -49,7 +49,7 @@ function render(){
    }
    card.append(wrapper);
    // Hide only an older, duplicate case-activity disclosure within the same card.
-   for(const d of card.querySelectorAll('details:not([data-unified-aftersales] details)')){
+   for(const d of card.querySelectorAll('details')){
     if(d!==timeline&&/aftersales activity history/i.test(d.querySelector('summary')?.textContent||''))d.hidden=true;
    }
   }
