@@ -327,6 +327,7 @@ function render(){
   $('#riderPickedCount').textContent=jobs.filter(j=>['picked_up','arrived_sorting_center','sorting_received','ready_for_dispatch'].includes(j.status)).length;
   $('#riderTransitCount').textContent=jobs.filter(j=>['on_the_way','delivered_to_pickup_station','ready_for_pickup'].includes(j.status)).length;
   $('#riderDeliveredCount').textContent=jobs.filter(j=>j.status==='delivered').length;
+  const deliveryCount=$('#riderDeliveryShortcutCount');if(deliveryCount)deliveryCount.textContent=String(jobs.filter(j=>!['delivered','cancelled'].includes(j.status)).length);
 
   const qrOrder=requestedOrderId();
   const visible=qrOrder
