@@ -201,6 +201,14 @@ async function loadRiderAftersales(){
  if(!container)return;
  const {data,error}=await client.rpc('staff_list_assigned_aftersales_returns');
  if(error){container.textContent='Unable to load Aftersales assignments: '+error.message;return;}
+ const liability=await client.rpc('partner_aftersales_liability_statement',{p_party:'staff_rider'});
+ const summary=$('#riderAftersalesLiability');
+ if(summary&&!liability.error){
+  const v=liability.data||{};
+  summary.textContent='Aftersales liability: KSh '+Number(v.approved_total_kes||0).toLocaleString('en-KE')+
+  ' approved; KSh '+Number(v.pending_total_kes||0).toLocaleString('en-KE')+
+  ' under review. Recovery requires LEOGO Admin confirmation; no automatic payroll deduction.';
+ }
  const cases=Array.isArray(data)?data:[];
  $('#riderAftersalesCount').textContent=String(cases.length);
  if(!cases.length){container.textContent='No Aftersales return parcels currently assigned to your rider account.';return;}
