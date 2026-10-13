@@ -36,7 +36,7 @@ returnOps.hidden=true;
 returnOps.innerHTML=`
  <div class="aftersales-negotiation-heading"><div><span>PHYSICAL RETURN & RESOLUTION</span><h3>Aftersales Return Operations</h3><p>Record parcel handoffs, verify return shipping, and close only after delivery or expiry. Refund recommendations require separate LEOGO authorization.</p></div><button type="button" id="refreshReturnOperations">↻ Refresh</button></div>
  <p id="returnOperationsSummary" role="status"></p>
- <details><summary>Assigned Courier and Waybill Receipt</summary>
+ <section style="padding:14px;border:1px solid #d5dfed;border-radius:12px;background:#f6f9ff"><h4>Rider Assignment & Return Waybill</h4><p>Assign a courier, print the QR-coded return waybill, or open the handover proof uploaded by the Pickup Station.</p>
   <form id="aftersalesCourierAssignment" class="aftersales-negotiation-form">
    <label>Assigned rider / courier name<input name="courier" minlength="2" maxlength="120" required placeholder="Enter the rider or courier"></label>
    <button type="submit">Assign Rider / Courier</button><p role="status"></p>
@@ -71,7 +71,7 @@ returnOps.innerHTML=`
    <label class="wide">Closure reason<textarea name="note" required minlength="5" maxlength="1000"></textarea></label>
    <button type="submit">Close Eligible Case</button><p role="status"></p></form>
  </details>`;
-root.after(returnOps);
+root.before(returnOps);
 const returnStatus=returnOps.querySelector('#returnOperationsSummary');
 async function refreshReturnOperations(){
  const n=activeRecord();
@@ -98,6 +98,23 @@ returnOps.querySelector('#aftersalesCourierAssignment').addEventListener('submit
  const button=frm.querySelector('button');button.disabled=true;
  const {error}=await db.rpc('admin_assign_aftersales_return_courier',{p_return_id:currentReturnId,p_courier_name:frm.elements.courier.value.trim()});
  button.disabled=false;status.textContent=error?.message||'Courier assigned. Pickup Station can now upload the waybill.';if(!error)await refreshReturnOperations();
+});
+returnOps.querySelector('#printAftersalesReturnWaybill').addEventListener('click',async()=>{
+ if(!currentReturnId){alert('Select an Aftersales case with a booked return parcel first.');return;}
+ const result=await db.rpc('admin_aftersales_waybill_print_data',{p_return_id:currentReturnId});
+ if(result.error){alert(result.error.message);return;}
+ const d=result.data||{},escPrint=value=>String(value??'Not recorded').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[c]));
+ const qrHost=document.createElement('div');
+ if(typeof QRCode!=='function'){alert('QR generator is still loading. Refresh and try again.');return;}
+ new QRCode(qrHost,{text:String(d.aftersales_number||''),width:150,height:150,correctLevel:QRCode.CorrectLevel.M});
+ const canvas=qrHost.querySelector('canvas'),qrImg=qrHost.querySelector('img');
+ const source=canvas?.toDataURL('image/png')||qrImg?.src;
+ if(!source){alert('Unable to generate QR. Refresh and try again.');return;}
+ const printable=window.open('','_blank');if(!printable){alert('Allow popups to print the return waybill.');return;}
+ printable.document.write('<!doctype html><html><head><title>LEOGO Aftersales Waybill</title><style>body{font:15px Arial,sans-serif;max-width:390px;margin:20px auto;color:#12213a;padding:14px}.head{text-align:center;border-bottom:2px solid #12213a;padding-bottom:12px}h2{font-size:19px;margin:6px 0}.field{padding:10px 0;border-bottom:1px dashed #aaa}.field b{display:block;font-size:11px;text-transform:uppercase;color:#596579;margin-bottom:3px}.qr{text-align:center;margin-top:16px}.qr img{width:150px;height:150px}button{padding:10px 16px;margin:12px auto;display:block}@media print{button{display:none}body{margin:0;max-width:none}}</style></head><body><div class="head"><strong>LEOGO DIGITAL MARKET</strong><h2>AFTERSALES RETURN WAYBILL</h2></div>'+
+ [['Customer name',d.customer_name],['Pickup station',d.station_name],['Aftersales number',d.aftersales_number],['Item name',d.item_name],['Customer phone',d.customer_phone],['Station phone',d.station_phone]].map(([label,value])=>'<div class="field"><b>'+escPrint(label)+'</b>'+escPrint(value)+'</div>').join('')+
+ '<div class="qr"><img alt="Aftersales QR code" src="'+source+'"><div>'+escPrint(d.aftersales_number)+'</div></div><button onclick="window.print()">Print / Save PDF</button></body></html>');
+ printable.document.close();
 });
 returnOps.querySelector('#downloadAftersalesWaybill').addEventListener('click',async ()=>{
  if(!currentReturnId)return;
