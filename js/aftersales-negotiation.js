@@ -44,6 +44,13 @@ if(!db||!window.leogoAuth?.isAuthenticated?.()){el.textContent='Sign in to view 
 const {data,error}=await db.rpc('aftersales_list_negotiations');
 const {data:shippingRows,error:shippingError}=await db.rpc('aftersales_customer_return_shipping_status');
 const shippingByCase=new Map((Array.isArray(shippingRows)?shippingRows:[]).map(row=>[row.case_id,row]));
+const [preferenceResult,exchangeResult]=await Promise.all([
+ db.rpc('customer_get_aftersales_exchange_delivery_preferences'),
+ db.rpc('aftersales_exchange_list',{p_role:'customer'})
+]);
+const preferenceByCase=new Map((Array.isArray(preferenceResult.data)?preferenceResult.data:[]).map(x=>[x.case_id,x]));
+const exchangeByCase=new Map((Array.isArray(exchangeResult.data)?exchangeResult.data:[]).map(x=>[x.case_id,x]));
+
 if(shippingError && !String(shippingError.message).includes('function'))console.warn('Return shipping status:',shippingError.message);
 if(error){el.textContent=error.message;return;}
 // Reuse the existing My Cases History cards as the single location for event activity.
@@ -58,6 +65,39 @@ fact('Requested solution',n.preferred_solution||'Pending')+fact('Seller response
 '<section class="afs-section"><h5>Seller response</h5><div class="afs-case-grid">'+fact('Proposed solution',n.seller_solution||'Awaiting seller',true)+fact('Seller comment',n.seller_comment||'No comment yet',true)+'</div></section>'+
 '<form class="afs-section"><label>Your feedback <textarea name="comment" maxlength="2000" placeholder="Write a message about the proposed solution"></textarea></label><div class="afs-case-actions"></div><p role="status" aria-live="polite"></p></form>';
 el.append(card);
+const activeExchange=exchangeByCase.get(n.case_id);
+if(n.stage==='customer_accepted'&&(!activeExchange||activeExchange.status==='awaiting_pack')){
+ const chooser=document.createElement('form');chooser.style.cssText='display:grid;gap:8px;padding:12px;border:1px solid #f3bf7d;border-radius:12px;margin:12px 0';
+ const title=document.createElement('strong');title.textContent='Set replacement delivery BEFORE seller packs the item';
+ const method=document.createElement('select');method.required=true;
+ [['','Select delivery method'],['pickup_station','Collect from Pickup Station'],['door','Deliver to my door (delivery fee payable)']].forEach(([v,label])=>method.add(new Option(label,v)));
+ const station=document.createElement('select');station.add(new Option('Select Pickup Station',''));
+ const address=document.createElement('textarea');address.placeholder='Full address, estate and landmark (required for door delivery)';address.minLength=10;
+ const feedback=document.createElement('p');feedback.setAttribute('role','status');
+ const button=document.createElement('button');button.type='submit';button.textContent='Save Replacement Delivery Destination';
+ const pref=preferenceByCase.get(n.case_id);
+ if(pref){method.value=pref.delivery_method;address.value=pref.door_address||'';}
+ const updateFields=()=>{station.hidden=method.value!=='pickup_station';address.hidden=method.value!=='door';};
+ method.addEventListener('change',updateFields);
+ const stations=await db.rpc('customer_list_aftersales_return_stations');
+ if(!stations.error&&Array.isArray(stations.data))for(const st of stations.data)station.add(new Option(st.station_name+' — '+(st.town||''),st.id));
+ if(pref?.station_id)station.value=pref.station_id;
+ updateFields();
+ chooser.append(title,method,station,address,button,feedback);
+ chooser.addEventListener('submit',async e=>{
+  e.preventDefault();if(!method.value)return;
+  if(method.value==='pickup_station'&&!station.value){feedback.textContent='Select a registered Pickup Station';return;}
+  if(method.value==='door'&&address.value.trim().length<10){feedback.textContent='Enter the full delivery address and landmark';return;}
+  button.disabled=true;
+  const response=await db.rpc('customer_set_aftersales_exchange_delivery_preference',{
+   p_case_id:n.case_id,p_method:method.value,p_station_id:method.value==='pickup_station'?station.value:null,
+   p_door_address:method.value==='door'?address.value.trim():null
+  });
+  feedback.textContent=response.error?.message||'Saved. This destination will lock as soon as the seller marks the replacement ready.';
+  button.disabled=false;
+ });
+ card.append(chooser);
+}
 const events=Array.isArray(n.history)?n.history:[];
 if(n.return_tracking){
  const r=n.return_tracking;
@@ -165,7 +205,8 @@ async function loadCustomerExchange(){
   const route=document.createElement('p');route.textContent='Delivery: '+(item.pickup_station_id?'Pickup Station collection':'Direct delivery')+' · Delivery cost payer: '+(item.payer||'Admin reviewing responsibility');
   const safe=document.createElement('p');safe.textContent='This replacement does not create a new product sale or extra Pickup Station commission.';
   card.append(title,line,route,safe);
-  if(item.status==='packed_ready'){
+  {
+   const deliveryLocked=item.status!=='awaiting_pack'||!!item.packed_at||!!item.rider_id;
    const chooser=document.createElement('form');chooser.style.cssText='display:grid;gap:8px;margin:12px 0;padding:10px;border:1px solid #dce5ee;border-radius:10px';
    const label=document.createElement('label');label.textContent='Receive your replacement';
    const method=document.createElement('select');method.required=true;
@@ -175,8 +216,13 @@ async function loadCustomerExchange(){
    const button=document.createElement('button');button.type='submit';button.textContent='Confirm Delivery Method';
    const feedback=document.createElement('p');feedback.setAttribute('role','status');
    chooser.append(label,method,button,feedback);
+   if(deliveryLocked){
+    method.disabled=true;button.disabled=true;
+    feedback.textContent='Delivery address and method locked: replacement is ready for delivery or has already started delivery. Contact LEOGO support for an exceptional delivery problem.';
+    feedback.style.cssText='color:#945d16;font-weight:650;font-size:13px';
+   }
    chooser.onsubmit=async e=>{
-    e.preventDefault();if(!method.value)return;
+    e.preventDefault();if(deliveryLocked||!method.value)return;
     if(method.value==='door'&&!confirm('Door delivery requires a delivery fee and LEOGO payment verification before rider assignment. Continue?'))return;
     button.disabled=true;
     const updated=await db.rpc('customer_aftersales_exchange_choose_delivery',{p_shipment_id:item.id,p_method:method.value});
