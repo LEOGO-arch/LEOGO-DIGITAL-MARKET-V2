@@ -36,6 +36,14 @@ returnOps.hidden=true;
 returnOps.innerHTML=`
  <div class="aftersales-negotiation-heading"><div><span>PHYSICAL RETURN & RESOLUTION</span><h3>Aftersales Return Operations</h3><p>Record parcel handoffs, verify return shipping, and close only after delivery or expiry. Refund recommendations require separate LEOGO authorization.</p></div><button type="button" id="refreshReturnOperations">↻ Refresh</button></div>
  <p id="returnOperationsSummary" role="status"></p>
+ <details><summary>Assigned Courier and Waybill Receipt</summary>
+  <form id="aftersalesCourierAssignment" class="aftersales-negotiation-form">
+   <label>Assigned rider / courier name<input name="courier" minlength="2" maxlength="120" required placeholder="Enter the rider or courier"></label>
+   <button type="submit">Assign Rider / Courier</button><p role="status"></p>
+  </form>
+  <p id="aftersalesWaybillInfo">Select an Aftersales return to view waybill status.</p>
+  <button id="downloadAftersalesWaybill" type="button" hidden>Download Return Waybill</button>
+ </details>
  <details><summary>1. Parcel: Pickup Station → Sorting Center → Seller</summary>
   <form data-return-action="route" class="aftersales-negotiation-form">
    <label>Verified handover<select name="step"><option value="station_dispatched_to_sorting">Station → Sorting Center</option><option value="sorting_received">Sorting Center received</option><option value="sorting_dispatched_to_seller">Sorting Center → Seller</option><option value="station_dispatched_to_seller">Station → Seller</option></select></label>
@@ -74,6 +82,10 @@ async function refreshReturnOperations(){
  const ref=n.return_tracking?.return_reference;
  const physical=Array.isArray(returns.data)?returns.data.find(row=>row.return_reference===ref):null;
  if(physical)currentReturnId=physical.id;
+ const waybill=physical?await db.rpc('admin_aftersales_waybill_status',{p_return_id:physical.id}):null;
+ const waybillInfo=returnOps.querySelector('#aftersalesWaybillInfo');
+ waybillInfo.textContent=!physical?'No booked return linked to this case':waybill?.error?'Unable to load waybill: '+waybill.error.message:!waybill?.data?.assigned?'Courier not assigned':('Courier: '+waybill.data.courier_name+(waybill.data.waybill_path?' · Waybill uploaded':' · Awaiting station waybill upload'));
+ returnOps.querySelector('#downloadAftersalesWaybill').hidden=!waybill?.data?.waybill_path;
  const fee=Array.isArray(shipping.data)?shipping.data.find(row=>row.case_id===selected.case_id):null;
  returnStatus.textContent='Case '+n.case_reference+' · '+n.stage.replaceAll('_',' ')+
   (physical?' · Return '+physical.return_reference+' ('+physical.status.replaceAll('_',' ')+')':' · No linked physical return recorded')+
@@ -81,6 +93,20 @@ async function refreshReturnOperations(){
   (returns.error?' · Parcel list: '+returns.error.message:'')+
   (shipping.error?' · Shipping list: '+shipping.error.message:'');
 }
+returnOps.querySelector('#aftersalesCourierAssignment').addEventListener('submit',async event=>{
+ event.preventDefault();const frm=event.currentTarget,status=frm.querySelector('[role=status]');if(!currentReturnId){status.textContent='Select a case with an existing physical return';return;}
+ const button=frm.querySelector('button');button.disabled=true;
+ const {error}=await db.rpc('admin_assign_aftersales_return_courier',{p_return_id:currentReturnId,p_courier_name:frm.elements.courier.value.trim()});
+ button.disabled=false;status.textContent=error?.message||'Courier assigned. Pickup Station can now upload the waybill.';if(!error)await refreshReturnOperations();
+});
+returnOps.querySelector('#downloadAftersalesWaybill').addEventListener('click',async ()=>{
+ if(!currentReturnId)return;
+ const info=await db.rpc('admin_aftersales_waybill_status',{p_return_id:currentReturnId});
+ if(info.error||!info.data?.waybill_path){alert(info.error?.message||'Waybill not uploaded yet');return;}
+ const signed=await db.storage.from('aftersales-return-waybills').createSignedUrl(info.data.waybill_path,120);
+ if(signed.error||!signed.data?.signedUrl){alert(signed.error?.message||'Unable to open the waybill');return;}
+ window.open(signed.data.signedUrl,'_blank','noopener,noreferrer');
+});
 returnOps.querySelector('#refreshReturnOperations').addEventListener('click',refreshReturnOperations);
 returnOps.querySelectorAll('form[data-return-action]').forEach(frm=>frm.addEventListener('submit',async event=>{
  event.preventDefault();
