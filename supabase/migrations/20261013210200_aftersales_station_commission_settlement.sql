@@ -30,16 +30,23 @@ begin
   from public.pickup_station_withdrawal_requests
   where pickup_station_id=v_station and status in ('pending','approved','paid');
 
-  select coalesce(jsonb_agg(x order by x.day desc),'[]'::jsonb) into v_daily
-  from (
-    select
-      (handed_over_at at time zone 'Africa/Nairobi')::date as day,
-      count(*) as parcels,
-      sum(earnings_amount_kes) as earnings_kes
-    from public.pickup_station_parcels
-    where pickup_station_id=v_station and status='handed_over'
-      and (handed_over_at at time zone 'Africa/Nairobi')::date between p_from and p_to
-    group by 1
+  -- One daily statement combining normal handovers and completed Aftersales returns.
+  select coalesce(jsonb_agg(x order by x.day desc),'[]'::jsonb) into v_daily from (
+    select day,sum(parcels) as parcels,sum(earnings_kes) as earnings_kes from (
+      select (handed_over_at at time zone 'Africa/Nairobi')::date as day,
+        count(*) as parcels,sum(earnings_amount_kes) as earnings_kes
+      from public.pickup_station_parcels
+      where pickup_station_id=v_station and status='handed_over'
+        and (handed_over_at at time zone 'Africa/Nairobi')::date between p_from and p_to
+      group by 1
+      union all
+      select (earned_at at time zone 'Africa/Nairobi')::date as day,
+        count(*) as parcels,sum(amount_kes) as earnings_kes
+      from public.aftersales_station_commissions
+      where pickup_station_id=v_station
+        and (earned_at at time zone 'Africa/Nairobi')::date between p_from and p_to
+      group by 1
+    ) combined group by day
   ) x;
 
   -- Completed return commissions are earned only after seller receipt.
