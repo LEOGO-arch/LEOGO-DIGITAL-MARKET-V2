@@ -147,6 +147,26 @@ if(shipping){
 }
 if(!data?.length)el.textContent='No cases have been forwarded to a seller yet.';
 }
-section.querySelector('#customerAftersalesRefresh').onclick=load;
-document.addEventListener('leogo:authchange',load);load();
+const exchangePanel=document.createElement('section');
+exchangePanel.className='afs-customer-cases';exchangePanel.innerHTML='<h3>Exchange / Replacement Delivery Tracking</h3><div id="customerExchangeShipments">Loading replacement delivery updates…</div>';
+section.append(exchangePanel);
+async function loadCustomerExchange(){
+ const host=exchangePanel.querySelector('#customerExchangeShipments'),db=window.leogoAuth?.client;
+ if(!db||!window.leogoAuth?.isAuthenticated?.()){host.textContent='Sign in to track your exchange.';return;}
+ const {data,error}=await db.rpc('aftersales_exchange_list',{p_role:'customer'});
+ if(error){host.textContent=error.message;return;}
+ host.replaceChildren();
+ const list=Array.isArray(data)?data:[];
+ if(!list.length){host.textContent='No outbound exchange shipments yet.';return;}
+ for(const item of list){
+  const card=document.createElement('article');card.className='afs-fact';card.style.cssText='padding:12px;border:1px solid #dce5ee;border-radius:12px;margin:10px 0';
+  const title=document.createElement('strong');title.textContent=item.reference+' — '+item.item_name;
+  const line=document.createElement('p');line.textContent='Aftersales '+item.case_reference+' · '+item.status.replaceAll('_',' ');
+  const route=document.createElement('p');route.textContent='Delivery: '+(item.pickup_station_id?'Pickup Station collection':'Direct delivery')+' · Delivery cost payer: '+(item.payer||'Admin reviewing responsibility');
+  const safe=document.createElement('p');safe.textContent='This replacement does not create a new product sale or extra Pickup Station commission.';
+  card.append(title,line,route,safe);host.append(card);
+ }
+}
+section.querySelector('#customerAftersalesRefresh').onclick=()=>{load();loadCustomerExchange();};
+document.addEventListener('leogo:authchange',()=>{load();loadCustomerExchange();});load();loadCustomerExchange();
 })();
