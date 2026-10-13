@@ -118,8 +118,25 @@ returnOps.querySelector('#printAftersalesReturnWaybill').addEventListener('click
  const source=canvas?.toDataURL('image/png')||qrImg?.src;
  if(!source){alert('Unable to generate QR. Refresh and try again.');return;}
  const printable=window.open('','_blank');if(!printable){alert('Allow popups to print the return waybill.');return;}
- printable.document.write('<!doctype html><html><head><title>LEOGO Aftersales Waybill</title><style>body{font:15px Arial,sans-serif;max-width:390px;margin:20px auto;color:#12213a;padding:14px}.head{text-align:center;border-bottom:2px solid #12213a;padding-bottom:12px}h2{font-size:19px;margin:6px 0}.field{padding:10px 0;border-bottom:1px dashed #aaa}.field b{display:block;font-size:11px;text-transform:uppercase;color:#596579;margin-bottom:3px}.qr{text-align:center;margin-top:16px}.qr img{width:150px;height:150px}button{padding:10px 16px;margin:12px auto;display:block}@media print{button{display:none}body{margin:0;max-width:none}}</style></head><body><div class="head"><strong>LEOGO DIGITAL MARKET</strong><h2>AFTERSALES RETURN WAYBILL</h2></div>'+
- [['Customer name',d.customer_name],['Pickup station',d.station_name],['Aftersales number',d.aftersales_number],['Item name',d.item_name],['Customer phone',d.customer_phone],['Station phone',d.station_phone],['Assigned rider / courier',d.assigned_rider_name||'Not yet assigned']].map(([label,value])=>'<div class="field"><b>'+escPrint(label)+'</b>'+escPrint(value)+'</div>').join('')+
+ const formatReceiptDate=value=>value?new Intl.DateTimeFormat('en-KE',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Nairobi'}).format(new Date(value)):'Not recorded';
+ const fields=[
+  ['Aftersales number',d.aftersales_number],
+  ['Item name',d.item_name],
+  ['Customer name',d.customer_name],
+  ['Customer phone',d.customer_phone],
+  ['Pickup station',d.station_name],
+  ['Station address',d.station_address],
+  ['Landmark',d.station_landmark],
+  ['Station phone',d.station_phone],
+  ['Date received at station',formatReceiptDate(d.receiving_date)],
+  ['Assigned rider / courier',d.assigned_rider_name||'Not assigned'],
+  ['Rider / courier phone',d.assigned_rider_phone],
+  ['Assignment date',formatReceiptDate(d.assigning_date)]
+ ];
+ printable.document.write('<!doctype html><html><head><title>LEOGO Aftersales Waybill</title><style>'+
+ 'body{font:12px/1.35 Arial,sans-serif;max-width:360px;margin:12px auto;color:#12213a;padding:10px}.head{text-align:center;border-bottom:2px solid #12213a;padding-bottom:8px}h2{font-size:15px;margin:4px 0}.field{padding:5px 0;border-bottom:1px dashed #aaa;overflow-wrap:anywhere}.field b{display:block;font-size:9px;text-transform:uppercase;color:#596579;margin-bottom:1px}.qr{text-align:center;margin-top:12px}.qr img{width:136px;height:136px}button{padding:8px 12px;margin:10px auto;display:block}@media print{button{display:none}body{margin:0;max-width:none}}'+
+ '</style></head><body><div class="head"><strong>LEOGO DIGITAL MARKET</strong><h2>AFTERSALES RETURN WAYBILL</h2></div>'+
+ fields.map(([label,value])=>'<div class="field"><b>'+escPrint(label)+'</b>'+escPrint(value||'Not recorded')+'</div>').join('')+
  '<div class="qr"><img alt="Aftersales QR code" src="'+source+'"><div>'+escPrint(d.aftersales_number)+'</div></div><button onclick="window.print()">Print / Save PDF</button></body></html>');
  printable.document.close();
 });
