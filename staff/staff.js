@@ -202,6 +202,7 @@ async function loadExchangeRiderJobs(){
  if(error){container.textContent=error.message;return;}
  const jobs=Array.isArray(data)?data:[];
  container.replaceChildren();
+ $('#shortcutExchanges').textContent=String(jobs.filter(job=>!['delivered','completed','cancelled'].includes(String(job.status||'').toLowerCase())).length);
  if(!jobs.length){container.textContent='No exchange deliveries assigned.';return;}
  for(const job of jobs){
   const article=document.createElement('article');article.style.cssText='padding:12px;margin:10px 0;background:#fff;border:1px solid #e0e5ef;border-radius:12px';
@@ -257,6 +258,7 @@ async function loadRiderAftersales(){
  }
  const cases=Array.isArray(data)?data:[];
  $('#riderAftersalesCount').textContent=String(cases.length);
+ $('#shortcutReturns').textContent=String(cases.filter(row=>!['completed','cancelled'].includes(row.return_status)).length);
  if(!cases.length){container.textContent='No Aftersales return parcels currently assigned to your rider account.';return;}
  container.replaceChildren();
  for(const record of cases){
@@ -324,6 +326,8 @@ function render(){
   $('#riderPickedCount').textContent=jobs.filter(j=>['picked_up','arrived_sorting_center','sorting_received','ready_for_dispatch'].includes(j.status)).length;
   $('#riderTransitCount').textContent=jobs.filter(j=>['on_the_way','delivered_to_pickup_station','ready_for_pickup'].includes(j.status)).length;
   $('#riderDeliveredCount').textContent=jobs.filter(j=>j.status==='delivered').length;
+  $('#shortcutDelivered').textContent=$('#riderDeliveredCount').textContent;
+  $('#shortcutActiveDeliveries').textContent=String(jobs.filter(j=>j.status!=='delivered'&&j.status!=='cancelled').length);
 
   const qrOrder=requestedOrderId();
   const visible=qrOrder
@@ -579,6 +583,18 @@ const signOut=async()=>{
 
 $('#staffLogout').addEventListener('click',signOut);
 $('#deniedSignOut').addEventListener('click',signOut);
+$('#riderQuickActions').addEventListener('click',event=>{
+ const button=event.target.closest('[data-rider-jump]');if(!button)return;
+ const action=button.dataset.riderJump;
+ if(action==='returns'||action==='exchanges'){
+  const target=action==='returns'?'riderAftersalesList':'riderExchangeList';
+  document.getElementById(target)?.scrollIntoView({behavior:'smooth',block:'start'});
+  return;
+ }
+ const filterButton=document.querySelector('[data-rider-filter="'+action+'"]');
+ filterButton?.click();
+ document.getElementById('riderJobList')?.scrollIntoView({behavior:'smooth',block:'start'});
+});
 $('#refreshRiderJobs').addEventListener('click',loadJobs);
 $('#refreshAssistedStaffLists').addEventListener('click',loadAssistedLists);
 
