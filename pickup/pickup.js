@@ -233,8 +233,18 @@ $$('[data-metric-view]').forEach(button=>button.addEventListener('click',async()
   }
 }));
 
+let returnFilter='all';
+const returnCategory=r=>r.status==='awaiting_dispatch'?'pending':r.status==='received_at_station'?'received':r.status==='dispatched'?'dispatched':r.status==='completed'?'complete':'other';
+$('#returnList').closest('.card')?.querySelector('.return-submenu')?.addEventListener('click',event=>{
+ const button=event.target.closest('[data-return-filter]');if(!button)return;returnFilter=button.dataset.returnFilter;renderReturns();
+});
 const renderReturns=()=>{
-  $('#returnList').innerHTML=returns.length?returns.map(r=>`
+  const aftersales=returns.filter(r=>r.return_reference?.startsWith('AFR-'));
+  const counts={pending:0,received:0,dispatched:0,complete:0,overdue:0};
+  for(const r of aftersales){const cat=returnCategory(r);if(cat in counts)counts[cat]++;if(cat==='received'&&Date.now()-new Date(r.booked_at).getTime()>48*3600000)counts.overdue++;}
+  for(const [status,id] of Object.entries({pending:'returnCountPending',received:'returnCountReceived',dispatched:'returnCountDispatched',complete:'returnCountComplete',overdue:'returnCountOverdue'})){const e=$('#'+id);if(e)e.textContent=counts[status];}
+  const displayed=returns.filter(r=>returnFilter==='all'||(returnFilter==='overdue'?returnCategory(r)==='received'&&Date.now()-new Date(r.booked_at).getTime()>48*3600000:returnCategory(r)===returnFilter));
+  $('#returnList').innerHTML=displayed.length?displayed.map(r=>
     <article class="compact-row"><header><strong>${esc(r.return_reference)}</strong><span class="pill">${esc(String(r.status||'').replaceAll('_',' '))}</span></header>
     <p>${esc(r.customer_name)} · ${esc(r.customer_phone)}<br>${esc(r.item_description)}<br><b>Reason:</b> ${esc(r.return_reason)}${r.original_order_reference?'<br><b>Original:</b> '+esc(r.original_order_reference):''}</p>
     <small>${esc(fmt(r.booked_at))}</small>${r.status==='awaiting_dispatch'&&r.return_reference?.startsWith('AFR-')?'<button type="button" data-receive-aftersales-return="'+esc(r.id)+'">Receive physical return</button>':''}${r.return_reference?.startsWith('AFR-')&&['received_at_station','dispatched'].includes(r.status)?'<button type="button" data-return-waybill="'+esc(r.id)+'">Return handover / Waybill</button>':''}</article>`).join(''):'<div class="compact-row"><strong>No return parcels yet.</strong></div>';
@@ -246,7 +256,13 @@ $('#returnList').addEventListener('click',async event=>{
  const {data,error}=await client.rpc('pickup_partner_aftersales_waybill_status',{p_return_id:id});
  if(error){alert(error.message);return;}
  if(!data?.assigned){alert('Waiting for LEOGO Admin to assign a rider or courier. This return is already booked — do not book it again.');return;}
- if(data.waybill_path){alert('Waybill already submitted for '+record.return_reference+'. Admin can download it.');return;}
+ if(data.waybill_path){
+  if(record.status==='received_at_station'){
+   if(!confirm('Waybill already uploaded. Confirm physical handover to the assigned rider now?'))return;
+   const handover=await client.rpc('pickup_partner_confirm_return_handover',{p_return_id:id});
+   alert(handover.error?.message||'Return marked Dispatched.');await loadReturns();
+  }else alert('Waybill already submitted and this return is '+record.status+'.');return;
+ }
  const fileInput=document.createElement('input');fileInput.type='file';fileInput.accept='image/jpeg,image/png,application/pdf';fileInput.style.display='none';document.body.append(fileInput);
  fileInput.onchange=async()=>{
   const file=fileInput.files[0];fileInput.remove();if(!file)return;
@@ -261,7 +277,9 @@ $('#returnList').addEventListener('click',async event=>{
   const saved=await client.rpc('pickup_partner_submit_aftersales_waybill',{p_return_id:id,p_path:name});
   btn.disabled=false;
   if(saved.error){alert('Waybill uploaded but receipt link failed: '+saved.error.message);return;}
-  alert('Waybill recorded for '+record.return_reference+'. Admin can download it.');
+  const handed=await client.rpc('pickup_partner_confirm_return_handover',{p_return_id:id});
+  if(handed.error){alert('Waybill saved, but dispatch has not been confirmed: '+handed.error.message+'. Ask Admin to review the route.');}
+  else alert('Waybill recorded. Return '+record.return_reference+' marked Dispatched to rider.');
   await loadReturns();
  };
  fileInput.click();
@@ -500,7 +518,13 @@ const loadDashboard=async()=>{
   $('#assignmentGate').hidden=true;$('#portal').hidden=false;renderDashboard();return true;
 };
 const loadParcels=async()=>{const {data,error}=await client.rpc('pickup_partner_list_parcels_v2');if(error)throw error;parcels=data||[];renderParcels();};
-const loadReturns=async()=>{const {data,error}=await client.rpc('pickup_partner_list_returns');if(error)throw error;returns=data||[];renderReturns();};
+const loadReturns=async()=>{
+ const {data,error}=await client.rpc('pickup_partner_list_returns');if(error)throw error;returns=data||[];
+ const summary=await client.rpc('pickup_partner_return_dashboard');
+ const label=$('#returnsCommissionSummary');
+ if(label&&!summary.error)label.textContent='Completed returns: '+(summary.data?.complete||0)+' · Return commissions earned: KSh '+Number(summary.data?.earnings_total_kes||0).toLocaleString('en-KE')+' · Credited after seller confirms receipt.';
+ renderReturns();
+};
 const loadWithdrawals=async()=>{const {data,error}=await client.rpc('pickup_partner_list_withdrawals');if(error)throw error;withdrawals=data||[];renderWithdrawals();};
 const loadHistory=async()=>{
   const from=$('#historyFrom').value||monthStart(),to=$('#historyTo').value||today();
