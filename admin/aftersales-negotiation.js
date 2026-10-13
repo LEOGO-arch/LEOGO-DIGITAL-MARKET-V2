@@ -87,6 +87,14 @@ exchangeOps.innerHTML='<h3>Outbound Exchange / Replacement Shipment</h3><p>Admin
 '<label>Customer payment reference (required for verified customer-paid delivery)<input name="reference" maxlength="100" placeholder="M-Pesa / bank reference"></label>'+
 '<label><input type="checkbox" name="verified"> Delivery payment or approved internal charge independently verified</label>'+
 '<button type="submit">Save Responsibility & Verified Charge</button><p role="status"></p></form>'+
+`<div id="exchangeDestinationChangeReview" style="padding:12px;border:1px solid #dce5ee;border-radius:10px;margin:14px 0">
+ <h4>Customer Destination Change Requests</h4><p id="exchangeDestinationChangeSummary">Select a replacement shipment to review destination changes.</p>
+ <form id="exchangeDestinationChangeForm" hidden style="display:grid;gap:9px">
+ <label>Decision reason<textarea name="reason" required minlength="5"></textarea></label>
+ <label>Verified customer door-delivery fee (KSh, if applicable)<input type="number" name="fee" min="0" step="0.01"></label>
+ <label>Verified M-Pesa / bank reference (door delivery only)<input name="reference"></label>
+ <div style="display:flex;gap:8px;flex-wrap:wrap"><button name="decision" value="approve" type="submit">Approve Change</button><button name="decision" value="reject" type="submit">Reject Change</button></div>
+ <p role="status"></p></form></div>`+
 '<form id="exchangeAdminRiderForm" style="display:grid;gap:10px"><label>Registered Rider<select name="rider" required></select></label><button type="submit">Assign Replacement Rider</button><p role="status"></p></form>';
 returnOps.before(exchangeOps);
 const exchangeStatus=exchangeOps.querySelector('#exchangeAdminStatus');
@@ -101,6 +109,14 @@ async function refreshExchangeAdmin(){
  if(result.error){exchangeStatus.textContent=result.error.message;return;}
  exchangeStatus.textContent=shipment?'Exchange '+shipment.reference+' · '+shipment.status.replaceAll('_',' ')+' · Customer delivery choice: '+(shipment.customer_delivery_choice==='door'?'Door (fee and payment verification required)':shipment.customer_delivery_choice==='pickup_station'?'Pickup Station collection':'Awaiting customer choice')+' · Sorting Center transit optional · Station handover commission: KSh 0':'Seller has not packed an approved exchange yet.';
  if(!shipment)return;
+ const changeResult=await db.rpc('aftersales_exchange_destination_requests_list',{p_shipment_id:shipment.id});
+ const changes=Array.isArray(changeResult.data)?changeResult.data:[];
+ const pending=changes.find(x=>x.status==='pending');
+ const review=exchangeOps.querySelector('#exchangeDestinationChangeForm');
+ review.hidden=!pending;review.dataset.requestId=pending?.id||'';
+ exchangeOps.querySelector('#exchangeDestinationChangeSummary').textContent=changeResult.error?changeResult.error.message:pending
+ ?'PENDING: '+pending.method+' · '+(pending.address||pending.station_id||'')+' · Reason: '+pending.reason
+ :changes[0]?'Latest request: '+changes[0].status+' — '+(changes[0].review_note||'No reason recorded'):'No destination change requested.';
  const form=exchangeOps.querySelector('#exchangeAdminCostForm');
  form.elements.payer.value=shipment.payer||'';
  form.elements.cost.value=shipment.delivery_cost_kes??'';
@@ -111,6 +127,18 @@ async function refreshExchangeAdmin(){
  const select=exchangeOps.querySelector('#exchangeAdminRiderForm [name=rider]');select.replaceChildren(new Option('Choose active LEOGO rider',''));
  for(const operator of (Array.isArray(list.data)?list.data:[]).filter(x=>x.kind==='rider'))select.add(new Option(operator.label,operator.id));
 }
+exchangeOps.querySelector('#exchangeDestinationChangeForm').addEventListener('submit',async e=>{
+ e.preventDefault();const form=e.currentTarget;
+ const requestId=form.dataset.requestId,choice=e.submitter?.value;
+ if(!requestId||!['approve','reject'].includes(choice))return;
+ const result=await db.rpc('admin_review_aftersales_exchange_destination',{
+  p_request_id:requestId,p_approve:choice==='approve',p_note:form.elements.reason.value.trim(),
+  p_delivery_fee:form.elements.fee.value?Number(form.elements.fee.value):null,
+  p_payment_reference:form.elements.reference.value.trim()||null
+ });
+ form.querySelector('[role=status]').textContent=result.error?.message||'Destination change '+(choice==='approve'?'approved':'rejected')+'. Inform the assigned rider.';
+ if(!result.error)await refreshExchangeAdmin();
+});
 exchangeOps.querySelector('#exchangeAdminCostForm').addEventListener('submit',async e=>{
  e.preventDefault();const form=e.currentTarget,n=activeRecord();if(!n||!selected)return;
  const result=await db.rpc('admin_aftersales_exchange_decide_cost',{p_case_id:n.case_id,p_payer:form.elements.payer.value,p_cost:Number(form.elements.cost.value),p_reason:form.elements.reason.value,p_payment_verified:form.elements.verified.checked,p_payment_reference:form.elements.reference.value.trim()||null});
