@@ -4097,10 +4097,16 @@
         '<div class="customer-aftersales-case-details"><small>Your explanation</small><p>'+receiptEscape(item.details||'—')+'</p></div>'+
         (item.admin_notes?'<div class="customer-aftersales-admin-note"><small>LEOGO Customer Care update</small><p>'+receiptEscape(item.admin_notes)+'</p></div>':'')+
         (item.status==='resolved'&&item.resolved_at?'<div class="customer-aftersales-resolved">✓ Resolved '+receiptEscape(customerOrderFormatDate(item.resolved_at))+'</div>':'')+
+        (()=>{const updates=window.leogoAftersalesActivityByCase?.get(item.case_reference)||[];
+          if(!updates.length)return '<p class="customer-aftersales-history-note">Full case activity will appear here when available.</p>';
+          return '<details class="customer-aftersales-activity-timeline"><summary>Aftersales Activity History ('+updates.length+' updates)</summary><ol>'+
+            updates.map(event=>'<li><small>'+receiptEscape(customerOrderFormatDate(event.created_at))+' · '+receiptEscape(String(event.actor_role||'LEOGO').replaceAll('_',' '))+'</small><strong>'+receiptEscape(String(event.event_type||'Case update').replaceAll('_',' '))+'</strong>'+(event.comment?'<p>'+receiptEscape(event.comment)+'</p>':'')+'</li>').join('')+'</ol></details>';
+        })()+
       '</article>'
     ).join('');
   };
 
+  document.addEventListener('leogo:customer-aftersales-activity-loaded',renderCustomerAftersalesCases);
   const populateCustomerAftersalesOrders = () => {
     const select=document.getElementById('aftersalesOrderId');
     if(!select) return;
