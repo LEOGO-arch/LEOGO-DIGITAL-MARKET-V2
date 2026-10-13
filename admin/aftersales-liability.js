@@ -4,7 +4,7 @@ const db=window.leogoAdminDb;
 const panel=document.querySelector('[data-admin-panel="aftersales"]');
 if(!db||!panel)return;
 const section=document.createElement('section');section.className='content-card';section.hidden=true;
-section.innerHTML='<div class="card-head"><div><span>ADMIN FINANCIAL CONTROL</span><h3>Aftersales Liability Assessments</h3><p>Assess responsibility using documented evidence. Approval records liability only; no payout deduction is applied until settlement recovery is verified.</p></div></div>'+
+section.innerHTML='<div class="card-head"><div><span>ADMIN FINANCIAL CONTROL</span><h3>Aftersales Liability Assessments</h3><p>Assess responsibility using documented evidence. Approved findings reduce future available seller, transporter or station settlements. Staff rider liability remains recorded pending a verified recovery method.</p></div></div>'+
 '<form id="aftersalesLiabilityAssessment" class="settings-form" style="display:grid;gap:10px">'+
 '<label>Verified responsible party <select name="candidate" required></select></label>'+
 '<label>Reason <select name="reason"><option value="return_station_commission">Pickup Station return commission</option><option value="transport_damage">Transport damage</option><option value="total_loss">Total parcel loss</option><option value="station_damage">Damage at Pickup Station</option><option value="station_loss">Lost at Pickup Station</option><option value="other">Other verified liability</option></select></label>'+
@@ -30,8 +30,9 @@ async function refresh(){
   const details=document.createElement('p');details.textContent=row.evidence_notes;
   card.append(head,details);
   const actions=row.status==='pending_review'?['approve','reject']:row.status==='approved'?['reverse']:[];
-  for(const action of actions){const btn=document.createElement('button');btn.type='button';btn.textContent=action==='approve'?'Approve Finding (No Debit)':action[0].toUpperCase()+action.slice(1);btn.style.marginRight='8px';btn.onclick=async()=>{
+  for(const action of actions){const btn=document.createElement('button');btn.type='button';btn.textContent=action==='approve'?'Approve & Apply Liability':action[0].toUpperCase()+action.slice(1);btn.style.marginRight='8px';btn.onclick=async()=>{
    const notes=window.prompt('Record documented reason for '+action+' (minimum 10 characters)');if(!notes||notes.trim().length<10)return;
+   if(action==='approve'&&!window.confirm('Approve this charge? This will immediately reduce the liable seller, transport provider or Pickup Station available settlement balance. Staff rider cases are recorded for manual recovery.'))return;
    btn.disabled=true;const res=await db.rpc('admin_decide_aftersales_liability',{p_id:row.id,p_action:action,p_notes:notes.trim()});btn.disabled=false;
    if(res.error)status.textContent=res.error.message;else await refresh();
   };card.append(btn);}
@@ -48,7 +49,7 @@ form.addEventListener('submit',async e=>{
   p_reason:form.elements.reason.value,p_amount:Number(form.elements.amount.value),
   p_parcel_value:value?Number(value):null,p_evidence:form.elements.evidence.value.trim()
  });button.disabled=false;
- status.textContent=res.error?.message||'Assessment recorded for Admin review. No funds deducted.';
+ status.textContent=res.error?.message||'Assessment recorded for Admin review. Pending review; no funds deducted yet.';
  if(!res.error){form.reset();await refresh();}
 });
 document.addEventListener('leogo:admin-aftersales-case-selected',e=>{caseId=e.detail?.case_id||null;section.hidden=!caseId;if(caseId)refresh();});
