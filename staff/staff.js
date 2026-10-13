@@ -241,7 +241,12 @@ async function loadExchangeRiderJobs(){
     await loadExchangeRiderJobs();
    });
   }else status.textContent='No further rider action at this stage.';
-  article.append(heading,detail,form,status);container.append(article);
+  const destination=document.createElement('p');
+  destination.style.cssText='padding:10px;background:#fff7ed;border-radius:9px;font-weight:700;overflow-wrap:anywhere';
+  destination.textContent=job.pickup_station_id?
+    ('Deliver to Pickup Station: '+(job.station_name||'Station assigned')):
+    ('Door delivery address: '+(job.door_delivery_address||'Original order address — confirm with LEOGO Admin'));
+  article.append(heading,detail,destination,form,status);container.append(article);
  }
 }
 async function loadRiderAftersales(){
