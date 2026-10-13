@@ -54,7 +54,8 @@ function show(mode){
   $('#staffRouting').hidden=mode!=='routing';
   $('#staffAccessDenied').hidden=mode!=='denied';
   $('#riderApp').hidden=mode!=='app'||staff?.staff_role!=='rider';
-  $('#assistedStaffApp').hidden=mode!=='app';
+  $('#assistedStaffApp').hidden=mode!=='app'||staff?.staff_role==='rider';
+  $('#riderAftersalesPanel').hidden=mode!=='app'||staff?.staff_role!=='rider';
   $('#staffLogout').hidden=['login','forgot','password'].includes(mode);
 }
 
@@ -101,7 +102,7 @@ async function routeStaffAccount(){
   if(staff.staff_role==='rider')$('#riderName').textContent=staff.display_name||'Rider Dashboard';
   show('app');
   const tasks=[loadAssistedLists()];
-  if(staff.staff_role==='rider')tasks.push(loadJobs());
+  if(staff.staff_role==='rider'){tasks.push(loadJobs());tasks.push(loadRiderAftersales());}
   await Promise.all(tasks);
 }
 
@@ -193,6 +194,29 @@ function renderAssistedLists(){
     '</article>';
   }).join('');
 }
+
+
+async function loadRiderAftersales(){
+ const container=$('#riderAftersalesList');
+ if(!container)return;
+ const {data,error}=await client.rpc('staff_list_assigned_aftersales_returns');
+ if(error){container.textContent='Unable to load Aftersales assignments: '+error.message;return;}
+ const cases=Array.isArray(data)?data:[];
+ $('#riderAftersalesCount').textContent=String(cases.length);
+ if(!cases.length){container.textContent='No Aftersales return parcels currently assigned to your rider account.';return;}
+ container.replaceChildren();
+ for(const record of cases){
+  const card=document.createElement('article');card.className='rider-job-card';
+  card.style.cssText='border:1px solid #dce4ee;border-radius:12px;padding:14px;margin:12px 0;overflow-wrap:anywhere;background:#fff';
+  const heading=document.createElement('h3');heading.textContent=record.aftersales_number+' — '+record.item_name;
+  const line=document.createElement('p');line.textContent='Return '+record.return_reference+' • '+String(record.return_status||'').replaceAll('_',' ');
+  const station=document.createElement('p');station.textContent='Collect from: '+record.pickup_station_name+' • Destination: '+String(record.route_destination||'seller').replaceAll('_',' ');
+  const customer=document.createElement('p');customer.textContent='Customer: '+(record.customer_name||'Not recorded')+' • '+(record.customer_phone||'');
+  const detail=document.createElement('p');detail.textContent='Order: '+(record.order_reference||'Not linked')+' • '+(record.has_waybill?'Waybill uploaded':'Awaiting waybill');
+  card.append(heading,line,station,customer,detail);container.append(card);
+ }
+}
+$('#refreshRiderAftersales')?.addEventListener('click',loadRiderAftersales);
 
 async function loadJobs(){
   setStatus('#riderStatus');

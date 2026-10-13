@@ -77,7 +77,12 @@
     <p id="assistedStaffStatus" class="status"></p>
   </section>
 
-  <section id="riderApp" class="rider-app" hidden>
+  <section id="riderAftersalesPanel" hidden style="padding:16px;margin:12px 0;background:#f7f9fc;border-radius:14px">
+ <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2>Assigned Aftersales Returns <span id="riderAftersalesCount">0</span></h2><button id="refreshRiderAftersales" type="button">↻ Refresh Returns</button></div>
+ <p>Only returns assigned to your registered LEOGO rider account are shown. Pickup Station records the dispatch and seller confirms final receipt.</p>
+ <div id="riderAftersalesList">Loading assigned returns…</div>
+ </section>
+<section id="riderApp" class="rider-app" hidden>
     <header class="rider-welcome">
       <div><span>DELIVERY OPERATIONS</span><h1 id="riderName">Rider Dashboard</h1><p>Only orders assigned to you are shown here.</p></div>
       <button id="refreshRiderJobs" type="button">↻ Refresh</button>
@@ -102,6 +107,6 @@
   <script src="../js/runtime-monitor.js?v=network-storm-fix-2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="../js/assisted-shopping-pdf.js?v=assisted-download-v1" defer></script>
-<script src="staff.js?v=loyalty-points-v2" defer></script>
+<script src="staff.js?v=rider-aftersales-20261013" defer></script>
 </body>
 </html>
