@@ -869,6 +869,7 @@ function sellerViewDescription(view){
     products:'Manage products, stock, pricing and variants.',
     orders:'Receive and fulfil customer orders.',
     aftersales:'Handle product-specific customer complaints, evidence and return tracking.',
+    liability:'View aftersales deductions and account charges.',
     reviews:'Approved product reviews from completed customer orders.',
     flashsale:'Choose an existing product and submit it to Flash Sale.',
     earnings:'View daily earnings, cumulative earnings and your available settlement balance.',
@@ -885,7 +886,7 @@ function closeSellerSidebar(){
 }
 function openSellerView(view='overview'){
   const allowed=seller?.application_status==='approved'
-    ? ['overview','products','orders','aftersales','reviews','flashsale','earnings','settlements','subscription','notifications','profile','data']
+    ? ['overview','products','orders','aftersales','liability','reviews','flashsale','earnings','settlements','subscription','notifications','profile','data']
     : ['overview','subscription','notifications','profile','data'];
   const resolved=allowed.includes(view)?view:'overview';
   $$('[data-seller-content]').forEach(panel=>panel.classList.toggle('active',panel.dataset.sellerContent===resolved));
