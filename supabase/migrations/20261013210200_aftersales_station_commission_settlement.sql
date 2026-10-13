@@ -58,7 +58,7 @@ begin
     'daily',v_daily
   );
 end
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.pickup_partner_request_withdrawal(p_amount_kes numeric, p_note text DEFAULT NULL::text)
