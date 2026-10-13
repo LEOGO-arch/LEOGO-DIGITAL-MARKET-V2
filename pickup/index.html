@@ -13,8 +13,9 @@
   <div class="top-actions"><button id="refreshPortal" type="button">↻ Refresh</button><button id="pickupLogout" type="button">Sign Out</button></div>
 </header>
 
-<main class="page">\n  <section id="pickupStartupNotice" role="status" style="padding:14px;border:1px solid #d5deec;background:#fff;border-radius:12px;margin-bottom:12px">Loading your Pickup Station…</section>
-  <script>window.setTimeout(function(){var x=document.getElementById('pickupStartupNotice');if(x){x.textContent='Pickup Station is taking too long to load. Check your connection, refresh the page, or report this message to LEOGO support.';}},12000);</script>
+<main class="page">
+  <section id="pickupStartupNotice" role="status" style="padding:14px;border:1px solid #d5deec;background:#fff;border-radius:12px;margin-bottom:12px">Loading your Pickup Station…</section>
+  
   <section id="authGate" class="gate" hidden>
     <span>PICKUP STATION PARTNER</span><h1>Sign in through the LEOGO Partner Portal</h1>
     <p>Use the same LEOGO account assigned to your Pickup Station.</p>
@@ -223,7 +224,31 @@
 <script src="../js/vendor/supabase-2.116.0.min.js" defer></script>
   <script src="../js/runtime-monitor.js?v=network-storm-fix-2" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
-<script src="pickup.js?v=visible-recovery-1" defer></script>
+<script>
+(function(){
+ function alertUser(message){
+  var x=document.getElementById('pickupStartupNotice');
+  if(!x)return;
+  x.textContent=message;
+  x.style.borderColor='#d97706';
+  x.style.background='#fff7ed';
+ }
+ window.addEventListener('error',function(e){
+  if(!document.getElementById('portal')?.hidden)return;
+  alertUser('Pickup Station loading error: '+(e.message||'A required script failed'));
+ });
+ window.addEventListener('unhandledrejection',function(e){
+  if(!document.getElementById('portal')?.hidden)return;
+  alertUser('Pickup Station connection error: '+(e.reason?.message||'A request failed'));
+ });
+ window.setTimeout(function(){
+  var x=document.getElementById('pickupStartupNotice');
+  if(!x)return;
+  alertUser(!window.supabase?'Pickup Station could not load the sign-in library. Check your connection and refresh.':!window.leogoPickupDb?'Pickup Station script did not initialize. Please report this screen to LEOGO support.':'Pickup Station is waiting for authentication or account data. Refresh; if this persists, report it to LEOGO support.');
+ },12000);
+})();
+</script>
+<script src="pickup.js?v=loader-diagnostics-2" defer></script>
 <script src="tracker-any.js?v=aftersales-tracking-1" defer></script>
 <script src="loan-assets.js?v=loan-assets-3" defer></script>
 </body>
