@@ -1,4 +1,5 @@
 alter table public.aftersales_exchange_shipments add column if not exists customer_delivery_choice text check(customer_delivery_choice in ('pickup_station','door'));
+alter table public.aftersales_exchange_shipments add column if not exists preferred_pickup_station_id uuid references public.pickup_stations(id);
 create or replace function public.customer_aftersales_exchange_choose_delivery(p_shipment_id uuid,p_method text)
 returns jsonb language plpgsql security definer set search_path='' as $fn$
 declare v public.aftersales_exchange_shipments%rowtype;
@@ -8,10 +9,11 @@ begin
  where x.id=p_shipment_id and o.customer_id=auth.uid() for update of x;
  if not found then raise exception 'Exchange shipment not found for customer';end if;
  if v.status not in ('packed_ready') or v.rider_id is not null then raise exception 'Delivery choice is locked once a rider is assigned or delivery begins';end if;
- if p_method='pickup_station' and v.pickup_station_id is null then raise exception 'No Pickup Station recorded. Contact LEOGO Customer Care to choose a station';end if;
+ if p_method='pickup_station' and coalesce(v.preferred_pickup_station_id,v.pickup_station_id) is null then raise exception 'No Pickup Station recorded. Contact LEOGO Customer Care to choose a station';end if;
  update public.aftersales_exchange_shipments
  set customer_delivery_choice=p_method,
- pickup_station_id=case when p_method='door' then null else pickup_station_id end,
+ preferred_pickup_station_id=coalesce(v.preferred_pickup_station_id,v.pickup_station_id),
+ pickup_station_id=case when p_method='door' then null else coalesce(v.preferred_pickup_station_id,v.pickup_station_id) end,
  payer=null,delivery_cost_kes=null,payment_verified=false,delivery_payment_reference=null,
  cost_decided_by=null,cost_decided_at=null,updated_at=now()
  where id=v.id;
