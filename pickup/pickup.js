@@ -259,7 +259,7 @@ const renderReturns=()=>{
   const displayed=returns.filter(r=>returnFilter==='manual'?!aftersalesReturnMeta.has(r.id):aftersalesReturnMeta.has(r.id)&&(returnFilter==='all'||(returnFilter==='overdue'?returnCategory(r)==='received'&&Date.now()-new Date(r.booked_at).getTime()>48*3600000:returnCategory(r)===returnFilter)));
   $('#returnList').innerHTML=displayed.length?displayed.map(r=>`
     <article class="compact-row"><header><strong>${esc(r.return_reference)}</strong><span class="pill">${esc(String(r.status||'').replaceAll('_',' '))}</span></header>
-    <p>${esc(r.customer_name)} · ${esc(r.customer_phone)}<br>${esc(r.item_description)}<br><b>Reason:</b> ${esc(r.return_reason)}${r.original_order_reference?'<br><b>Original:</b> '+esc(r.original_order_reference):''}</p>
+    <p>${aftersalesReturnMeta.has(r.id)?'<b>Aftersales:</b> '+esc(aftersalesReturnMeta.get(r.id).case_reference)+'<br>':''}${esc(r.customer_name)} · ${esc(r.customer_phone)}<br>${esc(aftersalesReturnMeta.get(r.id)?.item_name||r.item_description)}<br><b>Reason:</b> ${esc(r.return_reason)}${r.original_order_reference?'<br><b>Original:</b> '+esc(r.original_order_reference):''}</p>
     <small>${esc(fmt(r.booked_at))}</small>${r.status==='awaiting_dispatch'&&r.return_reference?.startsWith('AFR-')?'<button type="button" data-receive-aftersales-return="'+esc(r.id)+'">Receive physical return</button>':''}${r.return_reference?.startsWith('AFR-')&&['received_at_station','dispatched'].includes(r.status)?'<button type="button" data-return-waybill="'+esc(r.id)+'">Return handover / Waybill</button>':''}</article>`).join(''):'<div class="compact-row"><strong>No return parcels yet.</strong></div>';
 };
 
