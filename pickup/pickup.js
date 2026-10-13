@@ -25,7 +25,10 @@ const showView=(name)=>{
   $$('[data-panel]').forEach(p=>p.classList.toggle('active',p.dataset.panel===name));
   window.scrollTo({top:0,behavior:'smooth'});
 };
-$$('#pickupNav [data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
+$('#pickupNav [data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
+// Return Parcels opens overdue physical returns; other statuses are one tap away.
+document.querySelector('#pickupNav [data-view="returns"]')?.addEventListener('click',()=>{returnFilter='overdue';renderReturns();});
+
 
 const isAdminIdentity=async(user)=>{
   const userId=user?.id||'';
@@ -233,17 +236,27 @@ $$('[data-metric-view]').forEach(button=>button.addEventListener('click',async()
   }
 }));
 
-let returnFilter='all';
+const manualReturnCard=$('#returnForm')?.closest('.card');
+if(manualReturnCard){
+ manualReturnCard.style.display='none';
+ const button=document.createElement('button');
+ button.type='button';button.textContent='Book a separate manual return';button.style.margin='12px 0';
+ $('#returnList')?.before(button);
+ button.addEventListener('click',()=>{const show=manualReturnCard.style.display==='none';manualReturnCard.style.display=show?'block':'none';button.textContent=show?'Hide manual booking':'Book a separate manual return';if(show)manualReturnCard.scrollIntoView({behavior:'smooth'});});
+}
+
+let returnFilter='overdue';
+let aftersalesReturnMeta=new Map();
 const returnCategory=r=>r.status==='awaiting_dispatch'?'pending':r.status==='received_at_station'?'received':r.status==='dispatched'?'dispatched':r.status==='completed'?'complete':'other';
 $('#returnList').closest('.card')?.querySelector('.return-submenu')?.addEventListener('click',event=>{
  const button=event.target.closest('[data-return-filter]');if(!button)return;returnFilter=button.dataset.returnFilter;renderReturns();
 });
 const renderReturns=()=>{
-  const aftersales=returns.filter(r=>r.return_reference?.startsWith('AFR-'));
+  const aftersales=returns.filter(r=>aftersalesReturnMeta.has(r.id));
   const counts={pending:0,received:0,dispatched:0,complete:0,overdue:0};
-  for(const r of aftersales){const cat=returnCategory(r);if(cat in counts)counts[cat]++;if(cat==='received'&&Date.now()-new Date(r.booked_at).getTime()>48*3600000)counts.overdue++;}
+  for(const r of aftersales){const cat=returnCategory(r);if(cat in counts)counts[cat]++;if(cat==='received'&&Date.now()-new Date(aftersalesReturnMeta.get(r.id)?.received_at||Date.now()).getTime()>48*3600000)counts.overdue++;}
   for(const [status,id] of Object.entries({pending:'returnCountPending',received:'returnCountReceived',dispatched:'returnCountDispatched',complete:'returnCountComplete',overdue:'returnCountOverdue'})){const e=$('#'+id);if(e)e.textContent=counts[status];}
-  const displayed=returns.filter(r=>returnFilter==='all'||(returnFilter==='overdue'?returnCategory(r)==='received'&&Date.now()-new Date(r.booked_at).getTime()>48*3600000:returnCategory(r)===returnFilter));
+  const displayed=returns.filter(r=>returnFilter==='manual'?!aftersalesReturnMeta.has(r.id):aftersalesReturnMeta.has(r.id)&&(returnFilter==='all'||(returnFilter==='overdue'?returnCategory(r)==='received'&&Date.now()-new Date(r.booked_at).getTime()>48*3600000:returnCategory(r)===returnFilter)));
   $('#returnList').innerHTML=displayed.length?displayed.map(r=>`
     <article class="compact-row"><header><strong>${esc(r.return_reference)}</strong><span class="pill">${esc(String(r.status||'').replaceAll('_',' '))}</span></header>
     <p>${esc(r.customer_name)} · ${esc(r.customer_phone)}<br>${esc(r.item_description)}<br><b>Reason:</b> ${esc(r.return_reason)}${r.original_order_reference?'<br><b>Original:</b> '+esc(r.original_order_reference):''}</p>
@@ -520,7 +533,8 @@ const loadDashboard=async()=>{
 const loadParcels=async()=>{const {data,error}=await client.rpc('pickup_partner_list_parcels_v2');if(error)throw error;parcels=data||[];renderParcels();};
 const loadReturns=async()=>{
  const {data,error}=await client.rpc('pickup_partner_list_returns');if(error)throw error;returns=data||[];
- const summary=await client.rpc('pickup_partner_return_dashboard');
+ const [summary,listing]=await Promise.all([client.rpc('pickup_partner_return_dashboard'),client.rpc('pickup_partner_aftersales_return_listing')]);
+ if(!listing.error&&Array.isArray(listing.data))aftersalesReturnMeta=new Map(listing.data.map(x=>[x.id,x]));
  const label=$('#returnsCommissionSummary');
  if(label&&!summary.error)label.textContent='Completed returns: '+(summary.data?.complete||0)+' · Return commissions earned: KSh '+Number(summary.data?.earnings_total_kes||0).toLocaleString('en-KE')+' · Credited after seller confirms receipt.';
  renderReturns();
