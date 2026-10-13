@@ -84,6 +84,7 @@ exchangeOps.innerHTML='<h3>Outbound Exchange / Replacement Shipment</h3><p>Admin
 '<label>Delivery cost payer<select name="payer" required><option value="">Select responsibility</option><option value="seller">Seller</option><option value="customer">Customer</option><option value="leogo">LEOGO</option></select></label>'+
 '<label>Delivery cost (KSh)<input name="cost" type="number" min="0" step="0.01" required></label>'+
 '<label>Reason for assigning liability<textarea name="reason" minlength="10" required></textarea></label>'+
+'<label>Customer payment reference (required for verified customer-paid delivery)<input name="reference" maxlength="100" placeholder="M-Pesa / bank reference"></label>'+
 '<label><input type="checkbox" name="verified"> Delivery payment or approved internal charge independently verified</label>'+
 '<button type="submit">Save Responsibility & Verified Charge</button><p role="status"></p></form>'+
 '<form id="exchangeAdminRiderForm" style="display:grid;gap:10px"><label>Registered Rider<select name="rider" required></select></label><button type="submit">Assign Replacement Rider</button><p role="status"></p></form>';
@@ -104,6 +105,7 @@ async function refreshExchangeAdmin(){
  form.elements.payer.value=shipment.payer||'';
  form.elements.cost.value=shipment.delivery_cost_kes??'';
  form.elements.reason.value=shipment.responsibility_reason||'';
+ form.elements.reference.value=shipment.delivery_payment_reference||'';
  form.elements.verified.checked=!!shipment.payment_verified;
  const list=await db.rpc('admin_aftersales_available_couriers');
  const select=exchangeOps.querySelector('#exchangeAdminRiderForm [name=rider]');select.replaceChildren(new Option('Choose active LEOGO rider',''));
@@ -111,7 +113,7 @@ async function refreshExchangeAdmin(){
 }
 exchangeOps.querySelector('#exchangeAdminCostForm').addEventListener('submit',async e=>{
  e.preventDefault();const form=e.currentTarget,n=activeRecord();if(!n||!selected)return;
- const result=await db.rpc('admin_aftersales_exchange_decide_cost',{p_case_id:n.case_id,p_payer:form.elements.payer.value,p_cost:Number(form.elements.cost.value),p_reason:form.elements.reason.value,p_payment_verified:form.elements.verified.checked});
+ const result=await db.rpc('admin_aftersales_exchange_decide_cost',{p_case_id:n.case_id,p_payer:form.elements.payer.value,p_cost:Number(form.elements.cost.value),p_reason:form.elements.reason.value,p_payment_verified:form.elements.verified.checked,p_payment_reference:form.elements.reference.value.trim()||null});
  form.querySelector('[role=status]').textContent=result.error?.message||'Charge decision recorded.';if(!result.error)await refreshExchangeAdmin();
 });
 exchangeOps.querySelector('#exchangeAdminRiderForm').addEventListener('submit',async e=>{
