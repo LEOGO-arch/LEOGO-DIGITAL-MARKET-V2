@@ -260,9 +260,27 @@ const renderReturns=()=>{
   $('#returnList').innerHTML=displayed.length?displayed.map(r=>`
     <article class="compact-row"><header><strong>${esc(r.return_reference)}</strong><span class="pill">${esc(String(r.status||'').replaceAll('_',' '))}</span></header>
     <p>${aftersalesReturnMeta.has(r.id)?'<b>Aftersales:</b> '+esc(aftersalesReturnMeta.get(r.id).case_reference)+'<br>':''}${esc(r.customer_name)} · ${esc(r.customer_phone)}<br>${esc(aftersalesReturnMeta.get(r.id)?.item_name||r.item_description)}<br><b>Reason:</b> ${esc(r.return_reason)}${r.original_order_reference?'<br><b>Original:</b> '+esc(r.original_order_reference):''}</p>
-    <small>${esc(fmt(r.booked_at))}</small>${r.status==='awaiting_dispatch'&&r.return_reference?.startsWith('AFR-')?'<button type="button" data-receive-aftersales-return="'+esc(r.id)+'">Receive physical return</button>':''}${r.return_reference?.startsWith('AFR-')&&['received_at_station','dispatched'].includes(r.status)?'<button type="button" data-return-waybill="'+esc(r.id)+'">Return handover / Waybill</button>':''}</article>`).join(''):'<div class="compact-row"><strong>No return parcels yet.</strong></div>';
+    <small>${esc(fmt(r.booked_at))}</small>${r.status==='awaiting_dispatch'&&r.return_reference?.startsWith('AFR-')?'<button type="button" data-receive-aftersales-return="'+esc(r.id)+'">Receive physical return</button>':''}${r.return_reference?.startsWith('AFR-')&&['received_at_station','dispatched'].includes(r.status)?'<button type="button" data-return-waybill="'+esc(r.id)+'">View / Upload Waybill</button>'+(r.status==='received_at_station'?'<button type="button" data-confirm-return-handover="'+esc(r.id)+'">Confirm Rider Handover</button>':''):''}</article>`).join(''):'<div class="compact-row"><strong>No return parcels yet.</strong></div>';
 };
 
+$('#returnList').addEventListener('click',async event=>{
+ const button=event.target.closest('[data-confirm-return-handover]');if(!button)return;
+ const id=button.dataset.confirmReturnHandover,parcel=returns.find(r=>r.id===id);
+ if(!parcel||parcel.status!=='received_at_station')return;
+ button.disabled=true;
+ try{
+  const checked=await client.rpc('pickup_partner_aftersales_waybill_status',{p_return_id:id});
+  if(checked.error)throw checked.error;
+  if(!checked.data?.waybill_path){alert('Upload the assigned rider waybill before confirming physical handover.');return;}
+  if(!confirm('Confirm that '+parcel.return_reference+' was physically handed to '+checked.data.courier_name+'? This records dispatch in LEOGO.'))return;
+  const result=await client.rpc('pickup_partner_confirm_return_handover',{p_return_id:id});
+  if(result.error)throw result.error;
+  await loadReturns();
+  returnFilter='dispatched';renderReturns();
+  alert(parcel.return_reference+' recorded as Dispatched.');
+ }catch(e){alert('Handover not recorded: '+(e.message||String(e)));}
+ finally{button.disabled=false;}
+});
 $('#returnList').addEventListener('click',async event=>{
  const btn=event.target.closest('[data-return-waybill]');if(!btn)return;
  const id=btn.dataset.returnWaybill,record=returns.find(r=>r.id===id);if(!record)return;
