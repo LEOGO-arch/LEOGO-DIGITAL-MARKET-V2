@@ -251,6 +251,49 @@ const returnCategory=r=>r.status==='awaiting_dispatch'?'pending':r.status==='rec
 $('#returnList').closest('.card')?.querySelector('.return-submenu')?.addEventListener('click',event=>{
  const button=event.target.closest('[data-return-filter]');if(!button)return;returnFilter=button.dataset.returnFilter;renderReturns();
 });
+const exchangeBox=document.createElement('section');
+exchangeBox.style.cssText='border:1px solid #dce4ee;border-radius:14px;padding:14px;margin:16px 0;background:#fff';
+exchangeBox.innerHTML='<h3>Exchange / Replacement Deliveries</h3><p>Receive replacement parcels and record customer handover. Pickup Station commission: KSh 0.</p><div id="pickupExchangeShipments">Loading exchanges…</div>';
+$('#returnList')?.after(exchangeBox);
+async function loadPickupExchanges(){
+ const container=$('#pickupExchangeShipments');if(!container)return;
+ const result=await client.rpc('aftersales_exchange_list',{p_role:'station'});
+ if(result.error){container.textContent=result.error.message;return;}
+ const rows=Array.isArray(result.data)?result.data:[];container.replaceChildren();
+ if(!rows.length){container.textContent='No exchange parcels assigned to this Pickup Station.';return;}
+ for(const item of rows){
+  const card=document.createElement('article');card.style.cssText='padding:12px;border:1px solid #e3e8f2;margin:10px 0;border-radius:10px';
+  const title=document.createElement('h4');title.textContent=item.reference+' · '+item.item_name;
+  const status=document.createElement('p');status.textContent='Aftersales '+item.case_reference+' · '+item.status.replaceAll('_',' ')+' · Pickup commission KSh 0';
+  card.append(title,status);
+  if(item.status==='at_pickup_station'){
+   const btn=document.createElement('button');btn.textContent='Confirm Received at Pickup Station';
+   btn.onclick=async()=>{btn.disabled=true;const x=await client.rpc('pickup_partner_exchange_receive',{p_shipment_id:item.id});if(x.error){alert(x.error.message);btn.disabled=false;return;}await loadPickupExchanges();};
+   card.append(btn);
+  }
+  if(item.status==='ready_for_collection'){
+   const form=document.createElement('form');form.style.cssText='display:grid;gap:9px';
+   const id=document.createElement('input');id.placeholder='Customer ID last 4 digits';id.pattern='[0-9]{4}';id.maxLength=4;id.required=true;
+   const photo=document.createElement('input');photo.type='file';photo.accept='image/jpeg,image/png';photo.required=true;
+   const btn=document.createElement('button');btn.type='submit';btn.textContent='Confirm Replacement Handed to Customer';
+   const feedback=document.createElement('p');feedback.setAttribute('role','status');
+   form.append(id,photo,btn,feedback);
+   form.onsubmit=async e=>{
+    e.preventDefault();if(!form.reportValidity())return;
+    if(!confirm('Confirm customer collected '+item.reference+'? This records delivery with zero Pickup Station commission.'))return;
+    const file=photo.files[0];if(!file||file.size>5242880){feedback.textContent='Select a JPG/PNG handover photo smaller than 5 MB';return;}
+    btn.disabled=true;
+    const path=item.id+'/'+Date.now().toString(36)+'.'+(file.type==='image/png'?'png':'jpg');
+    const upload=await client.storage.from('aftersales-exchange-handover').upload(path,file,{upsert:false,contentType:file.type});
+    if(upload.error){feedback.textContent=upload.error.message;btn.disabled=false;return;}
+    const done=await client.rpc('pickup_partner_exchange_handover',{p_shipment_id:item.id,p_customer_id_last4:id.value,p_proof_path:path});
+    if(done.error){feedback.textContent=done.error.message;btn.disabled=false;return;}
+    await loadPickupExchanges();
+   };card.append(form);
+  }
+  container.append(card);
+ }
+}
 const renderReturns=()=>{
   const aftersales=returns.filter(r=>aftersalesReturnMeta.has(r.id));
   const counts={pending:0,received:0,dispatched:0,complete:0,overdue:0};
@@ -552,6 +595,7 @@ const loadParcels=async()=>{const {data,error}=await client.rpc('pickup_partner_
 const loadReturns=async()=>{
  const {data,error}=await client.rpc('pickup_partner_list_returns');if(error)throw error;returns=data||[];
  const [summary,listing]=await Promise.all([client.rpc('pickup_partner_return_dashboard'),client.rpc('pickup_partner_aftersales_return_listing')]);
+ await loadPickupExchanges();
  if(!listing.error&&Array.isArray(listing.data))aftersalesReturnMeta=new Map(listing.data.map(x=>[x.id,x]));
  const label=$('#returnsCommissionSummary');
  if(label&&!summary.error)label.textContent='Completed returns: '+(summary.data?.complete||0)+' · Return commissions earned: KSh '+Number(summary.data?.earnings_total_kes||0).toLocaleString('en-KE')+' · Credited after seller confirms receipt.';

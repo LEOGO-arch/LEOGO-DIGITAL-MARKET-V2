@@ -119,6 +119,29 @@ if(inspection && !inspection.inspected_at){
  if(error){review.querySelector('[role=status]').textContent=error.message;button.disabled=false;return;}
  await load();};card.append(review);
 }
+if(inspection?.inspected_at && ['exchange','replacement'].includes(inspection.recommendation)){
+ const xrow=document.createElement('section');xrow.className='panel';xrow.style.cssText='margin:12px 0;padding:12px;border-radius:12px';
+ const heading=document.createElement('h5');heading.textContent='Exchange / Replacement — Pack and Ready for Dispatch';
+ const info=document.createElement('p');info.textContent='This is a replacement shipment under the existing Aftersales case, not a new customer sale. Admin decides who covers delivery.';
+ xrow.append(heading,info);
+ const current=await db.rpc('aftersales_exchange_list',{p_role:'seller'});
+ const existing=(Array.isArray(current.data)?current.data:[]).find(x=>x.case_id===n.case_id);
+ if(existing){
+  const status=document.createElement('p');status.textContent='Exchange '+existing.reference+' — '+existing.status.replaceAll('_',' ')+' · Delivery cost payer: '+(existing.payer||'Admin decision pending');xrow.append(status);
+ }else{
+  const form=document.createElement('form');form.style.cssText='display:grid;gap:10px';
+  const notes=document.createElement('textarea');notes.required=true;notes.minLength=5;notes.maxLength=2000;notes.placeholder='Replacement item details, packaging and dispatch notes';
+  const button=document.createElement('button');button.type='submit';button.textContent='Pack & Ready for Dispatch';
+  const feedback=document.createElement('p');feedback.setAttribute('role','status');
+  form.append(notes,button,feedback);
+  form.onsubmit=async ev=>{
+   ev.preventDefault();if(!form.reportValidity())return;button.disabled=true;
+   const result=await db.rpc('aftersales_exchange_seller_pack',{p_case_id:n.case_id,p_note:notes.value.trim()});
+   if(result.error){feedback.textContent=result.error.message;button.disabled=false;return;}await load();
+  };xrow.append(form);
+ }
+ card.append(xrow);
+}
 if(inspection?.recommendation==='reject' && !inspection.ready_return_at){
  const repack=document.createElement('form');repack.className='panel';repack.style.margin='12px 0';
  repack.innerHTML='<h5>Step 3 — Prepare Rejected Item for Customer Return</h5><p>Only after inspection rejection. LEOGO will issue return-shipping instructions.</p><label>Repacking notes<textarea name="note" required minlength="5" maxlength="2000"></textarea></label><button type="submit">Mark Repacked & Ready</button><p role="status" aria-live="polite"></p>';

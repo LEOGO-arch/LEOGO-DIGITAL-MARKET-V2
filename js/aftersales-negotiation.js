@@ -147,6 +147,53 @@ if(shipping){
 }
 if(!data?.length)el.textContent='No cases have been forwarded to a seller yet.';
 }
-section.querySelector('#customerAftersalesRefresh').onclick=load;
-document.addEventListener('leogo:authchange',load);load();
+const exchangePanel=document.createElement('section');
+exchangePanel.className='afs-customer-cases';exchangePanel.innerHTML='<h3>Exchange / Replacement Delivery Tracking</h3><div id="customerExchangeShipments">Loading replacement delivery updates…</div>';
+section.append(exchangePanel);
+async function loadCustomerExchange(){
+ const host=exchangePanel.querySelector('#customerExchangeShipments'),db=window.leogoAuth?.client;
+ if(!db||!window.leogoAuth?.isAuthenticated?.()){host.textContent='Sign in to track your exchange.';return;}
+ const {data,error}=await db.rpc('aftersales_exchange_list',{p_role:'customer'});
+ if(error){host.textContent=error.message;return;}
+ host.replaceChildren();
+ const list=Array.isArray(data)?data:[];
+ if(!list.length){host.textContent='No outbound exchange shipments yet.';return;}
+ for(const item of list){
+  const card=document.createElement('article');card.className='afs-fact';card.style.cssText='padding:12px;border:1px solid #dce5ee;border-radius:12px;margin:10px 0';
+  const title=document.createElement('strong');title.textContent=item.reference+' — '+item.item_name;
+  const line=document.createElement('p');line.textContent='Aftersales '+item.case_reference+' · '+item.status.replaceAll('_',' ');
+  const route=document.createElement('p');route.textContent='Delivery: '+(item.pickup_station_id?'Pickup Station collection':'Direct delivery')+' · Delivery cost payer: '+(item.payer||'Admin reviewing responsibility');
+  const safe=document.createElement('p');safe.textContent='This replacement does not create a new product sale or extra Pickup Station commission.';
+  card.append(title,line,route,safe);
+  if(item.payer==='customer'&&Number(item.delivery_cost_kes||0)>0){
+   const cost=document.createElement('p');cost.textContent='Delivery charge: KSh '+Number(item.delivery_cost_kes).toLocaleString('en-KE')+' · '+(item.payment_verified?'Verified':'Awaiting verification');
+   card.append(cost);
+   if(!item.payment_verified&&item.status==='packed_ready'){
+    const form=document.createElement('form');form.style.cssText='display:grid;gap:8px';
+    const reference=document.createElement('input');reference.required=true;reference.minLength=5;reference.maxLength=100;
+    reference.value=item.delivery_payment_reference||'';reference.placeholder='Paste M-Pesa/bank payment reference';
+    const button=document.createElement('button');button.type='submit';button.textContent='Submit Shipping Payment Reference';
+    const feedback=document.createElement('p');feedback.setAttribute('role','status');
+    form.append(reference,button,feedback);
+    form.onsubmit=async e=>{
+     e.preventDefault();button.disabled=true;
+     const submitted=await db.rpc('customer_aftersales_exchange_submit_delivery_payment',{p_shipment_id:item.id,p_reference:reference.value.trim()});
+     feedback.textContent=submitted.error?.message||'Reference sent for LEOGO verification before replacement dispatch.';
+     button.disabled=false;
+    };card.append(form);
+   }
+  }
+  if(item.status==='delivered'){
+   const done=document.createElement('p');done.textContent='Replacement delivered. Delivery history and handover proof are retained by LEOGO.';card.append(done);
+  }
+  const history=await db.rpc('aftersales_exchange_history',{p_shipment_id:item.id});
+  if(!history.error&&Array.isArray(history.data)){
+   const details=document.createElement('details');const heading=document.createElement('summary');heading.textContent='Exchange delivery history ('+history.data.length+')';details.append(heading);
+   for(const step of history.data){const line=document.createElement('p');line.textContent=new Date(step.at).toLocaleString('en-KE')+' · '+String(step.to).replaceAll('_',' ');details.append(line);}card.append(details);
+  }
+  host.append(card);
+ }
+}
+section.querySelector('#customerAftersalesRefresh').onclick=()=>{load();loadCustomerExchange();};
+document.addEventListener('leogo:authchange',()=>{load();loadCustomerExchange();});load();loadCustomerExchange();
 })();
