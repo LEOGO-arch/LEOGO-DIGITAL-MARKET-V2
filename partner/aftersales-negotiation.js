@@ -3,8 +3,12 @@
 const db=window.leogoPartnerClient;
 const orders=document.querySelector('#sellerAftersalesHome');
 if(!db||!orders)return;
-const section=document.createElement('section');section.className='panel';section.innerHTML='<h3>Aftersales cases sent by LEOGO</h3><p>Review your assigned cases, propose solutions or reject with a reason.</p><button id="sellerAftersalesRefresh" type="button">Refresh Cases</button><div id="sellerAftersalesNegotiations"></div>';orders.append(section);
+const section=document.createElement('section');section.className='panel';section.innerHTML='<h3>Customer Aftersales</h3><p>Review each affected item, follow its history and continue from the correct stage.</p><button id="sellerAftersalesRefresh" type="button">Refresh Cases</button><div id="sellerAftersalesCaseList" class="leogo-aftersales-list"></div><div id="sellerAftersalesNegotiations" class="leogo-aftersales-detail"></div>';orders.append(section);
 const el=section.querySelector('#sellerAftersalesNegotiations');
+const caseList=section.querySelector('#sellerAftersalesCaseList');
+let selectedCaseId=null;
+let lastKnownUpdates=new Map();
+const style=document.createElement('style');style.textContent=`.leogo-aftersales-list{display:grid;gap:10px;margin:18px 0}.leogo-aftersales-list button{width:100%;text-align:left;border:1px solid #dae3ee;border-radius:13px;padding:14px;background:#fff;color:#10233f;display:grid;gap:5px;white-space:normal}.leogo-aftersales-list button[aria-current=true]{border:2px solid #ef7d00;background:#fff9f3}.leogo-aftersales-list strong{font-size:1rem}.leogo-aftersales-list small{opacity:.8}.leogo-aftersales-detail .panel{max-width:100%;box-sizing:border-box}.leogo-aftersales-detail textarea,.leogo-aftersales-detail select{width:100%;max-width:100%;box-sizing:border-box}.leogo-aftersales-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:10px;margin:12px 0}.leogo-aftersales-overview>div{padding:12px;border:1px solid #dce4ed;border-radius:12px;background:#f8fafc;overflow-wrap:anywhere}.leogo-aftersales-detail h4{overflow-wrap:anywhere}.leogo-aftersales-detail details{margin:12px 0}.leogo-aftersales-detail form{border-top:1px solid #e2e8f0;padding-top:14px;display:grid;gap:10px}.leogo-aftersales-detail .seller-aftersales-customer-report{overflow-wrap:anywhere}`;document.head.append(style);
 const evidenceBucket='marketplace-aftersales-evidence';
 let linkedCases=[];
 function attachOrderLinks(){
@@ -15,7 +19,7 @@ function attachOrderLinks(){
   const button=document.createElement('button');button.type='button';button.dataset.caseLink=n.case_id;
   button.textContent='View Aftersales · '+String(n.stage||'Open').replaceAll('_',' ');
   button.className='secondary seller-aftersales-order-link';
-  button.addEventListener('click',()=>{document.querySelector('[data-seller-view="aftersales"]')?.click();window.setTimeout(()=>document.querySelector('[data-aftersales-case="'+n.case_id+'"]')?.scrollIntoView({behavior:'smooth',block:'start'}),90);});
+  button.addEventListener('click',()=>{document.querySelector('[data-seller-view="aftersales"]')?.click();window.setTimeout(()=>{selectedCaseId=n.case_id;showSelectedCase();el.scrollIntoView({behavior:'smooth',block:'start'});},90);});
   footer.append(button);
   const details=document.createElement('details');details.style.margin='12px 0';
   const summary=document.createElement('summary');summary.textContent='Aftersales application · '+(n.case_reference||'Open case');
@@ -38,8 +42,14 @@ const {data:inspectionData,error:inspectionError}=await db.rpc('aftersales_selle
 const inspections=Array.isArray(inspectionData)?inspectionData:[];
 if(inspectionError)console.warn('Seller inspection list not yet available:',inspectionError.message);
 if(error){el.textContent=error.message;return;}
-el.replaceChildren();
+el.replaceChildren();caseList.replaceChildren();
 linkedCases=Array.isArray(data)?data:[];
+if(!selectedCaseId||!linkedCases.some(n=>n.case_id===selectedCaseId))selectedCaseId=linkedCases[0]?.case_id||null;
+const updated=new Map(linkedCases.map(n=>[n.case_id,String(n.updated_at||'')]));
+const changed=linkedCases.filter(n=>lastKnownUpdates.has(n.case_id)&&lastKnownUpdates.get(n.case_id)!==String(n.updated_at||''));
+lastKnownUpdates=updated;
+if(changed.length){const message=document.createElement('p');message.setAttribute('role','status');message.textContent=changed.length+' Aftersales case update(s) received. Check the activity history.';caseList.append(message);}
+for(const n of linkedCases){const button=document.createElement('button');button.type='button';button.dataset.selectAftersales=n.case_id;button.setAttribute('aria-current',String(n.case_id===selectedCaseId));const status=String(n.stage||'Open').replaceAll('_',' ');const title=document.createElement('strong');title.textContent=n.product_name||'Product identification pending';const order=document.createElement('small');order.textContent='Order '+(n.order_reference||n.order_id)+' · '+(n.customer_name||'Customer name not supplied');const info=document.createElement('small');info.textContent=(n.case_reference||'Aftersales')+' · '+status+' · '+(n.issue_type||'Complaint');button.append(title,order,info);button.onclick=()=>{selectedCaseId=n.case_id;showSelectedCase();};caseList.append(button);}
 for(const n of data||[]){
 const field=(label,value)=>'<div style="margin:8px 0"><strong>'+esc(label)+':</strong> '+esc(value===null||value===undefined||value===''?'Not provided':value)+'</div>';
 const formatDate=value=>value?new Date(value).toLocaleString('en-KE'):'Not provided';
@@ -56,7 +66,7 @@ const returnReport=returnInfo
 const customerReport='<section class="seller-aftersales-customer-report" style="padding:14px;margin:14px 0;background:#f4f7fc;border:1px solid #d9e2ef;border-radius:12px">'+
   '<h5 style="margin:0 0 10px">Original Customer Aftersales Application</h5>'+
   field('Product',n.product_name||(n.order_item_id?'Product name unavailable':'Original complaint did not identify a specific order item'))+field('Order reference',n.order_reference||n.order_id)+
-  field('Complaint type',n.issue_type)+field('Customer explanation',n.details)+
+  field('Customer / order recipient',n.customer_name||'Not recorded')+field('Complaint type',n.issue_type)+field('Customer explanation',n.details)+
   field('Customer requested solution',n.preferred_solution)+
   (n.requested_refund_amount_kes!=null?field('Requested refund (KSh)',Number(n.requested_refund_amount_kes).toLocaleString('en-KE')):'')+
   (n.return_pickup_station_id?field('Return pickup station ID',n.return_pickup_station_id):'')+
@@ -67,7 +77,7 @@ const customerReport='<section class="seller-aftersales-customer-report" style="
   '</section>';
 const caseHistory=history.length?'<details style="margin:12px 0"><summary>Case activity history ('+history.length+')</summary>'+
   history.map(e=>'<div style="border-bottom:1px solid #ddd;padding:8px 0">'+field('Time',formatDate(e.created_at))+field('Action',e.event_type)+field('By',e.actor_role)+(e.comment?field('Comment',e.comment):'')+'</div>').join('')+'</details>':'';
-const card=document.createElement('article');card.className='panel';card.dataset.aftersalesCase=n.case_id;card.innerHTML='<h4>'+esc(n.case_reference)+'</h4><p>Status: '+esc(n.stage)+'</p>'+customerReport+returnReport+caseHistory+'<p>Previous solution: '+esc(n.seller_solution||'None')+'</p><form><label>Action <select name="action"><option value="review">Start Review</option><option value="propose">Propose Solution</option><option value="reject">Reject Complaint</option></select></label><label>Solution type <select name="solutionKind"><option value="return_refund">Return and refund</option><option value="return_exchange">Return and exchange</option><option value="replacement">Replacement</option><option value="other">Other agreed solution</option></select></label><label>Solution <textarea name="solution" maxlength="2000"></textarea></label><label>Comments / rejection reason <textarea name="comment" maxlength="2000"></textarea></label><button type="submit">Submit Seller Response</button><p role="status"></p></form>';el.append(card);
+const card=document.createElement('article');card.className='panel';card.dataset.aftersalesCase=n.case_id;card.innerHTML='<h4>'+esc(n.case_reference)+'</h4><div class="leogo-aftersales-overview"><div><strong>Product</strong><p>'+esc(n.product_name||'Product identification pending')+'</p></div><div><strong>Order</strong><p>'+esc(n.order_reference||n.order_id)+'</p></div><div><strong>Customer / order recipient</strong><p>'+esc(n.customer_name||'Not recorded')+'</p></div><div><strong>Aftersales status</strong><p>'+esc(String(n.stage||'Open').replaceAll('_',' '))+'</p></div></div>'+customerReport+returnReport+caseHistory+'<p>Previous solution: '+esc(n.seller_solution||'None')+'</p><form><label>Action <select name="action"><option value="review">Start Review</option><option value="propose">Propose Solution</option><option value="reject">Reject Complaint</option></select></label><label>Solution type <select name="solutionKind"><option value="return_refund">Return and refund</option><option value="return_exchange">Return and exchange</option><option value="replacement">Replacement</option><option value="other">Other agreed solution</option></select></label><label>Solution <textarea name="solution" maxlength="2000"></textarea></label><label>Comments / rejection reason <textarea name="comment" maxlength="2000"></textarea></label><button type="submit">Submit Seller Response</button><p role="status"></p></form>';el.append(card);card.hidden=n.case_id!==selectedCaseId;
 // Signed URLs are short-lived, and storage RLS restricts access to the assigned seller.
 if(n.evidence_path){
  const proof=card.querySelector('.seller-aftersales-evidence');
@@ -118,11 +128,19 @@ if(inspection?.recommendation==='reject' && !inspection.ready_return_at){
  await load();};card.append(repack);
 }
 const form=card.querySelector('form');
+const lockedStages=['customer_accepted','customer_rejected','closed','completed'];
+if(lockedStages.includes(n.stage)||inspection?.inspected_at){form.hidden=true;}else{
+ const action=form.elements.action;action.value=(n.stage==='seller_reviewing'?'propose':'review');
+ function adjust(){const proposing=action.value==='propose';form.elements.solutionKind.closest('label').hidden=!proposing;form.elements.solution.closest('label').hidden=!proposing;form.querySelector('button[type=submit]').textContent=action.value==='review'?'Mark Case Received / Under Review':action.value==='reject'?'Send Rejection to Customer':'Send Proposed Solution to Customer';}
+ action.addEventListener('change',adjust);adjust();}
 form.onsubmit=async e=>{e.preventDefault();const action=form.elements.action.value;const {error}=await db.rpc(action==='propose'?'aftersales_seller_propose_v2':'aftersales_seller_respond',action==='propose'?{p_case_id:n.case_id,p_solution_kind:form.elements.solutionKind.value,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value}:{p_case_id:n.case_id,p_action:action,p_solution:form.elements.solution.value,p_comment:form.elements.comment.value});if(error){form.querySelector('[role=status]').textContent=error.message;return;}await load();};
 }
-attachOrderLinks();
+attachOrderLinks();showSelectedCase();
 if(!data?.length)el.textContent='No Aftersales cases assigned.';
 }
+function showSelectedCase(){for(const card of el.querySelectorAll('[data-aftersales-case]'))card.hidden=card.dataset.aftersalesCase!==selectedCaseId;for(const button of caseList.querySelectorAll('[data-select-aftersales]'))button.setAttribute('aria-current',String(button.dataset.selectAftersales===selectedCaseId));}
 section.querySelector('#sellerAftersalesRefresh').onclick=load;
+window.addEventListener('focus',()=>{if(!document.hidden)load();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});
 load();
 })();
