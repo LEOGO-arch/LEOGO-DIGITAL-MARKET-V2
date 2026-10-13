@@ -8,7 +8,7 @@ const el=section.querySelector('#sellerAftersalesNegotiations');
 const caseList=section.querySelector('#sellerAftersalesCaseList');
 let selectedCaseId=null;
 let lastKnownUpdates=new Map();
-const style=document.createElement('style');style.textContent=`.leogo-aftersales-list{display:grid;gap:10px;margin:18px 0}.leogo-aftersales-list button{width:100%;text-align:left;border:1px solid #dae3ee;border-radius:13px;padding:14px;background:#fff;color:#10233f;display:grid;gap:5px;white-space:normal}.leogo-aftersales-list button[aria-current=true]{border:2px solid #ef7d00;background:#fff9f3}.leogo-aftersales-list strong{font-size:1rem}.leogo-aftersales-list small{opacity:.8}.leogo-aftersales-detail .panel{max-width:100%;box-sizing:border-box}.leogo-aftersales-detail textarea,.leogo-aftersales-detail select{width:100%;max-width:100%;box-sizing:border-box}.leogo-aftersales-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:10px;margin:12px 0}.leogo-aftersales-overview>div{padding:12px;border:1px solid #dce4ed;border-radius:12px;background:#f8fafc;overflow-wrap:anywhere}.leogo-aftersales-detail h4{overflow-wrap:anywhere}.leogo-aftersales-detail details{margin:12px 0}.leogo-aftersales-detail form{border-top:1px solid #e2e8f0;padding-top:14px;display:grid;gap:10px}.leogo-aftersales-detail .seller-aftersales-customer-report{overflow-wrap:anywhere}`;document.head.append(style);
+const style=document.createElement('style');style.textContent=`.leogo-aftersales-list{display:grid;gap:10px;margin:18px 0}.leogo-aftersales-list button{width:100%;text-align:left;border:1px solid #dae3ee;border-radius:13px;padding:14px;background:#fff;color:#10233f;display:grid;gap:5px;white-space:normal}.leogo-aftersales-list button[aria-current=true]{border:2px solid #ef7d00;background:#fff9f3}.leogo-aftersales-list strong{font-size:1rem}.leogo-aftersales-list small{opacity:.8}.leogo-aftersales-detail .panel{max-width:100%;box-sizing:border-box}.leogo-aftersales-detail textarea,.leogo-aftersales-detail select{width:100%;max-width:100%;box-sizing:border-box}.leogo-aftersales-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:10px;margin:12px 0}.leogo-aftersales-overview>div{padding:12px;border:1px solid #dce4ed;border-radius:12px;background:#f8fafc;overflow-wrap:anywhere}.leogo-aftersales-detail h4{overflow-wrap:anywhere}.leogo-aftersales-detail details{margin:12px 0}.leogo-aftersales-detail form{border-top:1px solid #e2e8f0;padding-top:14px;display:grid;gap:10px}.leogo-aftersales-detail .seller-aftersales-customer-report{overflow-wrap:anywhere}`;style.textContent+="\n.leogo-aftersales-detail .leogo-aftersales-overview,.leogo-aftersales-detail .seller-aftersales-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0;align-items:stretch}\n.leogo-aftersales-detail .leogo-aftersales-overview>div,.leogo-aftersales-detail .seller-aftersales-field{margin:0;padding:10px;border:1px solid #dce4ed;border-radius:12px;background:#fff;min-width:0;overflow-wrap:anywhere;box-sizing:border-box}\n.leogo-aftersales-detail .leogo-aftersales-overview strong,.leogo-aftersales-detail .seller-aftersales-field strong{display:block;font-size:11px;line-height:1.3;color:#61728a;margin-bottom:5px}\n.leogo-aftersales-detail .leogo-aftersales-overview p,.leogo-aftersales-detail .seller-aftersales-field span{font-size:13px;line-height:1.4;margin:0;color:#10233f;font-weight:600;white-space:normal;word-break:break-word}\n.leogo-aftersales-detail .seller-aftersales-field.wide{grid-column:1/-1}\n.leogo-aftersales-detail .seller-aftersales-customer-report,.leogo-aftersales-detail .seller-aftersales-return-report{padding:12px!important;margin:12px 0!important;border-radius:13px}\n.leogo-aftersales-detail .seller-aftersales-evidence{grid-column:1/-1;border:1px solid #dce4ed;border-radius:12px;background:#fff;padding:10px;margin:0!important}\n.leogo-aftersales-detail .seller-aftersales-evidence img{max-height:210px!important;max-width:100%;width:auto;object-fit:contain}\n.leogo-aftersales-detail .seller-aftersales-inspection{background:#f8fafc}\n@media(min-width:800px){.leogo-aftersales-detail .leogo-aftersales-overview,.leogo-aftersales-detail .seller-aftersales-fields{grid-template-columns:repeat(4,minmax(0,1fr))}}\n@media(max-width:360px){.leogo-aftersales-detail .leogo-aftersales-overview,.leogo-aftersales-detail .seller-aftersales-fields{gap:6px}.leogo-aftersales-detail .seller-aftersales-field{padding:8px}}\n";document.head.append(style);
 const evidenceBucket='marketplace-aftersales-evidence';
 let linkedCases=[];
 function attachOrderLinks(){
@@ -51,20 +51,20 @@ lastKnownUpdates=updated;
 if(changed.length){const message=document.createElement('p');message.setAttribute('role','status');message.textContent=changed.length+' Aftersales case update(s) received. Check the activity history.';caseList.append(message);}
 for(const n of linkedCases){const button=document.createElement('button');button.type='button';button.dataset.selectAftersales=n.case_id;button.setAttribute('aria-current',String(n.case_id===selectedCaseId));const status=String(n.stage||'Open').replaceAll('_',' ');const title=document.createElement('strong');title.textContent=n.product_name||'Product identification pending';const order=document.createElement('small');order.textContent='Order '+(n.order_reference||n.order_id)+' · '+(n.customer_name||'Customer name not supplied');const info=document.createElement('small');info.textContent=(n.case_reference||'Aftersales')+' · '+status+' · '+(n.issue_type||'Complaint');button.append(title,order,info);button.onclick=()=>{selectedCaseId=n.case_id;showSelectedCase();};caseList.append(button);}
 for(const n of data||[]){
-const field=(label,value)=>'<div style="margin:8px 0"><strong>'+esc(label)+':</strong> '+esc(value===null||value===undefined||value===''?'Not provided':value)+'</div>';
+const field=(label,value,wide=false)=>'<div class="seller-aftersales-field'+(wide?' wide':'')+'"><strong>'+esc(label)+'</strong><span>'+esc(value===null||value===undefined||value===''?'Not provided':value)+'</span></div>';
 const formatDate=value=>value?new Date(value).toLocaleString('en-KE'):'Not provided';
 const history=Array.isArray(n.history)?n.history:[];
 const returnInfo=n.return_tracking||null;
 const returnReport=returnInfo
- ? '<section style="padding:12px;margin:12px 0;border:1px solid #d7e2ed;border-radius:10px"><h5>Return Parcel Tracking</h5>'+
+ ? '<section class="seller-aftersales-return-report" style="padding:12px;margin:12px 0;border:1px solid #d7e2ed;border-radius:10px"><h5>Return Parcel Tracking</h5><div class="seller-aftersales-fields">'+
    field('Return reference',returnInfo.return_reference)+field('Current return status',String(returnInfo.status||'').replaceAll('_',' '))+
    field('Return reason',returnInfo.return_reason)+field('Return item',returnInfo.item_description)+
    field('Booked at pickup station',formatDate(returnInfo.booked_at))+
    field('Dispatched from station',formatDate(returnInfo.dispatched_at))+
-   field('Last tracking update',formatDate(returnInfo.updated_at))+'</section>'
+   field('Last tracking update',formatDate(returnInfo.updated_at))+'</div></section>'
  : '<p>Return parcel: Not booked at a pickup station yet.</p>';
 const customerReport='<section class="seller-aftersales-customer-report" style="padding:14px;margin:14px 0;background:#f4f7fc;border:1px solid #d9e2ef;border-radius:12px">'+
-  '<h5 style="margin:0 0 10px">Original Customer Aftersales Application</h5>'+
+  '<h5 style="margin:0 0 10px">Original Customer Aftersales Application</h5><div class="seller-aftersales-fields">'+
   field('Product',n.product_name||(n.order_item_id?'Product name unavailable':'Original complaint did not identify a specific order item'))+field('Order reference',n.order_reference||n.order_id)+
   field('Customer / order recipient',n.customer_name||'Not recorded')+field('Complaint type',n.issue_type)+field('Customer explanation',n.details)+
   field('Customer requested solution',n.preferred_solution)+
@@ -73,7 +73,7 @@ const customerReport='<section class="seller-aftersales-customer-report" style="
   field('Seller response deadline',formatDate(n.response_due_at))+
   (n.customer_comment?field('Latest customer comment',n.customer_comment):'')+
   (n.admin_comment?field('LEOGO case communication',n.admin_comment):'')+
-  (n.evidence_path?'<div class="seller-aftersales-evidence" style="margin:12px 0"><strong>Customer photo proof</strong><p>Loading protected image…</p></div>':'<p>No photo evidence was submitted for this case.</p>')+
+  '</div>'+(n.evidence_path?'<div class="seller-aftersales-evidence" style="margin:12px 0"><strong>Customer photo proof</strong><p>Loading protected image…</p></div>':'<p>No photo evidence was submitted for this case.</p>')+
   '</section>';
 const caseHistory=history.length?'<details style="margin:12px 0"><summary>Case activity history ('+history.length+')</summary>'+
   history.map(e=>'<div style="border-bottom:1px solid #ddd;padding:8px 0">'+field('Time',formatDate(e.created_at))+field('Action',e.event_type)+field('By',e.actor_role)+(e.comment?field('Comment',e.comment):'')+'</div>').join('')+'</details>':'';
@@ -93,7 +93,7 @@ if(n.evidence_path){
 }
 const inspection=inspections.find(row=>row.case_id===n.case_id);
 if(inspection){
- const summary=document.createElement('section');summary.className='panel';summary.style.margin='12px 0';
+ const summary=document.createElement('section');summary.className='panel seller-aftersales-inspection';summary.style.margin='12px 0';
  const title=document.createElement('h5');title.textContent='Returned Product Inspection';
  const details=document.createElement('p');details.textContent='Received: '+new Date(inspection.received_at).toLocaleString('en-KE')+
   (inspection.recommendation?' · Recommendation: '+inspection.recommendation.replaceAll('_',' '):' · Awaiting inspection');
