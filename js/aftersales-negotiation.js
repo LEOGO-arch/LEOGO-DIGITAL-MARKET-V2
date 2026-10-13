@@ -185,6 +185,38 @@ async function loadCustomerExchange(){
    };
    card.append(chooser);
   }
+  if(!['delivered','at_pickup_station','collected','cancelled'].includes(item.status)){
+   const box=document.createElement('form');box.style.cssText='padding:12px;border:1px solid #f3bf7d;border-radius:12px;display:grid;gap:9px;margin:12px 0';
+   const heading=document.createElement('strong');heading.textContent='Change replacement delivery address / Pickup Station';
+   const method=document.createElement('select');method.required=true;
+   [['','Choose new delivery method'],['pickup_station','Collect at registered Pickup Station'],['door','Deliver to a different door address (fee applies)']].forEach(([v,t])=>method.add(new Option(t,v)));
+   const station=document.createElement('select');station.hidden=true;station.add(new Option('Choose Pickup Station',''));
+   const address=document.createElement('textarea');address.hidden=true;address.placeholder='Full delivery address, estate and nearby landmark';address.minLength=10;
+   const reason=document.createElement('textarea');reason.placeholder='Reason for changing destination';reason.required=true;reason.minLength=5;
+   const feedback=document.createElement('p');feedback.setAttribute('role','status');
+   const send=document.createElement('button');send.type='submit';send.textContent='Request Destination Change';
+   method.onchange=()=>{station.hidden=method.value!=='pickup_station';address.hidden=method.value!=='door';};
+   box.append(heading,method,station,address,reason,send,feedback);
+   const stations=await db.rpc('customer_list_aftersales_return_stations');
+   if(!stations.error&&Array.isArray(stations.data))for(const entry of stations.data)station.add(new Option(entry.station_name+' — '+(entry.town||''),entry.id));
+   const existing=await db.rpc('aftersales_exchange_destination_requests_list',{p_shipment_id:item.id});
+   if(!existing.error&&Array.isArray(existing.data)){
+    const latest=existing.data[0];
+    if(latest){const status=document.createElement('p');status.textContent='Latest destination request: '+latest.status+(latest.review_note?' — '+latest.review_note:'');box.prepend(status);}
+    if(existing.data.some(x=>x.status==='pending')){send.disabled=true;feedback.textContent='Destination change awaiting LEOGO Admin review.';}
+   }
+   box.onsubmit=async e=>{
+    e.preventDefault();
+    if(method.value==='pickup_station'&&!station.value){feedback.textContent='Choose a station';return;}
+    if(method.value==='door'&&address.value.trim().length<10){feedback.textContent='Enter a complete delivery address';return;}
+    if(reason.value.trim().length<5){feedback.textContent='Give a reason for the change';return;}
+    send.disabled=true;
+    const response=await db.rpc('customer_request_aftersales_exchange_destination',{p_shipment_id:item.id,p_method:method.value,p_station_id:method.value==='pickup_station'?station.value:null,p_address:method.value==='door'?address.value.trim():null,p_reason:reason.value.trim()});
+    feedback.textContent=response.error?.message||'Request sent to LEOGO Admin. Current rider destination remains unchanged until approval.';
+    if(response.error)send.disabled=false;
+   };
+   card.append(box);
+  }
   if(item.payer==='customer'&&Number(item.delivery_cost_kes||0)>0){
    const cost=document.createElement('p');cost.textContent='Delivery charge: KSh '+Number(item.delivery_cost_kes).toLocaleString('en-KE')+' · '+(item.payment_verified?'Verified':'Awaiting verification');
    card.append(cost);
