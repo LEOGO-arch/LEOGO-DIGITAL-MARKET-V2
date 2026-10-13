@@ -45,6 +45,11 @@ function render(){
      if(parcel.delivery_choice)box.append(make('div','','Delivery method: '+format(parcel.delivery_choice)));
      if(parcel.dispatched_at)box.append(make('div','','Dispatched: '+date(parcel.dispatched_at)));
     }else box.append(make('div','','Not yet arranged for this case'));
+    if(parcel&&parcel.reference&&title.includes('Replacement')){
+     const action=make('a','','Review / Change Delivery Destination ↓');
+     action.href='#customerExchangeShipments';action.style.cssText='display:inline-block;margin-top:8px;color:#b45309;font-weight:700;text-decoration:underline';
+     box.append(action);
+    }
     wrapper.append(box);
    }
    card.append(wrapper);
