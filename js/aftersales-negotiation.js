@@ -1,7 +1,8 @@
 (() => {
 'use strict';
 const panel=document.querySelector('[data-customer-panel="aftersales"]');
-if(!panel)return;
+if(!panel||panel.dataset.aftersalesNegotiationInitialized==='true')return;
+panel.dataset.aftersalesNegotiationInitialized='true';
 const section=document.createElement('section');section.className='aftersales-layout';section.innerHTML='<div class="afs-customer-heading"><div><span class="afs-eyebrow">AFTERSALES CENTRE</span><h3>Seller Responses & Case Actions</h3><p>Track your return, review seller solutions and follow every update in one place.</p></div><button id="customerAftersalesRefresh" type="button">↻ Refresh Cases</button></div><div id="customerAftersalesNegotiations" class="afs-customer-cases"></div>';panel.append(section);
 const el=section.querySelector('#customerAftersalesNegotiations');
 const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
@@ -190,13 +191,17 @@ if(!data?.length)el.textContent='No cases have been forwarded to a seller yet.';
 const exchangePanel=document.createElement('section');
 exchangePanel.className='afs-customer-cases';exchangePanel.innerHTML='<h3>Exchange / Replacement Delivery Tracking</h3><div id="customerExchangeShipments">Loading replacement delivery updates…</div>';
 section.append(exchangePanel);
+let exchangeRenderVersion=0;
 async function loadCustomerExchange(){
+ const renderVersion=++exchangeRenderVersion;
  const host=exchangePanel.querySelector('#customerExchangeShipments'),db=window.leogoAuth?.client;
  if(!db||!window.leogoAuth?.isAuthenticated?.()){host.textContent='Sign in to track your exchange.';return;}
  const {data,error}=await db.rpc('aftersales_exchange_list',{p_role:'customer'});
+ if(renderVersion!==exchangeRenderVersion)return;
  if(error){host.textContent=error.message;return;}
  host.replaceChildren();
- const list=Array.isArray(data)?data:[];
+ const seenExchangeIds=new Set();
+ const list=(Array.isArray(data)?data:[]).filter(x=>{const key=x.id||x.reference;if(!key||seenExchangeIds.has(key))return false;seenExchangeIds.add(key);return true;});
  if(!list.length){host.textContent='No outbound exchange shipments yet.';return;}
  for(const item of list){
   const card=document.createElement('article');card.className='afs-fact';card.style.cssText='padding:12px;border:1px solid #dce5ee;border-radius:12px;margin:10px 0';
@@ -257,6 +262,7 @@ async function loadCustomerExchange(){
    const details=document.createElement('details');const heading=document.createElement('summary');heading.textContent='Exchange delivery history ('+history.data.length+')';details.append(heading);
    for(const step of history.data){const line=document.createElement('p');line.textContent=new Date(step.at).toLocaleString('en-KE')+' · '+String(step.to).replaceAll('_',' ');details.append(line);}card.append(details);
   }
+  if(renderVersion!==exchangeRenderVersion)return;
   host.append(card);
  }
 }
