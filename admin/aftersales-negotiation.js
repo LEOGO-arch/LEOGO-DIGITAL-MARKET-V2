@@ -184,6 +184,7 @@ returnOps.querySelector('#printAftersalesReturnWaybill').addEventListener('click
   ['Item Name',d.item_name],
   ['Item Received Date',date(d.receiving_date)],
   ['Assigned Rider/Courier',rider||'Not assigned'],
+  ['Assignment Date',date(d.assigning_date)],
   ['Shipping To',d.shipping_to||'Not assigned']
  ];
  printable.document.write('<!doctype html><html><head><meta charset="utf-8"><title>LEOGO Aftersales Return Waybill</title><style>'+
