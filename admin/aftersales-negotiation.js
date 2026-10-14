@@ -191,7 +191,7 @@ returnOps.querySelector('#printAftersalesReturnWaybill').addEventListener('click
  'body{font:10px/1.25 Arial,sans-serif;max-width:320px;margin:8px auto;color:#12213a;padding:7px;overflow-wrap:anywhere}header{text-align:center;border-bottom:1px solid #9ca3af;padding-bottom:5px;margin-bottom:5px}h1{font-size:12px;margin:0}h2{font-size:11px;margin:2px 0}h3{font-size:11px;margin:3px 0 0}.line{padding:3px 0;border-bottom:1px dotted #d1d5db}.line b{font-weight:700}.qr{text-align:center;margin-top:7px}.qr img{width:116px;height:116px}button{display:block;margin:8px auto;padding:6px 10px}@media print{button{display:none}body{margin:0;max-width:none;padding:3px}}'+
  '</style></head><body><header><h1>LEOGO DIGITAL MARKET</h1><h2>AFTERSALES RETURN WAYBILL</h2><h3>'+escPrint(d.aftersales_number)+'</h3></header>'+
  lines.map(([label,value])=>'<div class="line"><b>'+escPrint(label)+':</b> '+escPrint(value||'Not recorded')+'</div>').join('')+
- '<div class="qr"><img alt="Aftersales QR code" src="'+source+'"></div><button onclick="window.print()">Print / Save PDF</button></body></html>');
+ '<div class="qr"><img alt="Aftersales QR code" src="'+source+'"><div style="font-size:10px;font-weight:700;margin-top:3px">'+escPrint(d.aftersales_number)+'</div></div><button onclick="window.print()">Print / Save PDF</button></body></html>');
  printable.document.close();
 });
 returnOps.querySelector('#downloadAftersalesWaybill').addEventListener('click',async ()=>{
