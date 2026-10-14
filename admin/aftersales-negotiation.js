@@ -269,18 +269,20 @@ async function loadSellers(){
 if(!selected)return;
 const token=loadToken;
 sellerSelect.disabled=true;
-sellerSelect.innerHTML='<option value="">Loading sellers…</option>';
+sellerSelect.replaceChildren(new Option('Identifying seller from purchased item…',''));
 $('#aftersalesForwardSubmit').disabled=true;
-const {data,error}=await db.rpc('aftersales_order_sellers_named',{p_case_id:selected.case_id});
+const {data,error}=await db.rpc('aftersales_order_item_responsible_seller',{p_case_id:selected.case_id});
 if(token!==loadToken)return;
-if(error){sellerSelect.innerHTML='<option value="">Unable to load sellers</option>';signal(error.message,true);return;}
-const sellers=Array.isArray(data)?data:[];
-sellerSelect.innerHTML='<option value="">Select responsible seller</option>'+sellers.map(s=>'<option value="'+esc(s.seller_id)+'">'+esc(s.business_name||s.owner_name||'Seller name not registered')+'</option>').join('');
-sellerSelect.disabled=!sellers.length;
-if(sellers.length===1)sellerSelect.value=sellers[0].seller_id;
-else if(activeRecord()?.seller_id && sellers.some(s=>s.seller_id===activeRecord().seller_id))sellerSelect.value=activeRecord().seller_id;
-$('#aftersalesForwardSubmit').disabled=!sellerSelect.value;
-if(!sellers.length)signal('No eligible sellers were found for this order.',true);
+if(error){sellerSelect.replaceChildren(new Option('Seller lookup unavailable',''));signal(error.message,true);return;}
+const seller=Array.isArray(data)?data[0]:null;
+if(!seller?.seller_id){
+ sellerSelect.replaceChildren(new Option('Item seller not verified — Admin review required',''));
+ signal('This case has no verified purchased item/seller association. Check the original order item before forwarding.',true);return;
+}
+sellerSelect.replaceChildren(new Option((seller.business_name||seller.owner_name||'Registered seller')+' — '+(seller.product_name||'Purchased item'),seller.seller_id));
+sellerSelect.value=seller.seller_id;
+sellerSelect.disabled=true;
+$('#aftersalesForwardSubmit').disabled=false;
 }
 function openCase(item){
 if(!item?.case_id)return;
