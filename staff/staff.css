@@ -45,3 +45,24 @@
 @media(max-width:480px){
   .assisted-staff-summary,.assisted-staff-grid{grid-template-columns:1fr}
 }
+
+
+/* Rider workspace — LEOGO navy/orange operational UI */
+#riderApp,#riderAftersalesPanel,#riderTaskShortcuts{--rider-ink:#091d3e;--rider-orange:#ff7900;--rider-line:#dbe4f0}
+#riderTaskShortcuts{background:#fff!important;border:1px solid var(--rider-line);box-shadow:0 6px 20px #07152f0a;padding:12px!important;border-radius:16px!important}
+#riderTaskShortcuts a{display:inline-flex;align-items:center;gap:5px;text-decoration:none!important;color:var(--rider-ink)!important;background:#f5f8fc;border:1px solid #dae4f0!important;border-radius:12px!important;padding:12px 14px!important;font-size:13px;min-height:44px}
+#riderTaskShortcuts a:focus-visible{outline:3px solid #ffb45b}
+#riderAftersalesPanel{border:1px solid #dce5f0;background:#fff!important;border-radius:18px!important;box-shadow:0 6px 20px #07152f0a;padding:16px!important}
+#riderAftersalesPanel h2{font-size:20px;line-height:1.2;color:#071b3d;margin:0}
+#riderAftersalesPanel>p{color:#536780;font-size:13px;line-height:1.5}
+#riderAftersalesList .rider-job-card,#riderExchangeList .rider-work-card{border:1px solid #dce5f0!important;border-radius:16px!important;background:#fff!important;padding:16px!important;margin:12px 0!important;box-shadow:0 4px 14px #07152f08;overflow-wrap:anywhere}
+#riderAftersalesList h3,#riderExchangeList h3{font-size:17px;line-height:1.3;color:#0a2447;margin:0 0 10px}
+#riderAftersalesList p,#riderExchangeList p{font-size:13px;line-height:1.5;margin:6px 0;color:#334763}
+#riderExchangeList .rider-job-action-form{display:grid;gap:11px;margin-top:14px;padding:13px;background:#f5f8fc;border:1px solid #e3eaf4;border-radius:12px}
+#riderExchangeList select,#riderExchangeList textarea,#riderExchangeList input[type="file"],#riderAftersalesList select,#riderAftersalesList textarea{width:100%;max-width:100%;min-width:0;box-sizing:border-box;border:1px solid #cdd9e8;border-radius:10px;background:#fff;padding:11px;color:#102442;font:inherit}
+#riderExchangeList textarea,#riderAftersalesList textarea{min-height:75px;resize:vertical}
+#riderExchangeList input[type="file"]{font-size:13px}
+#riderExchangeList .rider-primary-action,#riderAftersalesList button[type="submit"]{background:#ff7900!important;border:1px solid #ed7000!important;color:white!important;border-radius:11px!important;min-height:46px;padding:12px!important;font-weight:800;font-size:14px;cursor:pointer}
+#riderExchangeList button:disabled,#riderAftersalesList button:disabled{opacity:.55;cursor:not-allowed}
+#riderApp .rider-filters button{border-radius:30px;min-height:40px;padding:8px 13px;font-weight:700}
+@media(max-width:700px){#riderTaskShortcuts{gap:7px!important}#riderTaskShortcuts a{flex:1 1 42%;justify-content:center;text-align:center;padding:10px 9px!important}#riderAftersalesPanel{margin:12px 0!important}#riderExchangeList .rider-work-card,#riderAftersalesList .rider-job-card{padding:12px!important}}
