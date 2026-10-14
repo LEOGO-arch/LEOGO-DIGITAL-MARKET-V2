@@ -271,11 +271,11 @@ const token=loadToken;
 sellerSelect.disabled=true;
 sellerSelect.innerHTML='<option value="">Loading sellers…</option>';
 $('#aftersalesForwardSubmit').disabled=true;
-const {data,error}=await db.rpc('aftersales_order_sellers',{p_case_id:selected.case_id});
+const {data,error}=await db.rpc('aftersales_order_sellers_named',{p_case_id:selected.case_id});
 if(token!==loadToken)return;
 if(error){sellerSelect.innerHTML='<option value="">Unable to load sellers</option>';signal(error.message,true);return;}
 const sellers=Array.isArray(data)?data:[];
-sellerSelect.innerHTML='<option value="">Select responsible seller</option>'+sellers.map(s=>'<option value="'+esc(s.seller_id)+'">'+esc(s.display_name||s.business_name||s.seller_name||s.seller_id)+'</option>').join('');
+sellerSelect.innerHTML='<option value="">Select responsible seller</option>'+sellers.map(s=>'<option value="'+esc(s.seller_id)+'">'+esc(s.business_name||s.owner_name||'Seller name not registered')+'</option>').join('');
 sellerSelect.disabled=!sellers.length;
 if(sellers.length===1)sellerSelect.value=sellers[0].seller_id;
 else if(activeRecord()?.seller_id && sellers.some(s=>s.seller_id===activeRecord().seller_id))sellerSelect.value=activeRecord().seller_id;
