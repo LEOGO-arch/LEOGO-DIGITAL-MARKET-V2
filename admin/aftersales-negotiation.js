@@ -174,26 +174,23 @@ returnOps.querySelector('#printAftersalesReturnWaybill').addEventListener('click
  const source=canvas?.toDataURL('image/png')||qrImg?.src;
  if(!source){alert('Unable to generate QR. Refresh and try again.');return;}
  const printable=window.open('','_blank');if(!printable){alert('Allow popups to print the return waybill.');return;}
- const formatReceiptDate=value=>value?new Intl.DateTimeFormat('en-KE',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Nairobi'}).format(new Date(value)):'Not recorded';
- const fields=[
-  ['Aftersales number',d.aftersales_number],
-  ['Item name',d.item_name],
-  ['Customer name',d.customer_name],
-  ['Customer phone',d.customer_phone],
-  ['Pickup station',d.station_name],
-  ['Station address',d.station_address],
-  ['Landmark',d.station_landmark],
-  ['Station phone',d.station_phone],
-  ['Date received at station',formatReceiptDate(d.receiving_date)],
-  ['Assigned rider / courier',d.assigned_rider_name||'Not assigned'],
-  ['Rider / courier phone',d.assigned_rider_phone],
-  ['Assignment date',formatReceiptDate(d.assigning_date)]
+ const date=value=>value?new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'numeric',year:'numeric',timeZone:'Africa/Nairobi'}).format(new Date(value)).replaceAll('/' , ':'):'Not recorded';
+ const customer=[d.customer_name,d.customer_phone].filter(Boolean).join(' - ');
+ const station=[d.station_name,d.station_address,d.station_landmark].filter(Boolean).join(', ')+(d.station_phone?' - '+d.station_phone:'');
+ const rider=[d.assigned_rider_name,d.assigned_rider_phone].filter(Boolean).join(' - ');
+ const lines=[
+  ['Customer Details',customer],
+  ['Pickup Station',station],
+  ['Item Name',d.item_name],
+  ['Item Received Date',date(d.receiving_date)],
+  ['Assigned Rider/Courier',rider||'Not assigned'],
+  ['Shipping To',d.shipping_to||'Not assigned']
  ];
- printable.document.write('<!doctype html><html><head><title>LEOGO Aftersales Waybill</title><style>'+
- 'body{font:12px/1.35 Arial,sans-serif;max-width:360px;margin:12px auto;color:#12213a;padding:10px}.head{text-align:center;border-bottom:2px solid #12213a;padding-bottom:8px}h2{font-size:15px;margin:4px 0}.field{padding:5px 0;border-bottom:1px dashed #aaa;overflow-wrap:anywhere}.field b{display:block;font-size:9px;text-transform:uppercase;color:#596579;margin-bottom:1px}.qr{text-align:center;margin-top:12px}.qr img{width:136px;height:136px}button{padding:8px 12px;margin:10px auto;display:block}@media print{button{display:none}body{margin:0;max-width:none}}'+
- '</style></head><body><div class="head"><strong>LEOGO DIGITAL MARKET</strong><h2>AFTERSALES RETURN WAYBILL</h2></div>'+
- fields.map(([label,value])=>'<div class="field"><b>'+escPrint(label)+'</b>'+escPrint(value||'Not recorded')+'</div>').join('')+
- '<div class="qr"><img alt="Aftersales QR code" src="'+source+'"><div>'+escPrint(d.aftersales_number)+'</div></div><button onclick="window.print()">Print / Save PDF</button></body></html>');
+ printable.document.write('<!doctype html><html><head><meta charset="utf-8"><title>LEOGO Aftersales Return Waybill</title><style>'+
+ 'body{font:10px/1.25 Arial,sans-serif;max-width:320px;margin:8px auto;color:#12213a;padding:7px;overflow-wrap:anywhere}header{text-align:center;border-bottom:1px solid #9ca3af;padding-bottom:5px;margin-bottom:5px}h1{font-size:12px;margin:0}h2{font-size:11px;margin:2px 0}h3{font-size:11px;margin:3px 0 0}.line{padding:3px 0;border-bottom:1px dotted #d1d5db}.line b{font-weight:700}.qr{text-align:center;margin-top:7px}.qr img{width:116px;height:116px}button{display:block;margin:8px auto;padding:6px 10px}@media print{button{display:none}body{margin:0;max-width:none;padding:3px}}'+
+ '</style></head><body><header><h1>LEOGO DIGITAL MARKET</h1><h2>AFTERSALES RETURN WAYBILL</h2><h3>'+escPrint(d.aftersales_number)+'</h3></header>'+
+ lines.map(([label,value])=>'<div class="line"><b>'+escPrint(label)+':</b> '+escPrint(value||'Not recorded')+'</div>').join('')+
+ '<div class="qr"><img alt="Aftersales QR code" src="'+source+'"></div><button onclick="window.print()">Print / Save PDF</button></body></html>');
  printable.document.close();
 });
 returnOps.querySelector('#downloadAftersalesWaybill').addEventListener('click',async ()=>{
