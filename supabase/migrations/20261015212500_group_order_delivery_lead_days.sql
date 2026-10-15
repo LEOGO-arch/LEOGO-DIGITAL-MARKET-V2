@@ -46,3 +46,17 @@ end;
 $$;
 revoke all on function public.seller_set_group_delivery_lead_days(uuid,integer) from public,anon;
 grant execute on function public.seller_set_group_delivery_lead_days(uuid,integer) to authenticated;
+
+-- A joined customer sees an ETA anchored to their own join date.
+-- Only return campaigns in which the caller actually participates.
+create or replace function public.customer_group_delivery_lead_days()
+returns table(campaign_id uuid, delivery_lead_days integer)
+language sql stable security definer set search_path=''
+as $$
+  select distinct c.id,c.delivery_lead_days
+  from public.group_order_participations p
+  join public.group_order_campaigns c on c.id=p.campaign_id
+  where p.customer_id=auth.uid() and c.delivery_lead_days is not null;
+$$;
+revoke all on function public.customer_group_delivery_lead_days() from public,anon;
+grant execute on function public.customer_group_delivery_lead_days() to authenticated;
