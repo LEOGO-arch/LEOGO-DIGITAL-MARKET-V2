@@ -141,18 +141,18 @@
       db.rpc('admin_list_assisted_shopping_staff'),
       db.rpc('admin_list_assisted_shopping_assignments')
     ]);
-    if(requestsResult.error){
-      rows=[];
-      render();
-      setStatus(statusBox,requestsResult.error.message||'Shopping Lists could not load.','error');
+    if(requestsResult.error || !Array.isArray(requestsResult.data)){
+      setStatus(statusBox,requestsResult.error?.message||'Shopping List response is incomplete; existing results are retained.','error');
       return;
     }
-    rows=Array.isArray(requestsResult.data)?requestsResult.data:[];
+    rows=requestsResult.data;
     riders=!ridersResult.error&&Array.isArray(ridersResult.data)?ridersResult.data:[];
     assignableStaff=!staffResult.error&&Array.isArray(staffResult.data)?staffResult.data:[];
     assignments=!assignmentsResult.error&&Array.isArray(assignmentsResult.data)?assignmentsResult.data:[];
+    const optionalErrors=[ridersResult,staffResult,assignmentsResult].filter(r=>r.error).map(r=>r.error.message||'Unknown supporting lookup failure');
+    if(optionalErrors.length)console.warn('[Assisted Shopping] Partial directory/assignment load:',optionalErrors.join('; '));
     render();
-    if(!silent)setStatus(statusBox,'Assisted Shopping requests are up to date.','success');
+    if(!silent)setStatus(statusBox,optionalErrors.length?'Shopping Lists loaded, but some staff/rider information is unavailable. Refresh to retry.':'Assisted Shopping requests are up to date.',optionalErrors.length?'error':'success');
   };
 
   const rowById=(id)=>rows.find((row)=>String(row.id)===String(id));
@@ -488,10 +488,11 @@
     const file=event.target.closest?.('[data-assisted-admin-file]');
     if(file){openFile(file.dataset.assistedAdminFile);return;}
     const verify=event.target.closest?.('[data-assisted-verify]');
-    if(verify){verifyPayment(verify.dataset.assistedVerify==='paid');return;}
-    if(event.target.closest?.('[data-assisted-ready]')){markReady();return;}
-    if(event.target.closest?.('[data-assisted-assign-rider]')){assignRider();return;}
-    if(event.target.closest?.('[data-assisted-cancel]')){cancelRequest();}
+    const handleAction=(promise)=>promise.catch(error=>setStatus(modalStatus,error?.message||'Assisted Shopping operation failed. Refresh and retry.','error'));
+    if(verify){handleAction(verifyPayment(verify.dataset.assistedVerify==='paid'));return;}
+    if(event.target.closest?.('[data-assisted-ready]')){handleAction(markReady());return;}
+    if(event.target.closest?.('[data-assisted-assign-rider]')){handleAction(assignRider());return;}
+    if(event.target.closest?.('[data-assisted-cancel]')){handleAction(cancelRequest());}
   });
 
   document.addEventListener('click',(event)=>{
