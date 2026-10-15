@@ -87,7 +87,7 @@ function groupExpectedDelivery(campaign){
   if(Number.isInteger(days)&&days>=1&&days<=365){
     const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
     const date=new Date(Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day)+days));
-    return fmtDate(date.toISOString().slice(0,10))+' (about '+days+' days from today)';
+    return date.toLocaleDateString('en-KE',{timeZone:'UTC',day:'numeric',month:'short',year:'numeric'})+' (about '+days+' days from today)';
   }
   return campaign?.expected_delivery_from?fmtDate(campaign.expected_delivery_from)+(campaign.expected_delivery_to?' – '+fmtDate(campaign.expected_delivery_to):''):'—';
 }
@@ -348,7 +348,7 @@ async function openJoin(id){
   $('#groupJoinCampaignId').value=id;
   $('#groupJoinTitle').textContent=product.product_name;
   $('#groupJoinSummary').textContent=
-    'MOQ '+campaign.minimum_quantity+' · '+campaign.quantity_committed+' joined · payments close '+fmtDateTime(campaign.closing_at);
+    'MOQ '+campaign.minimum_quantity+' · '+campaign.quantity_committed+' joined · payments close '+fmtDateTime(campaign.closing_at)+' · Estimated delivery '+groupExpectedDelivery(campaign);
   $('#groupJoinQuantity').max=campaign.maximum_quantity
     ? Math.max(0,Number(campaign.maximum_quantity)-Number(campaign.quantity_committed||0))
     : '';
