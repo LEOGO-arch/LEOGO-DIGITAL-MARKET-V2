@@ -53,6 +53,22 @@ function localDateTime(value){
   const pad=n=>String(n).padStart(2,'0');
   return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
 }
+function groupDeliveryDate(days){
+  const value=Number(days);
+  if(!Number.isInteger(value)||value<1||value>365)return '';
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+  const timestamp=Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day)+value);
+  return new Date(timestamp).toISOString().slice(0,10);
+}
+function syncGroupDeliveryEstimate(){
+  const days=numberValue('groupDeliveryDays');
+  const locked=Number(activeCampaign(activeEditingProduct)?.participant_count||0)>0;
+  const date=groupDeliveryDate(days);
+  if(date&&!locked)setv('groupExpectedDeliveryDate',date);
+  const label=$('#groupDeliveryPreview');
+  if(label)label.textContent=date?'Estimated delivery if ordered today: '+new Date(date+'T12:00:00Z').toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi',day:'numeric',month:'long',year:'numeric'}):'Enter 1–365 calendar days.';
+}
+
 function dateOnly(value){
   if(!value)return '';
   const text=String(value);
@@ -152,7 +168,9 @@ function ensureProductFields(){
           '<label>Group customer price per unit (KSh)<input id="groupUnitPrice" type="number" min="0" step="0.01"></label>'+
           '<label>Stop taking new orders<select id="groupClosePolicy"><option value="deadline">At payment end date</option><option value="moq">Immediately when MOQ is reached</option></select></label>'+
           '<label>Expected dispatch date <small>(optional now)</small><input id="groupDispatchDate" type="date"></label>'+
-          '<label>Expected delivery date<input id="groupExpectedDeliveryDate" type="date"></label>'+
+          '<label>Estimated delivery period (calendar days)<input id="groupDeliveryDays" type="number" min="1" max="365" step="1" placeholder="e.g. 25"></label>'+ 
+          '<div id="groupDeliveryPreview" class="group-dispatch-note">Estimated delivery date calculates from the customer order date.</div>'+ 
+          '<input id="groupExpectedDeliveryDate" type="hidden">'+
         '</div>'+
         '<div class="group-dispatch-note">You may leave the dispatch date blank while collecting orders. Once MOQ closes, update the dispatch date from the Group Orders dashboard.</div>'+
       '</div>'+
@@ -176,6 +194,7 @@ function ensureProductFields(){
     });
   });
 
+  $('#groupDeliveryDays')?.addEventListener('input',syncGroupDeliveryEstimate);
   $('#internationalExpectedDeliveryDate')?.addEventListener('change',()=>{
     if(!textValue('groupExpectedDeliveryDate'))setv('groupExpectedDeliveryDate',textValue('internationalExpectedDeliveryDate'));
   });
@@ -191,6 +210,7 @@ function setGroupTermsLocked(campaign){
   const lockNote=$('#groupTermsLockNote');
   const fields=['groupOpening','groupClosing','groupUnitPrice','groupClosePolicy','productMoqMinimum','productMoqMaximum'];
   fields.forEach(id=>{const el=$('#'+id);if(el)el.disabled=locked;});
+  if($('#groupDeliveryDays'))$('#groupDeliveryDays').disabled=locked;
 
   const toggle=$('#productGroupEnabled');
   if(toggle)toggle.disabled=locked;
@@ -263,9 +283,14 @@ function handleModeChange(event){
   $('#groupCampaignFields').hidden=!group;
 
   setRequired('localSellingPrice',local);
-  ['internationalOriginCountry','internationalItemPrice','internationalCenterFee','internationalExpectedDeliveryDate'].forEach(id=>setRequired(id,international));
+  ['internationalOriginCountry','internationalItemPrice','internationalCenterFee'].forEach(id=>setRequired(id,international));
+  setRequired('internationalExpectedDeliveryDate',international&&!group);
+  const internationalDateLabel=$('#internationalExpectedDeliveryDate')?.closest('label');
+  if(internationalDateLabel)internationalDateLabel.hidden=Boolean(group);
+
   setRequired('productMoqMinimum',$('#productMoqEnabled')?.checked);
-  ['groupOpening','groupClosing','groupUnitPrice','groupExpectedDeliveryDate'].forEach(id=>setRequired(id,group));
+  ['groupOpening','groupClosing','groupUnitPrice'].forEach(id=>setRequired(id,group));
+  setRequired('groupDeliveryDays',group && !activeEditingProduct?.group_campaign?.id);
 
   if(group){
     prefillGroupPrice();
@@ -295,7 +320,7 @@ function validateSettings(){
     if(textValue('internationalOriginCountry').length<2)throw new Error('Enter the international origin country.');
     if(numberValue('internationalItemPrice')==null)throw new Error('Enter the international item price.');
     if(numberValue('internationalCenterFee')==null||numberValue('internationalCenterFee')<0)throw new Error('Enter a valid freight fee to the LEOGO Distribution Center.');
-    if(!textValue('internationalExpectedDeliveryDate'))throw new Error('Choose the expected international delivery date.');
+    if(!group&&!textValue('internationalExpectedDeliveryDate'))throw new Error('Choose the expected international delivery date.');
   }
 
   if(moq){
@@ -310,7 +335,9 @@ function validateSettings(){
     if(!textValue('groupOpening')||!textValue('groupClosing'))throw new Error('Set the Group Order payment start and end date/time.');
     if(new Date(textValue('groupClosing')).getTime()<=new Date(textValue('groupOpening')).getTime())throw new Error('Group Order payment end must be after payment start.');
     if(numberValue('groupUnitPrice')==null)throw new Error('Enter the Group Order customer price.');
-    if(!textValue('groupExpectedDeliveryDate'))throw new Error('Choose the expected delivery date for the Group Order.');
+    if(!groupDeliveryDate(numberValue('groupDeliveryDays')) && !(activeCampaign(activeEditingProduct)&&!activeCampaign(activeEditingProduct).delivery_lead_days&&textValue('groupExpectedDeliveryDate')))throw new Error('Enter estimated delivery days (1–365) for this Group Order.');
+    if(numberValue('groupDeliveryDays')!=null && !groupDeliveryDate(numberValue('groupDeliveryDays')))throw new Error('Estimated delivery must be between 1 and 365 calendar days.');
+    if(groupDeliveryDate(numberValue('groupDeliveryDays')))syncGroupDeliveryEstimate();
   }
 
   syncCorePrice();
@@ -329,7 +356,7 @@ function shippingPayload(){
     international_price_kes:numberValue('internationalItemPrice'),
     international_shipping_fee_to_center_kes:numberValue('internationalCenterFee')??0,
     distribution_center:textValue('internationalDistributionCenter')||'LEOGO Distribution Center — Nairobi',
-    international_expected_delivery_date:textValue('internationalExpectedDeliveryDate')||null,
+    international_expected_delivery_date:($('#productGroupEnabled')?.checked?textValue('groupExpectedDeliveryDate'):textValue('internationalExpectedDeliveryDate'))||null,
 
     origin_type:international?'international':'local',
     origin_country:international?textValue('internationalOriginCountry'):'Kenya',
@@ -358,7 +385,8 @@ function campaignPayload(){
     customer_unit_price_kes:numberValue('groupUnitPrice'),
     close_policy:textValue('groupClosePolicy')||'deadline',
     expected_dispatch_date:textValue('groupDispatchDate')||null,
-    expected_delivery_date:textValue('groupExpectedDeliveryDate')
+    expected_delivery_date:textValue('groupExpectedDeliveryDate'),
+    delivery_lead_days:numberValue('groupDeliveryDays')
   };
 }
 
@@ -390,6 +418,13 @@ async function saveForProduct(productId,pShipping,pCampaign){
     throw error;
   }
 
+  const previousCampaign=activeCampaign(activeEditingProduct);
+  const unchangedLockedLead=Number(previousCampaign?.participant_count||0)>0
+    && Number(previousCampaign?.delivery_lead_days)===Number(pCampaign?.delivery_lead_days);
+  if(pCampaign?.enabled && pCampaign.delivery_lead_days!=null && !unchangedLockedLead){
+    const {error:leadError}=await client.rpc('seller_set_group_delivery_lead_days',{p_product_id:productId,p_days:pCampaign.delivery_lead_days});
+    if(leadError)throw new Error('Product saved, but estimated delivery days were not saved: '+leadError.message);
+  }
   if(status)status.textContent='Product selling, delivery and Group Order settings saved.';
   await Promise.all([loadProducts(),loadCampaigns()]);
   return data;
@@ -471,6 +506,8 @@ function applyProductExtension(product){
   setv('groupClosePolicy',campaign?.close_policy||'deadline');
   setv('groupDispatchDate',dateOnly(campaign?.expected_dispatch_date));
   setv('groupExpectedDeliveryDate',dateOnly(campaign?.expected_delivery_from||profile.international_expected_delivery_date||profile.local_expected_delivery_date));
+  setv('groupDeliveryDays',campaign?.delivery_lead_days??'');
+  syncGroupDeliveryEstimate();
 
   setGroupTermsLocked(campaign);
   handleModeChange();
@@ -512,6 +549,8 @@ function resetProductExtension(){
   setv('groupClosePolicy','deadline');
   setv('groupDispatchDate','');
   setv('groupExpectedDeliveryDate','');
+  setv('groupDeliveryDays','');
+  syncGroupDeliveryEstimate();
   setGroupTermsLocked(null);
 
   handleModeChange();
@@ -560,6 +599,13 @@ function ensureDashboard(){
 async function loadCampaigns(){
   const {data,error}=await client.rpc('seller_list_group_orders');
   campaigns=error?[]:(Array.isArray(data)?data:[]);
+  if(!error){
+    const leadResult=await client.rpc('public_group_delivery_lead_days');
+    if(!leadResult.error){
+      const leadById=new Map((Array.isArray(leadResult.data)?leadResult.data:[]).map(row=>[row.campaign_id,row.delivery_lead_days]));
+      campaigns.forEach(campaign=>{if(leadById.has(campaign.id))campaign.delivery_lead_days=leadById.get(campaign.id);});
+    }else console.warn('[Seller Group Orders] Delivery periods unavailable:',leadResult.error.message);
+  }
   renderCampaigns(error);
 }
 
@@ -598,7 +644,7 @@ function renderCampaigns(error){
         '<div><small>Remaining</small><strong>'+Math.max(0,Number(campaign.minimum_quantity||0)-Number(campaign.quantity_committed||0))+'</strong></div>'+
         '<div><small>Customers</small><strong>'+participants+'</strong></div>'+
         '<div><small>Customer price</small><strong>'+money(campaign.customer_unit_price_kes)+'</strong></div>'+
-        '<div><small>Expected delivery</small><strong>'+fmt(campaign.expected_delivery_from)+(campaign.expected_delivery_to?' – '+fmt(campaign.expected_delivery_to):'')+'</strong></div>'+
+        '<div><small>Estimated delivery</small><strong>'+(campaign.delivery_lead_days?esc(campaign.delivery_lead_days+' calendar days from each customer order'):fmt(campaign.expected_delivery_from)+(campaign.expected_delivery_to?' – '+fmt(campaign.expected_delivery_to):''))+'</strong></div>'+
       '</div>'+
       (canSetDispatch
         ? '<div class="group-dispatch-update"><label><span>Expected dispatch date</span><input type="date" data-dispatch-date value="'+esc(dateOnly(campaign.expected_dispatch_date))+'"></label><button type="button" data-update-dispatch="'+esc(campaign.id)+'">'+(campaign.expected_dispatch_date?'Update Dispatch Date':'Set Dispatch Date')+'</button></div>'

@@ -82,6 +82,22 @@ function classify(product){
   return {key,label,icon,route,estimate:estimateText(min,max,unit)};
 }
 
+function groupExpectedDelivery(campaign,baseDate){
+  const days=Number(campaign?.delivery_lead_days);
+  if(Number.isInteger(days)&&days>=1&&days<=365){
+    const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(baseDate?new Date(baseDate):new Date()).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+    const date=new Date(Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day)+days));
+    return date.toLocaleDateString('en-KE',{timeZone:'UTC',day:'numeric',month:'short',year:'numeric'})+' (about '+days+' days from '+(baseDate?'order date':'today')+')';
+  }
+  return campaign?.expected_delivery_from?fmtDate(campaign.expected_delivery_from)+(campaign.expected_delivery_to?' – '+fmtDate(campaign.expected_delivery_to):''):'—';
+}
+async function attachGroupDeliveryPeriods(){
+  const {data,error}=await client.rpc('public_group_delivery_lead_days');
+  if(error){console.warn('[Group Orders] Relative delivery estimates unavailable:',error.message);return;}
+  const leads=new Map((Array.isArray(data)?data:[]).map(row=>[row.campaign_id,row.delivery_lead_days]));
+  catalogue.forEach(product=>{if(product.group_campaign?.id && leads.has(product.group_campaign.id))product.group_campaign.delivery_lead_days=leads.get(product.group_campaign.id);});
+}
+
 function canJoin(campaign){
   if(!campaign||!['collecting_orders','moq_reached'].includes(campaign.status))return false;
   const now=Date.now();
@@ -166,7 +182,7 @@ function detailsHtml(product){
         '<small>Payment window: '+fmtDateTime(campaign.opening_at)+' → '+fmtDateTime(campaign.closing_at)+'</small>'+
         '<small>MOQ progress: '+Number(campaign.quantity_committed||0)+' / '+Number(campaign.minimum_quantity||0)+' ('+Math.round(pct)+'%)</small>'+
         (campaign.expected_dispatch_date?'<small>Expected dispatch: '+fmtDate(campaign.expected_dispatch_date)+'</small>':'<small>Dispatch date will be updated after MOQ closes.</small>')+
-        (campaign.expected_delivery_from?'<small>Expected delivery: '+fmtDate(campaign.expected_delivery_from)+(campaign.expected_delivery_to?' – '+fmtDate(campaign.expected_delivery_to):'')+'</small>':'')+
+        (campaign.expected_delivery_from||campaign.delivery_lead_days?'<small>Expected delivery: '+esc(groupExpectedDelivery(campaign))+'</small>':'')+
       '</div>'
     );
   }
@@ -251,7 +267,7 @@ function renderMarket(){
       '<div class="shipping-moq-stats"><b>'+Number(campaign.quantity_committed||0)+'/'+Number(campaign.minimum_quantity||0)+' joined</b><span>'+remain+' remaining</span><span>'+Math.round(pct)+'%</span></div>'+
       '<small>'+esc(String(campaign.status).replaceAll('_',' '))+' · Payments close: '+fmtDateTime(campaign.closing_at)+'</small>'+
       (campaign.expected_dispatch_date?'<small>Expected dispatch: '+fmtDate(campaign.expected_dispatch_date)+'</small>':'<small>Dispatch date will be updated after MOQ closes.</small>')+
-      (campaign.expected_delivery_from?'<small>Expected delivery: '+fmtDate(campaign.expected_delivery_from)+'</small>':'')+
+      (campaign.expected_delivery_from||campaign.delivery_lead_days?'<small>Expected delivery: '+esc(groupExpectedDelivery(campaign))+'</small>':'')+
       joinButtonHtml(campaign)+
     '</article>';
   }).join('');
@@ -279,7 +295,7 @@ function renderCustomer(){
         '<div><small>Campaign progress</small><strong>'+Number(campaign.quantity_committed||0)+'/'+Number(campaign.minimum_quantity||0)+' ('+Math.round(pct)+'%)</strong></div>'+
         '<div><small>Payment closes</small><strong>'+fmtDateTime(campaign.closing_at)+'</strong></div>'+
         '<div><small>Expected dispatch</small><strong>'+fmtDate(campaign.expected_dispatch_date)+'</strong></div>'+
-        '<div><small>Expected delivery</small><strong>'+fmtDate(campaign.expected_delivery_from)+(campaign.expected_delivery_to?' – '+fmtDate(campaign.expected_delivery_to):'')+'</strong></div>'+
+        '<div><small>Expected delivery</small><strong>'+esc(groupExpectedDelivery({...campaign,delivery_lead_days:item.delivery_lead_days??campaign.delivery_lead_days},item.joined_at))+'</strong></div>'+
         '<div><small>Refund state</small><strong>'+esc(item.refund_status||campaign.refund_status||'not required')+'</strong></div>'+
       '</div>'+
     '</article>';
@@ -303,6 +319,7 @@ async function loadMarket(){
     return;
   }
   catalogue=Array.isArray(data)?data:[];
+  await attachGroupDeliveryPeriods();
   if(status)status.textContent='';
   refreshEstimates();
 }
@@ -316,6 +333,17 @@ async function loadCustomer(){
   }
   const {data,error}=await client.rpc('customer_list_group_orders');
   groups=error?[]:(Array.isArray(data)?data:[]);
+  if(!error){
+    const result=await client.rpc('customer_group_delivery_lead_days');
+    if(result.error)console.warn('[Group Orders] Joined-order estimate lookup unavailable:',result.error.message);
+    else{
+      const savedDays=new Map((Array.isArray(result.data)?result.data:[]).map(row=>[row.campaign_id,row.delivery_lead_days]));
+      groups.forEach(item=>{
+        const campaignId=item.campaign_id||item.campaign?.id;
+        if(savedDays.has(campaignId))item.delivery_lead_days=savedDays.get(campaignId);
+      });
+    }
+  }
   renderCustomer();
 }
 
@@ -331,7 +359,7 @@ async function openJoin(id){
   $('#groupJoinCampaignId').value=id;
   $('#groupJoinTitle').textContent=product.product_name;
   $('#groupJoinSummary').textContent=
-    'MOQ '+campaign.minimum_quantity+' · '+campaign.quantity_committed+' joined · payments close '+fmtDateTime(campaign.closing_at);
+    'MOQ '+campaign.minimum_quantity+' · '+campaign.quantity_committed+' joined · payments close '+fmtDateTime(campaign.closing_at)+' · Estimated delivery '+groupExpectedDelivery(campaign);
   $('#groupJoinQuantity').max=campaign.maximum_quantity
     ? Math.max(0,Number(campaign.maximum_quantity)-Number(campaign.quantity_committed||0))
     : '';
