@@ -421,6 +421,7 @@
     setStatus('Sending your Shopping List securely to LEOGO…');
 
     let uploaded=[];
+    let submitted=false;
     try{
       uploaded=await uploadFiles(currentUser);
       const pickup=fulfilment.value==='pickup';
@@ -443,20 +444,20 @@
         p_pickup_station_id:pickup?(pickupSelect.value||null):null
       });
       if(error)throw error;
+      submitted=true;
 
       setStatus('✓ '+(data?.request_reference||'Shopping List')+' received. LEOGO will prepare the quotation for your approval.','success');
       form.reset();
       fileList.innerHTML='';
       if(pinLocationStatus)pinLocationStatus.textContent='';
       updateFulfilment();
-      await prefillProfile();
-      await loadRequests();
+      await Promise.allSettled([prefillProfile(),loadRequests()]);
       window.setTimeout(()=>selectTab('mine'),700);
     }catch(error){
-      if(uploaded.length){
+      if(!submitted&&uploaded.length){
         await client().storage.from('assisted-shopping-files').remove(uploaded.map((item)=>item.path)).catch(()=>{});
       }
-      setStatus(error?.message||'Shopping List could not be submitted.','error');
+      setStatus(submitted?'Shopping List submitted; refreshing its status failed. Reopen My Shopping Lists to check.':(error?.message||'Shopping List could not be submitted.'),submitted?'success':'error');
     }finally{
       submitButton.disabled=false;
       submitButton.textContent=original;
