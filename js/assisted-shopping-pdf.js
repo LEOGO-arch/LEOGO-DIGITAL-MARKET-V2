@@ -92,6 +92,30 @@
         y+=Math.max(5,parts.length*3.6+1);
       }
     };
+    // Compact one-line label/value fields on thermal paper, wrapping only when needed.
+    const inlineFields=(values)=>{
+      const content=values.filter(([label,value])=>value!=null&&String(value).trim()!=='').map(([label,value])=>safe(label)+': '+safe(value)).join('; ');
+      if(content)line(content,7.3,false,0);
+    };
+    const originalChecklist=(text)=>{
+      const entries=String(text||'').split(/\\r?\\n|;|•|(?<=\\w)\\s*,\\s*(?=[A-Za-z])/g)
+        .map(value=>value.replace(/^\\s*(?:[-*]|\\d+[.)])\\s*/,'').trim()).filter(Boolean);
+      if(!entries.length){
+        line('See uploaded shopping list attachment(s).',7.5);
+        return;
+      }
+      for(const entry of entries){
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(8);
+        const wrapped=doc.splitTextToSize(safe(entry),width-9);
+        ensure(Math.max(5,wrapped.length*3.6+1.3));
+        doc.setDrawColor(50);
+        doc.setLineWidth(0.25);
+        doc.rect(left+0.4,y-2.7,3.2,3.2);
+        doc.text(wrapped,left+6,y);
+        y+=Math.max(4.2,wrapped.length*3.6+1.3);
+      }
+    };
     const section=(title)=>{
       y+=2;
       ensure(9);
@@ -121,42 +145,80 @@
     if(options.assignedStaffName)pair('Assigned Staff',options.assignedStaffName);
     if(request.created_at)pair('Submitted',dateText(request.created_at,true));
 
-    section('CUSTOMER / RECEIVER');
-    pair('Customer',request.customer_name||request.receiver_name);
-    pair('Receiver',request.receiver_name);
-    pair('Phone',request.contact_number||request.customer_phone);
-    if(request.customer_email)pair('Email',request.customer_email);
+    if(thermal){
+      section('CUSTOMER / RECEIVER');
+      inlineFields([
+        ['Customer',request.customer_name||request.receiver_name],
+        ['Receiver',request.receiver_name],
+        ['Phone',request.contact_number||request.customer_phone],
+        ['Email',request.customer_email]
+      ]);
 
-    section('SHOPPING INSTRUCTIONS');
-    pair('Substitution',labelStatus(request.substitution_policy));
-    pair('Budget',request.budget_kes!=null?money(request.budget_kes):'Not set');
-    pair('Preferred Date',request.preferred_delivery_date?dateText(request.preferred_delivery_date):'Flexible');
-    pair('Preferred Time',request.preferred_delivery_time||'Flexible');
-    line('Original Shopping List',9,true);
-    line(request.written_list||'Shopping List was supplied through uploaded attachment(s).',9,false,2);
+      section('SHOPPING INSTRUCTIONS');
+      inlineFields([
+        ['Substitution',labelStatus(request.substitution_policy)],
+        ['Budget',request.budget_kes!=null?money(request.budget_kes):'Not set'],
+        ['Preferred',request.preferred_delivery_date?dateText(request.preferred_delivery_date):'Flexible'],
+        ['Time',request.preferred_delivery_time||'Flexible']
+      ]);
+      section('ORIGINAL SHOPPING CHECKLIST');
+      originalChecklist(request.written_list);
+    }else{
+      section('CUSTOMER / RECEIVER');
+      pair('Customer',request.customer_name||request.receiver_name);
+      pair('Receiver',request.receiver_name);
+      pair('Phone',request.contact_number||request.customer_phone);
+      if(request.customer_email)pair('Email',request.customer_email);
+
+      section('SHOPPING INSTRUCTIONS');
+      pair('Substitution',labelStatus(request.substitution_policy));
+      pair('Budget',request.budget_kes!=null?money(request.budget_kes):'Not set');
+      pair('Preferred Date',request.preferred_delivery_date?dateText(request.preferred_delivery_date):'Flexible');
+      pair('Preferred Time',request.preferred_delivery_time||'Flexible');
+      line('Original Shopping List',9,true);
+      line(request.written_list||'Shopping List was supplied through uploaded attachment(s).',9,false,2);
+    }
 
     const files=Array.isArray(request.files)?request.files:[];
     if(files.length){
       section('UPLOADED SHOPPING LIST FILES');
       files.forEach((file,index)=>line((index+1)+'. '+safe(file.name||'Attachment'),9,false,2));
-      line('Private uploaded files remain in LEOGO secure storage. Use the portal attachment buttons to open/download the original files.',7,false,2);
+      if(!thermal)line('Private uploaded files remain in LEOGO secure storage. Use the portal attachment buttons to open/download the original files.',7,false,2);
     }
 
     const fulfilment=request.fulfilment_method==='pickup'
       ? 'Pickup Station'
       : 'Customer Delivery';
-    section('FULFILMENT');
-    pair('Method',fulfilment);
-    if(request.fulfilment_method==='pickup'){
-      pair('Pickup Station',request.pickup_station_name||'Selected Pickup Station');
-      if(request.pickup_station_address)pair('Station Address',request.pickup_station_address);
+    if(thermal){
+      section('FULFILMENT');
+      if(request.fulfilment_method==='pickup'){
+        inlineFields([
+          ['Method',fulfilment],
+          ['Station',request.pickup_station_name||'Selected Pickup Station'],
+          ['Address',request.pickup_station_address]
+        ]);
+      }else{
+        inlineFields([
+          ['Method',fulfilment],['Zone',labelStatus(request.delivery_zone)],
+          ['County',request.county],['Sub-County',request.sub_county],
+          ['Estate',request.estate],['Landmark',request.landmark],
+          ['Map',request.location_link]
+        ]);
+      }
     }else{
-      pair('Delivery Zone',labelStatus(request.delivery_zone));
-      pair('County',request.county);
-      pair('Sub-County',request.sub_county);
-      pair('Estate / Area',request.estate);
-      pair('Landmark',request.landmark);
-      if(request.location_link)pair('Location Link',request.location_link);
+      section('FULFILMENT');
+      pair('Method',fulfilment);
+      if(request.fulfilment_method==='pickup'){
+        pair('Pickup Station',request.pickup_station_name||'Selected Pickup Station');
+        if(request.pickup_station_address)pair('Station Address',request.pickup_station_address);
+      }else{
+        pair('Delivery Zone',labelStatus(request.delivery_zone));
+        pair('County',request.county);
+        pair('Sub-County',request.sub_county);
+        pair('Estate / Area',request.estate);
+        pair('Landmark',request.landmark);
+        if(request.location_link)pair('Location Link',request.location_link);
+      }
     }
 
     const items=Array.isArray(request.items)?request.items:[];
