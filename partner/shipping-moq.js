@@ -335,7 +335,7 @@ function validateSettings(){
     if(!textValue('groupOpening')||!textValue('groupClosing'))throw new Error('Set the Group Order payment start and end date/time.');
     if(new Date(textValue('groupClosing')).getTime()<=new Date(textValue('groupOpening')).getTime())throw new Error('Group Order payment end must be after payment start.');
     if(numberValue('groupUnitPrice')==null)throw new Error('Enter the Group Order customer price.');
-    if(!groupDeliveryDate(numberValue('groupDeliveryDays')) && !textValue('groupExpectedDeliveryDate'))throw new Error('Enter estimated delivery days (1–365) or retain the existing expected date.');
+    if(!groupDeliveryDate(numberValue('groupDeliveryDays')) && !(activeCampaign(activeEditingProduct)&&!activeCampaign(activeEditingProduct).delivery_lead_days&&textValue('groupExpectedDeliveryDate')))throw new Error('Enter estimated delivery days (1–365) for this Group Order.');
     if(numberValue('groupDeliveryDays')!=null && !groupDeliveryDate(numberValue('groupDeliveryDays')))throw new Error('Estimated delivery must be between 1 and 365 calendar days.');
     if(groupDeliveryDate(numberValue('groupDeliveryDays')))syncGroupDeliveryEstimate();
   }
@@ -596,6 +596,13 @@ function ensureDashboard(){
 async function loadCampaigns(){
   const {data,error}=await client.rpc('seller_list_group_orders');
   campaigns=error?[]:(Array.isArray(data)?data:[]);
+  if(!error){
+    const leadResult=await client.rpc('public_group_delivery_lead_days');
+    if(!leadResult.error){
+      const leadById=new Map((Array.isArray(leadResult.data)?leadResult.data:[]).map(row=>[row.campaign_id,row.delivery_lead_days]));
+      campaigns.forEach(campaign=>{if(leadById.has(campaign.id))campaign.delivery_lead_days=leadById.get(campaign.id);});
+    }else console.warn('[Seller Group Orders] Delivery periods unavailable:',leadResult.error.message);
+  }
   renderCampaigns(error);
 }
 
@@ -634,7 +641,7 @@ function renderCampaigns(error){
         '<div><small>Remaining</small><strong>'+Math.max(0,Number(campaign.minimum_quantity||0)-Number(campaign.quantity_committed||0))+'</strong></div>'+
         '<div><small>Customers</small><strong>'+participants+'</strong></div>'+
         '<div><small>Customer price</small><strong>'+money(campaign.customer_unit_price_kes)+'</strong></div>'+
-        '<div><small>Expected delivery</small><strong>'+fmt(campaign.expected_delivery_from)+(campaign.expected_delivery_to?' – '+fmt(campaign.expected_delivery_to):'')+'</strong></div>'+
+        '<div><small>Estimated delivery</small><strong>'+(campaign.delivery_lead_days?esc(campaign.delivery_lead_days+' calendar days from each customer order'):fmt(campaign.expected_delivery_from)+(campaign.expected_delivery_to?' – '+fmt(campaign.expected_delivery_to):''))+'</strong></div>'+
       '</div>'+
       (canSetDispatch
         ? '<div class="group-dispatch-update"><label><span>Expected dispatch date</span><input type="date" data-dispatch-date value="'+esc(dateOnly(campaign.expected_dispatch_date))+'"></label><button type="button" data-update-dispatch="'+esc(campaign.id)+'">'+(campaign.expected_dispatch_date?'Update Dispatch Date':'Set Dispatch Date')+'</button></div>'
