@@ -1137,6 +1137,29 @@
     state.paymentActions=paymentActionsResult.error?state.paymentActions:safeRows(paymentActionsResult);
     state.transportRequests=transportRequestsResult.error?state.transportRequests:safeRows(transportRequestsResult);
     renderApprovals();
+    // Reconcile operational requests without adding them to decision-based approval RPCs.
+    const operationalPanel=$('#approvalOperationalActionsList');
+    if(operationalPanel){
+      const paymentRecords=paymentActionsResult.error?[]:safeRows(paymentActionsResult).filter(item=>!['wallet_deposit','premium_payment'].includes(item.kind));
+      const transportRecords=transportRequestsResult.error?[]:safeRows(transportRequestsResult)
+        .filter(item=>['submitted','declined'].includes(item.request_status));
+      const countNode=$('#approvalOperationalActionsCount');
+      if(countNode)countNode.textContent=paymentActionsResult.error||transportRequestsResult.error?'≥ '+(paymentRecords.length+transportRecords.length):(paymentRecords.length+transportRecords.length).toLocaleString('en-KE');
+      const actions=[
+        ...paymentRecords.map(item=>({type:'payment',title:item.title||'Payment verification',detail:item.detail||'',submitted:item.submitted_at,view:item.view||'orders',tab:item.tab||'',amount:item.amount_kes})),
+        ...transportRecords.map(item=>({type:'transport',title:'Transport Request '+(item.request_reference||''),detail:item.customer_name||'Customer',submitted:item.created_at,view:'transport',tab:'jobs',amount:null}))
+      ].sort((a,b)=>new Date(a.submitted||0)-new Date(b.submitted||0));
+      operationalPanel.innerHTML=actions.length?actions.map((item,index)=>'<div><div><b>'+escapeHtml(item.title)+'</b><small>'+escapeHtml(item.detail)+' · Received '+escapeHtml(formatDate(item.submitted,true))+' · Waiting '+escapeHtml(waitingAge(item.submitted))+'</small></div><button type="button" data-reconciled-action="'+index+'">Open '+(item.type==='payment'?'verification':'request')+' →</button></div>').join(''):'<div class="empty-mini">No separate payment verification or transport request actions pending.</div>';
+      if(paymentActionsResult.error||transportRequestsResult.error){
+        operationalPanel.insertAdjacentHTML('afterbegin','<div class="empty-mini">Some operational sources could not be loaded; the count may be incomplete. Refresh to retry.</div>');
+      }
+      operationalPanel.querySelectorAll('[data-reconciled-action]').forEach(button=>button.addEventListener('click',()=>{
+        const item=actions[Number(button.dataset.reconciledAction)];if(!item)return;
+        changeView(item.view);
+        if(item.view==='premium')changePremiumAdminTab(item.tab||'subscriptions');
+        if(item.view==='transport')changeTransportSection('jobs');
+      }));
+    }
     renderTransportRequests();
     if (state.serviceProviders.length) renderServiceProviders();
 
