@@ -14,22 +14,52 @@
   };
   const labelStatus=(value='')=>safe(String(value).replaceAll('_',' ').replace(/\b\w/g,(c)=>c.toUpperCase()));
 
-  const download=(request,options={})=>{
+  const printChoice=()=>{
+    const format=window.prompt('LEOGO print paper: enter A4 or 80 for 80 mm thermal receipt. The connected printer paper size is selected in your device print dialog.','A4');
+    if(format===null)return null;
+    const selected=String(format).trim().toLowerCase();
+    if(!['a4','80','80mm','thermal'].includes(selected))throw new Error('Choose A4 or 80 mm.');
+    return ['80','80mm','thermal'].includes(selected)?'80mm':'a4';
+  };
+  const loadLogo=async()=>{
+    const script=[...document.scripts].find(element=>element.src?.includes('assisted-shopping-pdf.js'));
+    if(!script)return null;
+    const url=new URL('../assets/images/leogo-official-logo.jpg',script.src).href;
+    return new Promise(resolve=>{
+      const picture=new Image();
+      picture.onload=()=>resolve(picture);
+      picture.onerror=()=>resolve(null);
+      picture.src=url;
+    });
+  };
+  const download=async(request,options={})=>{
     const JsPdf=window.jspdf?.jsPDF;
     if(!JsPdf)throw new Error('PDF generator is still loading. Try again in a moment.');
     if(!request)throw new Error('Shopping List data is not available.');
 
-    const doc=new JsPdf({unit:'mm',format:'a4'});
-    const left=15;
-    const right=195;
+    const thermal=options.paper==='80mm';
+    const doc=new JsPdf({unit:'mm',format:thermal?[80,210]:'a4'});
+    const left=thermal?4:15;
+    const right=thermal?76:195;
     const width=right-left;
-    const bottom=282;
-    let y=16;
+    const bottom=thermal?199:282;
+    let y=thermal?10:16;
+    const logo=await loadLogo();
+    if(logo){
+      try{
+        const logoWidth=thermal?17:27;
+        const logoHeight=Math.min(thermal?14:21,logoWidth*logo.naturalHeight/logo.naturalWidth);
+        doc.addImage(logo,'JPEG',left,y-5,logoWidth,logoHeight,undefined,'FAST');
+        y+=logoHeight+1;
+      }catch(error){console.warn('[LEOGO Print] Logo image could not be embedded:',error);}
+    }
+    doc.setTextColor(14,55,105);
+    doc.setDrawColor(16,104,166);
 
     const ensure=(height=8)=>{
       if(y+height>bottom){
         doc.addPage();
-        y=16;
+        y=thermal?10:16;
       }
     };
     const line=(text,size=9,bold=false,indent=0)=>{
@@ -44,13 +74,23 @@
     };
     const pair=(label,value)=>{
       ensure(7);
-      doc.setFontSize(8);
+      doc.setFontSize(thermal?7:8);
       doc.setFont('helvetica','bold');
-      doc.text(safe(label)+':',left,y);
-      doc.setFont('helvetica','normal');
-      const parts=doc.splitTextToSize(safe(value||'—'),width-42);
-      doc.text(parts,left+42,y);
-      y+=Math.max(5,parts.length*3.6+1);
+      if(thermal){
+        doc.text(safe(label)+':',left,y);
+        y+=3.6;
+        const parts=doc.splitTextToSize(safe(value||'—'),width);
+        ensure(parts.length*3.1+2);
+        doc.setFont('helvetica','normal');
+        doc.text(parts,left,y);
+        y+=parts.length*3.1+1;
+      }else{
+        doc.text(safe(label)+':',left,y);
+        doc.setFont('helvetica','normal');
+        const parts=doc.splitTextToSize(safe(value||'—'),width-42);
+        doc.text(parts,left+42,y);
+        y+=Math.max(5,parts.length*3.6+1);
+      }
     };
     const section=(title)=>{
       y+=2;
@@ -65,11 +105,11 @@
     };
 
     doc.setFont('helvetica','bold');
-    doc.setFontSize(17);
+    doc.setFontSize(thermal?12:17);
     doc.text('LEOGO DIGITAL MARKET',left,y);
     y+=7;
-    doc.setFontSize(13);
-    doc.text('ASSISTED SHOPPING / SHOPPING LIST',left,y);
+    doc.setFontSize(thermal?8:13);
+    doc.text(thermal?'ASSISTED SHOPPING LIST':'ASSISTED SHOPPING / SHOPPING LIST',left,y);
     y+=6;
     doc.setFont('helvetica','normal');
     doc.setFontSize(8);
@@ -166,8 +206,28 @@
     doc.text('For authorized LEOGO Admin / assigned staff use.',left,y);
 
     const ref=safe(request.request_reference||'Shopping-List').replace(/[^A-Za-z0-9_-]+/g,'-');
-    doc.save('LEOGO-Shopping-List-'+ref+'.pdf');
+    const fileName='LEOGO-Shopping-List-'+ref+'-'+(thermal?'80mm':'A4')+'.pdf';
+    if(options.action==='print'){
+      // The browser's print dialog controls the actual selected printer.
+      const blobUrl=URL.createObjectURL(doc.output('blob'));
+      const frame=document.createElement('iframe');
+      frame.style.cssText='position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
+      frame.src=blobUrl;
+      document.body.appendChild(frame);
+      frame.onload=()=>{
+        try{frame.contentWindow?.focus();frame.contentWindow?.print();}
+        catch(error){doc.save(fileName);}
+        window.setTimeout(()=>{frame.remove();URL.revokeObjectURL(blobUrl);},90000);
+      };
+    }else doc.save(fileName);
   };
 
-  window.leogoAssistedShoppingPdf={download};
+  const chooseAndOutput=async(request,options={})=>{
+    const paper=printChoice();
+    if(!paper)return false;
+    const action=window.confirm('Print now using your connected printer?\nOK = Print, Cancel = Download PDF');
+    await download(request,{...options,paper,action:action?'print':'download'});
+    return true;
+  };
+  window.leogoAssistedShoppingPdf={download,chooseAndOutput};
 })();
