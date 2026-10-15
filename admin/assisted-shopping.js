@@ -347,14 +347,15 @@
     }
   };
 
-  const downloadPdf=(row)=>{
+  const downloadPdf=async(row)=>{
     if(!row)return;
     const assignment=assignmentFor(row.id);
     try{
-      window.leogoAssistedShoppingPdf?.download(row,{
+      if(!window.leogoAssistedShoppingPdf?.chooseAndOutput)throw new Error('Shopping List printer is unavailable. Refresh to retry.');
+      await window.leogoAssistedShoppingPdf.chooseAndOutput(row,{
         assignedStaffName:assignment?.staff_name||''
       });
-      if(!window.leogoAssistedShoppingPdf)throw new Error('Shopping List PDF generator is not available yet.');
+
     }catch(error){
       setStatus(modalStatus,error?.message||'Shopping List PDF could not be created.','error');
     }
@@ -463,7 +464,7 @@
   list.addEventListener('click',(event)=>{
     const downloadButton=event.target.closest?.('[data-download-assisted-admin]');
     if(downloadButton){
-      downloadPdf(rowById(downloadButton.dataset.downloadAssistedAdmin));
+      downloadPdf(rowById(downloadButton.dataset.downloadAssistedAdmin)).catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error'));
       return;
     }
     const button=event.target.closest?.('[data-open-assisted-admin]');
@@ -481,7 +482,7 @@
   });
   $('#saveAssistedQuote')?.addEventListener('click',(event)=>saveQuote(event.currentTarget));
   $('#saveAssistedStaffAssignment')?.addEventListener('click',()=>saveStaffAssignment());
-  $('#downloadAssistedShoppingPdf')?.addEventListener('click',()=>downloadPdf(active));
+  $('#downloadAssistedShoppingPdf')?.addEventListener('click',()=>downloadPdf(active).catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error')));
 
   modal.addEventListener('click',(event)=>{
     if(event.target.closest?.('[data-close-assisted-admin]')){closeModal();return;}
