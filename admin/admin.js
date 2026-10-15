@@ -1140,7 +1140,7 @@
     // Reconcile operational requests without adding them to decision-based approval RPCs.
     const operationalPanel=$('#approvalOperationalActionsList');
     if(operationalPanel){
-      const paymentRecords=paymentActionsResult.error?[]:safeRows(paymentActionsResult);
+      const paymentRecords=paymentActionsResult.error?[]:safeRows(paymentActionsResult).filter(item=>!['wallet_deposit','premium_payment'].includes(item.kind));
       const transportRecords=transportRequestsResult.error?[]:safeRows(transportRequestsResult)
         .filter(item=>['submitted','declined'].includes(item.request_status));
       const countNode=$('#approvalOperationalActionsCount');
