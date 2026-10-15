@@ -62,8 +62,9 @@ function groupDeliveryDate(days){
 }
 function syncGroupDeliveryEstimate(){
   const days=numberValue('groupDeliveryDays');
+  const locked=Number(activeCampaign(activeEditingProduct)?.participant_count||0)>0;
   const date=groupDeliveryDate(days);
-  if(date)setv('groupExpectedDeliveryDate',date);
+  if(date&&!locked)setv('groupExpectedDeliveryDate',date);
   const label=$('#groupDeliveryPreview');
   if(label)label.textContent=date?'Estimated delivery if ordered today: '+new Date(date+'T12:00:00Z').toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi',day:'numeric',month:'long',year:'numeric'}):'Enter 1–365 calendar days.';
 }
@@ -209,6 +210,7 @@ function setGroupTermsLocked(campaign){
   const lockNote=$('#groupTermsLockNote');
   const fields=['groupOpening','groupClosing','groupUnitPrice','groupClosePolicy','productMoqMinimum','productMoqMaximum'];
   fields.forEach(id=>{const el=$('#'+id);if(el)el.disabled=locked;});
+  if($('#groupDeliveryDays'))$('#groupDeliveryDays').disabled=locked;
 
   const toggle=$('#productGroupEnabled');
   if(toggle)toggle.disabled=locked;
@@ -281,7 +283,11 @@ function handleModeChange(event){
   $('#groupCampaignFields').hidden=!group;
 
   setRequired('localSellingPrice',local);
-  ['internationalOriginCountry','internationalItemPrice','internationalCenterFee','internationalExpectedDeliveryDate'].forEach(id=>setRequired(id,international));
+  ['internationalOriginCountry','internationalItemPrice','internationalCenterFee'].forEach(id=>setRequired(id,international));
+  setRequired('internationalExpectedDeliveryDate',international&&!group);
+  const internationalDateLabel=$('#internationalExpectedDeliveryDate')?.closest('label');
+  if(internationalDateLabel)internationalDateLabel.hidden=Boolean(group);
+
   setRequired('productMoqMinimum',$('#productMoqEnabled')?.checked);
   ['groupOpening','groupClosing','groupUnitPrice'].forEach(id=>setRequired(id,group));
   setRequired('groupDeliveryDays',group && !activeEditingProduct?.group_campaign?.id);
@@ -314,7 +320,7 @@ function validateSettings(){
     if(textValue('internationalOriginCountry').length<2)throw new Error('Enter the international origin country.');
     if(numberValue('internationalItemPrice')==null)throw new Error('Enter the international item price.');
     if(numberValue('internationalCenterFee')==null||numberValue('internationalCenterFee')<0)throw new Error('Enter a valid freight fee to the LEOGO Distribution Center.');
-    if(!textValue('internationalExpectedDeliveryDate'))throw new Error('Choose the expected international delivery date.');
+    if(!group&&!textValue('internationalExpectedDeliveryDate'))throw new Error('Choose the expected international delivery date.');
   }
 
   if(moq){
@@ -330,6 +336,7 @@ function validateSettings(){
     if(new Date(textValue('groupClosing')).getTime()<=new Date(textValue('groupOpening')).getTime())throw new Error('Group Order payment end must be after payment start.');
     if(numberValue('groupUnitPrice')==null)throw new Error('Enter the Group Order customer price.');
     if(!groupDeliveryDate(numberValue('groupDeliveryDays')) && !textValue('groupExpectedDeliveryDate'))throw new Error('Enter estimated delivery days (1–365) or retain the existing expected date.');
+    if(numberValue('groupDeliveryDays')!=null && !groupDeliveryDate(numberValue('groupDeliveryDays')))throw new Error('Estimated delivery must be between 1 and 365 calendar days.');
     if(groupDeliveryDate(numberValue('groupDeliveryDays')))syncGroupDeliveryEstimate();
   }
 
@@ -349,7 +356,7 @@ function shippingPayload(){
     international_price_kes:numberValue('internationalItemPrice'),
     international_shipping_fee_to_center_kes:numberValue('internationalCenterFee')??0,
     distribution_center:textValue('internationalDistributionCenter')||'LEOGO Distribution Center — Nairobi',
-    international_expected_delivery_date:textValue('internationalExpectedDeliveryDate')||null,
+    international_expected_delivery_date:($('#productGroupEnabled')?.checked?textValue('groupExpectedDeliveryDate'):textValue('internationalExpectedDeliveryDate'))||null,
 
     origin_type:international?'international':'local',
     origin_country:international?textValue('internationalOriginCountry'):'Kenya',
