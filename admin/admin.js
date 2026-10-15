@@ -1167,7 +1167,7 @@
       ? `<div><div><b>${escapeHtml(item.title)} · ${formatMoney(item.amount_kes)}</b><small>${escapeHtml(item.customer_name||'Customer')} · ${escapeHtml(item.detail||'Payment awaiting verification')} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-payment-view="${escapeHtml(item.view)}" data-dashboard-payment-tab="${escapeHtml(item.tab||'')}">Verify →</button></div>`
       : item.action_type==='transport_request'
         ? `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.customer_name||'Customer')} · ${escapeHtml(item.pickup_location||'Pickup')} → ${escapeHtml(item.destination_location||'Destination')} · ${formatDate(item.created_at,true)}</small></div><button data-dashboard-transport-request="${escapeHtml(item.id)}">Assign →</button></div>`
-        : `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.applicant_name)} · ${formatDate(item.submitted_at)}</small></div><button data-dashboard-review="${escapeHtml(item.record_id)}" data-dashboard-kind="${escapeHtml(item.kind)}">Review →</button></div>`
+        : `<div><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.applicant_name)} · ${formatDate(item.submitted_at)} · Waiting ${escapeHtml(waitingAge(item.submitted_at))}</small></div><button data-dashboard-review="${escapeHtml(item.record_id)}" data-dashboard-kind="${escapeHtml(item.kind)}">Review →</button></div>`
     ).join(''):'<div class="empty-mini">No urgent action required.</div>';
     Array.from(compact.querySelectorAll('[data-dashboard-review]')).forEach((button)=>button.addEventListener('click',()=>openApproval(button.dataset.dashboardKind,button.dataset.dashboardReview)));
     Array.from(compact.querySelectorAll('[data-dashboard-payment-view]')).forEach((button)=>button.addEventListener('click',()=>{
@@ -1256,7 +1256,7 @@
         <td data-label="Applicant / Customer"><strong>${escapeHtml(item.applicant_name || 'Customer')}</strong><small>${escapeHtml(item.applicant_email || 'No email')}</small></td>
         <td data-label="Request"><strong>${escapeHtml(item.title || 'Review request')}</strong><small>${escapeHtml(requestContext)}</small></td>
         <td data-label="Amount / Details">${escapeHtml(detail)}</td>
-        <td data-label="Submitted">${formatDate(item.submitted_at, true)}</td>
+        <td data-label="Submitted">${formatDate(item.submitted_at, true)}<small>Waiting: ${escapeHtml(waitingAge(item.submitted_at))}</small></td>
         <td data-label="Status"><span class="status-chip">${escapeHtml(item.status)}</span></td>
         <td class="approval-action-cell" data-label="Action"><button class="approval-review-button" type="button" data-review-id="${escapeHtml(item.record_id)}" data-review-kind="${escapeHtml(item.kind)}">Review →</button></td>
       </tr>`;
