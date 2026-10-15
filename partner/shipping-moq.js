@@ -53,6 +53,21 @@ function localDateTime(value){
   const pad=n=>String(n).padStart(2,'0');
   return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
 }
+function groupDeliveryDate(days){
+  const value=Number(days);
+  if(!Number.isInteger(value)||value<1||value>365)return '';
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+  const timestamp=Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day)+value);
+  return new Date(timestamp).toISOString().slice(0,10);
+}
+function syncGroupDeliveryEstimate(){
+  const days=numberValue('groupDeliveryDays');
+  const date=groupDeliveryDate(days);
+  if(date)setv('groupExpectedDeliveryDate',date);
+  const label=$('#groupDeliveryPreview');
+  if(label)label.textContent=date?'Estimated delivery if ordered today: '+new Date(date+'T12:00:00Z').toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi',day:'numeric',month:'long',year:'numeric'}):'Enter 1–365 calendar days.';
+}
+
 function dateOnly(value){
   if(!value)return '';
   const text=String(value);
@@ -152,7 +167,9 @@ function ensureProductFields(){
           '<label>Group customer price per unit (KSh)<input id="groupUnitPrice" type="number" min="0" step="0.01"></label>'+
           '<label>Stop taking new orders<select id="groupClosePolicy"><option value="deadline">At payment end date</option><option value="moq">Immediately when MOQ is reached</option></select></label>'+
           '<label>Expected dispatch date <small>(optional now)</small><input id="groupDispatchDate" type="date"></label>'+
-          '<label>Expected delivery date<input id="groupExpectedDeliveryDate" type="date"></label>'+
+          '<label>Estimated delivery period (calendar days)<input id="groupDeliveryDays" type="number" min="1" max="365" step="1" placeholder="e.g. 25"></label>'+ 
+          '<div id="groupDeliveryPreview" class="group-dispatch-note">Estimated delivery date calculates from the customer order date.</div>'+ 
+          '<input id="groupExpectedDeliveryDate" type="hidden">'+
         '</div>'+
         '<div class="group-dispatch-note">You may leave the dispatch date blank while collecting orders. Once MOQ closes, update the dispatch date from the Group Orders dashboard.</div>'+
       '</div>'+
@@ -176,6 +193,7 @@ function ensureProductFields(){
     });
   });
 
+  $('#groupDeliveryDays')?.addEventListener('input',syncGroupDeliveryEstimate);
   $('#internationalExpectedDeliveryDate')?.addEventListener('change',()=>{
     if(!textValue('groupExpectedDeliveryDate'))setv('groupExpectedDeliveryDate',textValue('internationalExpectedDeliveryDate'));
   });
@@ -265,7 +283,8 @@ function handleModeChange(event){
   setRequired('localSellingPrice',local);
   ['internationalOriginCountry','internationalItemPrice','internationalCenterFee','internationalExpectedDeliveryDate'].forEach(id=>setRequired(id,international));
   setRequired('productMoqMinimum',$('#productMoqEnabled')?.checked);
-  ['groupOpening','groupClosing','groupUnitPrice','groupExpectedDeliveryDate'].forEach(id=>setRequired(id,group));
+  ['groupOpening','groupClosing','groupUnitPrice'].forEach(id=>setRequired(id,group));
+  setRequired('groupDeliveryDays',group && !activeEditingProduct?.group_campaign?.id);
 
   if(group){
     prefillGroupPrice();
@@ -310,7 +329,8 @@ function validateSettings(){
     if(!textValue('groupOpening')||!textValue('groupClosing'))throw new Error('Set the Group Order payment start and end date/time.');
     if(new Date(textValue('groupClosing')).getTime()<=new Date(textValue('groupOpening')).getTime())throw new Error('Group Order payment end must be after payment start.');
     if(numberValue('groupUnitPrice')==null)throw new Error('Enter the Group Order customer price.');
-    if(!textValue('groupExpectedDeliveryDate'))throw new Error('Choose the expected delivery date for the Group Order.');
+    if(!groupDeliveryDate(numberValue('groupDeliveryDays')) && !textValue('groupExpectedDeliveryDate'))throw new Error('Enter estimated delivery days (1–365) or retain the existing expected date.');
+    if(groupDeliveryDate(numberValue('groupDeliveryDays')))syncGroupDeliveryEstimate();
   }
 
   syncCorePrice();
@@ -358,7 +378,8 @@ function campaignPayload(){
     customer_unit_price_kes:numberValue('groupUnitPrice'),
     close_policy:textValue('groupClosePolicy')||'deadline',
     expected_dispatch_date:textValue('groupDispatchDate')||null,
-    expected_delivery_date:textValue('groupExpectedDeliveryDate')
+    expected_delivery_date:textValue('groupExpectedDeliveryDate'),
+    delivery_lead_days:numberValue('groupDeliveryDays')
   };
 }
 
@@ -390,6 +411,10 @@ async function saveForProduct(productId,pShipping,pCampaign){
     throw error;
   }
 
+  if(pCampaign?.enabled && pCampaign.delivery_lead_days!=null){
+    const {error:leadError}=await client.rpc('seller_set_group_delivery_lead_days',{p_product_id:productId,p_days:pCampaign.delivery_lead_days});
+    if(leadError)throw new Error('Product saved, but estimated delivery days were not saved: '+leadError.message);
+  }
   if(status)status.textContent='Product selling, delivery and Group Order settings saved.';
   await Promise.all([loadProducts(),loadCampaigns()]);
   return data;
@@ -471,6 +496,8 @@ function applyProductExtension(product){
   setv('groupClosePolicy',campaign?.close_policy||'deadline');
   setv('groupDispatchDate',dateOnly(campaign?.expected_dispatch_date));
   setv('groupExpectedDeliveryDate',dateOnly(campaign?.expected_delivery_from||profile.international_expected_delivery_date||profile.local_expected_delivery_date));
+  setv('groupDeliveryDays',campaign?.delivery_lead_days??'');
+  syncGroupDeliveryEstimate();
 
   setGroupTermsLocked(campaign);
   handleModeChange();
@@ -512,6 +539,8 @@ function resetProductExtension(){
   setv('groupClosePolicy','deadline');
   setv('groupDispatchDate','');
   setv('groupExpectedDeliveryDate','');
+  setv('groupDeliveryDays','');
+  syncGroupDeliveryEstimate();
   setGroupTermsLocked(null);
 
   handleModeChange();
