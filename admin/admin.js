@@ -2346,10 +2346,12 @@
       codFeeAdminRpcUnavailable?Promise.resolve({data:[],error:null}):db.rpc('admin_list_cod_delivery_fee_queue')
     ]);
     if(ordersResult.error)throw ordersResult.error;
+    if(!Array.isArray(ordersResult.data))throw new Error('Orders response is not a list. Existing orders were not replaced; refresh to retry.');
     if(codQueueResult.error && (codQueueResult.error.code==='PGRST202'||codQueueResult.error.status===404))codFeeAdminRpcUnavailable=true;
-    const codFeeQueue=new Map((Array.isArray(codQueueResult.data)?codQueueResult.data:[])
+    if(codQueueResult.error)console.warn('[Orders] COD fee queue unavailable; fee verification status may be incomplete:',codQueueResult.error.message);
+    const codFeeQueue=new Map((Array.isArray(codQueueResult.data)&&!codQueueResult.error?codQueueResult.data:[])
       .map(item=>[item.order_id,item.status]));
-    state.marketplaceOrders=(Array.isArray(ordersResult.data)?ordersResult.data:[])
+    state.marketplaceOrders=ordersResult.data
       .map(order=>({...order,cod_fee_status:codFeeQueue.get(order.id)||'not_required'}));
     renderMarketplaceOrders();
 
@@ -3857,12 +3859,16 @@
       db.rpc('admin_get_cod_delivery_fee_status',{p_order_id:orderId})
     ]);
     if(loadToken!==state.orderDetailLoadToken || state.activeMarketplaceOrderId!==orderId) return;
-    if(detailResult.error){
+    if(detailResult.error || !detailResult.data || typeof detailResult.data!=='object' || !detailResult.data.order){
       state.activeMarketplaceOrderDetail=null;
-      setFormStatus($('#adminOrderDetailStatus'),friendlyError(detailResult.error),'error');
+      setFormStatus($('#adminOrderDetailStatus'),detailResult.error?friendlyError(detailResult.error):'Order details are incomplete. Refresh and retry; no order changes were made.','error');
       return;
     }
     if(!riderResult.error) state.riders=Array.isArray(riderResult.data)?riderResult.data:[];
+    else console.warn('[Orders] Rider directory unavailable:',riderResult.error.message);
+    for(const [label,result] of [['sorting',sortingResult],['pickup handover',handoverResult],['COD fee',codFeeResult]]){
+      if(result.error)console.warn('[Orders] Optional '+label+' details unavailable:',result.error.message);
+    }
 
     state.activeMarketplaceOrderDetail={
       ...(detailResult.data||{}),
