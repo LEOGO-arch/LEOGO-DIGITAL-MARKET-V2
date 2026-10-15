@@ -1103,6 +1103,7 @@
     // Isolate source failures so healthy approval queues remain accessible.
     const sources=[['Core',coreResult],['Personal sales',personalSaleResult],['Looking requests',lookingRequestResult],['Service providers',serviceProviderResult],['Health',healthMedicineResult],['Specialists',healthSpecialistResult],['Transport',transportResult],['Pickup',pickupStationResult],['Profile changes',profileChangesResult],['Settlements',partnerSettlementResult],['Accommodation corrections',accommodationCorrectionsResult],['Accommodation units',accommodationUnitsResult],['Cyber',cyberResult],['Partner billing',partnerBillingResult],['Premium billing',customerMeetupBillingResult],['Flash sales',flashSaleResult],['Payment actions',paymentActionsResult],['Transport requests',transportRequestsResult]];
     const failures=sources.filter(([,result])=>result.error);
+    if(coreResult.error)throw new Error('Core Approval Center queue unavailable; approval totals cannot be trusted. '+String(coreResult.error.message||'Refresh to retry.'));
     if(failures.length===sources.length)throw new Error('All Approval Center sources unavailable; retry without changing any records.');
     if(failures.length){
       console.warn('[Approval Center] Partial load:',failures.map(([name,result])=>name+': '+String(result.error?.message||'error')).join('; '));
@@ -1137,8 +1138,8 @@
 
     // Keep Dashboard and sidebar counts synchronized with the actual Approval Center queue,
     // including Seller product submissions.
-    if ($('#statApprovals')) $('#statApprovals').textContent = Number(state.approvals.length).toLocaleString('en-KE');
-    if ($('#sidebarApprovalCount')) $('#sidebarApprovalCount').textContent = state.approvals.length;
+    if ($('#statApprovals')) $('#statApprovals').textContent = (failures.length ? '≥ ' : '')+Number(state.approvals.length).toLocaleString('en-KE');
+    if ($('#sidebarApprovalCount')) { $('#sidebarApprovalCount').textContent = (failures.length?'≥ ':'')+state.approvals.length; $('#sidebarApprovalCount').title=failures.length?'Partial count: some approval sources unavailable':'Approval Center pending count'; }
     updateSidebarActionCounts();
 
     const compact = $('#dashboardApprovalList');
