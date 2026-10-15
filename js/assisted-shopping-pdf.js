@@ -175,8 +175,8 @@
       pair('Budget',request.budget_kes!=null?money(request.budget_kes):'Not set');
       pair('Preferred Date',request.preferred_delivery_date?dateText(request.preferred_delivery_date):'Flexible');
       pair('Preferred Time',request.preferred_delivery_time||'Flexible');
-      line('Original Shopping List',9,true);
-      line(request.written_list||'Shopping List was supplied through uploaded attachment(s).',9,false,2);
+      section('ORIGINAL SHOPPING CHECKLIST');
+      originalChecklist(request.written_list);
     }
 
     const files=Array.isArray(request.files)?request.files:[];
