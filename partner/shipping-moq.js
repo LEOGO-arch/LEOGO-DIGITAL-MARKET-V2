@@ -418,7 +418,10 @@ async function saveForProduct(productId,pShipping,pCampaign){
     throw error;
   }
 
-  if(pCampaign?.enabled && pCampaign.delivery_lead_days!=null){
+  const previousCampaign=activeCampaign(activeEditingProduct);
+  const unchangedLockedLead=Number(previousCampaign?.participant_count||0)>0
+    && Number(previousCampaign?.delivery_lead_days)===Number(pCampaign?.delivery_lead_days);
+  if(pCampaign?.enabled && pCampaign.delivery_lead_days!=null && !unchangedLockedLead){
     const {error:leadError}=await client.rpc('seller_set_group_delivery_lead_days',{p_product_id:productId,p_days:pCampaign.delivery_lead_days});
     if(leadError)throw new Error('Product saved, but estimated delivery days were not saved: '+leadError.message);
   }
