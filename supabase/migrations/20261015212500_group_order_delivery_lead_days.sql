@@ -33,6 +33,9 @@ begin
   order by c.created_at desc limit 1 for update;
   if not found then raise exception 'Editable Group Order campaign not found'; end if;
   if exists(select 1 from public.group_order_participations p where p.campaign_id=v_campaign.id) then
+    if v_campaign.delivery_lead_days=p_days then
+      return jsonb_build_object('ok',true,'campaign_id',v_campaign.id,'delivery_lead_days',p_days,'unchanged',true);
+    end if;
     raise exception 'Delivery terms are locked after a customer joins this Group Order';
   end if;
   update public.group_order_campaigns
