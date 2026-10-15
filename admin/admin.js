@@ -1100,53 +1100,46 @@
       db.rpc('admin_list_pending_payment_actions'),
       db.rpc('admin_list_transport_requests')
     ]);
-    if (coreResult.error) throw coreResult.error;
-    if (personalSaleResult.error) throw personalSaleResult.error;
-    if (lookingRequestResult.error) throw lookingRequestResult.error;
-    if (serviceProviderResult.error) throw serviceProviderResult.error;
-    if (healthMedicineResult.error) throw healthMedicineResult.error;
-    if (healthSpecialistResult.error) throw healthSpecialistResult.error;
-    if (transportResult.error) throw transportResult.error;
-    if (pickupStationResult.error) throw pickupStationResult.error;
-    if (profileChangesResult.error) throw profileChangesResult.error;
-    if (partnerSettlementResult.error) throw partnerSettlementResult.error;
-    if (accommodationCorrectionsResult.error) throw accommodationCorrectionsResult.error;
-    if (accommodationUnitsResult.error) throw accommodationUnitsResult.error;
-    if (cyberResult.error) throw cyberResult.error;
-    if (partnerBillingResult.error) throw partnerBillingResult.error;
-    if (customerMeetupBillingResult.error) throw customerMeetupBillingResult.error;
-    if (flashSaleResult.error) throw flashSaleResult.error;
-    if (paymentActionsResult.error) throw paymentActionsResult.error;
-    if (transportRequestsResult.error) throw transportRequestsResult.error;
+    // Isolate source failures so healthy approval queues remain accessible.
+    const sources=[['Core',coreResult],['Personal sales',personalSaleResult],['Looking requests',lookingRequestResult],['Service providers',serviceProviderResult],['Health',healthMedicineResult],['Specialists',healthSpecialistResult],['Transport',transportResult],['Pickup',pickupStationResult],['Profile changes',profileChangesResult],['Settlements',partnerSettlementResult],['Accommodation corrections',accommodationCorrectionsResult],['Accommodation units',accommodationUnitsResult],['Cyber',cyberResult],['Partner billing',partnerBillingResult],['Premium billing',customerMeetupBillingResult],['Flash sales',flashSaleResult],['Payment actions',paymentActionsResult],['Transport requests',transportRequestsResult]];
+    const failures=sources.filter(([,result])=>result.error);
+    if(coreResult.error)throw new Error('Core Approval Center queue unavailable; approval totals cannot be trusted. '+String(coreResult.error.message||'Refresh to retry.'));
+    if(failures.length===sources.length)throw new Error('All Approval Center sources unavailable; retry without changing any records.');
+    if(failures.length){
+      console.warn('[Approval Center] Partial load:',failures.map(([name,result])=>name+': '+String(result.error?.message||'error')).join('; '));
+      globalStatus('Approval Center partially loaded; unavailable sources: '+failures.map(([name])=>name).join(', ')+'. Refresh to retry.','error');
+    }
+    const safeRows=result=>!result.error&&Array.isArray(result.data)?result.data:[];
+
 
     state.approvals = [
-      ...(Array.isArray(coreResult.data) ? coreResult.data : []),
-      ...(Array.isArray(personalSaleResult.data) ? personalSaleResult.data : []),
-      ...(Array.isArray(lookingRequestResult.data) ? lookingRequestResult.data : []),
-      ...(Array.isArray(serviceProviderResult.data) ? serviceProviderResult.data : []),
-      ...(Array.isArray(healthMedicineResult.data) ? healthMedicineResult.data : []),
-      ...(Array.isArray(healthSpecialistResult.data) ? healthSpecialistResult.data : []),
-      ...(Array.isArray(transportResult.data) ? transportResult.data : []),
-      ...(Array.isArray(pickupStationResult.data) ? pickupStationResult.data : []),
-      ...(Array.isArray(profileChangesResult.data) ? profileChangesResult.data : []),
-      ...(Array.isArray(partnerSettlementResult.data) ? partnerSettlementResult.data : []),
-      ...(Array.isArray(accommodationCorrectionsResult.data) ? accommodationCorrectionsResult.data : []),
-      ...(Array.isArray(accommodationUnitsResult.data) ? accommodationUnitsResult.data : []),
-      ...(Array.isArray(cyberResult.data) ? cyberResult.data : []),
-      ...(Array.isArray(partnerBillingResult.data) ? partnerBillingResult.data : []),
-      ...(Array.isArray(customerMeetupBillingResult.data) ? customerMeetupBillingResult.data : []),
-      ...(Array.isArray(flashSaleResult.data) ? flashSaleResult.data.filter((row)=>row.flash_status==='requested').map((row)=>({kind:'partner_flash_sale',record_id:row.item_id,applicant_name:row.partner_name||'LEOGO Partner',applicant_email:'',title:(row.item_name||'Flash Sale')+' — Flash Sale',subtitle:String(row.partner_type||'partner').replaceAll('_',' ')+' · '+formatMoney(row.flash_price_kes)+' · '+formatDate(row.starts_at,true)+' → '+formatDate(row.ends_at,true),status:'requested',submitted_at:row.updated_at,payload:{partner_type:row.partner_type,item_type:row.item_type,normal_price_kes:row.normal_price_kes,flash_price_kes:row.flash_price_kes,flash_quantity:row.flash_quantity,starts_at:row.starts_at,ends_at:row.ends_at,admin_notes:row.admin_notes}})) : [])
+      ...safeRows(coreResult),
+      ...safeRows(personalSaleResult),
+      ...safeRows(lookingRequestResult),
+      ...safeRows(serviceProviderResult),
+      ...safeRows(healthMedicineResult),
+      ...safeRows(healthSpecialistResult),
+      ...safeRows(transportResult),
+      ...safeRows(pickupStationResult),
+      ...safeRows(profileChangesResult),
+      ...safeRows(partnerSettlementResult),
+      ...safeRows(accommodationCorrectionsResult),
+      ...safeRows(accommodationUnitsResult),
+      ...safeRows(cyberResult),
+      ...safeRows(partnerBillingResult),
+      ...safeRows(customerMeetupBillingResult),
+      ...(safeRows(flashSaleResult).filter((row)=>row.flash_status==='requested').map((row)=>({kind:'partner_flash_sale',record_id:row.item_id,applicant_name:row.partner_name||'LEOGO Partner',applicant_email:'',title:(row.item_name||'Flash Sale')+' — Flash Sale',subtitle:String(row.partner_type||'partner').replaceAll('_',' ')+' · '+formatMoney(row.flash_price_kes)+' · '+formatDate(row.starts_at,true)+' → '+formatDate(row.ends_at,true),status:'requested',submitted_at:row.updated_at,payload:{partner_type:row.partner_type,item_type:row.item_type,normal_price_kes:row.normal_price_kes,flash_price_kes:row.flash_price_kes,flash_quantity:row.flash_quantity,starts_at:row.starts_at,ends_at:row.ends_at,admin_notes:row.admin_notes}})))
     ].sort((a,b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
-    state.paymentActions=Array.isArray(paymentActionsResult.data)?paymentActionsResult.data:[];
-    state.transportRequests=Array.isArray(transportRequestsResult.data)?transportRequestsResult.data:state.transportRequests;
+    state.paymentActions=paymentActionsResult.error?state.paymentActions:safeRows(paymentActionsResult);
+    state.transportRequests=transportRequestsResult.error?state.transportRequests:safeRows(transportRequestsResult);
     renderApprovals();
     renderTransportRequests();
     if (state.serviceProviders.length) renderServiceProviders();
 
     // Keep Dashboard and sidebar counts synchronized with the actual Approval Center queue,
     // including Seller product submissions.
-    if ($('#statApprovals')) $('#statApprovals').textContent = Number(state.approvals.length).toLocaleString('en-KE');
-    if ($('#sidebarApprovalCount')) $('#sidebarApprovalCount').textContent = state.approvals.length;
+    if ($('#statApprovals')) $('#statApprovals').textContent = (failures.length ? '≥ ' : '')+Number(state.approvals.length).toLocaleString('en-KE');
+    if ($('#sidebarApprovalCount')) { $('#sidebarApprovalCount').textContent = (failures.length?'≥ ':'')+state.approvals.length; $('#sidebarApprovalCount').title=failures.length?'Partial count: some approval sources unavailable':'Approval Center pending count'; }
     updateSidebarActionCounts();
 
     const compact = $('#dashboardApprovalList');
