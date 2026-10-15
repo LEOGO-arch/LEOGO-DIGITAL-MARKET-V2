@@ -376,12 +376,18 @@ function updateTotal(){
     : '';
 }
 
+let joining=false;
 async function submitJoin(event){
   event.preventDefault();
+  if(joining)return;
   const status=$('#groupJoinStatus');
+  const button=$('#groupJoinForm button[type="submit"]');
+  joining=true;
+  if(button)button.disabled=true;
   status.textContent='Submitting securely…';
-
-  const {data:{user}}=await client.auth.getUser();
+  try{
+  const {data:{user},error:authError}=await client.auth.getUser();
+  if(authError)throw authError;
   if(!user){
     status.textContent='Please sign in before joining.';
     return;
@@ -394,24 +400,26 @@ async function submitJoin(event){
     p_payment_reference:$('#groupJoinPaymentReference').value.trim()
   });
 
-  if(error){
-    status.textContent=error.message;
-    return;
-  }
-
+  if(error)throw error;
   status.textContent='Joined successfully. Payment is waiting for Admin verification.';
-  await Promise.all([loadMarket(),loadCustomer()]);
-  setTimeout(()=>{$('#groupJoinModal').hidden=true;},900);
+  await Promise.allSettled([loadMarket(),loadCustomer()]);
+  setTimeout(()=>{const modal=$('#groupJoinModal');if(modal)modal.hidden=true;},900);
+  }catch(error){
+    status.textContent=error?.message||'Unable to submit this Group Order. Please retry.';
+  }finally{
+    joining=false;
+    if(button)button.disabled=false;
+  }
 }
 
 const init=()=>{
   loadStyle();
   ensureUI();
-  loadMarket();
-  loadCustomer();
+  loadMarket().catch(error=>console.warn('[Group Orders] Marketplace load failed:',error));
+  loadCustomer().catch(error=>console.warn('[Group Orders] Customer orders load failed:',error));
 
-  $('#refreshGroupMarketplace')?.addEventListener('click',loadMarket);
-  $('#refreshCustomerGroups')?.addEventListener('click',loadCustomer);
+  $('#refreshGroupMarketplace')?.addEventListener('click',()=>loadMarket().catch(error=>console.warn('[Group Orders] Refresh failed:',error)));
+  $('#refreshCustomerGroups')?.addEventListener('click',()=>loadCustomer().catch(error=>console.warn('[Group Orders] Customer refresh failed:',error)));
   $('#groupJoinQuantity')?.addEventListener('input',updateTotal);
   $('#groupJoinForm')?.addEventListener('submit',submitJoin);
 
