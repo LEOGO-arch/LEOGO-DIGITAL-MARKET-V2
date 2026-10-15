@@ -924,10 +924,11 @@
   const dashboardLabel = () => state.dashboardRange === 'today' ? 'Today' : state.dashboardRange === 'custom' ? `${state.dashboardFrom} to ${state.dashboardTo}` : `Last ${state.dashboardRange} days`;
   const loadDashboard = async () => {
     const range = dashboardDates();
-    const [dashboardResult,connectedRevenueResult,extendedNetworkResult] = await Promise.all([
+    const [dashboardResult,connectedRevenueResult,extendedNetworkResult,operationsResult] = await Promise.all([
       db.rpc('admin_production_dashboard', { p_from: range.from, p_to: range.to }),
       db.rpc('admin_financial_overview_service_accommodation', { p_from: range.from, p_to: range.to }),
-      db.rpc('admin_network_overview_extended')
+      db.rpc('admin_network_overview_extended'),
+      db.rpc('admin_dashboard_operations_supplement')
     ]);
     const { data, error } = dashboardResult;
     if (error) throw error;
@@ -967,13 +968,16 @@
       data.network={...(data.network||{}),...extendedNetworkResult.data};
     }
 
+    const operations=(!operationsResult.error && operationsResult.data)?operationsResult.data:null;
+    if(operations?.loans){data.wallet={...(data.wallet||{}),...operations.loans};}
+    if(!operations){console.warn('Dashboard operations supplement unavailable:',operationsResult.error?.message||'No data');}
     state.dashboard = data;
     $('#statOrders').textContent = metricValue(data.top.orders);
     $('#statSales').textContent = metricValue(data.top.gross_sales, true);
-    $('#statRevenue').textContent = formatMoney(data.top.leogo_revenue.value);
+    $('#statRevenue').textContent = data.top.leogo_revenue?.supported ? formatMoney(data.top.leogo_revenue.value) : '—';
     if($('#statOrdersNote')) $('#statOrdersNote').textContent = data.top.orders?.supported ? dashboardLabel() : 'Not connected';
     if($('#statSalesNote')) $('#statSalesNote').textContent = data.top.gross_sales?.supported ? dashboardLabel() : 'Not connected';
-    const liveApprovalCount = state.approvals.length || Number(data.top.pending_approvals.value || 0);
+    const liveApprovalCount = Math.max(state.approvals.length,Number(data.top.pending_approvals.value || 0));
     $('#statApprovals').textContent = liveApprovalCount.toLocaleString('en-KE');
     $('#statDeliveries').textContent = metricValue(data.top.active_deliveries);
     if($('#statDeliveriesNote')) $('#statDeliveriesNote').textContent = data.top.active_deliveries?.supported ? 'Live delivery jobs' : 'Not connected';
@@ -1029,6 +1033,16 @@
       ['Pending Deposits', wallet.pending_deposits], ['Pending Withdrawals', wallet.pending_withdrawals], ['Active Challenges', wallet.active_challenges],
       ['Loan Applications', wallet.loan_applications], ['Active Loans', metricValue(wallet.active_loans)], ['Overdue Loans', metricValue(wallet.overdue_loans)]
     ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join('');
+    if(operations?.pickup){
+      const stationSummary=document.createElement('div');
+      stationSummary.className='mini-metric-grid';
+      stationSummary.setAttribute('aria-label','Pickup station parcel statuses');
+      stationSummary.innerHTML=[['Pending Arrival',operations.pickup.awaiting_arrival],['Pending Receipt',operations.pickup.awaiting_receipt],['Pending Handover',operations.pickup.awaiting_handover]].map(([label,value])=>'<div><span>'+escapeHtml(label)+'</span><strong>'+Number(value||0).toLocaleString('en-KE')+'</strong></div>').join('');
+      const target=$('#walletSnapshot');
+      const existing=$('#dashboardPickupSummary');if(existing)existing.remove();
+      stationSummary.id='dashboardPickupSummary';
+      const deliveryNote=$('#dashboardDeliveryNote');if(deliveryNote)deliveryNote.after(stationSummary);
+    } else {$('#dashboardPickupSummary')?.remove();}
     const networkMap = [
       ['Customers','customers','customers'],
       ['Sellers','sellers','sellers'],
@@ -1047,7 +1061,11 @@
       const metric=data.network?.[key]||{supported:false,value:null};
       return `<button data-open-view="${view}"><span>${escapeHtml(label)}</span><strong>${metricValue(metric)}</strong><small>${metric.supported ? 'Open module →' : 'Not connected'}</small></button>`;
     }).join('');
-    $('#systemAlertList').innerHTML = data.alerts?.length ? data.alerts.map((item) => `<div class="alert-row ${escapeHtml(item.level)}"><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.detail)}</small></div><button data-alert-view="${escapeHtml(item.view)}" data-alert-tab="${escapeHtml(item.tab || '')}">Review →</button></div>`).join('') : '<div class="empty-mini">No operational exceptions detected.</div>';
+    const extraAlerts=[];
+    if(operations?.exceptions?.stalled_delivery_jobs>0)extraAlerts.push({level:'warning',title:'Stalled delivery jobs',detail:operations.exceptions.stalled_delivery_jobs+' deliveries have not changed status in over 48 hours.',view:'transport',tab:''});
+    if(operations?.exceptions?.overdue_loans>0)extraAlerts.push({level:'warning',title:'Overdue loans',detail:operations.exceptions.overdue_loans+' outstanding loans are past their due date.',view:'wallet',tab:''});
+    const allAlerts=[...(data.alerts||[]),...extraAlerts];
+    $('#systemAlertList').innerHTML = allAlerts.length ? allAlerts.map((item) => `<div class="alert-row ${escapeHtml(item.level)}"><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.detail)}</small></div><button data-alert-view="${escapeHtml(item.view)}" data-alert-tab="${escapeHtml(item.tab || '')}">Review →</button></div>`).join('') : '<div class="empty-mini">No operational exceptions detected.</div>';
     $('#recentAdminActivity').innerHTML = data.recent_admin_activity?.length ? data.recent_admin_activity.map((item) => `<div><div><b>${escapeHtml(item.action.replaceAll('.', ' '))}</b><small>${escapeHtml(item.admin)} · ${formatDate(item.created_at, true)}</small></div><span class="status-chip">${escapeHtml(item.entity)}</span></div>`).join('') : '<div class="empty-mini">No Admin activity yet.</div>';
     $$('[data-open-view]', $('#networkOverview')).forEach((button) => button.addEventListener('click', () => {
       if(button.dataset.openView==='cyber'){
