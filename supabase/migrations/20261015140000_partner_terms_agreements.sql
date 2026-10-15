@@ -45,7 +45,8 @@ create or replace function public.leogo_accept_partner_terms(p_partner_type text
 returns jsonb language plpgsql security definer set search_path='' as $fn$
 begin
  if auth.uid() is null then raise exception 'Sign in first';end if;
- if p_partner_type='seller' and not exists(select 1 from public.seller_accounts where user_id=auth.uid()) then raise exception 'Seller account required';end if;
+ if p_partner_type<>'seller' then raise exception 'Acceptance for this partner category is not yet enabled in its portal';end if;
+ if not exists(select 1 from public.seller_accounts where user_id=auth.uid()) then raise exception 'Seller account required';end if;
  if not exists(select 1 from public.leogo_partner_terms where partner_type=p_partner_type and version=p_version
  and version=(select max(version) from public.leogo_partner_terms where partner_type=p_partner_type)) then raise exception 'Terms updated; refresh before accepting';end if;
  insert into public.leogo_partner_terms_acceptances(partner_type,version,user_id)
