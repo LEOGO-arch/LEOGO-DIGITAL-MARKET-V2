@@ -610,8 +610,8 @@ $('#assistedStaffList').addEventListener('click',async(event)=>{
     if(!item)return;
     try{
       if(!window.leogoAssistedShoppingPdf)throw new Error('Shopping List PDF generator is still loading. Try again.');
-      window.leogoAssistedShoppingPdf.download(item,{assignedStaffName:staff?.display_name||''});
-      setStatus('#assistedStaffStatus','Shopping List PDF prepared for download.','success');
+      await window.leogoAssistedShoppingPdf.chooseAndOutput(item,{assignedStaffName:staff?.display_name||''});
+      setStatus('#assistedStaffStatus','Shopping List print/download prepared.','success');
     }catch(error){
       setStatus('#assistedStaffStatus',error?.message||'Shopping List PDF could not be generated.','error');
     }
