@@ -14,7 +14,7 @@ alter table public.leogo_partner_terms enable row level security;
 alter table public.leogo_partner_terms_acceptances enable row level security;
 revoke all on public.leogo_partner_terms,public.leogo_partner_terms_acceptances from public,anon,authenticated;
 insert into public.leogo_partner_terms(partner_type,version,terms_text)
-values('seller',1,''SELLER RESPONSIBILITIES
+values('seller',1,'SELLER RESPONSIBILITIES
 1. Qualified sellers must provide accurate business details and all applicable permits and licences relating to the products they sell.
 2. Sellers must keep product prices accurate and up to date. Sellers are responsible for pricing errors and underpricing displayed on the LEOGO customer website, subject to applicable law and case review.
 3. Sellers must ensure that inventory quantities shown in LEOGO match physical stock availability.
@@ -31,7 +31,7 @@ LEOGO RESPONSIBILITIES
 3. LEOGO will aim to remit eligible, verified customer payments within 48 hours of the applicable settlement trigger, subject to payment verification, holds, disputes, payment-provider delays and applicable law.
 
 COMPLIANCE
-Violations may result in investigation, suspension, termination of partner access, recovery of substantiated losses, or legal action where warranted by law and the applicable agreement.'')
+Violations may result in investigation, suspension, termination of partner access, recovery of substantiated losses, or legal action where warranted by law and the applicable agreement.')
 on conflict do nothing;
 create or replace function public.leogo_get_partner_terms(p_partner_type text)
 returns jsonb language sql stable security definer set search_path='' as $fn$
