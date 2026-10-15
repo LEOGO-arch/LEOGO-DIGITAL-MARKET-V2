@@ -932,12 +932,13 @@
     ]);
     const { data, error } = dashboardResult;
     if (error) throw error;
+    if (!data || typeof data !== 'object' || !data.top || !data.revenue || !data.wallet || !data.network) throw new Error('Dashboard response missing required sections. Refresh to retry.');
 
     // Service Provider and Accommodation earnings are connected through a
     // small additive RPC so the existing marketplace/order dashboard remains
     // untouched. If the additive RPC is temporarily unavailable, keep the
     // existing "Not connected" fallback instead of breaking the Dashboard.
-    if (!connectedRevenueResult.error && connectedRevenueResult.data) {
+    if (!connectedRevenueResult.error && connectedRevenueResult.data && typeof connectedRevenueResult.data === 'object') {
       const connected=connectedRevenueResult.data;
       const serviceRevenue=Number(connected.service?.leogo_revenue_kes||0);
       const accommodationRevenue=Number(connected.accommodation?.leogo_revenue_kes||0);
@@ -964,11 +965,14 @@
 
     // Extra network counts are additive so a temporary failure here never
     // blocks the main Admin dashboard.
-    if (!extendedNetworkResult.error && extendedNetworkResult.data) {
+    if (!extendedNetworkResult.error && extendedNetworkResult.data && typeof extendedNetworkResult.data === 'object') {
       data.network={...(data.network||{}),...extendedNetworkResult.data};
     }
 
-    const operations=(!operationsResult.error && operationsResult.data)?operationsResult.data:null;
+    const operations=(!operationsResult.error && operationsResult.data && typeof operationsResult.data==='object')?operationsResult.data:null;
+    if(connectedRevenueResult.error || extendedNetworkResult.error || operationsResult.error){
+      console.warn('[LEOGO Dashboard] Supplemental metrics unavailable:', [connectedRevenueResult.error?.message,extendedNetworkResult.error?.message,operationsResult.error?.message].filter(Boolean).join('; '));
+    }
     if(operations?.loans){data.wallet={...(data.wallet||{}),...operations.loans};}
     if(!operations){console.warn('Dashboard operations supplement unavailable:',operationsResult.error?.message||'No data');}
     state.dashboard = data;
@@ -977,7 +981,7 @@
     $('#statRevenue').textContent = data.top.leogo_revenue?.supported ? formatMoney(data.top.leogo_revenue.value) : '—';
     if($('#statOrdersNote')) $('#statOrdersNote').textContent = data.top.orders?.supported ? dashboardLabel() : 'Not connected';
     if($('#statSalesNote')) $('#statSalesNote').textContent = data.top.gross_sales?.supported ? dashboardLabel() : 'Not connected';
-    const liveApprovalCount = Math.max(state.approvals.length,Number(data.top.pending_approvals.value || 0));
+    const liveApprovalCount = Math.max(Array.isArray(state.approvals)?state.approvals.length:0,Number(data.top.pending_approvals?.value || 0));
     $('#statApprovals').textContent = liveApprovalCount.toLocaleString('en-KE');
     $('#statDeliveries').textContent = metricValue(data.top.active_deliveries);
     if($('#statDeliveriesNote')) $('#statDeliveriesNote').textContent = data.top.active_deliveries?.supported ? 'Live delivery jobs' : 'Not connected';
@@ -1026,12 +1030,12 @@
       ['Delivery Fees Earned', data.revenue.delivery_fees, true], ['Pickup Station Fees', data.revenue.pickup_fees, true],
       ['Premium Revenue', data.revenue.premium, true], ['Service Fees & Commission', data.revenue.service_commission, true],
       ['Accommodation Revenue', data.revenue.accommodation_commission, true], ['Other LEOGO Revenue', data.revenue.other, true]
-    ].map(([label, value, money]) => `<div><span>${label}</span><strong class="${value.supported ? '' : 'not-connected'}">${metricValue(value, money)}</strong><small>${value.supported ? '' : 'Not connected'}</small></div>`).join('') + `<div class="metric-total"><span>Total LEOGO Revenue</span><strong>${formatMoney(data.revenue.total_leogo)}</strong><small>${escapeHtml(dashboardLabel())}</small></div>`;
+    ].map(([label, value, money]) => `<div><span>${label}</span><strong class="${value?.supported ? '' : 'not-connected'}">${metricValue(value, money)}</strong><small>${value?.supported ? '' : 'Not connected'}</small></div>`).join('') + `<div class="metric-total"><span>Total LEOGO Revenue</span><strong>${formatMoney(data.revenue.total_leogo)}</strong><small>${escapeHtml(dashboardLabel())}</small></div>`;
     const wallet = data.wallet;
     $('#walletSnapshot').innerHTML = [
       ['Deposits', formatMoney(wallet.deposits)], ['Withdrawals', formatMoney(wallet.withdrawals)], ['Savings Deposits', formatMoney(wallet.savings_deposits)],
       ['Pending Deposits', wallet.pending_deposits], ['Pending Withdrawals', wallet.pending_withdrawals], ['Active Challenges', wallet.active_challenges],
-      ['Loan Applications', wallet.loan_applications], ['Active Loans', metricValue(wallet.active_loans)], ['Overdue Loans', metricValue(wallet.overdue_loans)]
+      ['Loan Applications', wallet.loan_applications], ['Active Loans', wallet.active_loans ? metricValue(wallet.active_loans) : '—'], ['Overdue Loans', wallet.overdue_loans ? metricValue(wallet.overdue_loans) : '—']
     ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join('');
     if(operations?.pickup){
       const stationSummary=document.createElement('div');
