@@ -82,12 +82,12 @@ function classify(product){
   return {key,label,icon,route,estimate:estimateText(min,max,unit)};
 }
 
-function groupExpectedDelivery(campaign){
+function groupExpectedDelivery(campaign,baseDate){
   const days=Number(campaign?.delivery_lead_days);
   if(Number.isInteger(days)&&days>=1&&days<=365){
-    const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+    const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(baseDate?new Date(baseDate):new Date()).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
     const date=new Date(Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day)+days));
-    return date.toLocaleDateString('en-KE',{timeZone:'UTC',day:'numeric',month:'short',year:'numeric'})+' (about '+days+' days from today)';
+    return date.toLocaleDateString('en-KE',{timeZone:'UTC',day:'numeric',month:'short',year:'numeric'})+' (about '+days+' days from '+(baseDate?'order date':'today')+')';
   }
   return campaign?.expected_delivery_from?fmtDate(campaign.expected_delivery_from)+(campaign.expected_delivery_to?' – '+fmtDate(campaign.expected_delivery_to):''):'—';
 }
@@ -295,7 +295,7 @@ function renderCustomer(){
         '<div><small>Campaign progress</small><strong>'+Number(campaign.quantity_committed||0)+'/'+Number(campaign.minimum_quantity||0)+' ('+Math.round(pct)+'%)</strong></div>'+
         '<div><small>Payment closes</small><strong>'+fmtDateTime(campaign.closing_at)+'</strong></div>'+
         '<div><small>Expected dispatch</small><strong>'+fmtDate(campaign.expected_dispatch_date)+'</strong></div>'+
-        '<div><small>Expected delivery</small><strong>'+fmtDate(campaign.expected_delivery_from)+(campaign.expected_delivery_to?' – '+fmtDate(campaign.expected_delivery_to):'')+'</strong></div>'+
+        '<div><small>Expected delivery</small><strong>'+esc(groupExpectedDelivery({...campaign,delivery_lead_days:item.delivery_lead_days??campaign.delivery_lead_days},item.joined_at))+'</strong></div>'+
         '<div><small>Refund state</small><strong>'+esc(item.refund_status||campaign.refund_status||'not required')+'</strong></div>'+
       '</div>'+
     '</article>';
@@ -333,6 +333,17 @@ async function loadCustomer(){
   }
   const {data,error}=await client.rpc('customer_list_group_orders');
   groups=error?[]:(Array.isArray(data)?data:[]);
+  if(!error){
+    const result=await client.rpc('customer_group_delivery_lead_days');
+    if(result.error)console.warn('[Group Orders] Joined-order estimate lookup unavailable:',result.error.message);
+    else{
+      const savedDays=new Map((Array.isArray(result.data)?result.data:[]).map(row=>[row.campaign_id,row.delivery_lead_days]));
+      groups.forEach(item=>{
+        const campaignId=item.campaign_id||item.campaign?.id;
+        if(savedDays.has(campaignId))item.delivery_lead_days=savedDays.get(campaignId);
+      });
+    }
+  }
   renderCustomer();
 }
 
