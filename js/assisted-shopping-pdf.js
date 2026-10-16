@@ -183,10 +183,15 @@
       document.body.appendChild(qrHost);
       try{
         new window.QRCode(qrHost,{text:orderNumber,width:240,height:240,correctLevel:window.QRCode.CorrectLevel.M});
-        await new Promise(resolve=>window.setTimeout(resolve,120));
-        const qrCanvas=qrHost.querySelector('canvas');
-        const qrImg=qrHost.querySelector('img');
-        const imageData=qrCanvas?.toDataURL('image/png')||qrImg?.src;
+        let imageData=null;
+        for(let attempt=0;attempt<20;attempt++){
+          const qrCanvas=qrHost.querySelector('canvas');
+          const qrImg=qrHost.querySelector('img');
+          if(qrCanvas?.width&&qrCanvas?.height)imageData=qrCanvas.toDataURL('image/png');
+          else if(qrImg?.complete&&qrImg?.naturalWidth)imageData=qrImg.src;
+          if(imageData?.startsWith('data:image/'))break;
+          await new Promise(resolve=>window.setTimeout(resolve,100));
+        }
         if(!imageData||!imageData.startsWith('data:image/'))throw new Error('QR-code image could not be generated.');
         const qrSize=thermal?43:50;
         ensure(qrSize+7);
@@ -205,7 +210,7 @@
       }else{
         pair('Method','Customer Delivery');
         const address=[request.estate,request.sub_county,request.county].filter(Boolean).join(', ');
-        pair('Delivery Address',address);
+        pair('Delivery Address',address||'Delivery address missing — confirm with customer before dispatch');
         if(request.landmark)pair('Landmark',request.landmark);
         if(request.location_link)pair('Location',request.location_link);
       }
