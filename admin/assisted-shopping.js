@@ -128,7 +128,7 @@
         '</div>'+
         '<p>'+escapeHtml(itemSummary||'Shopping List')+'</p>'+
         '<div class="assisted-admin-card-assignment"><small>Assigned Staff</small><strong>'+escapeHtml(assignmentFor(row.id)?.staff_name||'Not assigned')+'</strong></div>'+
-        '<footer><button type="button" class="secondary" data-download-assisted-admin="'+escapeHtml(row.id)+'">⬇ Download PDF</button><button type="button" data-open-assisted-admin="'+escapeHtml(row.id)+'">'+(row.status==='submitted'||row.status==='changes_requested'?'Prepare Shopping List':'Open / Manage')+'</button></footer>'+
+        '<footer><button type="button" class="secondary" data-download-assisted-admin="'+escapeHtml(row.id)+'">⬇ Checklist</button><button type="button" class="secondary" data-assisted-document="quotation" data-assisted-id="'+escapeHtml(row.id)+'">Quotation PDF</button><button type="button" class="secondary" data-assisted-document="label" data-assisted-id="'+escapeHtml(row.id)+'">Parcel Label</button><button type="button" data-open-assisted-admin="'+escapeHtml(row.id)+'">'+(row.status==='submitted'||row.status==='changes_requested'?'Prepare Shopping List':'Open / Manage')+'</button></footer>'+
       '</article>';
     }).join('');
   };
@@ -347,13 +347,13 @@
     }
   };
 
-  const downloadPdf=async(row)=>{
+  const downloadPdf=async(row,documentType='checklist')=>{
     if(!row)return;
     const assignment=assignmentFor(row.id);
     try{
       if(!window.leogoAssistedShoppingPdf?.chooseAndOutput)throw new Error('Shopping List printer is unavailable. Refresh to retry.');
       await window.leogoAssistedShoppingPdf.chooseAndOutput(row,{
-        assignedStaffName:assignment?.staff_name||''
+        assignedStaffName:assignment?.staff_name||'',documentType
       });
 
     }catch(error){
@@ -462,6 +462,11 @@
   filter?.addEventListener('change',render);
 
   list.addEventListener('click',(event)=>{
+    const extra=event.target.closest?.('[data-assisted-document]');
+    if(extra){
+      downloadPdf(rowById(extra.dataset.assistedId),extra.dataset.assistedDocument).catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error'));
+      return;
+    }
     const downloadButton=event.target.closest?.('[data-download-assisted-admin]');
     if(downloadButton){
       downloadPdf(rowById(downloadButton.dataset.downloadAssistedAdmin)).catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error'));
@@ -483,6 +488,8 @@
   $('#saveAssistedQuote')?.addEventListener('click',(event)=>saveQuote(event.currentTarget));
   $('#saveAssistedStaffAssignment')?.addEventListener('click',()=>saveStaffAssignment());
   $('#downloadAssistedShoppingPdf')?.addEventListener('click',()=>downloadPdf(active).catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error')));
+  $('#downloadAssistedQuotationPdf')?.addEventListener('click',()=>downloadPdf(active,'quotation').catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error')));
+  $('#downloadAssistedParcelLabel')?.addEventListener('click',()=>downloadPdf(active,'label').catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error')));
 
   modal.addEventListener('click',(event)=>{
     if(event.target.closest?.('[data-close-assisted-admin]')){closeModal();return;}
