@@ -37,6 +37,7 @@
     if(!JsPdf)throw new Error('PDF generator is still loading. Try again in a moment.');
     if(!request)throw new Error('Shopping List data is not available.');
 
+    const type=['checklist','quotation','label'].includes(options.documentType)?options.documentType:'checklist';
     const thermal=options.paper==='80mm';
     const doc=new JsPdf({unit:'mm',format:thermal?[80,210]:'a4'});
     const left=thermal?4:15;
@@ -137,7 +138,7 @@
     doc.text('LEOGO DIGITAL MARKET',left,y);
     y+=7;
     doc.setFontSize(thermal?8:13);
-    doc.text(thermal?'ASSISTED SHOPPING LIST':'ASSISTED SHOPPING / SHOPPING LIST',left,y);
+    doc.text(type==='quotation'?'PREPARED ITEMS / QUOTATION':type==='label'?'PARCEL DELIVERY LABEL':thermal?'ASSISTED SHOPPING LIST':'ASSISTED SHOPPING / SHOPPING LIST',left,y);
     y+=6;
     doc.setFont('helvetica','normal');
     doc.setFontSize(8);
@@ -149,6 +150,70 @@
     if(options.assignedStaffName)pair('Assigned Staff',options.assignedStaffName);
     if(request.created_at)pair('Submitted',dateText(request.created_at,true));
 
+    if(type==='quotation'){
+      section('LEOGO PREPARED ITEMS / QUOTATION');
+      const items=Array.isArray(request.items)?request.items:[];
+      if(!items.length)line('Quotation has not been prepared. No items to print.',9);
+      items.forEach((item,index)=>{
+        line((index+1)+'. '+safe(item.item_name||'Item'),thermal?8:10,true);
+        line('Requested: '+safe(item.requested_quantity||0)+' '+safe(item.unit_label||'')+
+          '; Prepared: '+safe(item.prepared_quantity??0)+' '+safe(item.unit_label||'')+
+          '; Status: '+labelStatus(item.item_status||'available'),thermal?7:8);
+        line('Unit: '+money(item.unit_price_kes)+'; Total: '+money(item.line_total_kes),thermal?7:8);
+        if(item.substitution_note)line('Note: '+item.substitution_note,thermal?7:8);
+      });
+      if(items.length){
+        section('QUOTATION TOTALS');
+        pair('Items Subtotal',money(request.items_subtotal_kes));
+        pair('Assisted Shopping Fee',money(request.service_fee_kes));
+        if(Number(request.pickup_fee_kes||0)>0)pair('Pickup Fee',money(request.pickup_fee_kes));
+        pair('Delivery Fee',money(request.delivery_fee_kes));
+        pair('GRAND TOTAL',money(request.grand_total_kes));
+      }
+      pair('Payment Status',labelStatus(request.payment_status||'not required'));
+      if(request.order_reference)pair('Order Number',request.order_reference);
+    }else if(type==='label'){
+      // Only genuine marketplace order numbers can be encoded; never label unaccepted quotes.
+      const orderNumber=safe(request.order_reference);
+      if(!request.marketplace_order_id||!orderNumber)throw new Error('A delivery label requires an accepted quotation with a generated marketplace order number.');
+      if(typeof window.QRCode!=='function')throw new Error('QR-code generator is unavailable. Refresh this page and retry.');
+      section('SCAN ORDER NUMBER');
+      const qrHost=document.createElement('div');
+      qrHost.style.cssText='position:fixed;left:-2000px;top:0;background:white';
+      document.body.appendChild(qrHost);
+      try{
+        new window.QRCode(qrHost,{text:orderNumber,width:240,height:240,correctLevel:window.QRCode.CorrectLevel.M});
+        await new Promise(resolve=>window.setTimeout(resolve,120));
+        const qrCanvas=qrHost.querySelector('canvas');
+        const qrImg=qrHost.querySelector('img');
+        const imageData=qrCanvas?.toDataURL('image/png')||qrImg?.src;
+        if(!imageData||!imageData.startsWith('data:image/'))throw new Error('QR-code image could not be generated.');
+        const qrSize=thermal?43:50;
+        ensure(qrSize+7);
+        doc.addImage(imageData,'PNG',left+(width-qrSize)/2,y,qrSize,qrSize);
+        y+=qrSize+3;
+      }finally{qrHost.remove();}
+      line('ORDER: '+orderNumber,thermal?10:12,true);
+      pair('Shopping List',request.request_reference);
+      section('DELIVER TO');
+      pair('Receiver',request.receiver_name||request.customer_name);
+      pair('Phone',request.contact_number||request.customer_phone);
+      if(request.fulfilment_method==='pickup'){
+        pair('Method','Pickup Station');
+        pair('Pickup Station',request.pickup_station_name||'Selected station');
+        if(request.pickup_station_address)pair('Station Address',request.pickup_station_address);
+      }else{
+        pair('Method','Customer Delivery');
+        const address=[request.estate,request.sub_county,request.county].filter(Boolean).join(', ');
+        pair('Delivery Address',address);
+        if(request.landmark)pair('Landmark',request.landmark);
+        if(request.location_link)pair('Location',request.location_link);
+      }
+      section('PAYMENT');
+      pair('Payment Method',labelStatus(request.payment_method));
+      pair('Payment Status',labelStatus(request.order_payment_status||request.payment_status||'pending'));
+      if(request.payment_method==='cod')pair('COD Payment','Collect outstanding amount as shown in Rider/Admin order payment details.');
+    }else{
     if(thermal){
       section('CUSTOMER / RECEIVER');
       inlineFields([
@@ -263,6 +328,8 @@
       line(request.admin_notes,9,false,2);
     }
 
+    }
+
     y+=5;
     ensure(14);
     doc.setFontSize(7);
@@ -272,7 +339,7 @@
     doc.text('For authorized LEOGO Admin / assigned staff use.',left,y);
 
     const ref=safe(request.request_reference||'Shopping-List').replace(/[^A-Za-z0-9_-]+/g,'-');
-    const fileName='LEOGO-Shopping-List-'+ref+'-'+(thermal?'80mm':'A4')+'.pdf';
+    const fileName='LEOGO-'+(type==='quotation'?'Quotation':type==='label'?'Parcel-Label':'Shopping-Checklist')+'-'+ref+'-'+(thermal?'80mm':'A4')+'.pdf';
     if(options.action==='print'){
       // The browser's print dialog controls the actual selected printer.
       const blobUrl=URL.createObjectURL(doc.output('blob'));

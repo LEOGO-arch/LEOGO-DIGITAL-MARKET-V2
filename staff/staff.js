@@ -191,7 +191,7 @@ function renderAssistedLists(){
         '<span><small>Preferred</small><strong>'+esc(item.preferred_delivery_date||'Flexible')+'</strong><em>'+esc(item.preferred_delivery_time||'')+'</em></span>'+
       '</div>'+
       original+attachments+prepared+
-      '<footer><button type="button" data-download-assisted-staff="'+esc(item.id)+'">⬇ Download Shopping List PDF</button></footer>'+
+      '<footer><button type="button" data-download-assisted-staff="'+esc(item.id)+'">⬇ Shopping Checklist</button><button type="button" data-assisted-staff-document="quotation" data-assisted-staff-id="'+esc(item.id)+'">Quotation PDF</button><button type="button" data-assisted-staff-document="label" data-assisted-staff-id="'+esc(item.id)+'">Parcel Label</button></footer>'+
     '</article>';
   }).join('');
 }
@@ -604,6 +604,17 @@ $('#assistedStaffList').addEventListener('click',async(event)=>{
     return;
   }
 
+  const extra=event.target.closest?.('[data-assisted-staff-document]');
+  if(extra){
+    const item=assistedLists.find(row=>String(row.id)===String(extra.dataset.assistedStaffId));
+    if(!item)return;
+    try{
+      if(!window.leogoAssistedShoppingPdf?.chooseAndOutput)throw new Error('PDF generator is still loading.');
+      await window.leogoAssistedShoppingPdf.chooseAndOutput(item,{assignedStaffName:staff?.display_name||'',documentType:extra.dataset.assistedStaffDocument});
+      setStatus('#assistedStaffStatus','Document prepared for printing or download.','success');
+    }catch(error){setStatus('#assistedStaffStatus',error?.message||'Unable to prepare document.','error');}
+    return;
+  }
   const downloadButton=event.target.closest?.('[data-download-assisted-staff]');
   if(downloadButton){
     const item=assistedLists.find(row=>String(row.id)===String(downloadButton.dataset.downloadAssistedStaff));
