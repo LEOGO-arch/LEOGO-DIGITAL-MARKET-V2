@@ -211,8 +211,8 @@
       }
       section('PAYMENT');
       pair('Payment Method',labelStatus(request.payment_method));
-      pair('Payment Status',labelStatus(request.payment_status||'pending'));
-      if(request.payment_method==='cod')pair('COD Amount Due',money(request.external_amount_due_kes??request.grand_total_kes));
+      pair('Payment Status',labelStatus(request.order_payment_status||request.payment_status||'pending'));
+      if(request.payment_method==='cod')pair('COD Payment','Collect outstanding amount as shown in Rider/Admin order payment details.');
     }else{
     if(thermal){
       section('CUSTOMER / RECEIVER');
