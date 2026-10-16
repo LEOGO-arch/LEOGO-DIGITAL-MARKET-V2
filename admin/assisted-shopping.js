@@ -464,7 +464,9 @@
   list.addEventListener('click',(event)=>{
     const extra=event.target.closest?.('[data-assisted-document]');
     if(extra){
-      downloadPdf(rowById(extra.dataset.assistedId),extra.dataset.assistedDocument).catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error'));
+      const selected=rowById(extra.dataset.assistedId);
+      if(extra.dataset.assistedDocument==='label'&&(!selected?.marketplace_order_id||!selected?.order_reference)){window.alert('Parcel label unavailable: Customer must accept the quotation first so LEOGO can generate the actual order number and QR code.');return;}
+      downloadPdf(selected,extra.dataset.assistedDocument).catch(error=>window.alert(error?.message||'Parcel label could not be printed.'));
       return;
     }
     const downloadButton=event.target.closest?.('[data-download-assisted-admin]');
@@ -489,7 +491,7 @@
   $('#saveAssistedStaffAssignment')?.addEventListener('click',()=>saveStaffAssignment());
   $('#downloadAssistedShoppingPdf')?.addEventListener('click',()=>downloadPdf(active).catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error')));
   $('#downloadAssistedQuotationPdf')?.addEventListener('click',()=>downloadPdf(active,'quotation').catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error')));
-  $('#downloadAssistedParcelLabel')?.addEventListener('click',()=>downloadPdf(active,'label').catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error')));
+  $('#downloadAssistedParcelLabel')?.addEventListener('click',()=>{if(!active?.marketplace_order_id||!active?.order_reference){setStatus(modalStatus,'Parcel label requires customer quotation acceptance and an actual order number.','error');return;}downloadPdf(active,'label').catch(error=>setStatus(modalStatus,error?.message||'Printing failed.','error'));});
 
   modal.addEventListener('click',(event)=>{
     if(event.target.closest?.('[data-close-assisted-admin]')){closeModal();return;}
