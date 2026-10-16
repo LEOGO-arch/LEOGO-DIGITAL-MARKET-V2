@@ -609,6 +609,7 @@ $('#assistedStaffList').addEventListener('click',async(event)=>{
     const item=assistedLists.find(row=>String(row.id)===String(extra.dataset.assistedStaffId));
     if(!item)return;
     try{
+      if(extra.dataset.assistedStaffDocument==='label'&&(!item.marketplace_order_id||!item.order_reference))throw new Error('Parcel label requires an accepted quotation and actual order number. Ask Admin to verify this shopping order.');
       if(!window.leogoAssistedShoppingPdf?.chooseAndOutput)throw new Error('PDF generator is still loading.');
       await window.leogoAssistedShoppingPdf.chooseAndOutput(item,{assignedStaffName:staff?.display_name||'',documentType:extra.dataset.assistedStaffDocument});
       setStatus('#assistedStaffStatus','Document prepared for printing or download.','success');
