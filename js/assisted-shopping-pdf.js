@@ -101,7 +101,7 @@
       // Customer text may be a single paragraph containing several quantity-led items.
       // Add boundaries before later quantities (e.g. "2 kg sugar 1 bar soap").
       const original=String(text||'').replace(/\r\n?/g,'\n');
-      const separated=original.replace(/([^\n;,•])\s+(?=\d+(?:[.,]\d+)?\s*(?:kg|kgs|g|gm|grams?|litres?|liters?|ltr|l|ml|pcs?|pieces?|packets?|packs?|barsoap|bars?|bottles?|loaves?|tins?|dozens?)\b)/gi,'$1\n');
+      const separated=original.replace(/([^\n;,•])\s+(?=\d+(?:[.,]\d+)?\s*(?:kg|kgs|g|gm|grams?|litres?|liters?|ltr|l|ml|pcs?|pieces?|packets?|packs?|barsoap|bars?|bottles?|loaf|loaves|tins?|dozens?)\b)/gi,'$1\n');
       const entries=separated.split(/\n|;|•|,(?=\s*[A-Za-z]|\s*\d+\s*[A-Za-z])/g)
         .map(value=>value.replace(/^\s*(?:[-*]|\d+[.)])\s*/,'').trim()).filter(Boolean);
       if(!entries.length){
