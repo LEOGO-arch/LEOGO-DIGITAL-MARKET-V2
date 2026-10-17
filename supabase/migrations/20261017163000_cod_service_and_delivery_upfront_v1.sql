@@ -10,10 +10,17 @@ begin
     new.payment_method='cod' and coalesce(new.service_fee_kes,0)>0;
   if new.payment_method='cod' and
      (coalesce(new.delivery_fee_kes,0)+case when new.cod_upfront_service_fee_required then coalesce(new.service_fee_kes,0) else 0 end)>0 then
-    -- Proof is collected AFTER order creation in the existing secure COD form.
-    new.cod_delivery_fee_status:='awaiting_payment';
-    new.cod_delivery_fee_reference:=null;
-    new.cod_delivery_fee_submitted_at:=null;
+    -- Preserve valid payment references from older checkout sessions.
+    -- New checkout sessions submit proof after the order is created.
+    if length(btrim(coalesce(new.payment_message,''))) >= 8 then
+      new.cod_delivery_fee_status:='submitted';
+      new.cod_delivery_fee_reference:=btrim(new.payment_message);
+      new.cod_delivery_fee_submitted_at:=now();
+    else
+      new.cod_delivery_fee_status:='awaiting_payment';
+      new.cod_delivery_fee_reference:=null;
+      new.cod_delivery_fee_submitted_at:=null;
+    end if;
   else
     new.cod_delivery_fee_status:='not_required';
   end if;
@@ -31,7 +38,7 @@ begin
     into v_method,v_fee,v_fee_status
   from public.marketplace_orders o where o.id=new.order_id;
   -- A placeholder job without a rider must be allowed when COD order is created.
-  if v_method='cod' and coalesce(v_fee,0)>0 and v_fee_status not in ('verified','not_required')
+  if v_method='cod' and coalesce(v_fee,0)>0 and v_fee_status is distinct from 'verified'
      and (new.rider_id is not null or new.status in ('picked_up','arrived_sorting_center','sorting_received','on_the_way','delivered_to_pickup_station','ready_for_pickup','delivered'))
   then
     raise exception 'COD service and transport fees must be paid and Admin-verified before rider assignment or dispatch';
@@ -45,7 +52,7 @@ returns trigger language plpgsql security definer set search_path='' as $fn$
 begin
   if new.payment_method='cod' and
      (coalesce(new.delivery_fee_kes,0)+case when new.cod_upfront_service_fee_required then coalesce(new.service_fee_kes,0) else 0 end)>0
-     and new.cod_delivery_fee_status not in ('verified','not_required')
+     and new.cod_delivery_fee_status is distinct from 'verified'
      and new.order_status in ('with_rider','delivered') then
     raise exception 'COD service and transport fees must be verified before dispatch or delivery';
   end if;
@@ -82,6 +89,7 @@ begin
       v_new:=replace(v_new,'least(coalesce(o.delivery_fee_kes,0),greatest(0,o.external_amount_due_kes))',
         'least('||v_order_sum||',greatest(0,o.external_amount_due_kes))');
     end if;
+    -- Require exact, unique matches rather than accepting partial SQL rewrites.
     if v_new=v_def then raise exception 'Upfront COD reconciliation required for %',v_name; end if;
     execute v_new;
     v_sig:=null;
