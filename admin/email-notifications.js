@@ -98,7 +98,7 @@
           : 'Email sender settings saved. Automatic customer emails are currently switched off.',
         'success'
       );
-    });
+    }).catch(error=>setStatus($('#emailNotificationSettingsStatus'),'Could not save email settings: '+friendlyError(error),'error'));
   };
 
   const sendTest = async (event) => {
@@ -115,7 +115,7 @@
       }
       setStatus($('#emailNotificationTestStatus'),'Test email queued. It should arrive shortly if the Gmail App Password and sender account are valid.','success');
       window.setTimeout(()=>loadSettings().catch(()=>{}),2500);
-    });
+    }).catch(error=>setStatus($('#emailNotificationTestStatus'),'Could not queue test email: '+friendlyError(error),'error'));
   };
 
   const bind = () => {
@@ -138,8 +138,10 @@
 
     window.setTimeout(()=>{
       db.auth.getSession().then(({data})=>{
-        if (data?.session) loadSettings().catch(()=>{});
-      }).catch(()=>{});
+        if(data?.session)loadSettings().catch(error=>{
+          setStatus($('#emailNotificationSettingsStatus'),'Email settings unavailable: '+friendlyError(error),'error');
+        });
+      }).catch(error=>setStatus($('#emailNotificationSettingsStatus'),'Could not check Admin session: '+friendlyError(error),'error'));
     },900);
   };
 
