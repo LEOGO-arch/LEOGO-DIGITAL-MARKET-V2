@@ -10,6 +10,8 @@
   let loaded=false;
   let sending=false;
   let requestKey='';
+  let customerLoadGeneration=0;
+  let historyLoadGeneration=0;
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
@@ -65,27 +67,36 @@
     updatePreview();
   };
   const loadCustomers=async()=>{
+    const generation=++customerLoadGeneration;
+    const userId=(await db.auth.getSession()).data?.session?.user?.id;
+    if(!userId)return;
     $('#messageCustomerList').textContent='Loading registered customers…';
     try{
       const {data,error}=await db.rpc('admin_list_customers');
       if(error)throw error;
+      if(generation!==customerLoadGeneration || (await db.auth.getSession()).data?.session?.user?.id!==userId)return;
       customers=Array.isArray(data)?data:[];
       loaded=true;
       renderCustomers();
     }catch(error){
+      if(generation!==customerLoadGeneration)return;
       $('#messageCustomerList').textContent=error?.message||'Unable to load customer list.';
       setStatus('Access or connection error. Customer messaging requires Customer Read and Settings Manage permissions.','error');
     }
   };
   const loadHistory=async()=>{
+    const generation=++historyLoadGeneration;
+    const userId=(await db.auth.getSession()).data?.session?.user?.id;
+    if(!userId)return;
     try{
       const {data,error}=await db.rpc('admin_customer_message_history');
       if(error)throw error;
+      if(generation!==historyLoadGeneration || (await db.auth.getSession()).data?.session?.user?.id!==userId)return;
       const history=Array.isArray(data)?data:[];
       $('#messageHistoryList').innerHTML=history.length?history.map(c=>`
         <article class="message-history-row">
           <div><strong>${esc(c.subject||c.message_preview||'LEOGO message')}</strong>
-            <small>${esc(new Date(c.created_at).toLocaleString('en-KE'))} · ${esc(c.channel.toUpperCase())} · ${esc(c.purpose)}</small>
+            <small>${esc(c.created_at&&!Number.isNaN(new Date(c.created_at).getTime())?new Date(c.created_at).toLocaleString('en-KE'):'Date unavailable')} · ${esc(String(c.channel||'unknown').toUpperCase())} · ${esc(c.purpose||'service')}</small>
           </div>
           <p>${esc(c.message_preview||'')}</p>
           <div class="message-result-stats"><span>${Number(c.queued_messages||0)} queued</span>
@@ -94,6 +105,7 @@
             <span>${Number(c.failed||0)} failed</span></div>
         </article>`).join(''):'<p class="message-empty">No Admin customer messages have been queued yet.</p>';
     }catch(error){
+      if(generation!==historyLoadGeneration)return;
       $('#messageHistoryList').textContent=error?.message||'History unavailable.';
     }
   };
@@ -156,7 +168,7 @@
       setStatus(error?.message||'Could not queue the messages. Try again using the same request.','error');
     }finally{sending=false;updatePreview();}
   });
-  $('#messageRefresh').addEventListener('click',()=>Promise.all([loadCustomers(),loadHistory()]));
+  $('#messageRefresh').addEventListener('click',()=>Promise.allSettled([loadCustomers(),loadHistory()]));
   $('#messageRefreshHistory').addEventListener('click',loadHistory);
   document.addEventListener('click',event=>{
     const nav=event.target.closest?.('[data-admin-view="customer_messages"]');
@@ -165,6 +177,15 @@
     window.setTimeout(()=>{if(panel.classList.contains('active')){
       if(!loaded)loadCustomers();loadHistory();
     }},80);
+  });
+  db.auth.onAuthStateChange(event=>{
+    if(event==='SIGNED_OUT'){
+      customerLoadGeneration++;historyLoadGeneration++;
+      customers=[];selected.clear();loaded=false;sending=false;
+      $('#messageCustomerList').textContent='Sign in to view customers.';
+      $('#messageHistoryList').textContent='Sign in to view message history.';
+      updatePreview();
+    }
   });
   document.addEventListener('DOMContentLoaded',()=>{
     requestKey=newRequestKey();updatePreview();
