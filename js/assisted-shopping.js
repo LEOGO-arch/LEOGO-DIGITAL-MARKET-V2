@@ -267,6 +267,7 @@
           '<label><span>Payment method</span><select name="payment_method" required>'+paymentOptions()+'</select></label>'+
           '<label><span>Payment reference</span><input name="payment_reference" maxlength="100" placeholder="Required for Till/Paybill remaining amount; not required for COD"></label>'+
         '</div>'+
+        '<div class="assisted-cod-fee-notice" data-assisted-cod-notice style="display:none;padding:10px;margin:8px 0;border:1px solid #e5ac52;border-radius:8px;background:#fff8ee;color:#703e09;font-weight:600">COD: Transport / delivery fee must be paid and verified by LEOGO before dispatch or delivery. The balance is payable on delivery.</div>'+ 
         '<small>Shopping Voucher can cover up to 50% of an eligible checkout. The checkout total must be greater than your available voucher balance. COD applies only within the current LEOGO COD limit'+(orderSettings.cod_limit_kes!=null?' (below '+money(orderSettings.cod_limit_kes)+')':'')+'.</small>'+
         '<button type="submit">Accept & Continue</button>'+
       '</form>'+
@@ -487,6 +488,12 @@
       return;
     }
 
+    if(method==='cod'){
+      const deliveryFee=Math.max(0,Number(row?.delivery_fee_kes||0));
+      const notice='CASH ON DELIVERY: You must pay the transport/delivery fee'+(deliveryFee>0?' of '+money(deliveryFee):'')+' first and LEOGO Admin must verify it BEFORE your order can be dispatched or delivered. The remaining COD amount is collected at handover. Accepting this quotation does NOT mean the delivery fee is paid. Continue and accept the quotation?';
+      if(!window.confirm(notice))return;
+    }
+
     const original=button.textContent;
     button.disabled=true;
     button.textContent=usePoints?'Applying Voucher…':'Submitting…';
@@ -514,6 +521,8 @@
     const paymentForm=event.target.closest?.('[data-assisted-payment-form]');
     if(paymentForm&&(event.target.name==='use_reward_points'||event.target.name==='payment_method')){
       updateAssistedPointsPreview(paymentForm);
+      const warning=paymentForm.querySelector('[data-assisted-cod-notice]');
+      if(warning)warning.style.display=paymentForm.elements.payment_method.value==='cod'?'block':'none';
     }
   });
 
