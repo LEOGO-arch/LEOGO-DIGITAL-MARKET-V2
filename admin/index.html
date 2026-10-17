@@ -186,6 +186,25 @@
           <div><span>ORDERS</span><h2>Order Management</h2><p>Open an order to review the exact items and variants, customer delivery details, Seller preparation, payment verification and LEOGO rider assignment.</p></div>
           <button id="refreshMarketplaceOrders" class="primary-button" type="button">↻ Refresh Orders</button>
         </div>
+        <section class="content-card" id="leogoUnifiedOrders">
+          <div class="card-head"><div><span>ALL LEOGO ORDERS</span><h3>Unified Order List</h3><p>Marketplace, Health &amp; Medicine, Service and Transport orders in one place. Open each order in its original module for actions and delivery updates.</p></div><button id="leogoUnifiedOrderRefresh" class="primary-button" type="button">↻ Refresh All Orders</button></div>
+          <div class="seller-admin-toolbar admin-order-toolbar">
+            <select id="leogoUnifiedOrderType" aria-label="Order type">
+              <option value="all">All order types</option>
+              <option value="marketplace">Marketplace &amp; Sellers</option>
+              <option value="health">Health &amp; Medicine</option>
+              <option value="services">Service Requests</option>
+              <option value="transport">Transport &amp; Parcels</option>
+            </select>
+            <input id="leogoUnifiedOrderSearch" type="search" placeholder="Search all order references, customers or statuses…" aria-label="Search all orders">
+          </div>
+          <div id="leogoUnifiedOrderStatus" role="status" aria-live="polite">Open Orders to load all LEOGO order types.</div>
+          <div class="responsive-table"><table><thead><tr><th>Order / Date</th><th>Type</th><th>Customer</th><th>Amount</th><th>Status</th><th>Payment</th><th>Action</th></tr></thead>
+            <tbody id="leogoUnifiedOrderBody"><tr><td colspan="7">Open Orders to load the combined list.</td></tr></tbody>
+          </table></div>
+        </section>
+
+        <div class="section-head"><div><span>SELLER FULFILMENT</span><h3>Marketplace Order Operations</h3><p>Seller preparation, rider assignment, COD verification and detailed order summaries remain here.</p></div></div>
         <div class="seller-admin-summary">
           <article><span>Total Orders</span><strong id="adminOrderTotal">0</strong><small>All marketplace orders</small></article>
           <article><span>Payment Review</span><strong id="adminOrderPaymentPending">0</strong><small>Submitted payments</small></article>
@@ -1793,8 +1812,9 @@
   <script src="customer-messaging.js?v=messaging-v1" defer></script>
   <script src="advertisements.js?v=advert-popup-5s-load-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
-  <script src="health.js?v=health-cod-fee-hold-1" defer></script>
+  <script src="health.js?v=health-loading-split-20261017" defer></script>
   <script src="health-specialist.js?v=runtime-auth-guard-1" defer></script>
+  <script src="unified-orders.js?v=unified-orders-20261017" defer></script>
 <script src="flash-sales.js?v=flash-sale-v1" defer></script>
   <script src="shipping-moq.js?v=diagnostics-repair-1" defer></script>
 <script src="loans.js?v=sidebar-action-badges-2" defer></script>

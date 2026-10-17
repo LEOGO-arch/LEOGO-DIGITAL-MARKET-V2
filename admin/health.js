@@ -150,22 +150,44 @@
     }
   };
 
+  let pendingLoad=null;
   const load=async()=>{
-    const [networkResult,ordersResult]=await Promise.all([
-      db.rpc('admin_list_health_medicine_network'),
-      db.rpc('admin_list_health_medicine_orders')
-    ]);
-    if(networkResult.error||ordersResult.error){
-      const error=networkResult.error||ordersResult.error;
-      console.warn('Health & Medicine Admin data could not load:',error);
-      const p=$('#adminHealthPartnerTable');if(p)p.innerHTML='<tr><td colspan="6">Health & Medicine data is unavailable.</td></tr>';
-      const q=$('#adminHealthProductTable');if(q)q.innerHTML='<tr><td colspan="6">Health & Medicine product data is unavailable.</td></tr>';
-      const o=$('#adminHealthOrderList');if(o)o.innerHTML='<div class="loading-card">Health & Medicine orders are unavailable.</div>';
-      return;
-    }
-    network=networkResult.data||{partners:[],products:[]};
-    orders=Array.isArray(ordersResult.data)?ordersResult.data:[];
-    render();
+    if(pendingLoad)return pendingLoad;
+    pendingLoad=(async()=>{
+      const results=await Promise.allSettled([
+        db.rpc('admin_list_health_medicine_network'),
+        db.rpc('admin_list_health_medicine_orders')
+      ]);
+      const networkResult=results[0].status==='fulfilled'?results[0].value:null;
+      const ordersResult=results[1].status==='fulfilled'?results[1].value:null;
+      const networkError=results[0].status==='rejected'?results[0].reason:networkResult?.error;
+      const ordersError=results[1].status==='rejected'?results[1].reason:ordersResult?.error;
+      const directoryValid=!networkError&&Array.isArray(networkResult?.data?.partners)&&Array.isArray(networkResult?.data?.products);
+      const ordersValid=!ordersError&&Array.isArray(ordersResult?.data);
+      network=directoryValid?networkResult.data:{partners:[],products:[]};
+      orders=ordersValid?ordersResult.data:[];
+      render(); // Always leave the Loading state, including errors and empty data.
+      if(!directoryValid){
+        console.warn('Health partners/products unavailable:',networkError||'Unexpected response');
+        const message=esc(networkError?.message||'Health directory could not be loaded. Check your access and select Refresh.');
+        const partners=$('#adminHealthPartnerTable');
+        const products=$('#adminHealthProductTable');
+        if(partners)partners.innerHTML='<tr><td colspan="6">'+message+'</td></tr>';
+        if(products)products.innerHTML='<tr><td colspan="6">'+message+'</td></tr>';
+      }
+      if(!ordersValid){
+        console.warn('Health medicine orders unavailable:',ordersError||'Unexpected response');
+        const node=$('#adminHealthOrderList');
+        if(node)node.innerHTML='<div class="loading-card">'+esc(ordersError?.message||'Health orders could not be loaded. Check permissions and retry.')+'</div>';
+      }
+      const status=$('#adminHealthOrderStatus');
+      if(status && (!directoryValid||!ordersValid)){
+        status.textContent='Some Health & Medicine data could not be loaded. Check Admin permissions or select Refresh.';
+        status.className='form-status error';
+      }
+      document.dispatchEvent(new CustomEvent('leogo:health-orders-refreshed'));
+    })();
+    try {await pendingLoad;} finally {pendingLoad=null;}
   };
   window.leogoLoadHealthMedicineAdmin=load;
 
