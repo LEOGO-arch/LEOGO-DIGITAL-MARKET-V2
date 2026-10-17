@@ -3561,7 +3561,7 @@
       (locationUrl?'<a class="admin-order-location-link" href="'+escapeHtml(locationUrl)+'" target="_blank" rel="noopener">Open customer location pin ↗</a>':'');
 
     const fee=detail.cod_delivery_fee||null;
-    const feeReviewAvailable=String(order.payment_method)==='cod' && Number(order.delivery_fee_kes||0)>0 && fee && fee.status!=='not_required';
+    const feeReviewAvailable=String(order.payment_method)==='cod' && (Number(order.delivery_fee_kes||0)+Number(order.cod_upfront_service_fee_required?order.service_fee_kes||0:0))>0 && fee && fee.status!=='not_required';
     const feeReviewActions=feeReviewAvailable && fee.status==='submitted' && adminHas('orders.payment_verify')
       ? '<div class="admin-order-payment-actions"><button type="button" data-cod-fee-review="approve">Verify COD Upfront Fees</button><button type="button" class="danger" data-cod-fee-review="reject">Reject Fee Proof</button></div>'
       : '';
