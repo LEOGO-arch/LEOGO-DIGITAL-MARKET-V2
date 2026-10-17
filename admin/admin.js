@@ -4398,27 +4398,41 @@
         categoryBox.innerHTML = '<div class="loading-card">Loading categories…</div>';
       }
 
-      const [productsResult,categoriesResult,reviewsResult,orderReviewsResult] = await Promise.all([
+      // Each catalogue source is independent: a review-service failure must
+      // never hide otherwise healthy Seller products and categories.
+      const results = await Promise.allSettled([
         db.rpc('admin_list_catalogue_products'),
         db.rpc('admin_list_catalogue_categories'),
         db.rpc('admin_list_product_reviews'),
         db.rpc('admin_list_order_reviews')
       ]);
+      const sources = ['Seller products','Categories','Product reviews','Order reviews'];
+      const values = results.map((result,index)=>{
+        if(result.status==='rejected'){
+          console.warn('[Catalogue] '+sources[index]+' unavailable:',result.reason);
+          return null;
+        }
+        if(result.value?.error){
+          console.warn('[Catalogue] '+sources[index]+' unavailable:',result.value.error);
+          return null;
+        }
+        return Array.isArray(result.value?.data)?result.value.data:null;
+      });
+      if(values[0])state.catalogueProducts=values[0];
+      if(values[1])state.catalogueCategories=values[1];
+      if(values[2])state.productReviews=values[2];
+      if(values[3])state.orderReviews=values[3];
 
-      if (productsResult.error) throw productsResult.error;
-      if (categoriesResult.error) throw categoriesResult.error;
-      if (reviewsResult.error) throw reviewsResult.error;
-      if (orderReviewsResult.error) throw orderReviewsResult.error;
-
-      state.catalogueProducts = Array.isArray(productsResult.data) ? productsResult.data : [];
-      state.catalogueCategories = Array.isArray(categoriesResult.data) ? categoriesResult.data : [];
-      state.productReviews = Array.isArray(reviewsResult.data) ? reviewsResult.data : [];
-      state.orderReviews = Array.isArray(orderReviewsResult.data) ? orderReviewsResult.data : [];
-
-      renderCatalogueProducts();
-      renderCatalogueCategories();
-      renderProductReviews();
-      renderOrderReviews();
+      if(values[0])renderCatalogueProducts();
+      else if(productBox)productBox.innerHTML='<div class="loading-card admin-load-error">Seller products are unavailable. Select Refresh Catalogue to retry.</div>';
+      if(values[1])renderCatalogueCategories();
+      else if(categoryBox)categoryBox.innerHTML='<div class="loading-card admin-load-error">Categories are unavailable. Select Refresh Catalogue to retry.</div>';
+      if(values[2])renderProductReviews();
+      if(values[3])renderOrderReviews();
+      if(values.some(value=>value===null)){
+        const missing=sources.filter((_,index)=>values[index]===null);
+        console.warn('[Catalogue] Partial data: '+missing.join(', '));
+      }
       return state.catalogueProducts;
     } catch (error) {
       console.error('Admin catalogue load failed:', error);
