@@ -151,25 +151,43 @@
   };
 
   let pendingLoad=null;
+  let loadGeneration=0;
   const load=async()=>{
     if(pendingLoad)return pendingLoad;
+    const generation=++loadGeneration;
     pendingLoad=(async()=>{
+      const sessionResult=await db.auth.getSession();
+      const userId=sessionResult?.data?.session?.user?.id;
+      if(sessionResult.error||!userId){
+        // Do not make protected RPCs with an unconfirmed Admin session.
+        const message='Sign in to LEOGO Admin to load Health & Medicine records.';
+        const orderList=$('#adminHealthOrderList');
+        const partnerTable=$('#adminHealthPartnerTable');
+        const productTable=$('#adminHealthProductTable');
+        if(orderList)orderList.textContent=message;
+        if(partnerTable)partnerTable.innerHTML='<tr><td colspan="6">'+esc(message)+'</td></tr>';
+        if(productTable)productTable.innerHTML='<tr><td colspan="6">'+esc(message)+'</td></tr>';
+        return;
+      }
       const results=await Promise.allSettled([
         db.rpc('admin_list_health_medicine_network'),
         db.rpc('admin_list_health_medicine_orders')
       ]);
+      const latest=await db.auth.getSession();
+      if(generation!==loadGeneration || latest?.data?.session?.user?.id!==userId)return;
       const networkResult=results[0].status==='fulfilled'?results[0].value:null;
       const ordersResult=results[1].status==='fulfilled'?results[1].value:null;
       const networkError=results[0].status==='rejected'?results[0].reason:networkResult?.error;
       const ordersError=results[1].status==='rejected'?results[1].reason:ordersResult?.error;
       const directoryValid=!networkError&&Array.isArray(networkResult?.data?.partners)&&Array.isArray(networkResult?.data?.products);
       const ordersValid=!ordersError&&Array.isArray(ordersResult?.data);
+      // Clear old account's data if a data source fails instead of presenting stale records.
       network=directoryValid?networkResult.data:{partners:[],products:[]};
       orders=ordersValid?ordersResult.data:[];
-      render(); // Always leave the Loading state, including errors and empty data.
+      render();
       if(!directoryValid){
         console.warn('Health partners/products unavailable:',networkError||'Unexpected response');
-        const message=esc(networkError?.message||'Health directory could not be loaded. Check your access and select Refresh.');
+        const message=esc(networkError?.message||'Health directory could not be loaded. Check access and select Refresh.');
         const partners=$('#adminHealthPartnerTable');
         const products=$('#adminHealthProductTable');
         if(partners)partners.innerHTML='<tr><td colspan="6">'+message+'</td></tr>';
@@ -181,14 +199,30 @@
         if(node)node.innerHTML='<div class="loading-card">'+esc(ordersError?.message||'Health orders could not be loaded. Check permissions and retry.')+'</div>';
       }
       const status=$('#adminHealthOrderStatus');
-      if(status && (!directoryValid||!ordersValid)){
-        status.textContent='Some Health & Medicine data could not be loaded. Check Admin permissions or select Refresh.';
-        status.className='form-status error';
+      if(status){
+        if(!directoryValid||!ordersValid){
+          status.textContent='Some Health & Medicine data could not load. Check Admin permissions or select Refresh.';
+          status.className='form-status error';
+        }else if(status.classList.contains('error')){
+          status.textContent='';
+          status.className='form-status';
+        }
       }
       document.dispatchEvent(new CustomEvent('leogo:health-orders-refreshed'));
     })();
-    try {await pendingLoad;} finally {pendingLoad=null;}
+    const activeLoad=pendingLoad;
+    try {await activeLoad;}
+    catch(error){
+      console.warn('Health & Medicine Admin load failed:',error);
+      const status=$('#adminHealthOrderStatus');
+      if(status){status.textContent=error?.message||'Health & Medicine could not load. Select Refresh to retry.';status.className='form-status error';}
+      const node=$('#adminHealthOrderList');
+      if(node && node.textContent.includes('Loading'))node.textContent='Health orders could not load. Select Refresh to retry.';
+    }finally{if(pendingLoad===activeLoad)pendingLoad=null;}
   };
+  db.auth.onAuthStateChange((event)=>{
+    if(event==='SIGNED_OUT'){loadGeneration++;pendingLoad=null;network={partners:[],products:[]};orders=[];render();}
+  });
   window.leogoLoadHealthMedicineAdmin=load;
 
   $('#refreshHealthMedicineAdmin')?.addEventListener('click',()=>load().catch(()=>{}));

@@ -143,24 +143,66 @@
     renderBookings();
   };
 
+  let pendingLoad=null;
+  let generation=0;
   const load=async()=>{
-    // This module is present on the Admin sign-in page too. Do not call
-    // protected Health RPCs until Supabase confirms an authenticated session.
-    const {data:sessionData,error:sessionError}=await db.auth.getSession();
-    if(sessionError||!sessionData?.session?.user)return;
-    const [settingsResult,operationsResult]=await Promise.allSettled([loadSettings(),loadOperations()]);
-    if(settingsResult.status==='rejected'){
-      console.warn('Health Specialist booking-fee settings could not load:',settingsResult.reason);
-      setStatus($('#adminHealthSpecialistFeeStatus'),'Booking fee settings are unavailable for this Admin role or session.','error');
-    }
-    if(operationsResult.status==='rejected'){
-      console.warn('Health Specialist operations could not load:',operationsResult.reason);
-      const body=$('#adminHealthSpecialistServiceTable');
-      if(body)body.innerHTML='<tr><td colspan="6">Health Specialist service data is unavailable.</td></tr>';
+    if(pendingLoad)return pendingLoad;
+    const ticket=++generation;
+    pendingLoad=(async()=>{
+      const {data:sessionData,error:sessionError}=await db.auth.getSession();
+      const userId=sessionData?.session?.user?.id;
+      if(sessionError||!userId){
+        const note='Sign in to LEOGO Admin to view specialist bookings.';
+        const servicesNode=$('#adminHealthSpecialistServiceTable');
+        const bookingsNode=$('#adminHealthSpecialistBookingList');
+        if(servicesNode)servicesNode.innerHTML='<tr><td colspan="6">'+esc(note)+'</td></tr>';
+        if(bookingsNode)bookingsNode.textContent=note;
+        return;
+      }
+      const [settingsResult,operationsResult]=await Promise.allSettled([
+        db.rpc('admin_health_specialist_get_settings'),
+        db.rpc('admin_list_health_specialist_operations')
+      ]);
+      const latest=await db.auth.getSession();
+      if(ticket!==generation||latest?.data?.session?.user?.id!==userId)return;
+      const settingsError=settingsResult.status==='rejected'?settingsResult.reason:settingsResult.value?.error;
+      const operationsError=operationsResult.status==='rejected'?operationsResult.reason:operationsResult.value?.error;
+      if(settingsError){
+        console.warn('Health Specialist settings unavailable:',settingsError);
+        setStatus($('#adminHealthSpecialistFeeStatus'),'Booking fee settings unavailable. Check permissions or refresh.','error');
+      }else{
+        settings=settingsResult.value?.data||null;
+        renderSettings();
+        if($('#adminHealthSpecialistFeeStatus')?.classList.contains('error'))setStatus($('#adminHealthSpecialistFeeStatus'));
+      }
+      const data=operationsResult.status==='fulfilled'?operationsResult.value?.data:null;
+      if(operationsError||!Array.isArray(data?.services)||!Array.isArray(data?.bookings)){
+        console.warn('Health Specialist operations unavailable:',operationsError||'Unexpected response');
+        services=[];bookings=[];
+        renderServices();renderBookings();
+        const message=esc(operationsError?.message||'Health Specialist data unavailable. Check permissions or refresh.');
+        const serviceNode=$('#adminHealthSpecialistServiceTable');
+        const bookingNode=$('#adminHealthSpecialistBookingList');
+        if(serviceNode)serviceNode.innerHTML='<tr><td colspan="6">'+message+'</td></tr>';
+        if(bookingNode)bookingNode.innerHTML='<div class="loading-card">'+message+'</div>';
+        setStatus($('#adminHealthSpecialistBookingStatus'),'Could not load Health Specialist bookings.','error');
+      }else{
+        services=data.services;bookings=data.bookings;
+        renderServices();renderBookings();
+        if($('#adminHealthSpecialistBookingStatus')?.classList.contains('error'))setStatus($('#adminHealthSpecialistBookingStatus'));
+      }
+    })();
+    const activeLoad=pendingLoad;
+    try{await activeLoad;}catch(error){
+      console.warn('Health Specialist loading failed:',error);
+      setStatus($('#adminHealthSpecialistBookingStatus'),error?.message||'Health Specialist data could not load. Refresh to retry.','error');
       const bookingsNode=$('#adminHealthSpecialistBookingList');
-      if(bookingsNode)bookingsNode.innerHTML='<div class="loading-card">Health Specialist bookings are unavailable.</div>';
-    }
+      if(bookingsNode && bookingsNode.textContent.includes('Loading'))bookingsNode.textContent='Bookings unavailable. Refresh to retry.';
+    }finally{if(pendingLoad===activeLoad)pendingLoad=null;}
   };
+  db.auth.onAuthStateChange((event)=>{
+    if(event==='SIGNED_OUT'){generation++;pendingLoad=null;services=[];bookings=[];settings=null;renderServices();renderBookings();}
+  });
   window.leogoLoadHealthSpecialistAdmin=load;
 
   $('#adminHealthSpecialistFeeForm')?.addEventListener('submit',async(event)=>{
