@@ -210,14 +210,15 @@
       }
       document.dispatchEvent(new CustomEvent('leogo:health-orders-refreshed'));
     })();
-    try {await pendingLoad;}
+    const activeLoad=pendingLoad;
+    try {await activeLoad;}
     catch(error){
       console.warn('Health & Medicine Admin load failed:',error);
       const status=$('#adminHealthOrderStatus');
       if(status){status.textContent=error?.message||'Health & Medicine could not load. Select Refresh to retry.';status.className='form-status error';}
       const node=$('#adminHealthOrderList');
       if(node && node.textContent.includes('Loading'))node.textContent='Health orders could not load. Select Refresh to retry.';
-    }finally{pendingLoad=null;}
+    }finally{if(pendingLoad===activeLoad)pendingLoad=null;}
   };
   db.auth.onAuthStateChange((event)=>{
     if(event==='SIGNED_OUT'){loadGeneration++;pendingLoad=null;network={partners:[],products:[]};orders=[];render();}
