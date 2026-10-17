@@ -4,7 +4,14 @@
   'use strict';
   const client=window.leogoAuth?.client;
   const section=document.getElementById('healthSpecialistServices');
-  if(!client||!section)return;
+  if(!client||!section){
+    const message='Health Specialist services are unable to connect. Refresh the page and try again.';
+    const status=document.getElementById('healthSpecialistStatus');
+    const grid=document.getElementById('healthSpecialistServiceGrid');
+    if(status)status.textContent=message;
+    if(grid)grid.textContent=message;
+    return;
+  }
 
   const $=(selector,root=document)=>root?.querySelector(selector)||null;
   const $$=(selector,root=document)=>root?Array.from(root.querySelectorAll(selector)):[];
