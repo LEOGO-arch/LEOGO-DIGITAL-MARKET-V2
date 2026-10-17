@@ -35,18 +35,36 @@ function selectEntry(){
  const preview=host.querySelector('#taxonomyPicturePreview');preview.textContent='No photo';
  if(!e?.image_path)return;const url=db.storage.from('category-public-media').getPublicUrl(e.image_path).data.publicUrl;const img=document.createElement('img');img.src=url;img.alt='Current category picture';img.style.cssText='width:100%;height:100%;object-fit:contain';preview.replaceChildren(img);
 }
+let taxonomyLoadPending=null;
 async function load(){
- const {data,error}=await db.rpc('admin_list_catalogue_categories');
- if(error){note.textContent='Unable to load taxonomy: '+error.message;return;}
- categories=Array.isArray(data)?data:[];
- const images=await db.rpc('admin_category_images');
- if(!images.error && Array.isArray(images.data))for(const c of categories){const entry=images.data.find(i=>i.id===c.id);if(entry)c.image_path=entry.image_path;}
- refresh();
+ if(taxonomyLoadPending)return taxonomyLoadPending;
+ taxonomyLoadPending=(async()=>{
+  try {
+   const {data,error}=await db.rpc('admin_list_catalogue_categories');
+   if(error)throw error;
+   if(!Array.isArray(data))throw Error('The category list response is invalid.');
+   categories=data;
+   try {
+    const images=await db.rpc('admin_category_images');
+    if(!images.error && Array.isArray(images.data)){
+     const imageById=new Map(images.data.map(item=>[item.id,item.image_path]));
+     for(const category of categories)if(imageById.has(category.id))category.image_path=imageById.get(category.id);
+    }
+   }catch(imageError){console.warn('Category pictures unavailable:',imageError);}
+   refresh();
+   note.textContent='';
+  }catch(error){
+   console.warn('Category directory failed:',error);
+   note.textContent='Unable to load categories: '+(error?.message||'Connection error')+'. Refresh the Admin page to retry.';
+  }
+ })();
+ try{await taxonomyLoadPending;}finally{taxonomyLoadPending=null;}
 }
 form.elements.entity.onchange=refresh;form.elements.mode.onchange=refresh;form.elements.existing.onchange=selectEntry;
 form.elements.photo.onchange=()=>{const file=form.elements.photo.files[0];if(!file)return;const url=URL.createObjectURL(file);const img=document.createElement('img');img.src=url;img.alt='New category picture preview';img.style.cssText='width:100%;height:100%;object-fit:contain';img.onload=()=>URL.revokeObjectURL(url);host.querySelector('#taxonomyPicturePreview').replaceChildren(img);};
 form.onsubmit=async event=>{
  event.preventDefault(); const btn=form.querySelector('button[type=submit]');btn.disabled=true;note.textContent='Saving…';
+ try {
  const args={p_entity:form.elements.entity.value,p_name:form.elements.title.value.trim(),p_active:form.elements.active.checked,p_id:form.elements.mode.value==='edit'?form.elements.existing.value:null,p_parent_id:form.elements.entity.value==='subcategory'&&form.elements.mode.value==='create'?form.elements.parent.value:null};
  const {data:saved,error}=await db.rpc('admin_manage_product_taxonomy',args);
  if(!error && saved?.id && args.p_entity==='category' && form.elements.photo.files[0]){
@@ -59,10 +77,11 @@ form.onsubmit=async event=>{
    const linked=await db.rpc('admin_set_category_image',{p_category_id:saved.id,p_image_path:path});if(linked.error)throw linked.error;
   } catch(photoError){btn.disabled=false;note.textContent='Category saved, but picture failed: '+photoError.message;return;}
  }
- btn.disabled=false;
  if(error){note.textContent='Not saved: '+error.message;return;}
  note.textContent='Saved. Reloading directory and seller/customer taxonomy…';
  window.location.reload();
+ } catch(error){note.textContent='Could not save category: '+(error?.message||'Unexpected error');}
+ finally {btn.disabled=false;}
 };
 load();
 })();
