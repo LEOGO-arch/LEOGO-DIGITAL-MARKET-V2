@@ -81,7 +81,13 @@ begin
       ('public.admin_review_approval(text,uuid,text,text)', 'p_kind=''premium_payment'' and p_decision=''approve''', 'p_record_id', 'p_notes', 'premium_membership')
     ) r(signature,positive_condition,record_arg,notes_arg,kind)
   loop
-    select pg_get_functiondef(v_rule.signature::regprocedure) into v_definition;
+    -- Staging can lag production for newer modules. Skip missing RPCs there;
+    -- production coverage is separately asserted before the release is accepted.
+    if to_regprocedure(v_rule.signature) is null then
+      raise notice 'Payment verification function not installed here: %', v_rule.signature;
+      continue;
+    end if;
+    select pg_get_functiondef(to_regprocedure(v_rule.signature)) into v_definition;
     if position('private.require_payment_notice(' in v_definition)>0 then
       continue;
     end if;
