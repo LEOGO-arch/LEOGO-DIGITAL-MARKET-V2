@@ -4573,6 +4573,8 @@
     if(!silent) setFormStatus($('#supportChatStatus'),'Loading conversation…');
     const {data,error}=await db.rpc('staff_list_support_messages',{p_thread_id:threadId});
     if(error) throw error;
+    // Polling may finish after an agent selects a different conversation.
+    if(state.activeSupportThreadId!==threadId)return;
     state.supportMessages=Array.isArray(data)?data:[];
     const current=state.supportThreads.find((thread)=>thread.thread_id===threadId);
     if(current&&current.assigned_staff_id===state.user?.id) current.unread_count=0;
