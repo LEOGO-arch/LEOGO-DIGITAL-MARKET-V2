@@ -154,52 +154,40 @@
   const load=async()=>{
     if(pendingLoad)return pendingLoad;
     pendingLoad=(async()=>{
-      const partnerTable=$('#adminHealthPartnerTable');
-      const productTable=$('#adminHealthProductTable');
-      const orderList=$('#adminHealthOrderList');
-      const [networkResult,ordersResult]=await Promise.allSettled([
+      const results=await Promise.allSettled([
         db.rpc('admin_list_health_medicine_network'),
         db.rpc('admin_list_health_medicine_orders')
       ]);
-      const networkError=networkResult.status==='rejected'?networkResult.reason:networkResult.value?.error;
-      const ordersError=ordersResult.status==='rejected'?ordersResult.reason:ordersResult.value?.error;
-      if(networkError){
-        console.warn('Health & Medicine partners/products failed to load:',networkError);
-        if(partnerTable)partnerTable.innerHTML='<tr><td colspan="6">Could not load Health partners. Select Refresh to retry.</td></tr>';
-        if(productTable)productTable.innerHTML='<tr><td colspan="6">Could not load Health products. Select Refresh to retry.</td></tr>';
-        const status=$('#adminHealthOrderStatus');
-        if(status){status.textContent='Health directory error: '+(networkError.message||String(networkError));status.className='form-status error';}
-      }else{
-        const data=networkResult.value?.data;
-        if(!data||!Array.isArray(data.partners)||!Array.isArray(data.products)){
-          if(partnerTable)partnerTable.innerHTML='<tr><td colspan="6">Health directory response is incomplete. Select Refresh.</td></tr>';
-          if(productTable)productTable.innerHTML='<tr><td colspan="6">Health products response is incomplete. Select Refresh.</td></tr>';
-        }else{
-          network=data;
-        }
+      const networkResult=results[0].status==='fulfilled'?results[0].value:null;
+      const ordersResult=results[1].status==='fulfilled'?results[1].value:null;
+      const networkError=results[0].status==='rejected'?results[0].reason:networkResult?.error;
+      const ordersError=results[1].status==='rejected'?results[1].reason:ordersResult?.error;
+      const directoryValid=!networkError&&Array.isArray(networkResult?.data?.partners)&&Array.isArray(networkResult?.data?.products);
+      const ordersValid=!ordersError&&Array.isArray(ordersResult?.data);
+      network=directoryValid?networkResult.data:{partners:[],products:[]};
+      orders=ordersValid?ordersResult.data:[];
+      render(); // Always leave the Loading state, including errors and empty data.
+      if(!directoryValid){
+        console.warn('Health partners/products unavailable:',networkError||'Unexpected response');
+        const message=esc(networkError?.message||'Health directory could not be loaded. Check your access and select Refresh.');
+        const partners=$('#adminHealthPartnerTable');
+        const products=$('#adminHealthProductTable');
+        if(partners)partners.innerHTML='<tr><td colspan="6">'+message+'</td></tr>';
+        if(products)products.innerHTML='<tr><td colspan="6">'+message+'</td></tr>';
       }
-      if(ordersError){
-        console.warn('Health & Medicine order list failed to load:',ordersError);
-        if(orderList)orderList.innerHTML='<div class="loading-card">Could not load Health orders: '+esc(ordersError.message||'Check your Orders permission or retry.')+'</div>';
-      }else{
-        const data=ordersResult.value?.data;
-        if(!Array.isArray(data)){
-          if(orderList)orderList.innerHTML='<div class="loading-card">Health orders response is invalid. Select Refresh to retry.</div>';
-        }else{
-          orders=data;
-        }
+      if(!ordersValid){
+        console.warn('Health medicine orders unavailable:',ordersError||'Unexpected response');
+        const node=$('#adminHealthOrderList');
+        if(node)node.innerHTML='<div class="loading-card">'+esc(ordersError?.message||'Health orders could not be loaded. Check permissions and retry.')+'</div>';
       }
-      // Keep successful sections usable even if another RPC fails.
-      if(!networkError && Array.isArray(networkResult.value?.data?.partners) && Array.isArray(networkResult.value?.data?.products)){
-        if(ordersError || !Array.isArray(ordersResult.value?.data)){
-          const savedOrders=orders;orders=[];render();orders=savedOrders;
-        }else render();
-      }else if(!ordersError && Array.isArray(ordersResult.value?.data)){
-        const savedNetwork=network;network={partners:[],products:[]};render();network=savedNetwork;
+      const status=$('#adminHealthOrderStatus');
+      if(status && (!directoryValid||!ordersValid)){
+        status.textContent='Some Health & Medicine data could not be loaded. Check Admin permissions or select Refresh.';
+        status.className='form-status error';
       }
       document.dispatchEvent(new CustomEvent('leogo:health-orders-refreshed'));
     })();
-    try{await pendingLoad;}finally{pendingLoad=null;}
+    try {await pendingLoad;} finally {pendingLoad=null;}
   };
   window.leogoLoadHealthMedicineAdmin=load;
 
