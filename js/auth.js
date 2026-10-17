@@ -293,7 +293,7 @@
       renderCustomerSubcounties(profile?.sub_county_code || metadata.sub_county_code || kenyaSubcounties.find((item) => item.county_code === countyCode && item.name === (profile?.sub_county || metadata.sub_county))?.code || '');
     }
     if (profileFields.subCounty && !profile?.county && !profile?.county_code && !metadata.county && !metadata.county_code) profileFields.subCounty.value = '';
-    if (profileFields.estate) profileFields.estate.value = profile?.estate || '';
+    if (profileFields.estate) profileFields.estate.value = profile?.estate || metadata.estate || '';
     if (profileFields.nearestLandmark) profileFields.nearestLandmark.value = profile?.nearest_landmark || metadata.nearest_landmark || '';
     updateProfileCompletion();
   };
@@ -370,8 +370,31 @@
       if (current && kenyaCounties.some((item) => item.code === current)) profileFields.county.value = current;
     }
     renderCustomerSubcounties();
+    if (registrationLocation.county) {
+      const selected = registrationLocation.county.value;
+      registrationLocation.county.innerHTML = '<option value="">Select county</option>' + kenyaCounties.map((item) => '<option value="' + item.code + '">' + item.name + '</option>').join('');
+      if (selected && kenyaCounties.some((item) => item.code === selected)) registrationLocation.county.value = selected;
+      renderRegistrationSubcounties();
+    }
   };
 
+  const renderRegistrationSubcounties = () => {
+    const countyCode = registrationLocation.county?.value || '';
+    const options = kenyaSubcounties.filter((item) => item.county_code === countyCode);
+    const select = registrationLocation.subCounty;
+    if (!select) return;
+    const previous = select.value;
+    select.disabled = !countyCode;
+    select.innerHTML = countyCode
+      ? '<option value="">Select sub-county</option>' + options.map((item) => '<option value="' + item.code + '">' + item.name + '</option>').join('')
+      : '<option value="">Choose a county first</option>';
+    if (previous && options.some((item) => item.code === previous)) select.value = previous;
+  };
+
+  registrationLocation.county?.addEventListener('change', () => {
+    if (registrationLocation.subCounty) registrationLocation.subCounty.value = '';
+    renderRegistrationSubcounties();
+  });
   profileFields.county?.addEventListener('change', () => renderCustomerSubcounties());
   loadKenyaLocations();
 
