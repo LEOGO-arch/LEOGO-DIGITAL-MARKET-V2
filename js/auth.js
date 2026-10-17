@@ -58,6 +58,8 @@
   let pendingPhoneLogin = '';
   let pendingPhoneLink = '';
   let rejectingAdminCustomerSession = false;
+  let kenyaLocationsPromise = null;
+  let profileLoadSequence = 0;
 
   const setStatus = (message = '', type = '') => {
     if (!statusBox) return;
@@ -187,6 +189,7 @@
     setText('profileCustomerAvatar', signedIn ? initials(currentSession) : 'LC');
     if (!signedIn) {
       profileLoadedFor = '';
+      profileLoadSequence++;
       savedProfile = null;
       if (profileSummary) profileSummary.hidden = true;
       if (profileForm) profileForm.hidden = false;
@@ -303,7 +306,9 @@
     if (!user || !profileForm) return;
     if (!force && profileLoadedFor === user.id) return;
     profileLoadedFor = user.id;
+    const loadSequence = ++profileLoadSequence;
     await loadKenyaLocations();
+    if (loadSequence !== profileLoadSequence || currentSession?.user?.id !== user.id) return;
     applyProfileValues(user);
     setProfileStatus('Loading your saved profile…');
     const { data, error } = await authClient
@@ -311,7 +316,7 @@
       .select('full_name, phone, county, sub_county, county_code, sub_county_code, estate, nearest_landmark')
       .eq('user_id', user.id)
       .maybeSingle();
-    if (currentSession?.user?.id !== user.id) return;
+    if (loadSequence !== profileLoadSequence || currentSession?.user?.id !== user.id) return;
     if (error) {
       profileLoadedFor = '';
       savedProfile = null;
@@ -353,7 +358,7 @@
         }
       }
     }
-    if (currentSession?.user?.id !== user.id) return;
+    if (loadSequence !== profileLoadSequence || currentSession?.user?.id !== user.id) return;
     applyProfileValues(user, resolvedProfile);
     savedProfile = resolvedProfile;
     if (resolvedProfile) renderProfileSummary(user, resolvedProfile);
@@ -392,6 +397,8 @@
 
   const loadKenyaLocations = async () => {
     if (kenyaCounties.length && kenyaSubcounties.length) return;
+    if (kenyaLocationsPromise) return kenyaLocationsPromise;
+    kenyaLocationsPromise = (async () => {
     const [countyResult, subcountyResult] = await Promise.all([
       authClient.from('kenya_counties').select('code,name').eq('is_active', true).order('name'),
       authClient.from('kenya_subcounties').select('code,county_code,name').eq('is_active', true).order('name')
@@ -414,6 +421,9 @@
       if (selected && kenyaCounties.some((item) => item.code === selected)) registrationLocation.county.value = selected;
       renderRegistrationSubcounties();
     }
+    })();
+    try { await kenyaLocationsPromise; }
+    finally { kenyaLocationsPromise = null; }
   };
 
   const renderRegistrationSubcounties = () => {
@@ -570,7 +580,7 @@
       const subCounty = kenyaSubcounties.find((item) => item.code === subCountyCode && item.county_code === countyCode);
       const estate = registrationLocation.estate?.value.trim() || '';
       const nearestLandmark = registrationLocation.nearestLandmark?.value.trim() || '';
-      if (subCountyCode && !subCounty) {
+      if ((countyCode && !county) || (subCountyCode && !subCounty)) {
         setStatus('Select a valid county and sub-county.', 'error');
         return;
       }
