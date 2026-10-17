@@ -995,7 +995,7 @@
     customerCarePollTimer=window.setInterval(()=>{
       const chatOpen=customerShellModal?.classList.contains('is-open')
         && customerShellModal?.querySelector('[data-customer-panel="chat"]')?.classList.contains('active');
-      if(chatOpen&&document.visibilityState==='visible') loadCustomerSupportChat({scroll:false,silent:true});
+      if(chatOpen&&document.visibilityState==='visible') loadCustomerSupportChat({scroll:false,silent:true,markRead:true});
     },4500);
   };
 
@@ -1017,7 +1017,7 @@
       if(error) throw error;
       if(data?.error) throw new Error(data.error);
       if(customerCareMessage) customerCareMessage.value='';
-      await loadCustomerSupportChat({scroll:true,silent:true});
+      await loadCustomerSupportChat({scroll:true,silent:true,markRead:true});
     }catch(error){
       if(customerCareChatStatus) customerCareChatStatus.textContent=error?.message||'Message could not be sent.';
     }finally{
@@ -1026,7 +1026,7 @@
     }
   });
 
-  refreshCustomerCareChat?.addEventListener('click',()=>loadCustomerSupportChat({scroll:true}));
+  refreshCustomerCareChat?.addEventListener('click',()=>loadCustomerSupportChat({scroll:true,markRead:true}));
   document.addEventListener('leogo:authchange',()=>{
     window.setTimeout(()=>{
       if(window.leogoAuth?.isAuthenticated?.()) loadCustomerSupportChat({scroll:false,silent:true,markRead:false});
@@ -1109,7 +1109,7 @@
     customerShellModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('customer-shell-open');
     if(viewName==='chat'&&window.leogoAuth?.isAuthenticated?.()){
-      loadCustomerSupportChat({scroll:true});
+      loadCustomerSupportChat({scroll:true,markRead:true});
       startCustomerCarePolling();
     }else{
       stopCustomerCarePolling();
