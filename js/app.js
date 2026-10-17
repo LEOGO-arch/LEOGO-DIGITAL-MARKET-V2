@@ -1672,7 +1672,7 @@
       const walletOrderTotal=document.getElementById('walletCheckoutOrderTotal');
       if(walletOrderTotal)walletOrderTotal.textContent=deliveryMoney(due);
     }else if(selectedCheckoutPayment==='cod'){
-      if(isCodOrderFirst && selectedPaymentStatus)selectedPaymentStatus.textContent='Delivery fee required before dispatch';
+      if(isCodOrderFirst && selectedPaymentStatus)selectedPaymentStatus.textContent='Service and delivery fees required before dispatch';
       paymentProofLabel.textContent='Paste M-Pesa confirmation for LEOGO service and transport fees';
       markPaymentPaidLabel.textContent=checkoutPointsAppliedNumber()>0
         ? 'I understand that LEOGO service and transport fees must be paid and verified before dispatch. My Shopping Voucher has been applied and the remaining COD balance is due on delivery.'
