@@ -2936,6 +2936,11 @@
     ctx.fillText(codDue?'COLLECT ON DELIVERY':'PAYMENT STATUS',72,y+16);
     ctx.font='700 30px Arial, sans-serif';
     ctx.fillText(codDue?formatMoney(codAmountToCollect(order)):paymentStatusLabel(order.payment_status).toUpperCase(),72,y+46);
+    if(codDue){
+      const amounts=codPaymentBreakdown(order);
+      ctx.font='16px Arial, sans-serif';
+      ctx.fillText('Total '+formatMoney(order.grand_total_kes)+'  |  Verified upfront '+formatMoney(amounts.upfrontVerified)+'  |  Due '+formatMoney(amounts.balanceDue),72,y+78);
+    }
     ctx.fillStyle='#394960';
     ctx.font='18px Arial, sans-serif';
     ctx.textAlign='right';
@@ -3017,12 +3022,24 @@
     return canvas;
   };
 
-  const codAmountToCollect=(order={})=>{
-    const external=Number(order.external_amount_due_kes??order.grand_total_kes??0);
-    const alreadyPaid=order.payment_method==='cod' && order.cod_delivery_fee_status==='verified'
-      ? Math.min(external,Number(order.cod_upfront_service_fee_required?(Number(order.delivery_fee_kes||0)+Number(order.service_fee_kes||0)):Number(order.delivery_fee_kes||0))):0;
-    return Math.max(0,Math.round((external-alreadyPaid)*100)/100);
+  // One payment breakdown for Admin, printable summaries and COD collection.
+  // A submitted M-Pesa reference is not payment verification.
+  const codPaymentBreakdown=(order={})=>{
+    const round=(value)=>Math.round(Math.max(0,Number(value)||0)*100)/100;
+    const external=round(order.external_amount_due_kes??order.grand_total_kes??0);
+    const service=round(order.cod_upfront_service_fee_required?order.service_fee_kes:0);
+    const delivery=round(order.delivery_fee_kes);
+    const upfrontRequired=round(service+delivery);
+    const upfrontVerified=order.payment_method==='cod' && order.cod_delivery_fee_status==='verified'
+      ? Math.min(external,upfrontRequired):0;
+    return {
+      external,upfrontRequired,upfrontVerified,
+      balanceDue:round(external-upfrontVerified),
+      verificationStatus:String(order.cod_delivery_fee_status||'not_required'),
+      isNewRule:order.cod_upfront_service_fee_required===true
+    };
   };
+  const codAmountToCollect=(order={})=>codPaymentBreakdown(order).balanceDue;
   const orderSummaryPaymentDisplay = (order={}) => {
     const status=String(order.payment_status||'').toLowerCase();
     const pointsUsed=Number(order.reward_points_redeemed_kes||0);
@@ -3454,7 +3471,9 @@
             '<div class="receipt-money-row receipt-total"><span>TOTAL</span><strong>'+escapeHtml(formatMoney(order.grand_total_kes))+'</strong></div>'+
             '<div class="receipt-money-row"><span>Method</span><strong>'+escapeHtml(String(order.payment_method||'').replaceAll('_',' ').toUpperCase())+'</strong></div>'+
             '<div class="receipt-money-row"><span>Status</span><strong>'+escapeHtml(codDue?'COLLECT ON DELIVERY':paymentStatusLabel(order.payment_status).toUpperCase())+'</strong></div>'+
-            (codDue?'<div class="receipt-money-row"><span>Amount to collect</span><strong>'+escapeHtml(formatMoney(codAmountToCollect(order)))+'</strong></div>':'')+
+            (codDue?'<div class="receipt-money-row"><span>Upfront fee required</span><strong>'+escapeHtml(formatMoney(codPaymentBreakdown(order).upfrontRequired))+'</strong></div>'+
+              '<div class="receipt-money-row"><span>Upfront fee VERIFIED paid</span><strong>'+escapeHtml(formatMoney(codPaymentBreakdown(order).upfrontVerified))+'</strong></div>'+
+              '<div class="receipt-money-row receipt-total"><span>EXACT COD DUE</span><strong>'+escapeHtml(formatMoney(codAmountToCollect(order)))+'</strong></div>':'')+
           '</section>'+
           '<hr class="receipt-rule">'+
           '<section class="receipt-section receipt-meta">'+
@@ -3561,6 +3580,22 @@
       (locationUrl?'<a class="admin-order-location-link" href="'+escapeHtml(locationUrl)+'" target="_blank" rel="noopener">Open customer location pin ↗</a>':'');
 
     const fee=detail.cod_delivery_fee||null;
+    const codAmounts=String(order.payment_method||'').toLowerCase()==='cod'?codPaymentBreakdown(order):null;
+    const codBalanceHtml=codAmounts
+      ? '<div class="admin-order-payment-proof-full"><strong>COD PAYMENT BREAKDOWN</strong>'+
+          '<div class="admin-order-totals">'+
+            '<span><small>Total order value</small><strong>'+formatMoney(order.grand_total_kes)+'</strong></span>'+
+            '<span><small>LEOGO Points used</small><strong>'+formatMoney(order.reward_points_redeemed_kes||0)+'</strong></span>'+
+            '<span><small>Amount payable in money</small><strong>'+formatMoney(codAmounts.external)+'</strong></span>'+
+            '<span><small>Upfront fees required ('+(codAmounts.isNewRule?'service + delivery':'legacy delivery-only')+')</small><strong>'+formatMoney(codAmounts.upfrontRequired)+'</strong></span>'+
+            '<span><small>Upfront fees verified as paid</small><strong>'+formatMoney(codAmounts.upfrontVerified)+'</strong></span>'+
+            '<span class="grand"><small>EXACT COD BALANCE TO COLLECT</small><strong>'+formatMoney(codAmounts.balanceDue)+'</strong></span>'+
+          '</div>'+
+          '<p>Upfront fee verification: '+escapeHtml(codAmounts.verificationStatus.replaceAll('_',' '))+'. Only Admin-verified upfront fees are deducted from the COD balance.</p>'+
+          (codAmounts.verificationStatus==='not_required'&&codAmounts.upfrontRequired>0
+            ? '<p>Legacy order: no upfront fee verified in this record. Do not assume a previous payment was received; reconcile the payment separately before handover.</p>'
+            : '')+'</div>'
+      : '';
     const feeReviewAvailable=String(order.payment_method)==='cod' && (Number(order.delivery_fee_kes||0)+Number(order.cod_upfront_service_fee_required?order.service_fee_kes||0:0))>0 && fee && fee.status!=='not_required';
     const feeReviewActions=feeReviewAvailable && fee.status==='submitted' && adminHas('orders.payment_verify')
       ? '<div class="admin-order-payment-actions"><button type="button" data-cod-fee-review="approve">Verify COD Upfront Fees</button><button type="button" class="danger" data-cod-fee-review="reject">Reject Fee Proof</button></div>'
@@ -3593,7 +3628,7 @@
           : '')+
       '</div>'+
       (order.payment_verified_at?'<p class="admin-order-verified-note">Verified '+escapeHtml(formatDate(order.payment_verified_at,true))+(order.payment_verified_by_name?' by '+escapeHtml(order.payment_verified_by_name):'')+'</p>':'')+
-      paymentActions+feeReviewHtml;
+      paymentActions+codBalanceHtml+feeReviewHtml;
 
     $('#adminOrderItemList').innerHTML=items.length?items.map((item)=>{
       const imageUrl=orderItemMediaUrl(item.variant_image_path||item.product_image_path);
