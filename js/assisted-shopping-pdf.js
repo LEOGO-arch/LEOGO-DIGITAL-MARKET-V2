@@ -177,6 +177,27 @@
       const orderNumber=safe(request.order_reference);
       if(!request.marketplace_order_id||!orderNumber)throw new Error('A delivery label requires an accepted quotation with a generated marketplace order number.');
       if(typeof window.QRCode!=='function')throw new Error('QR-code generator is unavailable. Refresh this page and retry.');
+      line('ORDER: '+orderNumber,thermal?10:12,true);
+      pair('Shopping List',request.request_reference);
+      section('DELIVER TO');
+      pair('Receiver',request.receiver_name||request.customer_name);
+      pair('Phone',request.contact_number||request.customer_phone);
+      if(request.fulfilment_method==='pickup'){
+        pair('Method','Pickup Station');
+        pair('Pickup Station',request.pickup_station_name||'Selected station');
+        if(request.pickup_station_address)pair('Station Address',request.pickup_station_address);
+      }else{
+        pair('Method','Customer Delivery');
+        const address=[request.estate,request.sub_county,request.county].filter(Boolean).join(', ');
+        pair('Delivery Address',address||'Delivery address missing — confirm with customer before dispatch');
+        if(request.landmark)pair('Landmark',request.landmark);
+        if(request.location_link)pair('Location',request.location_link);
+      }
+      section('PAYMENT');
+      pair('Payment Method',labelStatus(request.payment_method));
+      pair('Payment Status',labelStatus(request.order_payment_status||request.payment_status||'pending'));
+      if(request.payment_method==='cod')pair('COD Payment','Collect outstanding amount as shown in Rider/Admin order payment details.');
+      // Print scannable order QR after all address and payment information.
       section('SCAN ORDER NUMBER');
       const qrHost=document.createElement('div');
       qrHost.style.cssText='position:fixed;left:-2000px;top:0;background:white';
@@ -198,26 +219,7 @@
         doc.addImage(imageData,'PNG',left+(width-qrSize)/2,y,qrSize,qrSize);
         y+=qrSize+3;
       }finally{qrHost.remove();}
-      line('ORDER: '+orderNumber,thermal?10:12,true);
-      pair('Shopping List',request.request_reference);
-      section('DELIVER TO');
-      pair('Receiver',request.receiver_name||request.customer_name);
-      pair('Phone',request.contact_number||request.customer_phone);
-      if(request.fulfilment_method==='pickup'){
-        pair('Method','Pickup Station');
-        pair('Pickup Station',request.pickup_station_name||'Selected station');
-        if(request.pickup_station_address)pair('Station Address',request.pickup_station_address);
-      }else{
-        pair('Method','Customer Delivery');
-        const address=[request.estate,request.sub_county,request.county].filter(Boolean).join(', ');
-        pair('Delivery Address',address||'Delivery address missing — confirm with customer before dispatch');
-        if(request.landmark)pair('Landmark',request.landmark);
-        if(request.location_link)pair('Location',request.location_link);
-      }
-      section('PAYMENT');
-      pair('Payment Method',labelStatus(request.payment_method));
-      pair('Payment Status',labelStatus(request.order_payment_status||request.payment_status||'pending'));
-      if(request.payment_method==='cod')pair('COD Payment','Collect outstanding amount as shown in Rider/Admin order payment details.');
+
     }else{
     if(thermal){
       section('CUSTOMER / RECEIVER');
