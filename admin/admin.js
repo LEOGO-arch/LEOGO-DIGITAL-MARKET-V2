@@ -3934,6 +3934,16 @@
       }
     }
     renderMarketplaceOrderDetail();
+    // Do not silently issue an empty detailed receipt for a paid product subtotal.
+    // The existing order-detail RPC must supply actual seller or Assisted Shopping items.
+    const receiptItems=state.activeMarketplaceOrderDetail?.items;
+    const expectedItems=Number(state.activeMarketplaceOrderDetail?.order?.items_subtotal_kes||0)>0;
+    if(expectedItems && (!Array.isArray(receiptItems)||receiptItems.length===0)){
+      if($('#downloadOrderDeliverySummary')) $('#downloadOrderDeliverySummary').disabled=true;
+      if($('#printOrderDeliverySummary')) $('#printOrderDeliverySummary').disabled=true;
+      setFormStatus($('#adminOrderDetailStatus'),'Order products are missing from the Admin response. Refresh this order before printing; an empty item receipt has been blocked.','error');
+      console.warn('[Orders] Missing items from Admin order detail RPC for',state.activeMarketplaceOrderDetail.order.order_reference);
+    }
     await renderPickupStationHandoverEvidence({loadToken,orderId});
 
     if(scroll) panel?.scrollIntoView({behavior:'smooth',block:'start'});
