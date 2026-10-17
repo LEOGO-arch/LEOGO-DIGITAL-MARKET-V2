@@ -889,6 +889,7 @@
   let customerCareMessages=[];
   let customerCarePollTimer=null;
   let customerCareLoading=false;
+  let customerCareLoadSequence=0;
 
   const customerChatFormatTime=(value)=>{
     if(!value) return '';
@@ -939,12 +940,14 @@
     }).join('');
   };
 
-  async function loadCustomerSupportChat({scroll=true,silent=false,markRead=true}={}){
+  async function loadCustomerSupportChat({scroll=true,silent=false,markRead=false}={}){
     if(customerCareLoading) return;
     if(!window.leogoAuth?.isAuthenticated?.()) return;
     const client=window.leogoAuth?.client;
     if(!client) return;
     customerCareLoading=true;
+    const activeUserId=window.leogoAuth?.getUser?.()?.id;
+    const loadSequence=++customerCareLoadSequence;
     if(!silent&&customerCareChatStatus) customerCareChatStatus.textContent='Connecting to LEOGO Customer Care…';
     try{
       const [threadResult,messageResult]=await Promise.all([
@@ -953,11 +956,17 @@
       ]);
       if(threadResult.error) throw threadResult.error;
       if(messageResult.error) throw messageResult.error;
+      if(loadSequence!==customerCareLoadSequence || window.leogoAuth?.getUser?.()?.id!==activeUserId) return;
       customerCareThread=threadResult.data?.exists===false?null:(threadResult.data||null);
       customerCareMessages=Array.isArray(messageResult.data)?messageResult.data:[];
       renderCustomerCareChat();
-      if(markRead){
-        await client.rpc('customer_mark_support_chat_read');
+      const chatIsVisible=customerShellModal?.classList.contains('is-open')
+        && customerShellModal?.querySelector('[data-customer-panel="chat"]')?.classList.contains('active')
+        && document.visibilityState==='visible';
+      if(markRead && chatIsVisible){
+        const readResult=await client.rpc('customer_mark_support_chat_read');
+        if(readResult.error) throw readResult.error;
+        if(loadSequence!==customerCareLoadSequence || window.leogoAuth?.getUser?.()?.id!==activeUserId) return;
         if(customerCareThread){
           customerCareThread.unread_count=0;
           renderCustomerCareChat();
@@ -968,9 +977,9 @@
         window.setTimeout(()=>{customerCareMessageList.scrollTop=customerCareMessageList.scrollHeight;},20);
       }
     }catch(error){
-      if(customerCareChatStatus) customerCareChatStatus.textContent=error?.message||'Customer Care chat could not load.';
+      if(loadSequence===customerCareLoadSequence&&customerCareChatStatus) customerCareChatStatus.textContent=error?.message||'Customer Care chat could not load.';
     }finally{
-      customerCareLoading=false;
+      if(loadSequence===customerCareLoadSequence)customerCareLoading=false;
     }
   }
 
@@ -986,7 +995,7 @@
     customerCarePollTimer=window.setInterval(()=>{
       const chatOpen=customerShellModal?.classList.contains('is-open')
         && customerShellModal?.querySelector('[data-customer-panel="chat"]')?.classList.contains('active');
-      if(chatOpen&&document.visibilityState==='visible') loadCustomerSupportChat({scroll:false,silent:true});
+      if(chatOpen&&document.visibilityState==='visible') loadCustomerSupportChat({scroll:false,silent:true,markRead:true});
     },4500);
   };
 
@@ -1008,7 +1017,7 @@
       if(error) throw error;
       if(data?.error) throw new Error(data.error);
       if(customerCareMessage) customerCareMessage.value='';
-      await loadCustomerSupportChat({scroll:true,silent:true});
+      await loadCustomerSupportChat({scroll:true,silent:true,markRead:true});
     }catch(error){
       if(customerCareChatStatus) customerCareChatStatus.textContent=error?.message||'Message could not be sent.';
     }finally{
@@ -1017,11 +1026,13 @@
     }
   });
 
-  refreshCustomerCareChat?.addEventListener('click',()=>loadCustomerSupportChat({scroll:true}));
+  refreshCustomerCareChat?.addEventListener('click',()=>loadCustomerSupportChat({scroll:true,markRead:true}));
   document.addEventListener('leogo:authchange',()=>{
     window.setTimeout(()=>{
       if(window.leogoAuth?.isAuthenticated?.()) loadCustomerSupportChat({scroll:false,silent:true,markRead:false});
       else{
+        customerCareLoadSequence++;
+        customerCareLoading=false;
         customerCareThread=null;
         customerCareMessages=[];
         renderCustomerCareChat();
@@ -1043,7 +1054,9 @@
     }
     const client=window.leogoAuth?.client;
     if(!client) return;
+    const userId=window.leogoAuth?.getUser?.()?.id;
     const {data,error}=await client.rpc('customer_support_chat_summary');
+    if(window.leogoAuth?.getUser?.()?.id!==userId||!window.leogoAuth?.isAuthenticated?.())return;
     if(error) return;
     if(!data?.exists){
       if(mobileChatUnread){mobileChatUnread.textContent='0';mobileChatUnread.hidden=true;}
@@ -1096,7 +1109,7 @@
     customerShellModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('customer-shell-open');
     if(viewName==='chat'&&window.leogoAuth?.isAuthenticated?.()){
-      loadCustomerSupportChat({scroll:true});
+      loadCustomerSupportChat({scroll:true,markRead:true});
       startCustomerCarePolling();
     }else{
       stopCustomerCarePolling();
