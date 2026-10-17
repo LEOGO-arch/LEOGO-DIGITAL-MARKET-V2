@@ -5,7 +5,16 @@
   const $$=(selector,root=document)=>root?Array.from(root.querySelectorAll(selector)):[];
   const client=window.leogoAuth?.client;
   const section=$('#health-medicine');
-  if(!client||!section)return;
+  if(!client||!section){
+    const message='Health & Medicine is unable to connect. Refresh the page and try again.';
+    const status=document.getElementById('healthMarketStatus');
+    if(status)status.textContent=message;
+    const partners=document.getElementById('healthPartnerGrid');
+    const products=document.getElementById('healthProductGrid');
+    if(partners)partners.textContent=message;
+    if(products)products.textContent=message;
+    return;
+  }
 
   let providers=[];
   let products=[];
