@@ -3020,7 +3020,7 @@
   const codAmountToCollect=(order={})=>{
     const external=Number(order.external_amount_due_kes??order.grand_total_kes??0);
     const alreadyPaid=order.payment_method==='cod' && order.cod_delivery_fee_status==='verified'
-      ? Math.min(external,Number(order.delivery_fee_kes||0)):0;
+      ? Math.min(external,Number(order.cod_upfront_service_fee_required?(Number(order.delivery_fee_kes||0)+Number(order.service_fee_kes||0)):Number(order.delivery_fee_kes||0))):0;
     return Math.max(0,Math.round((external-alreadyPaid)*100)/100);
   };
   const orderSummaryPaymentDisplay = (order={}) => {
@@ -3563,11 +3563,11 @@
     const fee=detail.cod_delivery_fee||null;
     const feeReviewAvailable=String(order.payment_method)==='cod' && Number(order.delivery_fee_kes||0)>0 && fee && fee.status!=='not_required';
     const feeReviewActions=feeReviewAvailable && fee.status==='submitted' && adminHas('orders.payment_verify')
-      ? '<div class="admin-order-payment-actions"><button type="button" data-cod-fee-review="approve">Verify COD Delivery Fee</button><button type="button" class="danger" data-cod-fee-review="reject">Reject Fee Proof</button></div>'
+      ? '<div class="admin-order-payment-actions"><button type="button" data-cod-fee-review="approve">Verify COD Upfront Fees</button><button type="button" class="danger" data-cod-fee-review="reject">Reject Fee Proof</button></div>'
       : '';
     const feeReviewHtml=feeReviewAvailable
-      ? '<div class="admin-order-payment-proof-full"><strong>COD delivery fee — '+escapeHtml(String(fee.status).replaceAll('_',' '))+'</strong>'+
-          '<p>Delivery fee: '+formatMoney(fee.amount_kes)+' · separate from the COD balance payable at handover.</p>'+
+      ? '<div class="admin-order-payment-proof-full"><strong>COD service + delivery fees — '+escapeHtml(String(fee.status).replaceAll('_',' '))+'</strong>'+
+          '<p>Upfront service + delivery fees: '+formatMoney(fee.amount_kes)+' · separate from the COD balance payable at handover.</p>'+
           '<p>Customer fee reference: '+escapeHtml(fee.reference||'Not submitted')+'</p>'+
           (fee.review_notes?'<p>Review notes: '+escapeHtml(fee.review_notes)+'</p>':'')+
           (fee.status!=='verified'?'<p>Rider assignment / dispatch must wait until this fee is verified.</p>':'')+
@@ -3699,9 +3699,9 @@
     $$('[data-cod-fee-review]').forEach((button)=>button.addEventListener('click',async()=>{
       if(!adminHas('orders.payment_verify'))return;
       const approved=button.dataset.codFeeReview==='approve';
-      const notes=approved?'':window.prompt('Reason for COD delivery fee rejection:','');
+      const notes=approved?'':window.prompt('Reason for COD upfront-fee rejection:','');
       if(!approved && (!notes||notes.trim().length<3))return;
-      if(approved && !window.confirm('Confirm the full COD delivery fee arrived in the official LEOGO account? This is NOT verification of the remaining COD balance.'))return;
+      if(approved && !window.confirm('Confirm the full COD service + transport fees arrived in the official LEOGO account? This is NOT verification of the remaining COD balance.'))return;
       await withButtonLock(button,approved?'Verifying fee…':'Rejecting fee…',async()=>{
         const {error}=await db.rpc('admin_review_cod_delivery_fee',{
           p_order_id:order.id,p_verified:approved,p_notes:notes||null
@@ -3709,7 +3709,7 @@
         if(error){globalStatus(friendlyError(error),'error');return;}
         await Promise.all([loadMarketplaceOrders({refreshActiveDetail:false}),loadAuditLog()]);
         await loadMarketplaceOrderDetail(order.id,{scroll:false});
-        globalStatus(approved?'Delivery fee verified — rider assignment now permitted.':'Delivery fee proof rejected; customer may resubmit.');
+        globalStatus(approved?'COD upfront fees verified — rider assignment now permitted.':'COD upfront fee proof rejected; customer may resubmit.');
       });
     }));
 
