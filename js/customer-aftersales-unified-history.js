@@ -3,7 +3,7 @@
 const root=document.getElementById('customerAftersalesCaseList');
 if(!root)return;
 let cases=[],busy=false,scheduled=false;
-const format=value=>String(value||'').replaceAll('_',' ').replace(/\\b\\w/g,c=>c.toUpperCase());
+const format=value=>String(value||'').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
 const date=value=>value?new Date(value).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short'}):'Not recorded';
 function make(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;}
 function render(){
@@ -12,7 +12,7 @@ function render(){
  queueMicrotask(()=>{
   scheduled=false;
   for(const record of cases){
-   const card=[...root.children].find(el=>el.textContent.includes(record.case_reference));
+   const card=[...root.querySelectorAll('[data-aftersales-case-reference]')].find(el=>el.dataset.aftersalesCaseReference===record.case_reference);
    if(!card)continue;
    const old=card.querySelector('[data-unified-aftersales]');if(old)old.remove();
    const wrapper=make('section','afs-unified-history');wrapper.dataset.unifiedAftersales=record.case_reference;
@@ -58,7 +58,7 @@ function render(){
 async function load(){
  if(busy)return;
  const db=window.leogoAuth?.client;
- if(!db||!window.leogoAuth?.isAuthenticated?.())return;
+ if(!db||!window.leogoAuth?.isAuthenticated?.()){cases=[];return;}
  busy=true;
  try{
   const {data,error}=await db.rpc('customer_aftersales_unified_history');
@@ -69,7 +69,7 @@ async function load(){
  finally{busy=false;}
 }
 const observer=new MutationObserver(()=>{if(cases.length&&!scheduled){
- const missing=cases.some(c=>{const e=[...root.children].find(node=>node.textContent.includes(c.case_reference));return e&&!e.querySelector('[data-unified-aftersales]');});
+ const missing=cases.some(c=>{const e=[...root.querySelectorAll('[data-aftersales-case-reference]')].find(node=>node.dataset.aftersalesCaseReference===c.case_reference);return e&&!e.querySelector('[data-unified-aftersales]');});
  if(missing)render();
 }});
 observer.observe(root,{childList:true,subtree:false});
