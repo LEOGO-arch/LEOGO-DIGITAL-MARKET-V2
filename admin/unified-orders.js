@@ -9,6 +9,7 @@
   const sources=[
     {key:'marketplace',title:'Marketplace',rpc:'admin_list_marketplace_orders',view:'orders'},
     {key:'health',title:'Health & Medicine',rpc:'admin_list_health_medicine_orders',view:'health'},
+    {key:'specialist',title:'Health Specialist Booking',rpc:'admin_list_health_specialist_operations',view:'health',extract:r=>r?.bookings},
     {key:'services',title:'Services',rpc:'admin_list_service_requests',view:'providers'},
     {key:'transport',title:'Transport & Parcels',rpc:'admin_list_transport_requests',view:'transport'}
   ];
@@ -27,7 +28,7 @@
     reference:r.order_reference||r.request_reference||r.booking_reference||String(r.id||''),
     customer:r.receiver_name||r.customer_name||r.full_name||r.customer_phone||'Customer',
     amount:r.grand_total_kes??r.total_amount_kes??r.total_cost_kes??r.total_price_kes??null,
-    status:r.order_status||r.request_status||'—',
+    status:r.order_status||r.request_status||r.booking_status||'—',
     payment:r.payment_status||'—',
     created_at:r.created_at||r.requested_at||null
   });
@@ -69,8 +70,9 @@
           errors.push(src.title+': '+(result.reason?.message||'unavailable'));return;
         }
         if(result.value?.error){errors.push(src.title+': '+(result.value.error.message||'unavailable'));return;}
-        if(!Array.isArray(result.value?.data)){errors.push(src.title+': invalid response');return;}
-        next.push(...result.value.data.map(r=>normalise(src,r)));
+        const data=src.extract?src.extract(result.value?.data):result.value?.data;
+        if(!Array.isArray(data)){errors.push(src.title+': invalid response');return;}
+        next.push(...data.map(r=>normalise(src,r)));
       });
       state.records=next.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
       state.errors=errors;state.loaded=true;
