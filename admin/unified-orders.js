@@ -9,7 +9,7 @@
   const sources=[
     {key:'marketplace',title:'Marketplace',rpc:'admin_list_marketplace_orders',view:'orders'},
     {key:'health',title:'Health & Medicine',rpc:'admin_list_health_medicine_orders',view:'health'},
-    {key:'services',title:'Services',rpc:'admin_list_service_requests',view:'services'},
+    {key:'services',title:'Services',rpc:'admin_list_service_requests',view:'providers'},
     {key:'transport',title:'Transport & Parcels',rpc:'admin_list_transport_requests',view:'transport'}
   ];
   const state={records:[],errors:[],loading:false,loaded:false};
