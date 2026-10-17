@@ -7,7 +7,7 @@ create or replace function private.cod_fee_status_on_new_order()
 returns trigger language plpgsql set search_path='' as $fn$
 begin
   new.cod_upfront_service_fee_required :=
-    new.payment_method='cod' and coalesce(new.service_fee_kes,0)>0;
+    new.payment_method='cod';
   if new.payment_method='cod' and
      (coalesce(new.delivery_fee_kes,0)+case when new.cod_upfront_service_fee_required then coalesce(new.service_fee_kes,0) else 0 end)>0 then
     -- Preserve valid payment references from older checkout sessions.
@@ -38,7 +38,7 @@ begin
     into v_method,v_fee,v_fee_status
   from public.marketplace_orders o where o.id=new.order_id;
   -- A placeholder job without a rider must be allowed when COD order is created.
-  if v_method='cod' and coalesce(v_fee,0)>0 and v_fee_status is distinct from 'verified'
+  if v_method='cod' and coalesce(v_fee,0)>0 and (case when (select o.cod_upfront_service_fee_required from public.marketplace_orders o where o.id=new.order_id) then v_fee_status is distinct from 'verified' else v_fee_status not in ('verified','not_required') end)
      and (new.rider_id is not null or new.status in ('picked_up','arrived_sorting_center','sorting_received','on_the_way','delivered_to_pickup_station','ready_for_pickup','delivered'))
   then
     raise exception 'COD service and transport fees must be paid and Admin-verified before rider assignment or dispatch';
@@ -52,7 +52,7 @@ returns trigger language plpgsql security definer set search_path='' as $fn$
 begin
   if new.payment_method='cod' and
      (coalesce(new.delivery_fee_kes,0)+case when new.cod_upfront_service_fee_required then coalesce(new.service_fee_kes,0) else 0 end)>0
-     and new.cod_delivery_fee_status is distinct from 'verified'
+     and (case when new.cod_upfront_service_fee_required then new.cod_delivery_fee_status is distinct from 'verified' else new.cod_delivery_fee_status not in ('verified','not_required') end)
      and new.order_status in ('with_rider','delivered') then
     raise exception 'COD service and transport fees must be verified before dispatch or delivery';
   end if;
