@@ -68,10 +68,10 @@
   };
   const loadCustomers=async()=>{
     const generation=++customerLoadGeneration;
-    const userId=(await db.auth.getSession()).data?.session?.user?.id;
-    if(!userId)return;
     $('#messageCustomerList').textContent='Loading registered customers…';
     try{
+      const userId=(await db.auth.getSession()).data?.session?.user?.id;
+      if(!userId){$('#messageCustomerList').textContent='Sign in to view customers.';return;}
       const {data,error}=await db.rpc('admin_list_customers');
       if(error)throw error;
       if(generation!==customerLoadGeneration || (await db.auth.getSession()).data?.session?.user?.id!==userId)return;
@@ -86,9 +86,9 @@
   };
   const loadHistory=async()=>{
     const generation=++historyLoadGeneration;
-    const userId=(await db.auth.getSession()).data?.session?.user?.id;
-    if(!userId)return;
     try{
+      const userId=(await db.auth.getSession()).data?.session?.user?.id;
+      if(!userId){$('#messageHistoryList').textContent='Sign in to view message history.';return;}
       const {data,error}=await db.rpc('admin_customer_message_history');
       if(error)throw error;
       if(generation!==historyLoadGeneration || (await db.auth.getSession()).data?.session?.user?.id!==userId)return;
