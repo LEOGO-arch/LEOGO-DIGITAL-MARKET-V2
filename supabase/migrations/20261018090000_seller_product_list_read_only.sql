@@ -1,10 +1,7 @@
--- LEOGO Seller stability: product listing is read-only.
--- The prior implementation invoked private.close_expired_group_campaigns()
--- on every seller product-list request. Campaign expiry remains handled
--- by its independent lifecycle/maintenance path; do not mutate campaign
--- or payment state in a listing RPC.
--- Regression gate: verify active/expired campaigns and normal/preorder/MOQ
--- visibility in staging before applying to production.
+-- LEOGO Seller stability: retain campaign expiry maintenance while isolating failures.
+-- The existing product-read RPC is a known campaign-expiry lifecycle entry point.
+-- Until an independent expiry worker is proven, do not remove it.
+-- Errors in campaign maintenance must not prevent sellers from loading their products.
 CREATE OR REPLACE FUNCTION public.seller_list_own_products()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -25,6 +22,12 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Approved Seller account required';
   END IF;
+
+  BEGIN
+    PERFORM private.close_expired_group_campaigns();
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'Seller listing: campaign expiry maintenance failed (SQLSTATE %)', SQLSTATE;
+  END;
 
   SELECT COALESCE(
     jsonb_agg(product_row ORDER BY (product_row->>'updated_at')::timestamptz DESC),
