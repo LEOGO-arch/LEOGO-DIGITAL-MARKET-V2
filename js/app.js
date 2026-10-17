@@ -1242,7 +1242,7 @@
     if(lowNode)lowNode.innerHTML='Orders up to KSh '+lowLimit.toLocaleString('en-KE')+': <b>'+low.toLocaleString('en-KE')+'%</b>';
     if(highNode)highNode.innerHTML='Orders from KSh '+threshold.toLocaleString('en-KE')+': <b>'+high.toLocaleString('en-KE')+'%</b>';
     if(codLabel)codLabel.textContent='Available below KSh '+cod.toLocaleString('en-KE');
-    if(codRule)codRule.textContent='Cash on Delivery is only available for orders below KSh '+cod.toLocaleString('en-KE')+'. The customer must pay the Transport & Parcel Delivery fee first before the order is dispatched.';
+    if(codRule)codRule.textContent='Cash on Delivery is only available for orders below KSh '+cod.toLocaleString('en-KE')+'. The customer must pay the LEOGO service fee and Transport & Parcel Delivery fee first. Admin must verify both before dispatch.';
     if(checkoutShell)checkoutShell.dataset.codLimit=String(cod);
   };
   const loadOrderSettings=async()=>{
@@ -1673,10 +1673,10 @@
       if(walletOrderTotal)walletOrderTotal.textContent=deliveryMoney(due);
     }else if(selectedCheckoutPayment==='cod'){
       if(isCodOrderFirst && selectedPaymentStatus)selectedPaymentStatus.textContent='Delivery fee required before dispatch';
-      paymentProofLabel.textContent='Paste M-Pesa message for the Transport & Parcel Delivery fee';
+      paymentProofLabel.textContent='Paste M-Pesa confirmation for LEOGO service and transport fees';
       markPaymentPaidLabel.textContent=checkoutPointsAppliedNumber()>0
-        ? 'I confirm that I paid the required delivery fee first. my Shopping Voucher has been applied and I will pay the remaining COD amount on delivery.'
-        : 'I confirm that I paid the Transport & Parcel Delivery fee first. I will pay the order balance in cash on delivery.';
+        ? 'I understand that LEOGO service and transport fees must be paid and verified before dispatch. My Shopping Voucher has been applied and the remaining COD balance is due on delivery.'
+        : 'I understand that LEOGO service and transport fees must be paid and Admin-verified before dispatch. The remaining balance is due on delivery.';
     }else{
       const destinationNumber=window.leogoPayments?.paymentNumber(marketplacePaymentDestination)||'';
       paymentProofLabel.textContent=destinationNumber
@@ -1969,7 +1969,7 @@
     const isCodOrderFirst = selectedCheckoutPayment==='cod' && codOrderFirstReady && !healthCheckout;
     if (!isCodOrderFirst && !mpesaPaymentMessage.value.trim()) {
       paymentStepStatus.textContent = selectedCheckoutPayment === 'cod'
-        ? 'Paste the M-Pesa confirmation for the Transport & Parcel Delivery fee.'
+        ? 'Paste the M-Pesa confirmation for LEOGO service and delivery fees.'
         : 'Paste the complete M-Pesa payment confirmation message for the remaining amount.';
       mpesaPaymentMessage.focus();
       return;
@@ -2078,13 +2078,13 @@
 
       const actualPoints=Number(data?.reward_points_redeemed_kes||0);
       const actualDue=Number(data?.external_amount_due_kes??data?.grand_total_kes??0);
-      const feeAdvance=isCodOrderFirst?Math.min(actualDue,Math.max(0,Number(data?.delivery_fee_kes||0))):0;
+      const feeAdvance=isCodOrderFirst?Math.min(actualDue,Math.max(0,Number(data?.delivery_fee_kes||0))+Math.max(0,Number(data?.service_fee_kes||0))):0;
       const handoverDue=Math.max(0,Math.round((actualDue-feeAdvance)*100)/100);
       selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod'
-        ? (isCodOrderFirst?'COD created · '+deliveryMoney(feeAdvance)+' fee to verify before dispatch · '+deliveryMoney(handoverDue)+' at handover':'COD — '+deliveryMoney(actualDue)+' remaining')
+        ? (isCodOrderFirst?'COD created · '+deliveryMoney(feeAdvance)+' service + delivery fees to verify before dispatch · '+deliveryMoney(handoverDue)+' at handover':'COD — '+deliveryMoney(actualDue)+' remaining')
         : 'Payment submitted — '+deliveryMoney(actualDue)+' awaiting Admin verification';
       paymentStepStatus.textContent = isCodOrderFirst
-        ? 'Order created. Pay '+deliveryMoney(feeAdvance)+' delivery fee for LEOGO Admin to verify before rider assignment. Remaining COD on handover: '+deliveryMoney(handoverDue)+'.'
+        ? 'Order created. Pay '+deliveryMoney(feeAdvance)+' service and delivery fees for LEOGO Admin to verify before rider assignment. Remaining COD on handover: '+deliveryMoney(handoverDue)+'.'
         : actualPoints>0
           ? 'Order created successfully. '+deliveryMoney(actualPoints)+' from your Shopping Voucher was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
         : healthCheckout
@@ -2093,12 +2093,12 @@
 
       orderCreatedPanel.hidden = false;
       if(codFeeCreatedOrderForm){
-        const requiresCodFee=isCodOrderFirst && Number(data?.delivery_fee_kes||0)>0;
+        const requiresCodFee=isCodOrderFirst && (Number(data?.delivery_fee_kes||0)+Number(data?.service_fee_kes||0))>0;
         codFeeCreatedOrderForm.hidden=!requiresCodFee;
         codFeeCreatedOrderForm.dataset.codOrderId=requiresCodFee ? String(data.order_id||'') : '';
         if(requiresCodFee){
           const feeNode=document.getElementById('codFeeCreatedAmount');
-          if(feeNode)feeNode.textContent='Pay '+deliveryMoney(feeAdvance)+' delivery fee before your rider can be assigned. Remaining '+deliveryMoney(handoverDue)+' is collected at handover.';
+          if(feeNode)feeNode.textContent='Pay '+deliveryMoney(feeAdvance)+' service and delivery fees before your rider can be assigned. Remaining '+deliveryMoney(handoverDue)+' is collected at handover.';
           const destinationNode=document.getElementById('codFeeCreatedDestination');
           const destinationNumber=window.leogoPayments?.paymentNumber(marketplacePaymentDestination)||'';
           if(destinationNode)destinationNode.textContent=destinationNumber
@@ -3966,7 +3966,7 @@
   const customerCodAmountToCollect=(order)=>{
     const due=Number(order?.external_amount_due_kes??order?.grand_total_kes??0);
     const feeAdvance=order?.cod_delivery_fee?.status==='verified'
-      ? Math.min(due,Number(order?.delivery_fee_kes||0)):0;
+      ? Math.min(due,Number(order?.cod_delivery_fee?.amount_kes??order?.delivery_fee_kes??0)):0;
     return Math.max(0,Math.round((due-feeAdvance)*100)/100);
   };
   const customerPointsOrderSummaryHtml=(order)=>{
@@ -3975,7 +3975,7 @@
     const due=Number(order?.external_amount_due_kes??Math.max(0,Number(order?.grand_total_kes||0)-points));
     const codVerified=order.payment_method==='cod' && order.cod_delivery_fee?.status==='verified';
     return '<div class="customer-order-points-summary"><span><small>LEOGO Points used</small><strong>'+money(points)+'</strong></span><span><small>Other payment amount</small><strong>'+money(due)+'</strong></span>'+
-      (codVerified?'<span><small>Already paid delivery fee</small><strong>'+money(Math.min(due,Number(order.delivery_fee_kes||0)))+'</strong></span><span><small>COD to collect at handover</small><strong>'+money(customerCodAmountToCollect(order))+'</strong></span>':'')+'</div>';
+      (codVerified?'<span><small>Already paid upfront COD fees</small><strong>'+money(Math.min(due,Number((order.cod_delivery_fee?.amount_kes??order.delivery_fee_kes??0))))+'</strong></span><span><small>COD to collect at handover</small><strong>'+money(customerCodAmountToCollect(order))+'</strong></span>':'')+'</div>';
   };
 
   const customerOrderHistory = (order) => {
@@ -4199,14 +4199,14 @@
         : '<p>Ask LEOGO Customer Care for the official order-payment Till or Paybill before sending money.</p>';
       const feeForm=['awaiting_payment','rejected'].includes(feeStatus)
         ? '<form class="cod-fee-activity-form" data-cod-fee-form data-cod-order-id="'+receiptEscape(order.id)+'">'+
-            '<strong>Pay '+money(fee.amount_kes)+' delivery fee before dispatch</strong>'+codAccountInfo+
+            '<strong>Pay '+money(fee.amount_kes)+' service + delivery fees before dispatch</strong>'+codAccountInfo+
             (feeStatus==='rejected'?'<p>Earlier payment proof rejected: '+receiptEscape(fee.review_notes||'Please submit a valid payment reference.')+'</p>':'')+
             '<label>Payment reference<textarea name="cod_fee_reference" rows="2" minlength="8" maxlength="600" required placeholder="Paste confirmed M-Pesa message"></textarea></label>'+
             '<button type="submit">Submit fee for Admin verification</button><p data-cod-fee-feedback role="status"></p></form>'
         : feeStatus==='submitted'
-          ? '<div class="cod-fee-activity-status">Delivery fee reference received. Awaiting LEOGO Admin verification before dispatch.</div>'
+          ? '<div class="cod-fee-activity-status">Upfront COD fee reference received. Awaiting LEOGO Admin verification before dispatch.</div>'
           : feeStatus==='verified'
-            ? '<div class="cod-fee-activity-status">✓ Delivery fee verified — dispatch permitted when Seller is ready.</div>'
+            ? '<div class="cod-fee-activity-status">✓ COD service and delivery fees verified — dispatch permitted when Seller is ready.</div>'
             : '';
       const actionButtons=
         '<button type="button" class="customer-order-update-toggle" data-toggle-order-updates="'+receiptEscape(order.id)+'" aria-expanded="false">View Order Updates <span>⌄</span></button>'+
