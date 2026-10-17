@@ -4102,7 +4102,7 @@
     }
 
     container.innerHTML=cases.map(({order,case:item})=>
-      '<article class="customer-aftersales-case-card">'+
+      '<article class="customer-aftersales-case-card" data-aftersales-case-reference="'+receiptEscape(item.case_reference)+'">'+
         '<div class="customer-aftersales-case-top"><div><small>CASE</small><strong>'+receiptEscape(item.case_reference)+'</strong><span>Order '+receiptEscape(order.order_reference)+'</span></div>'+
           '<b class="status-'+receiptEscape(item.status)+'">'+receiptEscape(customerAftersalesStatusText(item.status))+'</b></div>'+
         '<div class="customer-aftersales-case-grid">'+
