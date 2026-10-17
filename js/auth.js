@@ -319,11 +319,49 @@
       setProfileStatus('Your profile could not be loaded. Please refresh and try again.', 'error');
       return;
     }
-    applyProfileValues(user, data);
-    savedProfile = data || null;
-    if (data) renderProfileSummary(user, data);
-    setProfileEditing(!isCompleteProfile(data));
-    setProfileStatus(data ? 'Your saved profile is ready.' : 'Complete your delivery profile and select Save Profile.', data ? 'success' : '');
+    // Preserve saved customer edits. Only create a profile automatically when
+    // registration provided every required location field.
+    let resolvedProfile = data || null;
+    if (!resolvedProfile) {
+      const metadata = user.user_metadata || {};
+      const fullName = String(metadata.full_name || metadata.name || '').trim();
+      const phone = normalizeKenyanPhone(metadata.phone || user.phone || '');
+      const countyCode = metadata.county_code || '';
+      const subCountyCode = metadata.sub_county_code || '';
+      const countyRow = kenyaCounties.find((item) => item.code === countyCode);
+      const subCountyRow = kenyaSubcounties.find((item) => item.code === subCountyCode && item.county_code === countyCode);
+      const estate = String(metadata.estate || '').trim();
+      if (fullName.length >= 2 && phone && countyRow && subCountyRow && estate.length >= 2) {
+        const registrationProfile = {
+          user_id: user.id, full_name: fullName, phone,
+          county: countyRow.name, county_code: countyCode,
+          sub_county: subCountyRow.name, sub_county_code: subCountyCode,
+          estate, nearest_landmark: String(metadata.nearest_landmark || '').trim() || null
+        };
+        const created = await authClient.from('customer_profiles')
+          .insert(registrationProfile).select('full_name, phone, county, sub_county, county_code, sub_county_code, estate, nearest_landmark').single();
+        if (!created.error) {
+          resolvedProfile = created.data;
+        } else if (created.error.code === '23505') {
+          // Concurrent session has created the record: read instead of overwriting it.
+          const latest = await authClient.from('customer_profiles')
+            .select('full_name, phone, county, sub_county, county_code, sub_county_code, estate, nearest_landmark')
+            .eq('user_id', user.id).maybeSingle();
+          if (!latest.error) resolvedProfile = latest.data;
+        } else {
+          console.warn('Customer registration profile sync failed:', created.error.message);
+        }
+      }
+    }
+    if (currentSession?.user?.id !== user.id) return;
+    applyProfileValues(user, resolvedProfile);
+    savedProfile = resolvedProfile;
+    if (resolvedProfile) renderProfileSummary(user, resolvedProfile);
+    setProfileEditing(!isCompleteProfile(resolvedProfile));
+    setProfileStatus(
+      resolvedProfile ? 'Your customer profile is ready.' : 'Your registration details are filled in. Add any missing delivery details and select Save Profile.',
+      resolvedProfile ? 'success' : ''
+    );
   };
 
   if (!supabaseFactory) {
@@ -526,6 +564,16 @@
       const password = document.getElementById('registerPassword').value;
       const confirmPassword = document.getElementById('registerConfirmPassword').value;
       const accepted = document.getElementById('registerTerms').checked;
+      const countyCode = registrationLocation.county?.value || '';
+      const subCountyCode = registrationLocation.subCounty?.value || '';
+      const county = kenyaCounties.find((item) => item.code === countyCode);
+      const subCounty = kenyaSubcounties.find((item) => item.code === subCountyCode && item.county_code === countyCode);
+      const estate = registrationLocation.estate?.value.trim() || '';
+      const nearestLandmark = registrationLocation.nearestLandmark?.value.trim() || '';
+      if (subCountyCode && !subCounty) {
+        setStatus('Select a valid county and sub-county.', 'error');
+        return;
+      }
       if (!phone) {
         setStatus('Enter a valid Kenyan mobile number, for example 0700 192 545.', 'error');
         return;
@@ -548,7 +596,12 @@
         password,
         options: {
           emailRedirectTo: PRODUCTION_URL,
-          data: { full_name: fullName, phone }
+          data: {
+            full_name: fullName, phone,
+            county: county?.name || '', county_code: county?.code || '',
+            sub_county: subCounty?.name || '', sub_county_code: subCounty?.code || '',
+            estate, nearest_landmark: nearestLandmark
+          }
         }
       });
       if (error) {
@@ -557,7 +610,7 @@
       }
       registerForm.reset();
       if (data.session) {
-        updateAuthUI(data.session);
+        await applyCustomerSession(data.session, 'SIGNED_IN');
         setStatus('Account created successfully. You are now logged in.', 'success');
         window.setTimeout(() => window.leogoOpenCustomerView?.('dashboard'), 700);
       } else {
