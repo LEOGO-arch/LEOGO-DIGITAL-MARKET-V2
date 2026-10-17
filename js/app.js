@@ -2539,11 +2539,23 @@
   };
   const renderCustomerFlashSales=()=>{
     if(!customerFlashSaleGrid)return;
-    if(!customerFlashSales.length){
+    // Offers can expire while a customer keeps the page open.
+    // Final prices and inventory are still validated by the server at checkout.
+    const now=Date.now();
+    const liveSales=customerFlashSales.filter((item)=>{
+      const start=Date.parse(item.starts_at||'');
+      const end=Date.parse(item.ends_at||'');
+      return Number.isFinite(start)&&Number.isFinite(end)
+        && start<=now&&end>now
+        && Number(item.flash_price_kes)>0
+        && Number(item.normal_price_kes)>Number(item.flash_price_kes)
+        && (item.remaining_quantity==null||Number(item.remaining_quantity)>0);
+    });
+    if(!liveSales.length){
       customerFlashSaleGrid.innerHTML='<article class="flash-item flash-loading-item"><div class="flash-img">⚡</div><div class="flash-body"><h3>No live Flash Sales right now</h3><span class="flash-seller">New Admin-approved offers will appear here automatically.</span></div></article>';
       return;
     }
-    customerFlashSaleGrid.innerHTML=customerFlashSales.map((item)=>{
+    customerFlashSaleGrid.innerHTML=liveSales.map((item)=>{
       const normal=Number(item.normal_price_kes||0);
       const flash=Number(item.flash_price_kes||0);
       const save=Math.max(0,normal-flash);
@@ -2563,6 +2575,11 @@
         '</div></article>';
     }).join('');
   };
+
+  // Recheck existing cards periodically without adding another catalogue fetch.
+  if(customerFlashSaleGrid)window.setInterval(()=>{
+    if(!document.hidden)renderCustomerFlashSales();
+  },30000);
 
   const filteredMarketplaceProducts = () => {
     let rows = marketplaceProducts;
