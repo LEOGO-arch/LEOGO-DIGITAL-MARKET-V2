@@ -43,6 +43,12 @@
     estate: document.getElementById('profileEstate'),
     nearestLandmark: document.getElementById('profileNearestLandmark')
   };
+  const registrationLocation = {
+    county: document.getElementById('registerCounty'),
+    subCounty: document.getElementById('registerSubCounty'),
+    estate: document.getElementById('registerEstate'),
+    nearestLandmark: document.getElementById('registerNearestLandmark')
+  };
   let currentSession = null;
   let authReady = false;
   let profileLoadedFor = '';
@@ -282,13 +288,13 @@
     if (profileFields.phone) profileFields.phone.value = profile?.phone || metadata.phone || '';
     if (profileFields.email) profileFields.email.value = user.email || '';
     if (profileFields.county) {
-      const countyCode = profile?.county_code || kenyaCounties.find((item) => item.name === profile?.county)?.code || '';
+      const countyCode = profile?.county_code || metadata.county_code || kenyaCounties.find((item) => item.name === (profile?.county || metadata.county))?.code || '';
       profileFields.county.value = countyCode;
-      renderCustomerSubcounties(profile?.sub_county_code || kenyaSubcounties.find((item) => item.county_code === countyCode && item.name === profile?.sub_county)?.code || '');
+      renderCustomerSubcounties(profile?.sub_county_code || metadata.sub_county_code || kenyaSubcounties.find((item) => item.county_code === countyCode && item.name === (profile?.sub_county || metadata.sub_county))?.code || '');
     }
-    if (profileFields.subCounty && !profile?.county && !profile?.county_code) profileFields.subCounty.value = '';
+    if (profileFields.subCounty && !profile?.county && !profile?.county_code && !metadata.county && !metadata.county_code) profileFields.subCounty.value = '';
     if (profileFields.estate) profileFields.estate.value = profile?.estate || '';
-    if (profileFields.nearestLandmark) profileFields.nearestLandmark.value = profile?.nearest_landmark || '';
+    if (profileFields.nearestLandmark) profileFields.nearestLandmark.value = profile?.nearest_landmark || metadata.nearest_landmark || '';
     updateProfileCompletion();
   };
 
