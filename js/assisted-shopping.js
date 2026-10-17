@@ -340,6 +340,9 @@
               (row.admin_notes?'<div class="assisted-admin-note"><b>LEOGO note:</b> '+escapeHtml(row.admin_notes)+'</div>':'')+
             '</div>'
           :'')+
+        ((row.payment_status==='rejected'||row.order_payment_status==='rejected'||row.status==='payment_rejected')
+          ?'<div class="assisted-admin-note" role="alert" style="border:1px solid #ba3838;background:#fff3f2;padding:12px;border-radius:8px;color:#8a2020;margin:12px 0"><strong>Payment rejected — Admin reason:</strong> '+escapeHtml(row.payment_rejection_note||'LEOGO could not verify this payment. Please check your payment reference or contact customer care before resubmitting.')+'</div>'
+          :'')+
         quoteActionsHtml(row)+
         (row.payment_status&&row.payment_status!=='not_required'?'<div class="assisted-payment-state"><b>Payment:</b> '+escapeHtml(String(row.payment_status).replaceAll('_',' '))+(row.payment_method?' · '+escapeHtml(row.payment_method.toUpperCase()):'')+'</div>':'')+
         (row.rider_name?'<div class="assisted-rider-state"><b>Rider:</b> '+escapeHtml(row.rider_name)+(row.rider_phone?' · '+escapeHtml(row.rider_phone):'')+' · '+escapeHtml(statusLabel(row.status))+'</div>':'')+
