@@ -3029,7 +3029,11 @@
     const external=round(order.external_amount_due_kes??order.grand_total_kes??0);
     const service=round(order.cod_upfront_service_fee_required?order.service_fee_kes:0);
     const delivery=round(order.delivery_fee_kes);
-    const upfrontRequired=round(service+delivery);
+    // Fee status RPC returns the authoritative fee amount even when the order-detail
+    // RPC predates the new COD service-fee flag.
+    const rpcAmount=Number(order.cod_upfront_fee_amount_kes);
+    const upfrontRequired=Number.isFinite(rpcAmount)&&rpcAmount>=0
+      ? round(rpcAmount):round(service+delivery);
     const upfrontVerified=order.payment_method==='cod' && order.cod_delivery_fee_status==='verified'
       ? Math.min(external,upfrontRequired):0;
     return {
@@ -3587,7 +3591,7 @@
             '<span><small>Total order value</small><strong>'+formatMoney(order.grand_total_kes)+'</strong></span>'+
             '<span><small>LEOGO Points used</small><strong>'+formatMoney(order.reward_points_redeemed_kes||0)+'</strong></span>'+
             '<span><small>Amount payable in money</small><strong>'+formatMoney(codAmounts.external)+'</strong></span>'+
-            '<span><small>Upfront fees required ('+(codAmounts.isNewRule?'service + delivery':'legacy delivery-only')+')</small><strong>'+formatMoney(codAmounts.upfrontRequired)+'</strong></span>'+
+            '<span><small>Upfront fees required</small><strong>'+formatMoney(codAmounts.upfrontRequired)+'</strong></span>'+
             '<span><small>Upfront fees verified as paid</small><strong>'+formatMoney(codAmounts.upfrontVerified)+'</strong></span>'+
             '<span class="grand"><small>EXACT COD BALANCE TO COLLECT</small><strong>'+formatMoney(codAmounts.balanceDue)+'</strong></span>'+
           '</div>'+
@@ -3596,7 +3600,7 @@
             ? '<p>Legacy order: no upfront fee verified in this record. Do not assume a previous payment was received; reconcile the payment separately before handover.</p>'
             : '')+'</div>'
       : '';
-    const feeReviewAvailable=String(order.payment_method)==='cod' && (Number(order.delivery_fee_kes||0)+Number(order.cod_upfront_service_fee_required?order.service_fee_kes||0:0))>0 && fee && fee.status!=='not_required';
+    const feeReviewAvailable=String(order.payment_method)==='cod' && Number(fee?.amount_kes||0)>0 && fee.status!=='not_required';
     const feeReviewActions=feeReviewAvailable && fee.status==='submitted' && adminHas('orders.payment_verify')
       ? '<div class="admin-order-payment-actions"><button type="button" data-cod-fee-review="approve">Verify COD Upfront Fees</button><button type="button" class="danger" data-cod-fee-review="reject">Reject Fee Proof</button></div>'
       : '';
@@ -3921,6 +3925,12 @@
     if(state.activeMarketplaceOrderDetail.order){
       state.activeMarketplaceOrderDetail.order.cod_delivery_fee_status=
         state.activeMarketplaceOrderDetail.cod_delivery_fee?.status||'not_required';
+      // Use the server-calculated upfront amount for the Admin breakdown,
+      // printable receipts, and rider collection instruction.
+      if(!codFeeResult.error && codFeeResult.data?.amount_kes!=null){
+        state.activeMarketplaceOrderDetail.order.cod_upfront_fee_amount_kes=
+          codFeeResult.data.amount_kes;
+      }
     }
     renderMarketplaceOrderDetail();
     await renderPickupStationHandoverEvidence({loadToken,orderId});
