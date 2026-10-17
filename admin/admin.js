@@ -3389,14 +3389,14 @@
         '*{box-sizing:border-box;}'+
         'html,body{width:80mm;min-width:80mm;max-width:80mm;margin:0;padding:0;background:#fff;color:#000;}'+
         'body{font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'+
-        '.receipt{width:72mm;margin:0 auto;padding:1mm 0 1.4mm;font-size:7.4pt;line-height:1.08;font-weight:800;color:#000;transform-origin:top center;}'+
-        '.receipt-header{display:grid;grid-template-columns:10mm minmax(0,1fr);gap:2mm;align-items:center;text-align:left;}'+
+        '.receipt{width:76mm;max-width:calc(100% - 2mm);margin:0 auto;padding:1mm 0 1.4mm;font-size:8pt;line-height:1.12;font-weight:800;color:#000;}'+
+        '.receipt-header{display:grid;grid-template-columns:10mm minmax(0,1fr);gap:1.5mm;align-items:start;text-align:left;}'+
         '.receipt-logo{width:9mm;height:9mm;object-fit:cover;filter:grayscale(1) contrast(1.3);}'+
         '.receipt-header-copy{min-width:0;}'+
-        '.receipt-header h1{margin:0;font-size:10.2pt;line-height:1;font-weight:900;letter-spacing:.1px;}'+
-        '.receipt-title-line{display:flex;align-items:baseline;justify-content:space-between;gap:1.5mm;margin:.35mm 0 0;}'+
-        '.receipt-header h2{margin:0;font-size:6.9pt;line-height:1.02;font-weight:900;white-space:nowrap;}'+
-        '.receipt-print-time{font-size:5.5pt;line-height:1;font-weight:900;text-align:right;white-space:nowrap;}'+
+        '.receipt-header h1{margin:0;font-size:10.4pt;line-height:1.05;font-weight:900;letter-spacing:0;}'+
+        '.receipt-title-line{margin:.45mm 0 0;}.receipt-date-sign{display:flex;align-items:baseline;gap:1.2mm;margin:.55mm 0 .25mm;font-size:6.4pt;font-weight:900;white-space:nowrap;}.receipt-date-sign .sign-line{flex:1;min-width:6mm;border-bottom:1px solid #000;line-height:1.1;}'+
+        '.receipt-header h2{margin:0;font-size:6.8pt;line-height:1.05;font-weight:900;}'+
+        ''+
         '.receipt-header p{margin:.28mm 0 0;font-size:6.2pt;font-weight:800;}'+
         '.receipt-rule{border:0;border-top:1px dashed #000;margin:.8mm 0;}'+
         '.receipt-reference{display:flex;align-items:baseline;gap:1.2mm;text-align:left;margin:.2mm 0;}'+
@@ -3407,7 +3407,7 @@
         '.receipt-status span{font-weight:800;}'+
         '.receipt-status strong{text-align:right;font-weight:900;}'+
         '.receipt-section{margin:0;}'+
-        '.receipt-section h3{margin:0 0 .35mm;font-size:6.8pt;font-weight:900;letter-spacing:.2px;}'+
+        '.receipt-section h3{margin:0 0 .35mm;font-size:7.3pt;font-weight:900;letter-spacing:.1px;}'+
         '.receipt-section p{margin:.18mm 0;font-size:7.2pt;font-weight:800;line-height:1.07;overflow-wrap:anywhere;}'+
         '.receipt-section .primary{font-size:8.2pt;font-weight:900;}'+
         '.receipt-items{display:grid;gap:0;}'+
@@ -3419,8 +3419,8 @@
         '.receipt-item>strong{text-align:right;font-size:7.2pt;font-weight:900;white-space:nowrap;}'+
         '.receipt-empty{padding:.5mm 0;font-size:7pt;font-weight:800;}'+
         '.receipt-money{display:grid;gap:.15mm;}'+
-        '.receipt-money-row{display:flex;justify-content:space-between;gap:2mm;font-size:7.2pt;}'+
-        '.receipt-money-row span{font-weight:800;}'+
+        '.receipt-money-row{display:flex;justify-content:space-between;gap:1mm;font-size:7.8pt;}'+
+        '.receipt-money-row span{font-weight:800;min-width:0;}'+
         '.receipt-money-row strong{font-weight:900;white-space:nowrap;}'+
         '.receipt-total{margin-top:.35mm;padding-top:.45mm;border-top:1.5px solid #000;font-size:9.4pt;line-height:1.02;font-weight:900;}'+
         '.receipt-total span,.receipt-total strong{font-weight:900;}'+
@@ -3430,18 +3430,19 @@
         '.receipt-meta b{font-weight:900;}'+
         '.receipt-meta span{font-weight:800;overflow-wrap:anywhere;}'+
         '.receipt-qr{text-align:center;margin-top:.2mm;break-inside:avoid;}'+
-        '.receipt-qr img{display:block;width:19mm;height:19mm;margin:0 auto;image-rendering:pixelated;image-rendering:crisp-edges;}'+
+        '.receipt-qr img{display:block;width:23mm;height:23mm;margin:0 auto;image-rendering:pixelated;image-rendering:crisp-edges;}'+
         '.receipt-qr strong{display:block;margin-top:.25mm;font-size:6.8pt;font-weight:900;}'+
         '.receipt-qr small{display:block;margin-top:.15mm;font-size:5.8pt;font-weight:800;overflow-wrap:anywhere;}'+
         '.receipt-footer{margin-top:.45mm;text-align:center;font-size:5.9pt;font-weight:800;line-height:1.08;}'+
-        '@media print{html,body{width:80mm!important;height:auto!important;overflow:visible!important;color:#000!important;background:#fff!important;}.receipt{width:72mm!important;page-break-after:auto;}.receipt-section,.receipt-item,.receipt-qr{break-inside:avoid;}}'+
+        '@media print{html,body{width:80mm!important;height:auto!important;overflow:visible!important;color:#000!important;background:#fff!important;}.receipt{width:76mm!important;max-width:calc(100% - 2mm)!important;page-break-after:auto;}.receipt-section,.receipt-item,.receipt-qr{break-inside:avoid;}}'+
       '</style></head><body>'+
         '<main class="receipt">'+
           '<header class="receipt-header">'+
             '<img class="receipt-logo" src="'+logoUrl+'" alt="LEOGO logo">'+
             '<div class="receipt-header-copy">'+
               '<h1>LEOGO DIGITAL MARKET</h1>'+
-              '<div class="receipt-title-line"><h2>ORDER SUMMARY / DELIVERY RECEIPT</h2><span class="receipt-print-time">'+escapeHtml(printedAt)+'</span></div>'+
+              '<div class="receipt-date-sign"><span>'+escapeHtml(printedAt)+'</span><span>Sign:</span><span class="sign-line"></span></div>'+
+              '<div class="receipt-title-line"><h2>ORDER SUMMARY / DELIVERY RECEIPT</h2></div>'+
               '<p>Any market to your Door Step</p>'+
             '</div>'+
           '</header>'+
@@ -3499,7 +3500,7 @@
             '</footer>'+
           '</div>'+
         '</main>'+
-        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var itemLineCount='+JSON.stringify(itemLineCount)+';var naturalPx=receipt?receipt.getBoundingClientRect().height:0;var naturalMm=naturalPx/pxPerMm;var targetShortReceiptMm=116;if(receipt&&itemLineCount<=1&&naturalMm>targetShortReceiptMm){receipt.style.zoom=String(targetShortReceiptMm/naturalMm);}requestAnimationFrame(function(){var renderedPx=receipt?receipt.getBoundingClientRect().height:0;var renderedMm=renderedPx/pxPerMm;var heightMm=Math.max(38,Math.ceil(renderedMm+2));if(itemLineCount<=1){heightMm=Math.min(120,heightMm);}var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0!important}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";document.documentElement.style.overflow="hidden";document.body.style.overflow="hidden";setTimeout(function(){window.print();},180);})})})});<\/script>'+
+        '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(function(){var receipt=document.querySelector(".receipt");var pxPerMm=96/25.4;var itemLineCount='+JSON.stringify(itemLineCount)+';var naturalPx=receipt?receipt.getBoundingClientRect().height:0;var naturalMm=naturalPx/pxPerMm;requestAnimationFrame(function(){var renderedPx=receipt?receipt.getBoundingClientRect().height:0;var renderedMm=renderedPx/pxPerMm;var heightMm=Math.max(38,Math.ceil(renderedMm+2));var pageStyle=document.createElement("style");pageStyle.textContent="@page{size:80mm "+heightMm+"mm;margin:0!important}";document.head.appendChild(pageStyle);document.documentElement.style.height=heightMm+"mm";document.body.style.height=heightMm+"mm";document.documentElement.style.overflow="hidden";document.body.style.overflow="hidden";setTimeout(function(){window.print();},180);})})})});<\/script>'+
       '</body></html>';
   };
 
