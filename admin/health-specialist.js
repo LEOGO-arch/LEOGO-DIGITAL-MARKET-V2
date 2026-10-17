@@ -192,12 +192,13 @@
         if($('#adminHealthSpecialistBookingStatus')?.classList.contains('error'))setStatus($('#adminHealthSpecialistBookingStatus'));
       }
     })();
-    try{await pendingLoad;}catch(error){
+    const activeLoad=pendingLoad;
+    try{await activeLoad;}catch(error){
       console.warn('Health Specialist loading failed:',error);
       setStatus($('#adminHealthSpecialistBookingStatus'),error?.message||'Health Specialist data could not load. Refresh to retry.','error');
       const bookingsNode=$('#adminHealthSpecialistBookingList');
       if(bookingsNode && bookingsNode.textContent.includes('Loading'))bookingsNode.textContent='Bookings unavailable. Refresh to retry.';
-    }finally{pendingLoad=null;}
+    }finally{if(pendingLoad===activeLoad)pendingLoad=null;}
   };
   db.auth.onAuthStateChange((event)=>{
     if(event==='SIGNED_OUT'){generation++;pendingLoad=null;services=[];bookings=[];settings=null;renderServices();renderBookings();}
