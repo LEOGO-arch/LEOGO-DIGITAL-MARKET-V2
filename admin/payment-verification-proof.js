@@ -21,6 +21,7 @@
     admin_review_health_medicine_order_payment: a => a.p_decision === 'verify',
     admin_review_health_specialist_booking_payment: a => a.p_decision === 'verify',
     admin_aftersales_verify_return_shipping_payment: a => a.p_approve === true,
+    admin_review_pickup_station_withdrawal: a => a.p_decision === 'paid',
     admin_review_approval: a =>
       a.p_decision === 'approve' && ['premium_payment','wallet_deposit'].includes(a.p_kind)
   };
@@ -63,7 +64,7 @@
         error.textContent = 'Enter a transaction reference OR its date and time from the official payment notification.';
         return;
       }
-      if (dateTime && (Number.isNaN(new Date(dateTime).getTime()) || new Date(dateTime).getTime() > Date.now() + 5*60*1000)) {
+      if (dateTime && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$/.test(dateTime)) {
         error.hidden = false;
         error.textContent = 'Enter a valid transaction date and time that is not in the future.';
         return;
