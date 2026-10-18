@@ -6206,6 +6206,35 @@
     const docHtml=await Promise.all(docs.map(([label,path])=>sellerDocumentCard(label,path)));
     $('#sellerRecordGrid').insertAdjacentHTML('afterend','<section class="review-media seller-admin-docs"><div class="review-media-heading"><span>PRIVATE VERIFICATION DOCUMENTS</span><strong>Business Documents</strong><small>Visible only to authorized LEOGO Admin users.</small></div><div class="review-media-grid">'+docHtml.join('')+'</div></section>');
     $('#sellerRecordModal').hidden=false;
+    // Append an Admin-only read-only earnings summary after the existing details.
+    const oldEarnings=$('#sellerRecordModal .seller-record-earnings');
+    if(oldEarnings)oldEarnings.remove();
+    const earningsPanel=document.createElement('section');
+    earningsPanel.className='seller-record-earnings';
+    earningsPanel.style.cssText='margin-top:14px;padding:13px;border:1px solid #dce4ee;border-radius:12px;background:#f8fafc';
+    earningsPanel.innerHTML='<h3 style="margin:0 0 5px">Seller Earnings</h3><p style="margin:0;color:#65738a;font-size:12px">Loading verified earnings…</p>';
+    $('#sellerRecordGrid').insertAdjacentElement('afterend',earningsPanel);
+    try{
+      const {data,error}=await db.rpc('admin_get_seller_earnings',{p_seller_id:userId});
+      if(error)throw error;
+      if(!earningsPanel.isConnected)return;
+      const items=[
+        ['Today',data?.today_net_kes],
+        ['Last 30 days',data?.last_30_days_net_kes],
+        ['Cumulative earnings',data?.cumulative_net_kes],
+        ['Settled / paid out',data?.settled_total_kes],
+        ['Pending settlement',data?.pending_settlement_kes]
+      ];
+      earningsPanel.innerHTML='<h3 style="margin:0 0 5px">Seller Earnings</h3>'+
+        '<p style="font-size:11px;color:#66768a;margin:0 0 9px">Delivered, verified-paid orders · KSh · Kenya time</p>'+
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px">'+
+        items.map(([label,value])=>'<div style="background:#fff;border:1px solid #e1e7ef;padding:10px;border-radius:9px">'+
+        '<small style="display:block;color:#65738a">'+escapeHtml(label)+'</small>'+
+        '<strong style="font-size:15px">'+formatMoney(Number(value||0))+'</strong></div>').join('')+
+        '</div>';
+    }catch(earningsError){
+      if(earningsPanel.isConnected)earningsPanel.innerHTML='<h3>Seller Earnings</h3><p role="alert">Earnings could not load: '+escapeHtml(friendlyError(earningsError))+'</p>';
+    }
   };
 
 
