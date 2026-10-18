@@ -7,7 +7,7 @@
   .seller-admin-table tbody{display:grid;gap:8px}
   .seller-admin-row{
     display:grid;
-    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-columns:minmax(0,1fr) 78px;
     grid-template-areas:"business products" "location status" "actions actions";
     align-items:center;
     gap:7px 10px;
@@ -90,4 +90,27 @@
     padding:12px;
     border-radius:10px;
   }
+}
+
+/* Fix legacy mobile table-cell grid sizing: let business names use the full column. */
+@media (max-width:650px){
+  .seller-admin-table tbody tr.seller-admin-row{grid-template-columns:minmax(0,1fr) 78px!important}
+  .seller-admin-table tbody tr.seller-admin-row>td:first-child{
+    display:block!important;
+    grid-column:1!important;
+    grid-row:1!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+  }
+  .seller-admin-table tbody tr.seller-admin-row>td:first-child>strong{
+    display:block!important;
+    width:100%!important;
+    max-width:none!important;
+    overflow-wrap:normal!important;
+    word-break:normal!important;
+    white-space:normal!important;
+    line-height:1.35;
+  }
+  .seller-admin-table tbody tr.seller-admin-row>td:nth-child(6){grid-column:2!important;grid-row:1!important}
 }
