@@ -6235,6 +6235,45 @@
     }catch(earningsError){
       if(earningsPanel.isConnected)earningsPanel.innerHTML='<h3>Seller Earnings</h3><p role="alert">Earnings could not load: '+escapeHtml(friendlyError(earningsError))+'</p>';
     }
+
+    // Read-only settlement destinations from the existing Admin settlement RPC.
+    // This RPC independently checks settlements.read; do not bypass that permission.
+    $('#sellerRecordModal .seller-record-settlement-accounts')?.remove();
+    const settlementPanel=document.createElement('section');
+    settlementPanel.className='seller-record-settlement-accounts';
+    settlementPanel.style.cssText='margin-top:14px;padding:13px;border:1px solid #dce4ee;border-radius:12px;background:#f8fafc';
+    settlementPanel.innerHTML='<h3 style="margin:0 0 5px">Seller Settlement Accounts</h3><p style="font-size:12px;color:#65738a">Loading settlement accounts…</p>';
+    earningsPanel.insertAdjacentElement('afterend',settlementPanel);
+    try{
+      const {data,error}=await db.rpc('admin_list_seller_settlement_accounts');
+      if(error)throw error;
+      if(!settlementPanel.isConnected)return;
+      const accounts=(Array.isArray(data)?data:[]).filter(a=>a.seller_id===userId);
+      const accountRows=accounts.map(a=>{
+        const destination=a.account_type==='mpesa_mobile' ? (a.phone_number||'—')
+          : a.account_type==='mpesa_till' ? ('Till '+(a.till_number||'—'))
+          : a.account_type==='mpesa_paybill' ? ('Paybill '+(a.paybill_number||'—')+' · A/C '+(a.account_number||'—'))
+          : ((a.bank_name||'Bank')+' · '+(a.account_number||'—')+(a.bank_branch?' · '+a.bank_branch:''));
+        const fields=[
+          ['Account name',a.account_name||'—'],
+          ['Account type',String(a.account_type||'—').replaceAll('_',' ')],
+          ['Payment destination',destination],
+          ['Approval status',String(a.status||'—').replaceAll('_',' ')],
+          ['Primary',a.is_primary?'Yes':'No']
+        ];
+        return '<div style="border:1px solid #e1e7ef;background:#fff;border-radius:9px;padding:10px;min-width:0">'+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px">'+
+          fields.map(([label,value])=>'<div style="min-width:0;overflow-wrap:anywhere"><small style="display:block;color:#65738a">'+escapeHtml(label)+'</small><strong>'+escapeHtml(value)+'</strong></div>').join('')+
+          '</div></div>';
+      });
+      settlementPanel.innerHTML='<h3 style="margin:0 0 5px">Seller Settlement Accounts</h3>'+
+        '<p style="font-size:11px;color:#66768a;margin:0 0 9px">Read-only · Managed through Payments & Settlements</p>'+
+        (accountRows.length?'<div style="display:grid;gap:8px">'+accountRows.join('')+'</div>':'<p>No settlement account submitted yet.</p>');
+    }catch(settlementError){
+      if(settlementPanel.isConnected){
+        settlementPanel.innerHTML='<h3>Seller Settlement Accounts</h3><p role="alert">Settlement accounts unavailable: '+escapeHtml(friendlyError(settlementError))+'</p>';
+      }
+    }
   };
 
 
