@@ -1803,7 +1803,25 @@
         const content = document.createElement('span');
         heading.textContent = label + ':';
         content.textContent = value || 'Not configured by Admin';
+        row.className = 'checkout-payment-detail-row';
         row.append(heading, content);
+        if (value && ['Business Number', 'Account Number', 'Till Number'].includes(label)) {
+          const copyButton = document.createElement('button');
+          copyButton.type = 'button';
+          copyButton.className = 'checkout-payment-field-copy';
+          copyButton.textContent = 'Copy';
+          copyButton.setAttribute('aria-label', 'Copy ' + label);
+          copyButton.addEventListener('click', async () => {
+            try {
+              await navigator.clipboard.writeText(String(value));
+              copyButton.textContent = 'Copied!';
+              window.setTimeout(() => { if (copyButton.isConnected) copyButton.textContent = 'Copy'; }, 1400);
+            } catch {
+              if (paymentStepStatus) paymentStepStatus.textContent = label + ': ' + value + '. Select and copy this number manually.';
+            }
+          });
+          row.appendChild(copyButton);
+        }
         checkoutPaymentDestinationDetails.appendChild(row);
       });
       checkoutPaymentDestinationDetails.hidden = fields.length === 0;
