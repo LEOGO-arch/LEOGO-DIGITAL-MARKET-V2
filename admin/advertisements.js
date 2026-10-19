@@ -112,6 +112,7 @@
     return 'live';
   };
 
+  const isVideoAdvert = (path='') => /\.(mp4|webm)(?:[?#]|$)/i.test(String(path));
   const renderPosterPreview = (path='', file=null) => {
     const box = $('#advertisementPosterPreview');
     if (!box) return;
@@ -124,9 +125,10 @@
       posterObjectUrl = URL.createObjectURL(file);
       url = posterObjectUrl;
     }
+    const video = file ? ['video/mp4','video/webm'].includes(file.type) : isVideoAdvert(path);
     box.innerHTML = url
-      ? '<img src="'+escapeHtml(url)+'" alt="Advertisement poster preview">'
-      : '<span>📣</span><small>No poster selected</small>';
+      ? (video ? '<video src="'+escapeHtml(url)+'" controls playsinline preload="metadata" style="max-width:100%;max-height:250px"></video>' : '<img src="'+escapeHtml(url)+'" alt="Advertisement poster preview" loading="lazy" decoding="async">')
+      : '<span>📣</span><small>No advert media selected</small>';
   };
 
   const resetForm = () => {
@@ -173,7 +175,7 @@
     body.innerHTML = rows.map((item) => {
       const runtime = runtimeState(item);
       const poster = item.poster_path
-        ? '<img class="advert-admin-thumb" src="'+escapeHtml(publicUrl(item.poster_path))+'" alt="">'
+        ? (isVideoAdvert(item.poster_path) ? '<span>🎬 Short video</span>' : '<img class="advert-admin-thumb" src="'+escapeHtml(publicUrl(item.poster_path))+'" alt="" loading="lazy" decoding="async">')
         : '—';
       const text = (item.body_html || '').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,100) || 'Poster-only advertisement';
       const statusAction = item.status === 'published'
@@ -250,19 +252,20 @@
       let uploadedPath = '';
 
       if (file) {
-        if (!['image/jpeg','image/png','image/webp'].includes(file.type)) {
-          setStatus('Poster must be JPG, PNG or WebP.','error');
+        if (!['image/jpeg','image/png','image/webp','video/mp4','video/webm'].includes(file.type)) {
+          setStatus('Media must be JPG, PNG, WebP, MP4 or WebM.','error');
           return;
         }
-        if (file.size > 8*1024*1024) {
-          setStatus('Poster must be 8 MB or smaller.','error');
+        const maxSize = file.type.startsWith('video/') ? 20*1024*1024 : 8*1024*1024;
+        if (file.size > maxSize) {
+          setStatus(file.type.startsWith('video/') ? 'Short video must be 20 MB or smaller.' : 'Poster must be 8 MB or smaller.','error');
           return;
         }
         const ext = (String(file.name || 'poster.jpg').split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
         const random = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
         uploadedPath = String((await db.auth.getUser()).data?.user?.id || 'admin')+'/'+Date.now()+'-'+random+'.'+ext;
         const upload = await db.storage.from('advertisement-media').upload(uploadedPath,file,{
-          cacheControl:'3600',upsert:false,contentType:file.type
+          cacheControl:'31536000',upsert:false,contentType:file.type
         });
         if (upload.error) {
           setStatus(friendlyError(upload.error),'error');
@@ -279,7 +282,7 @@
       }
       if ($('#advertisementPopupOnEntry')?.checked && !posterPath) {
         if (uploadedPath) await db.storage.from('advertisement-media').remove([uploadedPath]).catch(() => {});
-        setStatus('Upload a poster image before turning on the website pop-up push.','error');
+        setStatus('Upload an image or short video before turning on website pop-up push.','error');
         return;
       }
 
