@@ -20,6 +20,7 @@
   let products=[];
   let sharedProviderId='';
   let sharedProviderName='';
+  let healthLoadGeneration=0;
 
   const esc=(value='')=>String(value??'').replace(/[&<>'"]/g,(ch)=>({
     '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'
@@ -174,11 +175,14 @@
   };
 
   const load=async()=>{
+    const generation=++healthLoadGeneration;
     const status=$('#healthMarketStatus');
     if(status)status.textContent='Loading approved Health & Medicine partners…';
     try{
       const {data,error}=await client.rpc('public_list_health_medicine');
+      if(generation!==healthLoadGeneration)return;
       if(error)throw error;
+      if(!Array.isArray(data?.providers)||!Array.isArray(data?.products))throw new Error('Invalid Health marketplace response');
       providers=Array.isArray(data?.providers)?data.providers:[];
       products=Array.isArray(data?.products)?data.products:[];
       const target=window.leogoPartnerShare?.getTarget?.('health_medicine');
@@ -196,6 +200,11 @@
       render();
       if(sharedProviderId)window.setTimeout(()=>section.scrollIntoView({behavior:'smooth',block:'start'}),80);
     }catch(error){
+      if(generation!==healthLoadGeneration)return;
+      // Clear previously shared product data: checkout must never use stale eligibility.
+      providers=[];
+      products=[];
+      publishMarketplaceProducts();
       console.warn('Health & Medicine marketplace could not load:',error);
       if(status)status.textContent='Health & Medicine listings are temporarily unavailable.';
       $('#healthPartnerGrid').innerHTML='<div class="health-market-empty">Approved Health partners could not be loaded right now.</div>';
