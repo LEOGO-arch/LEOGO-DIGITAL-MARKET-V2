@@ -3006,3 +3006,10 @@ body.advertisement-lightbox-open{overflow:hidden}
 #customerMessagePreferencesForm button:disabled{opacity:.5}
 #customerMessagePreferencesStatus{font-size:11px;color:#4b6381}
 .customer-message-preferences[hidden]{display:none!important}
+
+/* Keep customer-facing Paybill fields readable and individually copyable. */
+.checkout-payment-detail-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:5px 0;overflow-wrap:anywhere}
+.checkout-payment-detail-row strong{min-width:112px}
+.checkout-payment-detail-row span{font-weight:700;user-select:all;font-variant-numeric:tabular-nums}
+.checkout-payment-field-copy{margin-left:auto;min-height:34px;padding:6px 12px;border:1px solid currentColor;border-radius:8px;background:transparent;color:inherit;cursor:pointer}
+.checkout-payment-field-copy:focus-visible{outline:3px solid #2563eb;outline-offset:2px}
