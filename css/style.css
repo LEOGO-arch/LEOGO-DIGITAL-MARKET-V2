@@ -1711,6 +1711,10 @@ body.advertisement-lightbox-open{overflow:hidden}
   background:#fff;
   box-shadow:0 24px 80px rgba(0,0,0,.45)
 }
+.advertisement-lightbox-image[hidden]{display:none!important}
+.advertisement-lightbox-video{max-height:80vh;width:min(92vw,850px);background:#080808}
+.advertisement-poster video{display:block;max-width:100%;width:100%;max-height:340px;object-fit:contain;background:#0c1426;cursor:pointer}
+
 .advertisement-lightbox-close{
   position:fixed;
   top:calc(12px + env(safe-area-inset-top));

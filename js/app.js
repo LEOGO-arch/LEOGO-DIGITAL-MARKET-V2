@@ -572,6 +572,8 @@
   const advertisementPeriod = document.getElementById('advertisementPeriod');
   let advertisementLightbox = null;
   let advertisementLightboxImage = null;
+  let advertisementLightboxVideo = null;
+  const isVideoAdvertisement = (path='') => /\.(mp4|webm)(?:[?#]|$)/i.test(String(path));
   let advertisementLightboxClose = null;
   let advertisementLightboxCountdown = null;
   let advertisementAutoCloseTimer = null;
@@ -592,11 +594,13 @@
       '<div class="advertisement-lightbox-dialog">'+
         '<button type="button" class="advertisement-lightbox-close" data-close-advert-lightbox aria-label="Close">×</button>'+
         '<img class="advertisement-lightbox-image" alt="Full advertisement poster">'+
+        '<video class="advertisement-lightbox-video advertisement-lightbox-image" controls playsinline preload="none" hidden></video>'+
       '</div>';
 
     document.body.appendChild(overlay);
     advertisementLightbox = overlay;
-    advertisementLightboxImage = overlay.querySelector('.advertisement-lightbox-image');
+    advertisementLightboxImage = overlay.querySelector('img.advertisement-lightbox-image');
+    advertisementLightboxVideo = overlay.querySelector('video.advertisement-lightbox-video');
     advertisementLightboxClose = overlay.querySelector('.advertisement-lightbox-close');
     advertisementLightboxCountdown = overlay.querySelector('.advertisement-lightbox-countdown');
 
@@ -616,6 +620,12 @@
     advertisementLightbox.hidden = true;
     document.body.classList.remove('advertisement-lightbox-open');
     if (advertisementLightboxImage) advertisementLightboxImage.removeAttribute('src');
+    if (advertisementLightboxVideo) {
+      advertisementLightboxVideo.pause();
+      advertisementLightboxVideo.removeAttribute('src');
+      advertisementLightboxVideo.load();
+      advertisementLightboxVideo.hidden = true;
+    }
     if (advertisementLightboxCountdown) {
       advertisementLightboxCountdown.hidden = true;
       advertisementLightboxCountdown.textContent = '';
@@ -654,8 +664,9 @@
   };
 
   const openAdvertisementLightbox = async ({autoCloseSeconds=0}={}) => {
-    const image = advertisementPoster?.querySelector('img');
-    if (!image?.src) return false;
+    const media = advertisementPoster?.querySelector('img, video');
+    if (!media?.src) return false;
+    const isVideo = media.tagName === 'VIDEO';
     ensureAdvertisementLightbox();
 
     if (advertisementAutoCloseTimer) {
@@ -663,17 +674,28 @@
       advertisementAutoCloseTimer = null;
     }
 
-    const source = image.currentSrc || image.src;
-    advertisementLightboxImage.src = source;
-    advertisementLightboxImage.alt = image.alt || 'Full advertisement poster';
+    const source = media.currentSrc || media.src;
+    advertisementLightboxImage.hidden = isVideo;
+    if (isVideo) {
+      advertisementLightboxVideo.hidden = false;
+      advertisementLightboxVideo.src = source;
+      advertisementLightboxVideo.muted = true; // Muted autoplay is broadly permitted; users may unmute via controls.
+    } else {
+      advertisementLightboxVideo.hidden = true;
+      advertisementLightboxImage.src = source;
+      advertisementLightboxImage.alt = media.alt || 'Full advertisement poster';
+    }
 
     // Do not start the visible countdown while the poster is still loading.
     // The overlay opens only after the full poster image is ready to render.
-    const ready = await waitForAdvertisementImage(advertisementLightboxImage);
+    const ready = isVideo ? true : await waitForAdvertisementImage(advertisementLightboxImage);
     if (!ready) return false;
 
     advertisementLightbox.hidden = false;
     document.body.classList.add('advertisement-lightbox-open');
+    if (isVideo) {
+      advertisementLightboxVideo.play().catch(() => {});
+    }
 
     const seconds = Number(autoCloseSeconds) === 5 ? 5 : 0;
     if (seconds && advertisementLightboxCountdown) {
@@ -714,7 +736,7 @@
     // fully loaded before it becomes visible and before the 5-second timer begins.
     window.setTimeout(async () => {
       const configuredSeconds = Number(advertisement.popup_auto_close_seconds || 0);
-      const autoCloseSeconds = configuredSeconds === 5 || configuredSeconds === 3 ? 5 : 0;
+      const autoCloseSeconds = isVideoAdvertisement(advertisement.poster_path) ? 0 : (configuredSeconds === 5 || configuredSeconds === 3 ? 5 : 0);
       const opened = await openAdvertisementLightbox({autoCloseSeconds});
       if (!opened) pushedAdvertisementsOpenedThisPage.delete(key);
     }, 75);
@@ -787,13 +809,22 @@
       if (advertisement.poster_path) {
         const publicUrl = client.storage.from('advertisement-media').getPublicUrl(String(advertisement.poster_path)).data?.publicUrl || '';
         advertisementPoster.innerHTML = '';
-        const image = document.createElement('img');
-        image.src = publicUrl;
-        image.alt = advertisement.title ? advertisement.title + ' advertisement poster' : 'Advertisement poster';
-        image.loading = advertisement.popup_on_entry ? 'eager' : 'lazy';
-        image.decoding = 'async';
-        if (advertisement.popup_on_entry) image.fetchPriority = 'high';
-        advertisementPoster.appendChild(image);
+        const video = isVideoAdvertisement(advertisement.poster_path);
+        const media = document.createElement(video ? 'video' : 'img');
+        if (video) {
+          media.src = publicUrl;
+          media.preload = 'none';
+          media.playsInline = true;
+          media.muted = true;
+          media.setAttribute('aria-label', advertisement.title || 'Play short advertisement');
+        } else {
+          media.src = publicUrl;
+          media.alt = advertisement.title ? advertisement.title + ' advertisement poster' : 'Advertisement poster';
+          media.loading = advertisement.popup_on_entry ? 'eager' : 'lazy';
+          media.decoding = 'async';
+          if (advertisement.popup_on_entry) media.fetchPriority = 'high';
+        }
+        advertisementPoster.appendChild(media);
         advertisementPoster.classList.add('has-live-poster');
         advertisementPoster.setAttribute('role','button');
         advertisementPoster.setAttribute('tabindex','0');
@@ -829,10 +860,13 @@
     maybeOpenPushedAdvertisement(activeAdvertisement);
   };
 
-  window.addEventListener('load', () => {
+  // Fetch adverts without waiting for every customer image/font asset to finish loading.
+  const startAdvertisementRefresh = () => {
     loadActiveAdvertisement().catch((error) => console.warn('Advertisement refresh failed:', error));
     window.setInterval(() => loadActiveAdvertisement().catch(() => {}), 60000);
-  });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startAdvertisementRefresh, { once:true });
+  else startAdvertisementRefresh();
 
   const closeAdvertRequest = () => {
     if (!advertRequestModal) return;

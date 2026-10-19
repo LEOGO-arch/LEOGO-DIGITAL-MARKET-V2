@@ -999,7 +999,7 @@
                 <label><span>Start advertising</span><input id="advertisementStart" type="datetime-local" required></label>
                 <label><span>Stop advertising</span><input id="advertisementEnd" type="datetime-local" required></label>
                 <label><span>Publishing status</span><select id="advertisementStatus"><option value="draft">Draft</option><option value="published">Published / Scheduled</option><option value="paused">Paused</option></select></label>
-                <label><span>Poster image</span><input id="advertisementPosterFile" type="file" accept="image/jpeg,image/png,image/webp"></label>
+                <label><span>Poster image or short video (MP4/WebM, max 20 MB)</span><input id="advertisementPosterFile" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"></label>
               </div>
               <div class="advert-poster-preview" id="advertisementPosterPreview"><span>📣</span><small>No poster selected</small></div>
               <label class="advert-remove-poster"><input id="advertisementRemovePoster" type="checkbox"> <span>Remove existing poster when saving</span></label>
@@ -1811,7 +1811,7 @@
   <script src="email-notifications.js?v=messaging-safety-20261017" defer></script>
   <script src="wallet-payouts.js?v=cash-isolation-1" defer></script>
   <script src="customer-messaging.js?v=messaging-safety-20261017" defer></script>
-  <script src="advertisements.js?v=advert-popup-5s-load-1" defer></script>
+  <script src="advertisements.js?v=short-video-media-20261019" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
   <script src="health.js?v=health-runtime-guards-20261017" defer></script>
   <script src="health-specialist.js?v=health-runtime-guards-20261017" defer></script>
