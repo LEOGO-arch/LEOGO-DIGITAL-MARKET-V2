@@ -473,6 +473,8 @@
 
   const loadWallet = async (user) => {
     if (!user?.id) {
+      ++loadVersion;
+      ++statementQuoteVersion;
       currentUser = null;
       clearWallet();
       return;
@@ -480,7 +482,9 @@
     currentUser = user;
     const version = ++loadVersion;
     setBadge('LOADING SECURE DATA', 'loading');
-    const [accountsResult, challengesResult, depositsResult, ledgerResult, loansResult, withdrawalsResult, settingsResult, securityResult, summaryResult] = await Promise.all([
+    let accountResults;
+    try {
+      accountResults = await Promise.all([
       client.from('wallet_accounts').select('user_id,account_status,opened_at').eq('user_id', user.id).maybeSingle(),
       client.from('wallet_challenges').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
       client.from('wallet_deposit_requests').select('*').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(200),
@@ -490,7 +494,16 @@
       client.from('wallet_settings').select('maintenance_fee_kes,reward_minimum_spend_kes,reward_rate,statement_fee_per_200_kes').eq('id', 1).single(),
       client.rpc('get_wallet_security_status'),
       client.rpc('get_my_wallet_summary')
-    ]);
+      ]);
+    } catch (error) {
+      if (version === loadVersion && currentUser?.id === user.id) {
+        clearWallet();
+        setBadge('CONNECTION ERROR');
+        setMessage(elements.savingStatus, friendlyError(error), 'error');
+      }
+      return;
+    }
+    const [accountsResult, challengesResult, depositsResult, ledgerResult, loansResult, withdrawalsResult, settingsResult, securityResult, summaryResult] = accountResults;
     if (version !== loadVersion || currentUser?.id !== user.id) return;
     const error = [accountsResult, challengesResult, depositsResult, ledgerResult, loansResult, withdrawalsResult, settingsResult, securityResult, summaryResult].find((result) => result.error)?.error;
     if (error) {
@@ -506,10 +519,16 @@
     withdrawalRequests = withdrawalsResult.data || [];
     walletSettings = settingsResult.data || walletSettings;
     if (window.leogoPayments) {
-      const [depositDestinationResult, challengeDestinationResult] = await Promise.all([
+      let paymentDestinations;
+      try {
+        paymentDestinations = await Promise.all([
         window.leogoPayments.getDestination('wallet_sacco_deposits', { force: true }),
         window.leogoPayments.getDestination('savings_challenge', { force: true })
-      ]);
+        ]);
+      } catch (error) {
+        paymentDestinations = [{ error }, { error }];
+      }
+      const [depositDestinationResult, challengeDestinationResult] = paymentDestinations;
       if (version !== loadVersion || currentUser?.id !== user.id) return;
       walletDepositDestination = depositDestinationResult.error ? null : depositDestinationResult.data;
       savingsChallengeDestination = challengeDestinationResult.error ? null : challengeDestinationResult.data;
@@ -1141,6 +1160,17 @@
   window.addEventListener('leogo:walletrefresh', () => {
     if(currentUser)loadWallet(currentUser);
   });
-  client.auth.getSession().then(({ data }) => loadWallet(data.session?.user || null));
+  client.auth.getSession()
+    .then(({ data, error }) => {
+      if (error) throw error;
+      return loadWallet(data?.session?.user || null);
+    })
+    .catch((error) => {
+      ++loadVersion;
+      currentUser = null;
+      clearWallet();
+      setBadge('CONNECTION ERROR');
+      setMessage(elements.savingStatus, friendlyError(error), 'error');
+    });
   clearWallet();
 })();
