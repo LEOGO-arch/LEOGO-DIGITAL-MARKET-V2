@@ -409,22 +409,29 @@
     </article>`).join('');
   };
 
+  let bookingLoadVersion = 0;
   const loadBookings = async (user) => {
+    const version = ++bookingLoadVersion;
     currentUser = user || null;
     if (!currentUser) {
       renderBookings([]);
       return;
     }
-    const { data, error } = await client
-      .from('accommodation_bookings')
-      .select('id,booking_reference,property_name_snapshot,unit_name_snapshot,check_in,check_out,nights,guests,hotel_booking_amount_kes,customer_service_fee_percent,customer_service_fee_kes,customer_total_kes,total_amount_kes,booking_status,host_response,created_at')
-      .eq('customer_id', currentUser.id)
-      .order('created_at', { ascending: false });
-    if (error) {
-      if (elements.bookingList) elements.bookingList.innerHTML = '<div class="accommodation-booking-notice is-error">Your accommodation bookings could not be loaded.</div>';
-      return;
+    const userId = currentUser.id;
+    try {
+      const { data, error } = await client
+        .from('accommodation_bookings')
+        .select('id,booking_reference,property_name_snapshot,unit_name_snapshot,check_in,check_out,nights,guests,hotel_booking_amount_kes,customer_service_fee_percent,customer_service_fee_kes,customer_total_kes,total_amount_kes,booking_status,host_response,created_at')
+        .eq('customer_id', userId)
+        .order('created_at', { ascending: false });
+      if (version !== bookingLoadVersion || currentUser?.id !== userId) return;
+      if (error) throw error;
+      renderBookings(data || []);
+    } catch (error) {
+      if (version !== bookingLoadVersion || currentUser?.id !== userId) return;
+      renderBookings([]);
+      if (elements.bookingList) elements.bookingList.innerHTML = '<div class="accommodation-booking-notice is-error">Your accommodation bookings could not be loaded. Please try again.</div>';
     }
-    renderBookings(data || []);
   };
 
   document.getElementById('shareAccommodationProperty')?.addEventListener('click',(event)=>{
@@ -526,7 +533,9 @@
   [elements.checkOut, elements.bookingCheckOut].forEach((input) => { if (input) input.min = addDays(today, 1); });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeModal(); });
   document.addEventListener('leogo:authchange', (event) => loadBookings(event.detail?.user || null));
-  client.auth.getSession().then(({ data }) => loadBookings(data.session?.user || null));
+  client.auth.getSession()
+    .then(({ data, error }) => { if (error) throw error; return loadBookings(data?.session?.user || null); })
+    .catch(() => { if (!currentUser) loadBookings(null); });
   loadAccommodationFinanceSettings().finally(() => {
     updatePrice();
   });
