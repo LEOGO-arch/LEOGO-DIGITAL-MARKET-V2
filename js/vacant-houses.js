@@ -330,19 +330,39 @@
     });
   };
 
+  let mineLoadVersion=0;
   const loadMine=async()=>{
-    await getUser();
-    $('vhMine').hidden=!state.user;
-    if(!state.user){state.mySubmissions=[];state.myRequests=[];return;}
-    const [subs,reqs]=await Promise.all([
-      client.rpc('customer_get_my_vacant_house_submissions'),
-      client.rpc('customer_get_my_vacant_house_viewing_requests')
-    ]);
-    if(subs.error)throw subs.error;
-    if(reqs.error)throw reqs.error;
-    state.mySubmissions=Array.isArray(subs.data)?subs.data:[];
-    state.myRequests=Array.isArray(reqs.data)?reqs.data:[];
-    renderMine();
+    const version=++mineLoadVersion;
+    try{
+      const {data:sessionData,error:sessionError}=await client.auth.getUser();
+      if(version!==mineLoadVersion)return;
+      if(sessionError)throw sessionError;
+      const user=sessionData?.user||null;
+      state.user=user;
+      $('vhMine').hidden=!user;
+      if(!user){
+        state.mySubmissions=[];
+        state.myRequests=[];
+        renderMine();
+        return;
+      }
+      const [subs,reqs]=await Promise.all([
+        client.rpc('customer_get_my_vacant_house_submissions'),
+        client.rpc('customer_get_my_vacant_house_viewing_requests')
+      ]);
+      if(version!==mineLoadVersion||state.user?.id!==user.id)return;
+      if(subs.error)throw subs.error;
+      if(reqs.error)throw reqs.error;
+      state.mySubmissions=Array.isArray(subs.data)?subs.data:[];
+      state.myRequests=Array.isArray(reqs.data)?reqs.data:[];
+      renderMine();
+    }catch(error){
+      if(version!==mineLoadVersion)return;
+      state.mySubmissions=[];
+      state.myRequests=[];
+      renderMine();
+      console.warn('Property account records could not load:',error);
+    }
   };
 
   const renderMine=()=>{
@@ -501,7 +521,15 @@
     await loadMine().catch(()=>{});
   };
 
-  client.auth.onAuthStateChange(()=>setTimeout(()=>loadMine().catch(()=>{}),0));
+  client.auth.onAuthStateChange(()=>{
+    ++mineLoadVersion;
+    state.user=null;
+    state.mySubmissions=[];
+    state.myRequests=[];
+    $('vhMine').hidden=true;
+    renderMine();
+    setTimeout(()=>loadMine(),0);
+  });
   window.addEventListener('hashchange',()=>{if(location.hash==='#vacant-houses')loadPublic().catch(()=>{});});
   initialize();
 })();
