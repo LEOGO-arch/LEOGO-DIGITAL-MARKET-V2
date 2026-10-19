@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION public.seller_request_settlement(p_account_id uuid, p
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare
   v_uid uuid:=(select auth.uid());
   v_id uuid;
@@ -48,7 +48,7 @@ CREATE OR REPLACE FUNCTION public.service_provider_request_settlement(p_account_
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare
   v_uid uuid:=(select auth.uid());
   v_id uuid;
@@ -92,7 +92,7 @@ CREATE OR REPLACE FUNCTION public.transport_provider_request_settlement(p_accoun
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare
   v_uid uuid:=(select auth.uid());
   v_id uuid; v_total numeric:=0; v_settled numeric:=0; v_pending numeric:=0; v_available numeric:=0;
