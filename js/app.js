@@ -679,7 +679,7 @@
     if (isVideo) {
       advertisementLightboxVideo.hidden = false;
       advertisementLightboxVideo.src = source;
-      advertisementLightboxVideo.muted = Number(autoCloseSeconds) > 0;
+      advertisementLightboxVideo.muted = true; // Muted autoplay is broadly permitted; users may unmute via controls.
     } else {
       advertisementLightboxVideo.hidden = true;
       advertisementLightboxImage.src = source;
