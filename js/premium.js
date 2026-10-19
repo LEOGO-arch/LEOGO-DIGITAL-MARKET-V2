@@ -38,6 +38,8 @@
   let premiumPaymentDestination = null;
   let meetupBilling = null;
   let loadingFor = '';
+  let premiumLoadVersion = 0;
+  let premiumDirectoryVersion = 0;
   let premiumGalleryPhotos = [];
   let premiumGalleryIndex = 0;
   let premiumGalleryName = '';
@@ -565,6 +567,8 @@
   };
 
   const loadVerifiedProfileDirectory = async (customer, activePlan) => {
+    const directoryVersion = ++premiumDirectoryVersion;
+    const viewerId = currentUser?.id;
     if (!currentUser) {
       if (directoryAccessBadge) directoryAccessBadge.textContent = 'Login required';
       showDirectoryMessage('🔒', 'Login required', 'Sign in, accept the Premium 18+ and responsibility consent, then you can view the approved Premium Profile previews.');
@@ -580,6 +584,7 @@
       p_age_confirmed: true,
       p_responsibility_confirmed: true
     });
+    if (directoryVersion !== premiumDirectoryVersion || currentUser?.id !== viewerId) return;
     if (consentResult.error) {
       if (directoryAccessBadge) directoryAccessBadge.textContent = 'Consent could not be confirmed';
       showDirectoryMessage('⚠️', 'Premium consent could not be confirmed', consentResult.error.message || 'Please refresh and try again.');
@@ -590,6 +595,7 @@
     showDirectoryMessage('⌛', 'Loading verified profiles…', 'Please wait while LEOGO loads approved profiles.');
 
     const { data, error } = await client.rpc('premium_customer_profile_directory');
+    if (directoryVersion !== premiumDirectoryVersion || currentUser?.id !== viewerId) return;
     if (error) {
       showDirectoryMessage('⚠️', 'Profiles could not be loaded', error?.message || 'Refresh and try again. Your private customer information remains protected.');
       return;
@@ -608,6 +614,7 @@
       return { ...profile, imageUrl, galleryUrls };
     }));
 
+    if (directoryVersion !== premiumDirectoryVersion || currentUser?.id !== viewerId) return;
     const shareTarget=window.leogoPartnerShare?.getTarget?.('premium_profile');
     if(shareTarget){
       const match=profiles.find((profile)=>String(profile.profile_user_id||'')===String(shareTarget.id));
@@ -793,21 +800,36 @@
   const loadPremiumAccount = async (user, force = false) => {
     if (!client || !user) return;
     if (!force && loadingFor === user.id) return;
+    const loadVersion = ++premiumLoadVersion;
     loadingFor = user.id;
     setMessage(applicationMessage, 'Loading your Premium application…');
-    const destinationResult = window.leogoPayments
-      ? await window.leogoPayments.getDestination('premium_payments', { force })
-      : { data: null, error: new Error('Payment routing unavailable') };
+    let destinationResult;
+    try {
+      destinationResult = window.leogoPayments
+        ? await window.leogoPayments.getDestination('premium_payments', { force })
+        : { data: null, error: new Error('Payment routing unavailable') };
+    } catch (error) { destinationResult = { data: null, error }; }
+    if (loadVersion !== premiumLoadVersion || currentUser?.id !== user.id) return;
     premiumPaymentDestination = destinationResult.error ? null : destinationResult.data;
     renderPremiumPaymentDestination();
-    const [customerResult, privateResult, paymentsResult, membershipResult,meetupBillingResult] = await Promise.all([
+    let results;
+    try {
+      results = await Promise.all([
       client.from('premium_customers').select('*').eq('user_id', user.id).maybeSingle(),
       client.from('premium_customer_private_details').select('*').eq('user_id', user.id).maybeSingle(),
       client.from('premium_membership_payments').select('id, plan_name, amount_kes, duration_hours, payment_status, submitted_at, admin_notes').eq('user_id', user.id).order('submitted_at', { ascending: false }).limit(5),
       client.from('premium_memberships').select('*').eq('user_id', user.id).maybeSingle(),
       client.rpc('premium_customer_get_meetup_billing_status')
-    ]);
-    if (currentUser?.id !== user.id) return;
+      ]);
+    } catch (error) {
+      if (loadVersion === premiumLoadVersion && currentUser?.id === user.id) {
+        loadingFor = '';
+        setMessage(applicationMessage, 'Your Premium account could not be loaded. Please refresh and try again.', 'error');
+      }
+      return;
+    }
+    const [customerResult, privateResult, paymentsResult, membershipResult,meetupBillingResult] = results;
+    if (loadVersion !== premiumLoadVersion || currentUser?.id !== user.id) return;
     const firstError = [customerResult, privateResult, paymentsResult, membershipResult,meetupBillingResult].find((result) => result.error)?.error;
     if (firstError) {
       loadingFor = '';
@@ -989,6 +1011,8 @@
   });
 
   const handleUser = (user) => {
+    ++premiumLoadVersion;
+    ++premiumDirectoryVersion;
     currentUser = user || null;
     loadingFor = '';
     const shareTarget=window.leogoPartnerShare?.getTarget?.('premium_profile');
