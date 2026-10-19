@@ -6381,8 +6381,9 @@
         <td><strong>${formatMoney(request.requested_amount_kes)}</strong><small>${formatDate(request.submitted_at,true)}</small></td>
         <td>${account?'<strong>'+escapeHtml(account.account_name)+'</strong><small>'+escapeHtml(settlementDestination(account))+'</small>':'—'}</td>
         <td>${escapeHtml(request.partner_note||'—')}</td>
-        <td><span class="status-chip">${escapeHtml(request.status.replaceAll('_',' '))}</span>${request.admin_notes?'<small>'+escapeHtml(request.admin_notes)+'</small>':''}</td>
+        <td><span class="status-chip">${escapeHtml(request.status==='paid'?'Paid · Settled':request.status.replaceAll('_',' '))}</span>${request.admin_notes?'<small>'+escapeHtml(request.admin_notes)+'</small>':''}</td>
         <td class="settlement-admin-actions">
+          ${request.status==='paid'?'<small>Settled — no further payment allowed</small>':''}
           ${open?'<button data-request-review="under_review" data-request-kind="'+escapeHtml(request.partner_type)+'" data-request-id="'+escapeHtml(request.id)+'">Under Review</button><button class="danger" data-request-review="reject" data-request-kind="'+escapeHtml(request.partner_type)+'" data-request-id="'+escapeHtml(request.id)+'">Reject</button><button data-request-pay="'+escapeHtml(request.id)+'" data-request-kind="'+escapeHtml(request.partner_type)+'">Pay & Record</button>':''}
         </td>
       </tr>`;
