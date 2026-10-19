@@ -261,6 +261,31 @@
           setStatus(file.type.startsWith('video/') ? 'Short video must be 20 MB or smaller.' : 'Poster must be 8 MB or smaller.','error');
           return;
         }
+        if (file.type.startsWith('video/')) {
+          const validDuration = await new Promise((resolve) => {
+            const media = document.createElement('video');
+            const url = URL.createObjectURL(file);
+            let finished = false;
+            const finish = (ok) => {
+              if (finished) return;
+              finished = true;
+              clearTimeout(timeout);
+              media.removeAttribute('src');
+              media.load();
+              URL.revokeObjectURL(url);
+              resolve(ok);
+            };
+            const timeout = setTimeout(() => finish(false), 8000);
+            media.preload = 'metadata';
+            media.onloadedmetadata = () => finish(Number.isFinite(media.duration) && media.duration > 0 && media.duration <= 60);
+            media.onerror = () => finish(false);
+            media.src = url;
+          });
+          if (!validDuration) {
+            setStatus('Short video must be playable and no longer than 60 seconds.','error');
+            return;
+          }
+        }
         const ext = (String(file.name || 'poster.jpg').split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
         const random = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
         uploadedPath = String((await db.auth.getUser()).data?.user?.id || 'admin')+'/'+Date.now()+'-'+random+'.'+ext;
