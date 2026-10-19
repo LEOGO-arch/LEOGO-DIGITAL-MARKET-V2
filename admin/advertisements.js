@@ -341,7 +341,7 @@
       await load();
       globalStatus(payload.popup_on_entry
         ? (payload.popup_auto_close_seconds===5
-          ? 'Advertisement saved. Website pop-up will count 3 seconds and close automatically.'
+          ? 'Advertisement saved. Website image pop-up will close after 5 seconds; videos stay open for playback.'
           : 'Advertisement saved. Website pop-up push is ON for the live advertising period.')
         : 'Advertisement saved. The Customer Front will follow the publishing period automatically.');
     });
