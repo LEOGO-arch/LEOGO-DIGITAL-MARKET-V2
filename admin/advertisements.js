@@ -208,6 +208,8 @@
     render();
   };
 
+  window.leogoRefreshAdvertisements = load;
+
   const edit = (id) => {
     const item = state.advertisements.find((row) => row.id === id);
     if (!item) return;
