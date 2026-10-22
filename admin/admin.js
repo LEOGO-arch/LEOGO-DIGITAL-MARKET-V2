@@ -4858,16 +4858,16 @@
       if (error) { setFormStatus($('#businessSettingsStatus'), friendlyError(error), 'error'); return; }
       state.business = data;
       setFormStatus($('#businessSettingsStatus'), 'Business details saved. The change is recorded in Audit Log.', 'success');
-      await loadAuditLog();
+      if(isSuperAdmin()) await loadAuditLog().catch(()=>globalStatus('Settings saved. Audit history could not refresh; try Refresh.','error'));
     });
   };
 
   const renderOrderSettingsPreview=(data)=>{
     const node=$('#orderSettingsPreview');if(!node)return;
-    const threshold=Number(data?.service_fee_threshold_kes||3000);
-    const low=Number(data?.service_fee_below_percent||2);
-    const high=Number(data?.service_fee_at_or_above_percent||1.5);
-    const cod=Number(data?.cod_limit_kes||10000);
+    const threshold=Number(data?.service_fee_threshold_kes??3000);
+    const low=Number(data?.service_fee_below_percent??2);
+    const high=Number(data?.service_fee_at_or_above_percent??1.5);
+    const cod=Number(data?.cod_limit_kes??10000);
     node.textContent='Checkout rule: below KSh '+threshold.toLocaleString('en-KE')+' → '+low.toLocaleString('en-KE')+'% service fee; at/above threshold → '+high.toLocaleString('en-KE')+'%. COD is unavailable at KSh '+cod.toLocaleString('en-KE')+' or above.';
   };
   const loadOrderSettings=async()=>{
@@ -4894,7 +4894,7 @@
 
   const renderLipaPolePoleSettingsPreview=(data)=>{
     const node=$('#lipaPolePoleSettingsPreview');if(!node)return;
-    node.textContent='Current rule: cancellation deduction '+Number(data?.cancellation_deduction_percent||25).toLocaleString('en-KE')+'%; overdue refund deduction '+Number(data?.overdue_refund_deduction_percent||25).toLocaleString('en-KE')+'%; overdue extension interest '+Number(data?.overdue_interest_percent||5).toLocaleString('en-KE')+'%; reminder '+Number(data?.reminder_days_before_due||3)+' day(s) before the seller-set deadline.';
+    node.textContent='Current rule: cancellation deduction '+Number(data?.cancellation_deduction_percent??25).toLocaleString('en-KE')+'%; overdue refund deduction '+Number(data?.overdue_refund_deduction_percent??25).toLocaleString('en-KE')+'%; overdue extension interest '+Number(data?.overdue_interest_percent??5).toLocaleString('en-KE')+'%; reminder '+Number(data?.reminder_days_before_due??3)+' day(s) before the seller-set deadline.';
   };
   const loadLipaPolePoleSettings=async()=>{
     const {data,error}=await db.rpc('admin_get_lipa_pole_pole_settings');if(error)throw error;
