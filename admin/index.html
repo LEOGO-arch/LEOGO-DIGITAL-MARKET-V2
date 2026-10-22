@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=safe-data-cleanup-1">
+  <link rel="stylesheet" href="admin.css?v=staff-location-groups-20261022">
   <link rel="stylesheet" href="seller-mobile-list.css?v=seller-name-width-20261018">
   <link rel="stylesheet" href="wallet-payouts.css?v=cash-isolation-1">
   <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-trend-collapse-1">
@@ -1491,6 +1491,9 @@
               <input id="staffSearch" type="search" placeholder="Search name, email, phone or role…">
               <select id="staffRoleFilter"><option value="all">All roles</option><option value="admin_staff">All Admin Staff</option><option value="rider">Riders</option><option value="operations">Operations</option><option value="reviewer">Marketplace & Approval</option><option value="finance">Finance</option><option value="support">Customer Support</option><option value="read_only">Read-only</option></select>
               <select id="staffStatusFilter"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select>
+              <select id="staffDirectoryCountyFilter" aria-label="Filter staff by county"><option value="">All counties</option></select>
+              <select id="staffDirectorySubCountyFilter" aria-label="Filter staff by sub-county"><option value="">All sub-counties</option></select>
+              <select id="staffDirectoryGrouping" aria-label="Group staff by location"><option value="county">Group by county / sub-county</option><option value="flat">Show ungrouped list</option></select>
             </div>
             <div id="staffDirectoryList" class="staff-directory-list"><div class="loading-card">Loading Staff Directory…</div></div>
           </section>
@@ -1802,7 +1805,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-three-documents-20261016" defer></script>
-  <script src="admin.js?v=global-refresh-20261022" defer></script>
+  <script src="admin.js?v=staff-location-groups-20261022" defer></script>
 <script src="payment-verification-proof.js?v=payment-notification-proof-1" defer></script>
   <script src="vacant-houses.js?v=property-sale-rent-v1" defer></script>
   <script src="system-diagnostics.js?v=diagnostics-trend-collapse-1" defer></script>

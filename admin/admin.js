@@ -1867,10 +1867,26 @@
     renderPermissionGrid($('#staffEditorPermissionGrid'),preset?.permissions||[]);
   };
 
+  const refreshStaffGeographyFilters = () => {
+    const countySelect=$('#staffDirectoryCountyFilter'), subSelect=$('#staffDirectorySubCountyFilter');
+    if(!countySelect||!subSelect)return;
+    const normalize=value=>String(value||'').trim().toLowerCase();
+    const all=state.staffDirectory;
+    const currentCounty=countySelect.value, currentSub=subSelect.value;
+    const counties=[...new Set(all.map(person=>String(person.county||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    countySelect.replaceChildren(new Option('All counties',''),...counties.map(name=>new Option(name,name)));
+    countySelect.value=counties.includes(currentCounty)?currentCounty:'';
+    const subcounties=[...new Set(all.filter(person=>!countySelect.value||normalize(person.county)===normalize(countySelect.value)).map(person=>String(person.sub_county||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    subSelect.replaceChildren(new Option('All sub-counties',''),...subcounties.map(name=>new Option(name,name)));
+    subSelect.value=subcounties.includes(currentSub)?currentSub:'';
+  };
+
   const filteredStaffDirectory = () => {
     const term=($('#staffSearch')?.value||'').trim().toLowerCase();
     const role=$('#staffRoleFilter')?.value||'all';
     const status=$('#staffStatusFilter')?.value||'all';
+    const county=$('#staffDirectoryCountyFilter')?.value||'';
+    const subCounty=$('#staffDirectorySubCountyFilter')?.value||'';
     return state.staffDirectory.filter((staff)=>{
       const matchesTerm=!term||[
         staff.display_name,staff.email,staff.phone,staff.role_label,staff.department,
@@ -1880,7 +1896,9 @@
         || (role==='admin_staff'&&staff.account_kind==='admin_staff')
         || staff.role_code===role;
       const matchesStatus=status==='all'||staff.status===status;
-      return matchesTerm&&matchesRole&&matchesStatus;
+      const matchesCounty=!county||String(staff.county||'').trim().toLowerCase()===county.trim().toLowerCase();
+      const matchesSubCounty=!subCounty||String(staff.sub_county||'').trim().toLowerCase()===subCounty.trim().toLowerCase();
+      return matchesTerm&&matchesRole&&matchesStatus&&matchesCounty&&matchesSubCounty;
     });
   };
 
@@ -1889,13 +1907,14 @@
     if(!list) return;
 
     const all=state.staffDirectory;
+    refreshStaffGeographyFilters();
     const rows=filteredStaffDirectory();
     $('#staffTotalCount').textContent=all.length;
     $('#staffAdminCount').textContent=all.filter((s)=>s.account_kind==='admin_staff'&&s.status==='active').length;
     $('#staffRiderCount').textContent=all.filter((s)=>s.account_kind==='rider'&&s.status==='active').length;
     $('#staffInactiveCount').textContent=all.filter((s)=>s.status!=='active').length;
 
-    list.innerHTML=rows.length?rows.map((staff)=>{
+    const renderStaffCards=(items)=>items.map((staff)=>{
       const permissions=Array.isArray(staff.permissions)?staff.permissions:[];
       const isOwner=staff.role_code==='super_admin';
       const riderMeta=staff.account_kind==='rider'
@@ -1917,7 +1936,30 @@
           '</div>'+
         '</div>'+
       '</article>';
-    }).join(''):'<div class="loading-card">No staff match the current filters.</div>';
+    }).join('');
+    const grouping=$('#staffDirectoryGrouping')?.value||'county';
+    if(!rows.length){
+      list.innerHTML='<div class="loading-card">No staff match the current filters.</div>';
+    }else if(grouping==='flat'){
+      list.innerHTML=renderStaffCards(rows);
+    }else{
+      const groups=new Map();
+      for(const person of rows){
+        const county=String(person.county||'').trim()||'County not assigned';
+        const subCounty=String(person.sub_county||'').trim()||'Sub-county not assigned';
+        if(!groups.has(county))groups.set(county,new Map());
+        const subgroups=groups.get(county);
+        if(!subgroups.has(subCounty))subgroups.set(subCounty,[]);
+        subgroups.get(subCounty).push(person);
+      }
+      list.innerHTML=[...groups.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([county,subgroups])=>{
+        const count=[...subgroups.values()].reduce((total,people)=>total+people.length,0);
+        return '<section class="staff-region-group"><h4 class="staff-region-heading">'+escapeHtml(county)+' <small>('+count+' staff)</small></h4>'+
+          [...subgroups.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([subCounty,people])=>
+            '<div class="staff-subcounty-group"><h5>'+escapeHtml(subCounty)+' <small>('+people.length+')</small></h5>'+renderStaffCards(people)+'</div>'
+          ).join('')+'</section>';
+      }).join('');
+    }
 
     Array.from(list.querySelectorAll('[data-manage-staff]')).forEach((button)=>button.addEventListener('click',()=>{
       openStaffEditor(button.dataset.manageStaff,button.dataset.staffKind);
@@ -7796,6 +7838,13 @@
     $('#staffSearch')?.addEventListener('input', renderStaffDirectory);
     $('#staffRoleFilter')?.addEventListener('change', renderStaffDirectory);
     $('#staffStatusFilter')?.addEventListener('change', renderStaffDirectory);
+    $('#staffDirectoryCountyFilter')?.addEventListener('change',()=>{
+      const sub=$('#staffDirectorySubCountyFilter');
+      if(sub)sub.value='';
+      renderStaffDirectory();
+    });
+    $('#staffDirectorySubCountyFilter')?.addEventListener('change',renderStaffDirectory);
+    $('#staffDirectoryGrouping')?.addEventListener('change',renderStaffDirectory);
     $('#staffCounty')?.addEventListener('change',()=>setStaffLocationSelection($('#staffCounty'),$('#staffSubCounty'),$('#staffCounty').value,''));
     $('#staffEditorCounty')?.addEventListener('change',()=>setStaffLocationSelection($('#staffEditorCounty'),$('#staffEditorSubCounty'),$('#staffEditorCounty').value,''));
     $('#staffAccountKind')?.addEventListener('change', () => {
