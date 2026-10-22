@@ -892,17 +892,30 @@
       [loadAccommodationSummary, () => adminHas('approvals.read')],
       [loadAuditLog, () => isSuperAdmin()],
       [loadSystemMonitoringSnapshot, () => isSuperAdmin()],
-      [loadStaffManagement, () => isSuperAdmin()]
+      [loadStaffManagement, () => isSuperAdmin()],
+      [() => window.leogoRefreshAdvertisements?.(), () => adminHas('settings.manage') && typeof window.leogoRefreshAdvertisements === 'function'],
+      [() => window.leogoRefreshLoyaltyRewards?.(), () => (adminHas('settings.manage') || adminHas('fees.manage') || adminHas('reports.export')) && typeof window.leogoRefreshLoyaltyRewards === 'function'],
+      [() => window.leogoVacantHousesAdmin.activate(), () => adminHas('approvals.read') && typeof window.leogoVacantHousesAdmin?.activate === 'function'],
+      [loadPickupStationParcelReport, () => (adminHas('orders.read') || adminHas('delivery.manage')) && $('#pickupParcelReportBody') !== null],
+      [() => state.reportInitialized ? loadReport() : Promise.resolve(), () => adminHas('reports.export') && state.reportInitialized]
     ];
     const loaders = loaderSpecs.filter(([,allowed]) => allowed()).map(([load]) => load);
     // Mobile browsers were previously asked to start every permitted Admin loader
     // at once, which could create 100+ Supabase requests in a single second.
     // Keep the same loaders, but cap top-level concurrency to avoid network storms.
     const results = await settleLoadersWithConcurrency(loaders, 2);
-    const failed = results.find((result) => result.status === 'rejected');
-    if (failed) globalStatus(`Some permitted Admin data could not load: ${friendlyError(failed.reason)}`, 'error');
+    const failures = results.filter(result => result.status === 'rejected');
+    if (failures.length) {
+      const first = failures[0];
+      globalStatus(`${failures.length} of ${results.length} Admin sections could not refresh: ${friendlyError(first.reason)}`, 'error');
+    }
     if (isSuperAdmin()) renderDataManagement();
-    $('#lastSynced').textContent = formatDate(new Date().toISOString(), true);
+    const synced = $('#lastSynced');
+    if (synced) {
+      synced.textContent = failures.length
+        ? `Partial refresh (${results.length - failures.length}/${results.length}) — ${formatDate(new Date().toISOString(), true)}`
+        : formatDate(new Date().toISOString(), true);
+    }
     updateSidebarActionCounts();
     renderAdminNotifications();
   };
