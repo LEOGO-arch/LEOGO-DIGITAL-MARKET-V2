@@ -107,7 +107,7 @@
     }
   };
 
-  const load=async()=>{
+  const load=async({throwOnError=false}={})=>{
     if(loading)return;
     loading=true;
     setStatus('Loading live Loyalty & Rewards data…');
@@ -123,13 +123,13 @@
       setStatus('Live Loyalty, Points and Share & Earn data is up to date.','success');
     }catch(error){
       setStatus(error?.message||'Loyalty & Rewards data could not be loaded.','error');
-      throw error;
+      if(throwOnError)throw error;
     }finally{
       loading=false;
     }
   };
 
-  window.leogoRefreshLoyaltyRewards = load;
+  window.leogoRefreshLoyaltyRewards = () => load({throwOnError:true});
 
   referralForm?.addEventListener('submit',async(event)=>{
     event.preventDefault();
