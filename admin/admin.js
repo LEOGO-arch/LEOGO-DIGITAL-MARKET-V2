@@ -7200,6 +7200,7 @@
     property_viewings:{group:'Property',title:'Property Viewing & Access',description:'Viewing requests, verification of viewing fees and access approvals.',columns:[['date','Submitted','date'],['reference','Request'],['listing_reference','Listing'],['property','Property'],['preferred_viewing_at','Preferred viewing','date'],['fee_kes','Fee','money'],['payment_status','Payment'],['status','Access status']]},
     aftersales:{group:'Commerce',title:'Aftersales & Refund Requests',description:'After-sales disputes, preferred resolution, requested refund amounts and case outcomes.',columns:[['date','Submitted','date'],['reference','Case'],['order_reference','Order'],['issue_type','Issue'],['solution','Requested solution'],['refund_requested_kes','Requested refund','money'],['status','Status'],['resolved_at','Resolved','date']]},
     pickup_parcels:{group:'Delivery',title:'Pickup Station Parcel Register',description:'Parcel progress from booking through arrival, receipt and handover, including station earnings.',columns:[['date','Booked','date'],['reference','Parcel'],['order_reference','Order'],['station_id','Station ID'],['status','Status'],['arrived_at','Arrived','date'],['received_at','Received','date'],['handed_over_at','Handed over','date'],['station_earnings_kes','Earnings','money']]},
+    website_traffic:{group:'Analytics',title:'Website Traffic & Clicks',description:'Daily visitor interactions by type and website section. Anonymous browser counts are estimates.',columns:[['date','Date','date'],['event_kind','Event'],['event_target','Section'],['event_count','Events','number'],['unique_browsers','Unique browsers','number']]},
     advertisements:{group:'Governance',title:'Advertisements',description:'Advertisement schedule, publication state and website pop-up use.',columns:[['date','Created','date'],['title','Title'],['starts_at','Starts','date'],['ends_at','Ends','date'],['published_at','Published','date'],['popup','Website pop-up','boolean'],['status','Status']]}
   };
   const reportRowId = (row) => String(row.id || row.reference || JSON.stringify(row));
@@ -7254,9 +7255,16 @@
     if(!from||!to||to<from){globalStatus('Choose a valid report date range.','error');return;}
     const status=$('#reportLoadStatus');status.textContent='Loading…';status.className='report-load-status loading';
     try{
-      const {data,error}=await db.rpc('admin_generate_report',{p_report_code:state.reportCode,p_from:from,p_to:to,p_status:$('#reportStatus').value||null,p_search:$('#reportSearch').value.trim()||null});
+      const {data,error}=state.reportCode==='website_traffic'
+        ? await db.rpc('admin_site_interaction_report',{p_from:from,p_to:to})
+        : await db.rpc('admin_generate_report',{p_report_code:state.reportCode,p_from:from,p_to:to,p_status:$('#reportStatus').value||null,p_search:$('#reportSearch').value.trim()||null});
       if(error)throw error;
-      state.reportRows=Array.isArray(data?.records)?data.records:[];state.reportSelected.clear();state.reportPage=1;
+      state.reportRows=Array.isArray(data?.records)?data.records:[];
+      if(state.reportCode==='website_traffic'){
+        const statusFilter=$('#reportStatus').value.toLowerCase(),searchFilter=$('#reportSearch').value.trim().toLowerCase();
+        state.reportRows=state.reportRows.filter(row=>(!statusFilter||row.event_kind===statusFilter)&&(!searchFilter||JSON.stringify(row).toLowerCase().includes(searchFilter)));
+      }
+      state.reportSelected.clear();state.reportPage=1;
       updateReportStatusOptions();renderReport();status.textContent=`Updated ${formatDate(data?.generated_at||new Date().toISOString(),true)}`;status.className='report-load-status';
     }catch(error){status.textContent='Could not load';status.className='report-load-status error';globalStatus('Report could not load: '+friendlyError(error),'error');}
   };
