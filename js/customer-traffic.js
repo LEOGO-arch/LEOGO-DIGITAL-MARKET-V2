@@ -7,10 +7,31 @@ let visitor;try{visitor=localStorage.getItem(key);if(!/^[0-9a-f-]{36}$/i.test(vi
 function send(){const db=window.leogoAuth?.client;if(!db){return false;}db.rpc('record_customer_site_visit',{p_visitor_token:visitor}).then(({error})=>{if(error)console.info('LEOGO traffic counter unavailable');}).catch(()=>{});return true;}
 if(!send()){let tries=0;const wait=setInterval(()=>{tries++;if(send()||tries>=20)clearInterval(wait);},500);}
 
-function recordInteraction(kind,target){
+const pendingEvents=[];
+let eventRetry=null;
+function flushEvents(){
  const db=window.leogoAuth?.client;
- if(!db||!visitor)return;
- db.rpc('record_customer_site_interaction',{p_visitor_token:visitor,p_event_kind:kind,p_event_target:target}).then(()=>{}).catch(()=>{});
+ if(!db)return false;
+ while(pendingEvents.length){
+  const [kind,target]=pendingEvents.shift();
+  db.rpc('record_customer_site_interaction',{p_visitor_token:visitor,p_event_kind:kind,p_event_target:target}).then(()=>{}).catch(()=>{});
+ }
+ return true;
+}
+function recordInteraction(kind,target){
+ if(!visitor)return;
+ pendingEvents.push([kind,target]);
+ if(pendingEvents.length>30)pendingEvents.shift();
+ if(flushEvents())return;
+ if(eventRetry)return;
+ let tries=0;
+ eventRetry=window.setInterval(()=>{
+  tries++;
+  if(flushEvents()||tries>=20){
+   window.clearInterval(eventRetry);eventRetry=null;
+   if(tries>=20)pendingEvents.length=0;
+  }
+ },500);
 }
 const allowedTargets=new Set(['home','marketplace','groceries','food','pharmacy','services','transport','accommodation','property','premium','cyber','advertisement','cart','checkout','product','partner','whatsapp','phone','other']);
 function targetFor(element){
