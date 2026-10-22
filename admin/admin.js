@@ -897,7 +897,7 @@
       [() => window.leogoRefreshLoyaltyRewards?.(), () => (adminHas('settings.manage') || adminHas('fees.manage') || adminHas('reports.export')) && typeof window.leogoRefreshLoyaltyRewards === 'function'],
       [() => window.leogoVacantHousesAdmin.activate(), () => adminHas('approvals.read') && typeof window.leogoVacantHousesAdmin?.activate === 'function'],
       [loadPickupStationParcelReport, () => (adminHas('orders.read') || adminHas('delivery.manage')) && $('#pickupParcelReportBody') !== null],
-      [() => state.reportInitialized ? loadReport() : Promise.resolve(), () => adminHas('reports.export') && state.reportInitialized]
+      [() => state.reportInitialized ? loadReport({throwOnError:true}) : Promise.resolve(), () => adminHas('reports.export') && state.reportInitialized]
     ];
     const loaders = loaderSpecs.filter(([,allowed]) => allowed()).map(([load]) => load);
     // Mobile browsers were previously asked to start every permitted Admin loader
@@ -7263,7 +7263,7 @@
     select.innerHTML='<option value="">All statuses</option>'+state.reportStatuses[state.reportCode].map(status=>`<option value="${escapeHtml(status)}">${escapeHtml(status.replaceAll('_',' '))}</option>`).join('');
     select.value=current;
   };
-  const loadReport = async () => {
+  const loadReport = async ({throwOnError=false}={}) => {
     const from=$('#reportFrom').value,to=$('#reportTo').value;
     if(!from||!to||to<from){globalStatus('Choose a valid report date range.','error');return;}
     const status=$('#reportLoadStatus');status.textContent='Loading…';status.className='report-load-status loading';
@@ -7279,7 +7279,7 @@
       }
       state.reportSelected.clear();state.reportPage=1;
       updateReportStatusOptions();renderReport();status.textContent=`Updated ${formatDate(data?.generated_at||new Date().toISOString(),true)}`;status.className='report-load-status';
-    }catch(error){status.textContent='Could not load';status.className='report-load-status error';globalStatus('Report could not load: '+friendlyError(error),'error');}
+    }catch(error){status.textContent='Could not load';status.className='report-load-status error';globalStatus('Report could not load: '+friendlyError(error),'error');if(throwOnError)throw error;}
   };
   const selectReport = async (code) => {
     if(!reportDefinitions[code])return;
