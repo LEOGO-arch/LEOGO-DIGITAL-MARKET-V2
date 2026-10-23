@@ -38,7 +38,7 @@ Fourteen focused Node test files passed. The old customer initialization regress
 
 ## Remaining gates — do not describe these as passed
 
-- Restricted staging browser access currently stops at OpenAI sign-in. Secure user authentication is needed; access restrictions were not weakened or bypassed.
+- Restricted staging browser access succeeded through secure ChatGPT sign-in. All five portal entrypoints loaded and reported activity. Separate LEOGO application test credentials remain required for authenticated UI journeys.
 - Database role simulation is not an authenticated browser login, real JWT/RLS transport test, or full end-to-end user journey.
 - Staging has no active Rider or Pickup Station partner identities. Provision authorized synthetic test accounts before full fulfilment testing.
 - Complete authenticated browser journeys for Customer, Seller, Admin, Staff/Rider and Pickup; exercise Group Orders, Assisted Shopping, Aftersales, Health, Property, Chat and Partner Terms separately. Existing integrity checks do not establish these workflows are complete.
@@ -52,3 +52,11 @@ Fourteen focused Node test files passed. The old customer initialization regress
 3. Add Rider/Pickup test identities and exercise ordinary delivery, sorting, station receipt and handover using artificial parcels.
 4. Test the remaining eight module journeys one at a time; fix only reproducible defects and retain exact evidence.
 5. Recheck production runtime history after verified flows; resolve individual historical issues only with recovery evidence.
+
+## Subsequent browser checks
+
+Secure restricted-site access succeeded. Customer, Admin, Partner, Staff and Pickup startup screens were observed and all five heartbeats reached staging. The missing `record_customer_site_visit` endpoint was restored using the existing traffic migration, on staging only. Missing `artificial/no-photo.jpg` images are synthetic fixture media gaps, not evidence of a production image failure.
+
+The guest Property loader called remote `getUser()` without a local session, producing avoidable AuthSessionMissing warnings. A local-session guard now skips guest reads while preserving remote validation for signed-in customers and stale-response protection. Focused tests cover guests, signed-in reads, failure and overlapping refreshes. No order/payment/delivery action changed.
+
+The SDK also reports several customer clients sharing a storage key. No resulting session loss was reproduced; consolidation remains a separate focused follow-up rather than a broad authentication rewrite.
