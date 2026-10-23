@@ -12,6 +12,9 @@ const parent=anchor.closest('.stat-card')||anchor.parentElement;
 parent?.after(box);
 const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
 async function refresh(){
+ const sessionResult=await client.auth.getSession();
+ if(sessionResult.error||!sessionResult.data?.session?.user?.id)return;
+
  const {data,error}=await client.rpc('partner_aftersales_liability_statement',{p_party:'pickup_station'});
  if(error){box.querySelector('#afsStationLiabilityRows').textContent='Unable to load liability account: '+error.message;return;}
  box.querySelector('#afsStationApproved').textContent=money(data?.approved_total_kes);
@@ -20,7 +23,8 @@ async function refresh(){
  for(const item of data?.records||[]){const row=document.createElement('p');row.style.cssText='border-bottom:1px solid #e0e5ee;padding:8px 0;font-size:12px';row.textContent=item.aftersales_number+' · '+item.reason.replaceAll('_',' ')+' · '+money(item.amount_kes)+' · '+item.status;entries.append(row);}
  if(!entries.childElementCount)entries.textContent='No Aftersales liability assessments.';
 }
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
-root.querySelector('button[data-view="earnings"]')?.addEventListener('click',refresh);
-refresh();
+const safeRefresh=()=>refresh().catch(()=>{box.querySelector('#afsStationLiabilityRows').textContent='Unable to load liability account. Please retry.';});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)safeRefresh();});
+root.querySelector('button[data-view="earnings"]')?.addEventListener('click',safeRefresh);
+safeRefresh();
 })();

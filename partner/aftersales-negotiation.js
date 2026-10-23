@@ -37,6 +37,9 @@ function attachOrderLinks(){
 window.addEventListener('leogo:seller-orders-rendered',attachOrderLinks);
 const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 async function load(){
+ const sessionResult=await db.auth.getSession();
+ if(sessionResult.error||!sessionResult.data?.session?.user?.id)return;
+
 const {data,error}=await db.rpc('aftersales_list_negotiations');
 const {data:inspectionData,error:inspectionError}=await db.rpc('aftersales_seller_list_inspections');
 const inspections=Array.isArray(inspectionData)?inspectionData:[];
@@ -162,8 +165,10 @@ attachOrderLinks();showSelectedCase();
 if(!data?.length)el.textContent='No Aftersales cases assigned.';
 }
 function showSelectedCase(){for(const card of el.querySelectorAll('[data-aftersales-case]'))card.hidden=card.dataset.aftersalesCase!==selectedCaseId;for(const button of caseList.querySelectorAll('[data-select-aftersales]'))button.setAttribute('aria-current',String(button.dataset.selectAftersales===selectedCaseId));}
-section.querySelector('#sellerAftersalesRefresh').onclick=load;
-window.addEventListener('focus',()=>{if(!document.hidden)load();});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});
-load();
+const safeLoad=()=>load().catch(error=>{el.textContent='Unable to load Aftersales cases. Please retry.';console.warn('Aftersales list unavailable:',error);});
+section.querySelector('#sellerAftersalesRefresh').onclick=safeLoad;
+document.addEventListener('leogo:authchange',safeLoad);
+window.addEventListener('focus',()=>{if(!document.hidden)safeLoad();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)safeLoad();});
+safeLoad();
 })();

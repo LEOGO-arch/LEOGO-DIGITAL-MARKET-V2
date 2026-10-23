@@ -23,11 +23,14 @@ for(const [id,party] of [['sellerDashboard','seller'],['transportDashboard','tra
    root.querySelectorAll('[data-seller-content]').forEach(panel=>panel.classList.toggle('active',panel===detail));
    root.querySelectorAll('[data-seller-view]').forEach(button=>button.classList.toggle('active',button===entry));
    const description=root.querySelector('#sellerViewDescription');if(description)description.textContent='Aftersales liability charges and transaction history.';
-   update();
+   safeUpdate();
   });
  }else root.prepend(widget);
  const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
  async function update(){
+ const sessionResult=await db.auth.getSession();
+ if(sessionResult.error||!sessionResult.data?.session?.user?.id)return;
+
   if(root.hidden)return;
   const {data,error}=await db.rpc('partner_aftersales_liability_statement',{p_party:party});
   if(error){widget.querySelector('[data-error]').textContent=error.message;return;}
@@ -39,8 +42,9 @@ for(const [id,party] of [['sellerDashboard','seller'],['transportDashboard','tra
   for(const item of data?.records||[]){const row=document.createElement('p');row.style.cssText='font-size:12px;padding:8px 0;border-bottom:1px solid #ddd';row.textContent=item.aftersales_number+' · '+item.reason.replaceAll('_',' ')+' · '+money(item.amount_kes)+' · '+item.status;rows.append(row);}
   if(!rows.childElementCount)rows.textContent='No Aftersales liability records.';
  }
- const observer=new MutationObserver(()=>{if(!root.hidden)update();});observer.observe(root,{attributes:true,attributeFilter:['hidden','class']});
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)update();});
- if(!root.hidden)update();
+ const safeUpdate=()=>update().catch(()=>{widget.querySelector('[data-error]').textContent='Unable to load liability account. Please retry.';});
+ const observer=new MutationObserver(()=>{if(!root.hidden)safeUpdate();});observer.observe(root,{attributes:true,attributeFilter:['hidden','class']});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)safeUpdate();});
+ if(!root.hidden)safeUpdate();
 }
 })();
