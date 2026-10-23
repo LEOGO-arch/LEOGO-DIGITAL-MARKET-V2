@@ -1,0 +1,25 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('admin/admin.js','utf8');
+const section=source.slice(source.indexOf('  const AUDIT_PAGE_SIZE='),source.indexOf('  const renderDataCleanupOverview'));
+const nodes={auditTableBody:{innerHTML:''},auditLogStatus:{textContent:''},loadOlderAudit:{disabled:false,hidden:true},dataTypeFilter:{value:'customers'}};
+let result={data:[],error:null},calls=0,filter='',syncFailure=false;
+const state={user:{id:'owner'},admin:{role:'super_admin'},audit:[]};
+const db={from(name){calls++;assert.equal(name,'admin_audit_log');if(syncFailure)throw Error('client unavailable');return {select(){return this},order(){return this},or(value){filter=value;return this},limit(n){assert.equal(n,150);return typeof result==='function'?result():Promise.resolve(result);}}}};
+const context={state,db,$:s=>nodes[s.slice(1)],isSuperAdmin:()=>state.admin?.role==='super_admin',friendlyError:e=>e?.message||String(e),formatDate:()=>'',escapeHtml:x=>String(x??'').replaceAll('<','&lt;').replaceAll('>','&gt;'),renderDataManagement:()=>{}};
+vm.createContext(context);vm.runInContext(section+';globalThis.api={load:loadAuditLog,reset:resetAuditLog};',context);const api=context.api;
+const row=id=>({id,action:'action',created_at:'2026-10-22T10:00:00.123456+00:00',entity_type:'order'});
+(async()=>{
+ result={data:Array.from({length:150},(_,i)=>row(200-i))};assert.equal(await api.load(),true);assert.equal(state.audit.length,150);assert.equal(nodes.loadOlderAudit.hidden,false);
+ result={data:[row(50),row(49)]};await api.load({append:true});assert.equal(state.audit.length,152);assert.match(filter,/id.lt.51/);assert.match(filter,/123456\+00:00/);assert.equal(nodes.loadOlderAudit.hidden,true);
+ result={error:{message:'offline'}};assert.equal(await api.load(),false);assert.equal(state.audit.length,152);assert.match(nodes.auditLogStatus.textContent,/Previously loaded/);
+ result={data:{bad:true}};assert.equal(await api.load(),false);assert.equal(state.audit.length,152);
+ result={data:[null]};assert.equal(await api.load(),false);assert.equal(state.audit.length,152);
+ result={data:[{...row(8),action:'<script>alert(1)</script>'}]};await api.load();assert.doesNotMatch(nodes.auditTableBody.innerHTML,/<script>/);
+ let release;result=()=>new Promise(resolve=>{release=resolve});let before=calls;const first=api.load(),second=api.load();assert.equal(first,second);assert.equal(calls,before+1);release({data:[row(7)]});await first;
+ const late=api.load();state.user=null;state.admin=null;api.reset();release({data:[row(6)]});await late;assert.equal(state.audit.length,0);assert.doesNotMatch(nodes.auditTableBody.innerHTML,/action/);
+ before=calls;assert.equal(await api.load(),false);assert.equal(calls,before);
+ state.user={id:'staff'};state.admin={role:'support'};await api.load();assert.equal(calls,before);
+ state.user={id:'owner'};state.admin={role:'super_admin'};syncFailure=true;await api.load();syncFailure=false;result={data:[]};assert.equal(await api.load(),true,'A synchronous client failure must not prevent retry');assert.equal(state.audit.length,0);
+ delete nodes.auditTableBody;delete nodes.auditLogStatus;delete nodes.loadOlderAudit;assert.equal(await api.load(),true,'Optional missing controls must not crash');
+ console.log('PASS: bounded older pages, microsecond cursor, concurrent-read coalescing, failure/malformed response preservation, escaped rows, sign-out race, non-owner skip, sync retry and missing controls.');
+})().catch(e=>{console.error(e);process.exitCode=1;});
