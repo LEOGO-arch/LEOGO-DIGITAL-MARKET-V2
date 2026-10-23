@@ -2401,7 +2401,8 @@
       'Please review and confirm this order.',
       '_LEOGO — Everything You Need. Delivered._'
     ].join('\n');
-    window.open('https://wa.me/254700192545?text=' + encodeURIComponent(message), '_blank', 'noopener');
+    if(window.leogoWhatsApp)window.leogoWhatsApp.open(message);
+    else window.alert('WhatsApp contact settings are still loading. Please try again.');
   });
 
   const headerCartCount = document.getElementById('headerCartCount');
