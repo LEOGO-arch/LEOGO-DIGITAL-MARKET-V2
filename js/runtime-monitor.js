@@ -6,6 +6,32 @@
   const ENDPOINT=PROJECT_URL+'/rest/v1/rpc/record_system_runtime_error';
   const nativeFetch=window.fetch.bind(window);
   const recent=new Map();
+  // Bounded, memory-only delivery. Telemetry failure must never break the app.
+  const deliveryQueue=[];
+  let delivering=false;
+  const enqueue=(endpoint,payload)=>{
+    if(deliveryQueue.length>=20)deliveryQueue.shift();
+    deliveryQueue.push({endpoint,payload,attempts:0,expires:Date.now()+300000});
+    void drain();
+  };
+  const drain=async()=>{
+    if(delivering)return;
+    delivering=true;
+    try{
+      while(deliveryQueue.length){
+        const item=deliveryQueue[0];
+        if(Date.now()>item.expires){deliveryQueue.shift();continue;}
+        item.attempts++;
+        let retry=false;
+        try{
+          const response=await nativeFetch(item.endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:PUBLISHABLE_KEY},body:JSON.stringify(item.payload),keepalive:true});
+          retry=response.status===429||response.status>=500;
+        }catch{retry=true;}
+        if(retry&&item.attempts<3){setTimeout(()=>void drain(),item.attempts*2000);break;}
+        if(deliveryQueue[0]===item)deliveryQueue.shift();
+      }
+    }finally{delivering=false;}
+  };
 
   const portal=(()=>{
     const path=window.location.pathname.toLowerCase();
@@ -104,6 +130,7 @@
       for(const [key,time] of recent){
         if(now-time>300000)recent.delete(key);
       }
+      while(recent.size>150)recent.delete(recent.keys().next().value);
     }
 
     const payload={
@@ -128,12 +155,7 @@
       }
     };
 
-    nativeFetch(ENDPOINT,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':PUBLISHABLE_KEY},
-      body:JSON.stringify(payload),
-      keepalive:true
-    }).catch(()=>{});
+    enqueue(ENDPOINT,payload);
   };
 
   const confirmSameOriginResourceFailure=async(resourceUrl)=>{
@@ -193,6 +215,7 @@
     operations:new Set(),
     timer:null,
     flushing:false,
+    attempts:0,
     firstFailureAt:0
   };
 
@@ -226,17 +249,19 @@
     connectivityBurst.timer=null;
     if(connectivityBurst.flushing||!connectivityBurst.operations.size)return;
     connectivityBurst.flushing=true;
+    connectivityBurst.attempts++;
     const reachable=await probeSupabaseReachability();
     connectivityBurst.flushing=false;
 
     if(!reachable){
-      connectivityBurst.timer=setTimeout(flushConnectivityBurst,4000);
+      if(connectivityBurst.attempts<3)connectivityBurst.timer=setTimeout(flushConnectivityBurst,4000);
       return;
     }
 
     const affectedCount=connectivityBurst.operations.size;
     connectivityBurst.operations.clear();
     connectivityBurst.firstFailureAt=0;
+    connectivityBurst.attempts=0;
 
     report({
       errorType:'connectivity_error',
@@ -254,12 +279,14 @@
     const operation=operationFromUrl(url)||'backend request';
     connectivityBurst.operations.add(operation);
     if(!connectivityBurst.firstFailureAt)connectivityBurst.firstFailureAt=Date.now();
-    if(!connectivityBurst.timer){
+    if(!connectivityBurst.timer&&connectivityBurst.attempts<3){
       connectivityBurst.timer=setTimeout(flushConnectivityBurst,1500);
     }
   };
 
   window.addEventListener('online',()=>{
+    connectivityBurst.attempts=0;
+    void drain();
     if(connectivityBurst.operations.size){
       setTimeout(flushConnectivityBurst,250);
     }
@@ -304,5 +331,16 @@
     }
   };
 
+  let lastHeartbeat=0;
+  const heartbeat=()=>{
+    if(document.visibilityState==='hidden'||navigator.onLine===false||Date.now()-lastHeartbeat<240000)return;
+    lastHeartbeat=Date.now();
+    enqueue(PROJECT_URL+'/rest/v1/rpc/record_system_portal_heartbeat',{p_portal:portal,p_version:'diagnosis-safety-1'});
+  };
+  document.addEventListener('visibilitychange',heartbeat);
+  window.addEventListener('online',heartbeat);
+  window.addEventListener('pageshow',heartbeat);
+  setInterval(heartbeat,300000);
+  heartbeat();
   window.leogoRuntimeMonitor={report};
 })();

@@ -127,19 +127,22 @@
 
   const loadSettings=async()=>{
     if(!client())return;
+    const sessionUser=window.leogoAuth?.getUser?.()?.id||null;
+    const authenticated=Boolean(window.leogoAuth?.isAuthenticated?.());
     const [settingRes,orderRes,accountRes,pointsRes]=await Promise.all([
       client().rpc('public_get_assisted_shopping_settings'),
       client().rpc('public_get_order_settings'),
       client().rpc('public_get_assisted_shopping_payment_account'),
-      client().rpc('get_my_reward_points_balance')
+      authenticated?client().rpc('get_my_reward_points_balance'):Promise.resolve({data:null,error:null})
     ]);
     if(!settingRes.error&&settingRes.data)settings=settingRes.data;
     if(!orderRes.error&&orderRes.data)orderSettings=orderRes.data;
     if(!accountRes.error)paymentAccount=accountRes.data||null;
-    rewardPointsBalance=!pointsRes.error&&pointsRes.data?.success
+    const sameSession=authenticated&&window.leogoAuth?.isAuthenticated?.()&&(window.leogoAuth?.getUser?.()?.id||null)===sessionUser;
+    rewardPointsBalance=sameSession&&!pointsRes.error&&pointsRes.data?.success
       ? Math.max(0,Number(pointsRes.data.shopping_voucher_balance_kes??pointsRes.data.points_value_kes??pointsRes.data.points??0))
       : 0;
-    rewardMaxShare=!pointsRes.error&&pointsRes.data?.success
+    rewardMaxShare=sameSession&&!pointsRes.error&&pointsRes.data?.success
       ? Math.min(0.5,Math.max(0,Number(pointsRes.data.max_checkout_cover_percent??50)/100))
       : 0.5;
     feeNote.textContent='Current Assisted Shopping service fee: '+Number(settings.service_fee_percent||0).toLocaleString('en-KE',{maximumFractionDigits:2})+'%. LEOGO applies it to the prepared item subtotal and shows the full total before you approve.';
@@ -569,7 +572,8 @@
     if(event.key==='Escape'&&modal.classList.contains('open'))closeModal();
   });
   document.addEventListener('leogo:authchange',()=>{
-    window.setTimeout(()=>Promise.all([prefillProfile(),loadRequests()]).catch(()=>{}),60);
+    rewardPointsBalance=0;rewardMaxShare=0.5;
+    window.setTimeout(()=>Promise.all([loadSettings(),prefillProfile(),loadRequests()]).catch(()=>{}),60);
   });
 
   updateFulfilment();

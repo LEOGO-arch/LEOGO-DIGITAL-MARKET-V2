@@ -545,6 +545,10 @@
   };
   const isSuperAdmin = () => state.admin?.status === 'active' && state.admin?.role === 'super_admin';
 
+  let adminAccessEpoch=0;
+  window.leogoAdminAccess=()=>({userId:state.user?.id||null,epoch:adminAccessEpoch,superAdmin:isSuperAdmin(),active:state.admin?.status==='active',permissions:state.admin?.permissions||[],role:state.admin?.role||null});
+  const publishAdminAccess=()=>{adminAccessEpoch++;document.dispatchEvent(new CustomEvent('leogo:admin-access-change'));};
+
   const viewAllowed = (view, settingsTab = '') => {
     if (isSuperAdmin()) return true;
     const checks = {
@@ -805,6 +809,7 @@
       resetAuditLog();
       state.user = user;
       state.admin = admin;
+      publishAdminAccess();
       if (!admin) { showGate('denied'); return; }
       showGate('app');
       const name = admin.display_name || user.email || 'LEOGO Admin';
@@ -7746,6 +7751,7 @@
     stopAdminNotificationRealtime();
     state.admin=null;
     state.user=null;
+    publishAdminAccess();
     showGate('login');
     if($('#adminPassword')) $('#adminPassword').value='';
     setFormStatus($('#adminLoginStatus'),'All Admin sessions were revoked. Sign in again with the current password.','success');
@@ -7774,6 +7780,7 @@
             await db.auth.signOut();
             state.admin=null;
             state.user=null;
+    publishAdminAccess();
             showGate('login');
             setFormStatus($('#adminLoginStatus'),'This account is not an active LEOGO administrator. Use the authorized Admin account.','error');
             return;
@@ -7800,6 +7807,7 @@
       stopAdminNotificationRealtime();
       state.admin = null;
       state.user = null;
+      publishAdminAccess();
       resetAuditLog();
       showGate('login');
       if($('#adminPassword'))$('#adminPassword').value='';

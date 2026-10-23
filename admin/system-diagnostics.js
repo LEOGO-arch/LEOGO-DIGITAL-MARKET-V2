@@ -6,6 +6,16 @@
   const $$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
   const state={configured:false,lastResult:null,latestRun:null,runtimeHours:24,currentFinding:null,monitoring:null,monitoringTrendVisible:4};
 
+  const access=()=>window.leogoAdminAccess?.()||{};
+  const rpc=async(name,args)=>{
+    const owner=access();
+    if(!owner.superAdmin||!owner.userId)throw new Error('Super Admin sign-in is required.');
+    const result=await db.rpc(name,args);
+    const latest=access();
+    if(!latest.superAdmin||latest.userId!==owner.userId||latest.epoch!==owner.epoch)throw new Error('Admin session changed. Reopen System Diagnosis.');
+    return result;
+  };
+  let refreshPending=null;
   const escapeHtml=(value)=>String(value??'').replace(/[&<>"']/g,(char)=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[char]||char));
@@ -47,7 +57,7 @@
 
   const loadHistory=async()=>{
     if(!db||!state.configured)return;
-    const {data,error}=await db.rpc('admin_list_system_diagnostic_runs');
+    const {data,error}=await rpc('admin_list_system_diagnostic_runs');
     if(error)throw error;
     renderHistory(data);
   };
@@ -100,7 +110,7 @@
     if(!db)return;
     const status=$('#diagnosticsRuntimeStatus');
     setStatus(status,'Loading live runtime errors…');
-    const {data,error}=await db.rpc('admin_list_system_runtime_issues',{
+    const {data,error}=await rpc('admin_list_system_runtime_issues',{
       p_hours:state.runtimeHours,
       p_limit:100
     });
@@ -165,16 +175,21 @@
 
   const loadRepairHistory=async()=>{
     if(!db||!state.configured)return;
-    const {data,error}=await db.rpc('admin_list_system_diagnostic_repairs',{p_limit:50});
+    const {data,error}=await rpc('admin_list_system_diagnostic_repairs',{p_limit:50});
     if(error)throw error;
     renderRepairHistory(data);
   };
 
   const loadLatestDiagnosticRun=async()=>{
     if(!db||!state.configured)return;
-    const {data,error}=await db.rpc('admin_get_latest_system_diagnostic_run');
+    const {data,error}=await rpc('admin_get_latest_system_diagnostic_run');
     if(error)throw error;
     state.latestRun=data||null;
+    const label=$('#diagnosticsFullRunFreshness');
+    if(label){
+      const age=data?.created_at?Date.now()-new Date(data.created_at).getTime():Infinity;
+      label.textContent=data?.created_at?'Last full diagnosis: '+formatWhen(data.created_at)+(age>86400000?' — stale; run a new full diagnosis.':' — recorded snapshot, not an end-to-end guarantee.'):'No full diagnosis recorded. Workflow verification is not yet established.';
+    }
     if(!state.lastResult&&data?.checks)renderRepairCenter(data);
   };
 
@@ -246,7 +261,7 @@
     $('#diagnosticsAffectedRecords').innerHTML='<div class="empty-mini">Loading affected records…</div>';
     setStatus($('#diagnosticsFindingStatus'),'');
     try{
-      const {data,error}=await db.rpc('admin_diagnostic_finding_details',{
+      const {data,error}=await rpc('admin_diagnostic_finding_details',{
         p_check_id:checkId,p_limit:50
       });
       if(error)throw error;
@@ -272,7 +287,7 @@
     button.disabled=true;
     button.textContent='Verifying…';
     try{
-      const {data,error}=await db.rpc('admin_verify_system_diagnostic_check',{
+      const {data,error}=await rpc('admin_verify_system_diagnostic_check',{
         p_pin:pin,p_check_id:finding.check_id
       });
       if(error)throw error;
@@ -314,7 +329,7 @@
     button.disabled=true;
     button.textContent='Applying…';
     try{
-      const {data,error}=await db.rpc('admin_apply_system_diagnostic_repair',{
+      const {data,error}=await rpc('admin_apply_system_diagnostic_repair',{
         p_pin:pin,p_check_id:finding.check_id,p_target_key:targetKey,p_action:action
       });
       if(error)throw error;
@@ -361,7 +376,7 @@
     const settings=snapshot?.settings||{};
     const summary=snapshot?.summary||{};
     const incidents=Array.isArray(snapshot?.incidents)?snapshot.incidents:[];
-    const runs=Array.isArray(snapshot?.recent_runs)?snapshot.recent_runs:[];
+    const runs=Array.isArray(snapshot?.recent_runs)?[...snapshot.recent_runs].sort((a,b)=>new Date(b.started_at)-new Date(a.started_at)):[];
 
     const monitoringState=$('#diagnosticsMonitoringState');
     const paused=!settings.enabled;
@@ -374,7 +389,7 @@
 
     const score=summary.health_score;
     $('#monitoringHealthScore').textContent=score===null||score===undefined?'—':Number(score)+'%';
-    $('#monitoringHealthLabel').textContent=monitoringStatusLabel(summary.status);
+    $('#monitoringHealthLabel').textContent=monitoringStatusLabel(summary.status)+(summary.last_scan_at&&Date.now()-new Date(summary.last_scan_at).getTime()>1800000?' · stale scan':'');
     $('#monitoringCriticalCount').textContent=Number(summary.active_critical??summary.critical_count??0);
     $('#monitoringWarningCount').textContent=Number(summary.active_warnings??summary.warning_count??0);
     $('#monitoringRecoveredToday').textContent=Number(summary.recovered_today||0);
@@ -457,7 +472,7 @@
 
   const loadSystemMonitoring=async()=>{
     if(!db)return;
-    const {data,error}=await db.rpc('admin_get_system_monitoring_snapshot');
+    const {data,error}=await rpc('admin_get_system_monitoring_snapshot');
     if(error)throw error;
     renderSystemMonitoring(data||{});
     return data;
@@ -486,7 +501,7 @@
     button.disabled=true;
     button.textContent='Saving…';
     try{
-      const {data,error}=await db.rpc('admin_update_system_monitoring_settings',{
+      const {data,error}=await rpc('admin_update_system_monitoring_settings',{
         p_pin:pin,
         p_enabled:enabled,
         p_maintenance_mode:maintenance,
@@ -520,7 +535,7 @@
     button.disabled=true;
     button.textContent='Scanning…';
     try{
-      const {data,error}=await db.rpc('admin_run_system_monitoring_now',{p_pin:pin});
+      const {data,error}=await rpc('admin_run_system_monitoring_now',{p_pin:pin});
       if(error)throw error;
       if(!data?.ok){
         setStatus($('#diagnosticsMonitoringStatus'),parseAuthFailure(data)||data?.message||'Preventive scan did not complete.','error');
@@ -543,7 +558,7 @@
 
   const loadStatus=async()=>{
     if(!db)throw new Error('Secure connection unavailable.');
-    const {data,error}=await db.rpc('admin_system_diagnostics_status');
+    const {data,error}=await rpc('admin_system_diagnostics_status');
     if(error)throw error;
     setConfiguredUi(Boolean(data?.configured));
     const lock=$('#diagnosticsLockState');
@@ -556,7 +571,7 @@
         lock.className='diagnostics-state healthy';
       }
     }
-    if(state.configured)await loadHistory();
+
   };
 
   const statusLabel=(status)=>({
@@ -624,7 +639,7 @@
     button.textContent='Diagnosing…';
     setStatus($('#diagnosticsRunStatus'),'Running read-only checks across LEOGO…');
     try{
-      const {data,error}=await db.rpc('admin_run_system_diagnosis',{
+      const {data,error}=await rpc('admin_run_system_diagnosis',{
         p_pin:pin,p_mode:mode,p_module:mode==='module'?module:null
       });
       if(error)throw error;
@@ -657,7 +672,7 @@
     const confirm=$('#diagnosticsSetupPinConfirm').value.trim();
     if(!validatePin(pin)){setStatus($('#diagnosticsSetupStatus'),'Use exactly 6 digits.','error');return;}
     if(pin!==confirm){setStatus($('#diagnosticsSetupStatus'),'PIN confirmation does not match.','error');return;}
-    const {data,error}=await db.rpc('admin_system_diagnostics_setup_pin',{p_new_pin:pin});
+    const {data,error}=await rpc('admin_system_diagnostics_setup_pin',{p_new_pin:pin});
     if(error){setStatus($('#diagnosticsSetupStatus'),friendly(error),'error');return;}
     if(!data?.ok){setStatus($('#diagnosticsSetupStatus'),data?.message||'PIN setup failed.','error');return;}
     form.reset();
@@ -674,7 +689,7 @@
     const confirm=$('#diagnosticsNewPinConfirm').value.trim();
     if(!validatePin(current)||!validatePin(next)){setStatus($('#diagnosticsChangePinStatus'),'Current and new PIN must each be exactly 6 digits.','error');return;}
     if(next!==confirm){setStatus($('#diagnosticsChangePinStatus'),'New PIN confirmation does not match.','error');return;}
-    const {data,error}=await db.rpc('admin_system_diagnostics_change_pin',{p_current_pin:current,p_new_pin:next});
+    const {data,error}=await rpc('admin_system_diagnostics_change_pin',{p_current_pin:current,p_new_pin:next});
     if(error){setStatus($('#diagnosticsChangePinStatus'),friendly(error),'error');return;}
     if(!data?.ok){setStatus($('#diagnosticsChangePinStatus'),parseAuthFailure(data),'error');await loadStatus().catch(()=>{});return;}
     form.reset();
@@ -757,30 +772,45 @@
       if(button?.dataset.monitoringOpenCheck)loadFindingDetails(button.dataset.monitoringOpenCheck,false);
     });
     document.addEventListener('leogo:system-monitoring-snapshot',(event)=>{
-      if(event.detail)renderSystemMonitoring(event.detail);
+      if(event.detail&&access().superAdmin)renderSystemMonitoring(event.detail);
     });
   };
 
-  window.leogoDiagnostics={
-    activate:async()=>{
-      await refreshPanels([
-        {load:loadStatus,status:'#diagnosticsRunStatus'},
-        {load:loadRuntimeIssues,status:'#diagnosticsRuntimeStatus'},
-        {load:loadLatestDiagnosticRun,onError:panelError('#diagnosticsRepairQueue','Latest findings unavailable')},
-        {load:loadRepairHistory,onError:panelError('#diagnosticsRepairHistory','Repair history unavailable')},
-        {load:loadSystemMonitoring,status:'#diagnosticsMonitoringStatus'}
-      ]);
-    },
-    refresh:async()=>{
-      await refreshPanels([
-        {load:loadStatus,status:'#diagnosticsRunStatus'},
-        {load:loadRuntimeIssues,status:'#diagnosticsRuntimeStatus'},
-        {load:loadLatestDiagnosticRun,onError:panelError('#diagnosticsRepairQueue','Latest findings unavailable')},
-        {load:loadRepairHistory,onError:panelError('#diagnosticsRepairHistory','Repair history unavailable')},
-        {load:loadSystemMonitoring,status:'#diagnosticsMonitoringStatus'}
-      ]);
-    }
+  const loadCoverage=async()=>{
+    const {data,error}=await rpc('admin_get_diagnostic_coverage');if(error)throw error;
+    setStatus($('#diagnosticsCoverageStatus'),'Coverage refreshed.');
+    const host=$('#diagnosticsCoverage');if(!host)return;
+    const portals=Array.isArray(data?.portals)?data.portals:[];
+    const checks=Array.isArray(data?.checks)?data.checks:[];
+    host.innerHTML='<p>These are read-only integrity checks, separate from the automatic health score. Browser activity is self-reported and does not prove a working user journey.</p>'+portals.map(row=>'<p><strong>'+escapeHtml(row.portal)+'</strong> — '+escapeHtml(row.last_seen?formatWhen(row.last_seen)+(Date.now()-new Date(row.last_seen).getTime()>900000?' · stale activity':' · recent activity'):'No heartbeat received yet')+' · '+escapeHtml(row.version||'Unknown version')+'</p>').join('')+checks.map(row=>'<article class="diagnostics-runtime-issue"><strong>'+escapeHtml(row.title)+'</strong><p>'+escapeHtml(row.status)+' · '+Number(row.sample_count||0)+' sampled · '+Number(row.affected_count||0)+' issue(s)</p><small>'+escapeHtml(row.note||'End-to-end staging test required.')+'</small></article>').join('');
   };
+
+  const refreshAll=()=>{
+    const owner=access();
+    if(!owner.superAdmin)return Promise.resolve();
+    if(refreshPending?.epoch===owner.epoch)return refreshPending.promise;
+    const pending={epoch:owner.epoch,promise:null};refreshPending=pending;
+    pending.promise=(async()=>{
+      try{await loadStatus();}
+      catch(error){setStatus($('#diagnosticsRunStatus'),friendly(error),'error');return;}
+      await refreshPanels([
+        {load:loadHistory,onError:panelError('#diagnosticsHistory','History unavailable')},
+        {load:loadRuntimeIssues,status:'#diagnosticsRuntimeStatus'},
+        {load:loadLatestDiagnosticRun,onError:panelError('#diagnosticsRepairQueue','Latest findings unavailable')},
+        {load:loadRepairHistory,onError:panelError('#diagnosticsRepairHistory','Repair history unavailable')},
+        {load:loadSystemMonitoring,status:'#diagnosticsMonitoringStatus'},
+        {load:loadCoverage,status:'#diagnosticsCoverageStatus'}
+      ]);
+    })().finally(()=>{if(refreshPending===pending)refreshPending=null;});
+    return pending.promise;
+  };
+  document.addEventListener('leogo:admin-access-change',()=>{
+    state.configured=false;state.lastResult=null;state.latestRun=null;state.currentFinding=null;state.monitoring=null;refreshPending=null;
+    ['#diagnosticsHistory','#diagnosticsRepairQueue','#diagnosticsRepairHistory','#diagnosticsRuntimeIssues','#diagnosticsResults','#diagnosticsCoverage','#diagnosticsMonitoringTrend','#diagnosticsMonitoringIncidents'].forEach(selector=>{const node=$(selector);if(node)node.textContent='Sign in as Super Admin and open System Diagnosis to load current results.';});
+    const modal=$('#diagnosticsFindingModal');if(modal)modal.hidden=true;
+    ['#diagnosticsRunPin','#diagnosticsPhase3Pin','#monitoringPin'].forEach(selector=>{const node=$(selector);if(node)node.value='';});
+  });
+  window.leogoDiagnostics={activate:refreshAll,refresh:refreshAll};
 
   bind();
 })();

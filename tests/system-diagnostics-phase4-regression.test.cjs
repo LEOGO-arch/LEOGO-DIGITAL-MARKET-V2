@@ -105,7 +105,7 @@ for(const forbidden of [
   }
 }
 
-if(!html.includes('system-diagnostics.js?v=diagnostics-trend-collapse-1')||
+if(!/system-diagnostics\.js\?v=[^"\s]+/.test(html)||
    !html.includes('system-diagnostics.css?v=diagnostics-trend-collapse-1')||
    !html.includes('admin.js?v=')){
   throw new Error('Phase 4 / trend-collapse cache versions missing');

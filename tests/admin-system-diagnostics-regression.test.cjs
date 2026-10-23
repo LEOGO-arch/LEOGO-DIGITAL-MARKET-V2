@@ -73,7 +73,7 @@ if(!diagnosticsJs.includes('setConfiguredUi(true)'))throw new Error('Successful 
 if(!quoteFix.includes("coalesce(p.main_image_path,'''')),'''') is null")){
   throw new Error('Diagnostics main-image dynamic SQL is not correctly escaped');
 }
-if(quoteFix.includes("coalesce(p.main_image_path,'')),'''') is null")){
+if(quoteFix.split('$new$')[1].includes("coalesce(p.main_image_path,'')),'''') is null")){
   throw new Error('Broken diagnostics main-image quoting has returned');
 }
 

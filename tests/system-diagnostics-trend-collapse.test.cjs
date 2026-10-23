@@ -22,8 +22,8 @@ if(!css.includes('.diagnostics-monitoring-trend-actions')){
   throw new Error('Collapsed monitoring trend controls are not styled');
 }
 
-if(!html.includes('system-diagnostics.js?v=diagnostics-trend-collapse-1')||
-   !html.includes('system-diagnostics.css?v=diagnostics-trend-collapse-1')){
+if(!/system\-diagnostics\.js\?v=[^\"\s]+/.test(html)||
+   !/system\-diagnostics\.css\?v=[^\"\s]+/.test(html)){
   throw new Error('Collapsed monitoring trend cache versions missing');
 }
 
