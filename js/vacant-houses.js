@@ -334,6 +334,17 @@
   const loadMine=async()=>{
     const version=++mineLoadVersion;
     try{
+      const {data:cachedSession,error:cachedError}=await client.auth.getSession();
+      if(version!==mineLoadVersion)return;
+      if(cachedError)throw cachedError;
+      if(!cachedSession?.session?.user){
+        state.user=null;
+        $('vhMine').hidden=true;
+        state.mySubmissions=[];
+        state.myRequests=[];
+        renderMine();
+        return;
+      }
       const {data:sessionData,error:sessionError}=await client.auth.getUser();
       if(version!==mineLoadVersion)return;
       if(sessionError)throw sessionError;
