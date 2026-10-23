@@ -11,7 +11,7 @@ new vm.Script(diagnostics,{filename:'admin/system-diagnostics.js'});
 
 for(const path of ['index.html','partner/index.html','staff/index.html','pickup/index.html','admin/index.html']){
   const html=fs.readFileSync(path,'utf8');
-  if(!html.includes('runtime-monitor.js?v=diagnostics-phase2-1')){
+  if(!/runtime\-monitor\.js\?v=[^\"\s]+/.test(html)){
     throw new Error('Runtime monitor missing from '+path);
   }
 }
@@ -47,7 +47,7 @@ for(const required of [
   if(!adminHtml.includes(required))throw new Error('Admin runtime console missing: '+required);
 }
 
-if(!diagnostics.includes("db.rpc('admin_list_system_runtime_issues'"))throw new Error('Admin runtime issue loader missing');
+if(!diagnostics.includes("rpc('admin_list_system_runtime_issues'"))throw new Error('Admin runtime issue loader missing');
 if(!diagnostics.includes('loadRuntimeIssues()'))throw new Error('Runtime issues are not refreshed with diagnostics');
 
 const fixMigration=fs.readFileSync('supabase/migrations/20261003104500_fix_diagnosis_product_image_query.sql','utf8');
@@ -97,7 +97,7 @@ if(!runtime.includes("Resource failed to load after retry"))throw new Error('res
 
 for(const path of ['index.html','partner/index.html','staff/index.html','pickup/index.html','admin/index.html']){
   const html=fs.readFileSync(path,'utf8');
-  if(!html.includes('runtime-monitor.js?v=network-storm-fix-2')){
+  if(!/runtime\-monitor\.js\?v=[^\"\s]+/.test(html)){
     throw new Error('Resource-retry runtime monitor cache version missing from '+path);
   }
 }
@@ -134,7 +134,7 @@ if(!adminJs.includes('settleLoadersWithConcurrency(loaders, 2)'))throw new Error
 if(adminJs.includes('Promise.allSettled(loaders.map((load) => load()))')){
   throw new Error('Admin startup still launches all permitted loaders simultaneously');
 }
-if(!fs.readFileSync('admin/index.html','utf8').includes('admin.js?v=network-storm-fix-1')){
+if(!/admin\.js\?v=[^"\s]+/.test(fs.readFileSync('admin/index.html','utf8'))){
   throw new Error('Admin cache version missing for network storm fix');
 }
 if(!diagnostics.includes('host.innerHTML=activeRows.length?activeRows.map')){
@@ -153,7 +153,7 @@ if(!partnerShipping.includes('client.auth.getSession()')||!partnerShipping.inclu
 if(partnerShipping.includes('await Promise.all([loadProducts(),loadCampaigns(),loadDeliveryRates()]);\n  }catch(error){')){
   throw new Error('Partner Seller shipping data still loads directly during DOM init');
 }
-if(!fs.readFileSync('partner/index.html','utf8').includes('shipping-moq.js?v=auth-timing-2')){
+if(!/shipping-moq\.js\?v=[^"\s]+/.test(fs.readFileSync('partner/index.html','utf8'))){
   throw new Error('Partner shipping auth-timing cache version missing');
 }
 

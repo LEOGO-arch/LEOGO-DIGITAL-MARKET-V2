@@ -37,15 +37,19 @@ function selectEntry(){
 }
 let taxonomyLoadPending=null;
 async function load(){
- if(taxonomyLoadPending)return taxonomyLoadPending;
+ const access=window.leogoAdminAccess?.();
+ if(!access?.active||!(access.superAdmin||access.role==='admin'||access.permissions?.includes('products.read')))return;
+ if(taxonomyLoadPending){await taxonomyLoadPending;if(window.leogoAdminAccess?.().epoch!==access.epoch)return;}
  taxonomyLoadPending=(async()=>{
   try {
    const {data,error}=await db.rpc('admin_list_catalogue_categories');
    if(error)throw error;
    if(!Array.isArray(data))throw Error('The category list response is invalid.');
+   if(window.leogoAdminAccess?.().epoch!==access.epoch)return;
    categories=data;
    try {
     const images=await db.rpc('admin_category_images');
+    if(window.leogoAdminAccess?.().epoch!==access.epoch)return;
     if(!images.error && Array.isArray(images.data)){
      const imageById=new Map(images.data.map(item=>[item.id,item.image_path]));
      for(const category of categories)if(imageById.has(category.id))category.image_path=imageById.get(category.id);
@@ -54,6 +58,7 @@ async function load(){
    refresh();
    note.textContent='';
   }catch(error){
+   if(window.leogoAdminAccess?.().epoch!==access.epoch)return;
    console.warn('Category directory failed:',error);
    note.textContent='Unable to load categories: '+(error?.message||'Connection error')+'. Refresh the Admin page to retry.';
   }
@@ -83,5 +88,7 @@ form.onsubmit=async event=>{
  } catch(error){note.textContent='Could not save category: '+(error?.message||'Unexpected error');}
  finally {btn.disabled=false;}
 };
+document.addEventListener('leogo:admin-access-change',()=>{categories=[];if(window.leogoAdminAccess?.().active)load();});
+document.querySelector('[data-admin-view="products"]')?.addEventListener('click',load);
 load();
 })();

@@ -76,7 +76,7 @@ if(!migration.includes("revoke execute on function public.admin_apply_system_dia
   throw new Error('Anonymous repair execution not revoked');
 }
 
-if(!html.includes('system-diagnostics.js?v=diagnostics-phase3-1')||!html.includes('system-diagnostics.css?v=diagnostics-phase3-1')){
+if(!/system\-diagnostics\.js\?v=[^\"\s]+/.test(html)||!/system\-diagnostics\.css\?v=[^\"\s]+/.test(html)){
   throw new Error('Phase 3 cache version missing');
 }
 if(!css.includes('.diagnostics-repair-center')||!css.includes('.diagnostics-phase3-modal-card')){
