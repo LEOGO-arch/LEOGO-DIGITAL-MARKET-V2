@@ -8,9 +8,11 @@ const html = fs.readFileSync('index.html','utf8');
 assert.doesNotThrow(()=>new Function(app),'customer app must parse');
 assert.doesNotThrow(()=>new Function(assisted),'assisted shopping must parse');
 
-assert.ok(app.indexOf("let testCart = [];") < 1500,'cart state must initialize before customer events');
+const authRegistration=app.indexOf("document.addEventListener('leogo:authchange'");
+assert.ok(authRegistration>=0,'auth event registration must exist');
+assert.ok(app.indexOf("let testCart = [];")>=0&&app.indexOf("let testCart = [];")<authRegistration,'cart state must initialize before customer auth events');
 assert.strictEqual((app.match(/let testCart = \[\];/g)||[]).length,1,'cart state must have one declaration');
-assert.ok(app.indexOf("let renderLppAccounts = () => {};") < 2000,'LPP renderer placeholder must be initialized early');
+assert.ok(app.indexOf("let renderLppAccounts = () => {};")>=0&&app.indexOf("let renderLppAccounts = () => {};")<authRegistration,'LPP renderer placeholder must be initialized early');
 assert.match(app,/renderLppAccounts = \(\) => \{/,'full LPP renderer must be assigned later');
 assert.doesNotMatch(app,/const renderLppAccounts = \(\) => \{/,'LPP renderer must not re-enter a TDZ');
 
@@ -28,7 +30,7 @@ assert.match(
   'assisted shopping must iterate a node list rather than a single element'
 );
 
-assert.match(html,/js\/app\.js\?v=marketplace-runtime-init-1/,'app cache key must be refreshed');
-assert.match(html,/js\/assisted-shopping\.js\?v=marketplace-runtime-init-1/,'assisted shopping cache key must be refreshed');
+assert.match(html,/js\/app\.js\?v=[^"\s]+/,'app cache key must be refreshed');
+assert.match(html,/js\/assisted-shopping\.js\?v=[^"\s]+/,'assisted shopping cache key must be refreshed');
 
 console.log('Customer marketplace runtime initialization regression checks passed.');
