@@ -461,6 +461,9 @@
   };
 
   const loadAccount=async()=>{
+ const sessionResult=await client.auth.getSession();
+ if(sessionResult.error||!sessionResult.data?.session?.user?.id)return;
+
     const {data,error}=await client.rpc('health_medicine_get_own_account');
     if(error)throw error;
     account=data||null;
