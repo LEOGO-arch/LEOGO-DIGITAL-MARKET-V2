@@ -1156,3 +1156,12 @@
 .staff-subcounty-group h5{margin:0 0 10px;font-size:14px;color:#294b77}
 .staff-subcounty-group .staff-directory-item{margin-bottom:10px}
 @media(max-width:650px){.staff-region-group{padding:9px}.staff-subcounty-group{padding-left:8px}.staff-directory-toolbar select{width:100%}}
+
+/* Function shortcuts share the existing backend permission catalogue. */
+.staff-function-picker{grid-column:1/-1;min-width:0;padding:14px;border:1px solid #b8cce6;border-radius:12px;background:#f4f8ff}
+.staff-function-picker h4{margin:0 0 7px;font-size:14px}
+.staff-function-picker p{font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.staff-function-picker label{display:grid;gap:6px;font-size:11px;font-weight:700}
+.staff-function-picker select{width:100%;min-width:0;padding:10px;border:1px solid #c6d3e3;border-radius:8px;background:#fff}
+.staff-function-picker button{padding:9px 12px;border:0;border-radius:8px;background:#143f72;color:#fff;font-weight:700;cursor:pointer}
+.staff-function-picker button:disabled{opacity:.5;cursor:default}

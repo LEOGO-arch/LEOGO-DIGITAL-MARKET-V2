@@ -1719,6 +1719,47 @@
     'System Configuration':'Fees and system configuration responsibilities.'
   };
 
+  // Named workflows use the existing server-enforced permissions. They are additive
+  // shortcuts, not new isolated module permissions or automatic staff grants.
+  const STAFF_FUNCTION_DEFS = [
+    ['Dashboard & live operations',['dashboard.read']],
+    ['Approval Center & partner onboarding',['approvals.read','approvals.manage']],
+    ['Orders & fulfilment',['orders.read','orders.manage']],
+    ['Order payment verification',['orders.read','orders.payment_verify']],
+    ['Group / Global Orders',['orders.read','orders.manage']],
+    ['Assisted Shopping quotations & assignments',['orders.read','orders.manage']],
+    ['Flash Sales review',['approvals.read','approvals.manage']],
+    ['Aftersales & returns',['orders.read','orders.manage','delivery.manage']],
+    ['Customer directory & feedback',['customers.read','approvals.read','approvals.manage']],
+    ['Customer Care chat',['support.chat']],
+    ['Customer SMS & Email campaigns',['customers.read','settings.manage']],
+    ['Products, categories & reviews',['products.read','products.manage','approvals.read','approvals.manage']],
+    ['Seller directory',['sellers.read']],
+    ['Health & Medicine approvals',['approvals.read','approvals.manage']],
+    ['Partner settlement review & payouts',['settlements.read','settlements.manage']],
+    ['Service Providers & service requests',['approvals.read','approvals.manage','orders.payment_verify']],
+    ['Cyber Services & Cyber orders',['approvals.read','approvals.manage','orders.payment_verify']],
+    ['Transport providers, vehicles & requests',['orders.read','delivery.manage','approvals.read','approvals.manage']],
+    ['Riders, delivery jobs & Sorting Center',['orders.read','orders.manage','delivery.manage']],
+    ['Pickup Stations, parcel reports & returns',['orders.read','delivery.manage']],
+    ['Delivery zones & rates',['orders.read','delivery.manage','fees.manage']],
+    ['Wallet, SACCO, deposits, withdrawals & loans',['approvals.read','approvals.manage']],
+    ['Premium profiles, customers & plans',['premium.read','premium.manage','approvals.read','approvals.manage']],
+    ['Accommodation providers, rooms & bookings',['approvals.read','approvals.manage']],
+    ['Houses & Property review',['approvals.read','approvals.manage']],
+    ['Advertisements & customer theme',['settings.manage']],
+    ['Payment accounts & function routing',['payments.manage']],
+    ['Loyalty, rewards & referral rules',['reports.export','fees.manage']],
+    ['Reports & exports',['reports.export']],
+    ['Business details & service locations',['settings.manage']],
+    ['Email sender configuration',['settings.manage']],
+    ['Fees, commissions & subscriptions',['fees.manage']],
+    ['Order fee & COD rules',['fees.manage']],
+    ['Lipa Pole Pole rules',['fees.manage']],
+    ['Partner terms & agreements',['settings.manage']],
+    ['Protected operational media',['data.read']]
+  ];
+
   const STAFF_PERMISSION_DEPENDENCIES = {
     'approvals.manage':['approvals.read'],
     'orders.write':['orders.read'],
@@ -1772,7 +1813,7 @@
       grouped.get(group).push(definition);
     });
 
-    container.innerHTML=[...grouped.entries()].map(([group,definitions])=>
+    container.innerHTML='<section class="staff-function-picker"><h4>Assign access by Admin function</h4><p>Choose a function to add its required permissions. Shared permissions also allow other functions listed below; these are not separate module-only roles. Review the checklist before saving.</p><label><span>Admin function</span><select data-staff-function><option value="">Choose an Admin function…</option>'+STAFF_FUNCTION_DEFS.map(([label],index)=>'<option value="'+index+'">'+escapeHtml(label)+'</option>').join('')+'</select></label><p data-staff-function-scope aria-live="polite">Existing staff access is unchanged until you save.</p><button type="button" data-add-staff-function disabled>Add Function Access</button></section>'+[...grouped.entries()].map(([group,definitions])=>
       '<section class="staff-permission-group">'+
         '<header><strong>'+escapeHtml(group)+'</strong><small>'+escapeHtml(STAFF_PERMISSION_GROUP_INFO[group]||'')+'</small></header>'+
         '<div class="staff-permission-group-list">'+definitions.map(([code,_group,label,coverage]) =>
@@ -1784,8 +1825,28 @@
       '</section>'
     ).join('');
 
+    const picker=container.querySelector('[data-staff-function]');
+    const add=container.querySelector('[data-add-staff-function]');
+    const scope=container.querySelector('[data-staff-function-scope]');
+    const describe=()=>{
+      const definition=picker.value===''?null:STAFF_FUNCTION_DEFS[Number(picker.value)];
+      add.disabled=!definition;
+      if(!definition){scope.textContent='Existing staff access is unchanged until you save.';return;}
+      const required=normalizeStaffPermissionValues(definition[1]);
+      const current=new Set(selectedPermissionValues(container));
+      scope.textContent=(required.every(code=>current.has(code))?'Access already included. ':'Adds shared permissions: ')+required.join(', ')+'. '+required.map(code=>STAFF_PERMISSION_DEFS.find(item=>item[0]===code)?.[3]||'').filter(Boolean).join(' · ');
+    };
+    picker.addEventListener('change',describe);
+    add.addEventListener('click',()=>{
+      const definition=picker.value===''?null:STAFF_FUNCTION_DEFS[Number(picker.value)];
+      if(!definition)return;
+      const chosen=new Set(normalizeStaffPermissionValues([...selectedPermissionValues(container),...definition[1]]));
+      container.querySelectorAll('input[data-staff-permission]').forEach(input=>{input.checked=chosen.has(input.value);});
+      describe();
+    });
     container.querySelectorAll('input[data-staff-permission]').forEach((input)=>input.addEventListener('change',()=>{
       if(input.checked)syncPermissionDependencies(container);
+      describe();
     }));
   };
 
