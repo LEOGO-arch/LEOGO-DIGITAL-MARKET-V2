@@ -802,6 +802,7 @@
   const enterAdmin = async (user) => {
     try {
       const admin = await verifyAdmin(user);
+      resetAuditLog();
       state.user = user;
       state.admin = admin;
       if (!admin) { showGate('denied'); return; }
@@ -7139,12 +7140,68 @@
     renderAdminNotifications();
   };
 
-  const loadAuditLog = async () => {
-    const { data, error } = await db.from('admin_audit_log').select('id,actor_email,action,entity_type,entity_id,created_at').order('created_at', { ascending: false }).limit(150);
-    if (error) throw error;
-    state.audit = data || [];
-    $('#auditTableBody').innerHTML = data?.length ? data.map((entry) => `<tr><td>${formatDate(entry.created_at, true)}</td><td>${escapeHtml(entry.actor_email || 'System')}</td><td><strong>${escapeHtml(entry.action)}</strong></td><td>${escapeHtml(entry.entity_type)}</td><td><small>${escapeHtml(entry.entity_id || '—')}</small></td></tr>`).join('') : '<tr><td colspan="5">No audited Admin actions yet.</td></tr>';
-    if ($('#dataTypeFilter')?.value === 'audit_log') renderDataManagement();
+  const AUDIT_PAGE_SIZE=150;
+  let auditLoadPending=null;
+  let auditHasMore=true;
+  const resetAuditLog = () => {
+    auditLoadPending=null;
+    auditHasMore=true;
+    state.audit=[];
+    const body=$('#auditTableBody');
+    if(body)body.innerHTML='<tr><td colspan="5">Sign in as Super Admin to view audit history.</td></tr>';
+    const status=$('#auditLogStatus');if(status)status.textContent='';
+    const older=$('#loadOlderAudit');if(older)older.hidden=true;
+  };
+  const loadAuditLog = ({append=false}={}) => {
+    if(!isSuperAdmin()||!state.user){resetAuditLog();return Promise.resolve(false);}
+    const owner=state.user,admin=state.admin;
+    const current=()=>state.user===owner&&state.admin===admin&&isSuperAdmin();
+    if(auditLoadPending?.owner===owner&&auditLoadPending?.admin===admin)return auditLoadPending.promise;
+    const pending={owner,admin,promise:null};
+    const status=$('#auditLogStatus');
+    const older=$('#loadOlderAudit');
+    if(status)status.textContent='Loading audit history…';
+    if(older)older.disabled=true;
+    auditLoadPending=pending;
+    pending.promise=(async()=>{
+      try{
+        let query=db.from('admin_audit_log').select('id,actor_email,action,entity_type,entity_id,created_at')
+          .order('created_at',{ascending:false}).order('id',{ascending:false});
+        const previous=Array.isArray(state.audit)?state.audit:[];
+        const cursor=append?previous[previous.length-1]:null;
+        if(cursor){
+          // Keyset pagination avoids missing/repeating older records when new actions are inserted.
+          if(!/^\d+$/.test(String(cursor.id))||!/^[-+0-9T:. Z]+$/.test(String(cursor.created_at)))throw new Error('Audit cursor is invalid. Refresh audit history.');
+          query=query.or('created_at.lt.'+cursor.created_at+',and(created_at.eq.'+cursor.created_at+',id.lt.'+cursor.id+')');
+        }
+        const {data,error}=await query.limit(AUDIT_PAGE_SIZE);
+        if(!current())return false;
+        if(error)throw error;
+        if(!Array.isArray(data)||data.some(row=>!row||typeof row!=='object'||!/^\d+$/.test(String(row.id))||typeof row.action!=='string'||!Number.isFinite(new Date(row.created_at).getTime())))throw new Error('Audit history response was invalid. Please refresh.');
+        const rows=append?[...new Map([...previous,...data].map(row=>[String(row.id),row])).values()]:data;
+        state.audit=rows;
+        auditHasMore=data.length===AUDIT_PAGE_SIZE;
+        const body=$('#auditTableBody');
+        if(body)body.innerHTML=rows.length?rows.map(entry=>`<tr><td>${formatDate(entry.created_at,true)}</td><td>${escapeHtml(entry.actor_email||'System')}</td><td><strong>${escapeHtml(entry.action)}</strong></td><td>${escapeHtml(entry.entity_type)}</td><td><small>${escapeHtml(entry.entity_id||'—')}</small></td></tr>`).join(''):'<tr><td colspan="5">No audited Admin actions yet.</td></tr>';
+        if(status)status.textContent=rows.length+' audit record(s) loaded.'+(auditHasMore?' Load older records to view more history.':' All available records loaded.');
+        if(older)older.hidden=!auditHasMore;
+        if($('#dataTypeFilter')?.value==='audit_log')renderDataManagement();
+        return true;
+      }catch(error){
+        if(current()){
+          const note='Audit history could not refresh: '+friendlyError(error)+(state.audit.length?' Previously loaded records are still shown.':' Use Refresh to retry.');
+          if(status)status.textContent=note;
+          const body=$('#auditTableBody');
+          if(body&&!state.audit.length)body.innerHTML='<tr><td colspan="5">Audit history is unavailable. Use Refresh to retry.</td></tr>';
+        }
+        // Reading history is optional after a successful action. Never report that action as failed.
+        return false;
+      }finally{
+        if(auditLoadPending===pending)auditLoadPending=null;
+        if(current()&&older)older.disabled=false;
+      }
+    })();
+    return pending.promise;
   };
 
   const renderDataCleanupOverview = () => {
@@ -7278,7 +7335,7 @@
     const cols = definitions[type];
     $('#dataTableHead').innerHTML = `<tr><th></th>${cols.map(([label])=>`<th>${escapeHtml(label)}</th>`).join('')}</tr>`;
     $('#dataTableBody').innerHTML = rows.length ? rows.map((row)=>`<tr><td><input type="checkbox" data-data-select="${escapeHtml(dataRecordId(row))}" ${state.selectedData.has(dataRecordId(row))?'checked':''}></td>${cols.map(([,getter])=>`<td>${escapeHtml(getter(row))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${cols.length+1}">No records match the current filters.</td></tr>`;
-    $('#dataProtectionNote').textContent = protectedTypes.has(type) ? 'Protected records: export is available, but destructive actions are disabled to preserve identity, financial and audit history.' : type === 'pickup_stations' ? 'Archive changes selected stations to inactive; records remain available for history.' : 'Payment accounts with history are deactivated or archived, never permanently deleted.';
+    $('#dataProtectionNote').textContent = type==='audit_log' ? 'Audit exports include only loaded records matching these filters. Open Audit Log and load older records first for earlier history. Audit records cannot be archived or deleted.' : protectedTypes.has(type) ? 'Protected records: export is available, but destructive actions are disabled to preserve identity, financial and audit history.' : type === 'pickup_stations' ? 'Archive changes selected stations to inactive; records remain available for history.' : 'Payment accounts with history are deactivated or archived, never permanently deleted.';
     $('#archiveSelectedData').disabled = type !== 'pickup_stations';
     $$('[data-data-select]').forEach((input)=>input.addEventListener('change',()=>{ input.checked ? state.selectedData.add(input.dataset.dataSelect) : state.selectedData.delete(input.dataset.dataSelect); updateDataSelection(rows); }));
     updateDataSelection(rows);
@@ -7743,6 +7800,7 @@
       stopAdminNotificationRealtime();
       state.admin = null;
       state.user = null;
+      resetAuditLog();
       showGate('login');
       if($('#adminPassword'))$('#adminPassword').value='';
       setFormStatus($('#adminLoginStatus'),'Signed out. Sign in with an authorized LEOGO Admin account.');
@@ -7976,7 +8034,8 @@
     $('#exportPickupParcelReport')?.addEventListener('click',exportPickupStationParcelReport);
     $('#pickupStationFinanceForm')?.addEventListener('submit',savePickupStationFinanceSettings);
     $('#adminAddRiderForm').addEventListener('submit', addRider);
-    $('#refreshAudit').addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
+    $('#refreshAudit')?.addEventListener('click', () => withButtonLock($('#refreshAudit'), 'Refreshing…', loadAuditLog));
+    $('#loadOlderAudit')?.addEventListener('click',()=>withButtonLock($('#loadOlderAudit'),'Loading…',()=>loadAuditLog({append:true})));
     document.querySelectorAll('#premiumAdminTabs [data-premium-admin-tab]').forEach((button) => button.addEventListener('click', () => {
       changePremiumAdminTab(button.dataset.premiumAdminTab);
     }));

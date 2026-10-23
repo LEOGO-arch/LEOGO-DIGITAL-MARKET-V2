@@ -1715,7 +1715,9 @@
 
       <section class="admin-panel" data-admin-panel="audit">
         <div class="section-head"><div><span>ACCOUNTABILITY</span><h2>Audit Log</h2><p>Immutable history of sensitive Admin actions and setting changes.</p></div><button class="primary-button" id="refreshAudit" type="button">↻ Refresh</button></div>
+        <p class="form-status" id="auditLogStatus" role="status" aria-live="polite"></p>
         <div class="table-card"><div class="responsive-table"><table><thead><tr><th>Date &amp; Time</th><th>Admin</th><th>Action</th><th>Entity</th><th>Reference</th></tr></thead><tbody id="auditTableBody"><tr><td colspan="5">Loading audit history…</td></tr></tbody></table></div></div>
+        <button class="primary-button" id="loadOlderAudit" type="button" hidden>Load Older Records</button>
       </section>
     </main>
   </div>
@@ -1805,7 +1807,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-three-documents-20261016" defer></script>
-  <script src="admin.js?v=staff-function-assignments-20261023" defer></script>
+  <script src="admin.js?v=audit-runtime-safety-20261024" defer></script>
 <script src="payment-verification-proof.js?v=payment-notification-proof-1" defer></script>
   <script src="vacant-houses.js?v=property-sale-rent-v1" defer></script>
   <script src="system-diagnostics.js?v=diagnostics-trend-collapse-1" defer></script>
