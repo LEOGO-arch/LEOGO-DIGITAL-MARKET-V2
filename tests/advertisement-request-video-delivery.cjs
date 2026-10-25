@@ -24,6 +24,7 @@ must(admin.includes("db.rpc('admin_update_advertisement_request'"),'Admin must b
 must(adminHtml.includes('id="advertisementRequestList"'),'Advertisement review queue must exist in Admin.');
 must(customerHtml.includes('js/app.js?v=advert-request-video-delivery-1'),'Customer app cache must be refreshed.');
 must(css.includes('.advertisement-poster.has-live-poster video'),'Short video must receive responsive styling.');
+must(css.includes('object-fit:contain'),'Short video must keep the full frame visible.');
 must(migration.includes('alter table public.advertisement_requests enable row level security'),'Request records must use row level security.');
 must(migration.includes('revoke all on table public.advertisement_requests from public, anon, authenticated'),'Personal request data must not be directly readable from the API.');
 must(migration.includes("private.is_leogo_admin('settings.manage')"),'Admin-only RPCs must enforce the LEOGO admin permission.');
