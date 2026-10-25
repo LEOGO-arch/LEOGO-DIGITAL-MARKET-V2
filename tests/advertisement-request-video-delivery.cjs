@@ -15,6 +15,7 @@ const must=(condition,message)=>{if(!condition)throw new Error(message);};
 
 must(!app.includes('Form design complete. Live submission'),'Advertisement request must no longer be a visual-only form.');
 must(app.includes("client.rpc('customer_submit_advertisement_request'"),'Customer form must submit to the secure RPC.');
+must(app.includes("else window.setTimeout(startAdvertisementRefresh, 0);"),'Advertisement loading must wait until deferred auth initialization completes.');
 must(app.includes("media.controls = true"),'Customer short videos must expose playback controls.');
 must(app.includes("media.preload = 'metadata'"),'Customer short videos must load metadata for playback.');
 must(app.includes("if (advertisementPoster.querySelector('video')) return"),'Native video controls must not open the lightbox.');
