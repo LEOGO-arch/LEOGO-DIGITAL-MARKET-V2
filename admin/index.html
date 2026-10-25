@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="customer-messaging.css?v=messaging-v1">
 <style>
 .service-operations-card{margin-top:18px}.service-fee-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.service-fee-form label{display:grid;gap:6px;font-weight:800}.service-fee-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px;width:180px}.service-fee-form button,.admin-service-request-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.service-fee-form small{width:100%;font-weight:800}.admin-service-request-list{display:grid;gap:14px}.admin-service-request-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.admin-service-request-card header{display:flex;justify-content:space-between;gap:12px}.admin-service-request-card header strong,.admin-service-request-card header small{display:block}.admin-service-request-card header b{font-size:11px;text-transform:capitalize;background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;height:max-content}.admin-service-request-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.admin-service-request-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.admin-service-request-grid small,.admin-service-request-grid strong{display:block}.admin-service-request-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-service-request-actions .verify{background:#157f3d}.admin-service-request-actions .reject,.admin-service-request-actions .cancel{background:#a42832}.admin-service-request-actions .dispatch{background:#ff7200}.admin-service-request-card p{margin:0;color:#526177}.service-request-summary-grid{margin:14px 0}@media(max-width:720px){.admin-service-request-grid{grid-template-columns:1fr}.admin-service-request-card header{display:grid}}
-</style><link rel="stylesheet" href="aftersales-negotiation.css?v=branded-operations-20261014"></head>
+ .advert-request-review-panel{margin-top:18px}.advert-request-review-list{display:grid;gap:12px}.advert-request-review-card{display:grid;gap:10px;border:1px solid #dce3ed;border-radius:14px;padding:14px;background:#fff}.advert-request-review-card header{display:flex;justify-content:space-between;gap:10px;align-items:center}.advert-request-review-card header strong,.advert-request-review-card header small{display:block}.advert-request-review-card header span{padding:5px 9px;border-radius:999px;background:#edf4ff;color:#164f98;font-size:12px;font-weight:800;text-transform:capitalize}.advert-request-review-card p{margin:0;white-space:pre-wrap;color:#526177}.advert-request-review-card label{display:grid;gap:5px;font-weight:800}.advert-request-review-card select,.advert-request-review-card textarea{border:1px solid #d8e0eb;border-radius:9px;padding:10px;font:inherit}.advert-request-review-card textarea{resize:vertical}.advert-request-review-card button{justify-self:start}.advert-request-review-contact{font-weight:800}.advert-request-review-contact a{color:#164f98} </style><link rel="stylesheet" href="aftersales-negotiation.css?v=branded-operations-20261014"></head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
     <div class="auth-visual">
@@ -1038,6 +1038,10 @@
             <div class="responsive-table"><table class="advert-admin-table"><thead><tr><th>Advertisement</th><th>Period</th><th>State</th><th>Poster</th><th>Action</th></tr></thead><tbody id="advertisementTableBody"><tr><td colspan="5">Loading advertisements…</td></tr></tbody></table></div>
           </section>
         </div>
+        <section class="content-card advert-request-review-panel">
+          <div class="card-head"><div><span>CUSTOMER INQUIRIES</span><h3>Advertisement Requests</h3><p>Customer contact details and notes are visible to authorized Admin reviewers only.</p></div><button id="refreshAdvertisementRequests" class="secondary-button" type="button">↻ Refresh Requests</button></div>
+          <div id="advertisementRequestList" class="advert-request-review-list" aria-live="polite"><div class="empty-mini">Loading customer advertisement requests…</div></div>
+        </section>
       </section>
 
       <section class="admin-panel" data-admin-panel="loyalty">
@@ -1818,7 +1822,7 @@
   <script src="email-notifications.js?v=messaging-safety-20261017" defer></script>
   <script src="wallet-payouts.js?v=cash-isolation-1" defer></script>
   <script src="customer-messaging.js?v=messaging-safety-20261017" defer></script>
-  <script src="advertisements.js?v=global-refresh-20261022" defer></script>
+  <script src="advertisements.js?v=advert-request-review-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
   <script src="health.js?v=health-runtime-guards-20261017" defer></script>
   <script src="health-specialist.js?v=health-runtime-guards-20261017" defer></script>
