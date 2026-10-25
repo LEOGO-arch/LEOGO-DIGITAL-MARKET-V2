@@ -42,6 +42,27 @@ if (!html.includes('data-wallet-tab-target="save"') || !html.includes('data-wall
   throw new Error('Wallet overview quick actions are missing.');
 }
 
+if ((html.match(/class="wallet-public-feature"/g) || []).length !== 6) {
+  throw new Error('Expected six interactive public wallet feature cards.');
+}
+
+const publicFeatureTargets = {
+  challenge: ['wallet', 'challenge'],
+  points: ['wallet', 'overview'],
+  checkout: ['cart', null],
+  withdrawals: ['wallet', 'withdraw'],
+  statements: ['wallet', 'statements'],
+  loans: ['wallet', 'loans']
+};
+for (const [feature, [view, tab]] of Object.entries(publicFeatureTargets)) {
+  const cardPattern = new RegExp(`<button\\b(?=[^>]*data-wallet-feature="${feature}")(?=[^>]*data-open-customer-view="${view}")(?=[^>]*${tab ? `data-wallet-tab-target="${tab}"` : '(?![^>]*data-wallet-tab-target)'} )[^>]*>.*?<\\/button>`, 's');
+  if (!cardPattern.test(html)) throw new Error(`Wallet feature card ${feature} does not navigate to its intended destination.`);
+}
+
+if (!css.includes('.wallet-public-feature:focus-visible')) {
+  throw new Error('Public wallet feature cards need a visible keyboard focus state.');
+}
+
 if (!css.includes('LEOGO Wallet tabs — customer dashboard organisation')) {
   throw new Error('Wallet tab styles are missing.');
 }
