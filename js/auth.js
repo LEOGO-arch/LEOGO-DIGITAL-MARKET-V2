@@ -383,6 +383,20 @@
     }
   });
 
+  // Expose the shared customer client immediately so other deferred page
+  // modules can load public content as soon as DOMContentLoaded fires.
+  window.leogoAuth = {
+    isReady: () => authReady,
+    isAuthenticated: () => Boolean(currentSession?.user),
+    getUser: () => currentSession?.user || null,
+    requireLogin: (message) => {
+      if (currentSession?.user) return true;
+      openAuth(message);
+      return false;
+    },
+    client: authClient
+  };
+
   const renderCustomerSubcounties = (preferredCode = '') => {
     if (!profileFields.subCounty) return;
     const countyCode = profileFields.county?.value || '';
@@ -446,17 +460,7 @@
   profileFields.county?.addEventListener('change', () => renderCustomerSubcounties());
   loadKenyaLocations();
 
-  window.leogoAuth = {
-    isReady: () => authReady,
-    isAuthenticated: () => Boolean(currentSession?.user),
-    getUser: () => currentSession?.user || null,
-    requireLogin: (message) => {
-      if (currentSession?.user) return true;
-      openAuth(message);
-      return false;
-    },
-    client: authClient
-  };
+
 
   document.addEventListener('submit', (event) => {
     const protectedForm = event.target.closest?.('[data-requires-auth]');
