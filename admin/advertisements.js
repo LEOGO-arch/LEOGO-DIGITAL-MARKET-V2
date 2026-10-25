@@ -8,7 +8,7 @@
 
   const $ = (selector, root=document) => root.querySelector(selector);
   const $$ = (selector, root=document) => root ? Array.from(root.querySelectorAll(selector)) : [];
-  const state = { advertisements: [] };
+  const state = { advertisements: [], requests: [] };
   let posterObjectUrl = '';
 
   const escapeHtml = (value='') => String(value ?? '').replace(/[&<>'"]/g, (ch) => ({
@@ -369,12 +369,69 @@
     });
   };
 
+
+  const renderRequests = () => {
+    const list = $('#advertisementRequestList');
+    if (!list) return;
+    if (!state.requests.length) {
+      list.innerHTML = '<div class="customer-empty-state compact"><span>📨</span><h4>No advertisement requests yet</h4><p>New customer requests will appear here for Admin review.</p></div>';
+      return;
+    }
+    list.innerHTML = state.requests.map((item) => {
+      const statuses = ['pending','in_review','contacted','approved','rejected'];
+      const options = statuses.map((status) => '<option value="'+status+'"'+(item.status===status?' selected':'')+'>'+status.replace('_',' ')+'</option>').join('');
+      return '<article class="advert-request-review-card" data-ad-request-card="'+escapeHtml(item.id)+'">'+
+        '<header><div><strong>'+escapeHtml(item.requester_name)+'</strong><small>'+escapeHtml(formatDate(item.created_at))+'</small></div><span>'+escapeHtml(item.status.replace('_',' '))+'</span></header>'+
+        '<div class="advert-request-review-contact"><a href="tel:'+escapeHtml(item.requester_phone)+'">'+escapeHtml(item.requester_phone)+'</a></div>'+
+        '<p>'+escapeHtml(item.request_details)+'</p>'+
+        '<label><span>Review status</span><select data-ad-request-status>'+options+'</select></label>'+
+        '<label><span>Admin notes</span><textarea data-ad-request-notes rows="2" maxlength="1000" placeholder="Private review notes">'+escapeHtml(item.admin_notes||'')+'</textarea></label>'+
+        '<button class="secondary-button" type="button" data-ad-request-save="'+escapeHtml(item.id)+'">Save Review</button>'+
+      '</article>';
+    }).join('');
+  };
+
+  const loadRequests = async () => {
+    const list = $('#advertisementRequestList');
+    if (list) list.innerHTML = '<div class="empty-mini">Loading customer advertisement requests…</div>';
+    const { data, error } = await db.rpc('admin_list_advertisement_requests');
+    if (error) {
+      if (list) list.innerHTML = '<div class="customer-empty-state compact"><span>⚠️</span><h4>Advertisement requests could not load</h4><p>Use Refresh to try again.</p></div>';
+      throw error;
+    }
+    state.requests = Array.isArray(data) ? data : [];
+    renderRequests();
+  };
+
+  const saveRequestReview = async (button) => {
+    const card = button.closest('[data-ad-request-card]');
+    if (!card) return;
+    await withButtonLock(button,'Saving…',async() => {
+      const { error } = await db.rpc('admin_update_advertisement_request',{
+        p_request_id:card.dataset.adRequestCard,
+        p_status:card.querySelector('[data-ad-request-status]')?.value||'pending',
+        p_admin_notes:card.querySelector('[data-ad-request-notes]')?.value||null
+      });
+      if (error) {
+        globalStatus(friendlyError(error),'error');
+        return;
+      }
+      await loadRequests();
+      globalStatus('Advertisement request review saved.');
+    });
+  };
+
+  window.leogoRefreshAdvertisementRequests = loadRequests;
+
   const bind = () => {
     if (!$('#advertisementForm')) return;
     resetForm();
 
     $('#refreshAdvertisements')?.addEventListener('click', (event) =>
-      withButtonLock(event.currentTarget,'Refreshing…',load).catch((error) => globalStatus(friendlyError(error),'error'))
+      withButtonLock(event.currentTarget,'Refreshing…',async()=>{await load();await loadRequests();}).catch((error) => globalStatus(friendlyError(error),'error'))
+    );
+    $('#refreshAdvertisementRequests')?.addEventListener('click', (event) =>
+      withButtonLock(event.currentTarget,'Refreshing…',loadRequests).catch((error) => globalStatus(friendlyError(error),'error'))
     );
     $('#newAdvertisement')?.addEventListener('click',resetForm);
     $('#cancelAdvertisementEdit')?.addEventListener('click',resetForm);
@@ -413,6 +470,11 @@
       });
     });
 
+    $('#advertisementRequestList')?.addEventListener('click',(event) => {
+      const saveButton = event.target.closest?.('[data-ad-request-save]');
+      if (saveButton) saveRequestReview(saveButton).catch((error) => globalStatus(friendlyError(error),'error'));
+    });
+
     $('#advertisementTableBody')?.addEventListener('click',(event) => {
       const editButton = event.target.closest?.('[data-advert-edit]');
       if (editButton) {
@@ -426,9 +488,14 @@
       }
     });
 
+    loadRequests().catch((error) => globalStatus(friendlyError(error),'error'));
+
     document.querySelectorAll('[data-admin-view="advertisements"]').forEach((button) => {
       button.addEventListener('click',() => {
-        window.setTimeout(() => load().catch((error) => globalStatus(friendlyError(error),'error')),50);
+        window.setTimeout(() => {
+          load().catch((error) => globalStatus(friendlyError(error),'error'));
+          loadRequests().catch((error) => globalStatus(friendlyError(error),'error'));
+        },50);
       });
     });
   };
