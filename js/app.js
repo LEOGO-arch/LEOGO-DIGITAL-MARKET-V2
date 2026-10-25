@@ -875,7 +875,7 @@
     window.setInterval(() => loadActiveAdvertisement().catch(() => {}), 60000);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startAdvertisementRefresh, { once:true });
-  else startAdvertisementRefresh();
+  else window.setTimeout(startAdvertisementRefresh, 0);
 
   const closeAdvertRequest = () => {
     if (!advertRequestModal) return;
