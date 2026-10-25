@@ -1643,7 +1643,7 @@ body.premium-peer-chat-open{overflow:hidden}
 .advertisement-body a{color:#d95d00;font-weight:800;text-decoration:underline;overflow-wrap:anywhere}
 .advertisement-body strong,.advertisement-body b{color:#263650}
 .advertisement-card.is-live-advertisement .advertisement-label:after{content:' • LIVE';color:#16823b}
-@media(max-width:700px){.advertisement-poster.has-live-poster img{min-height:230px;max-height:420px;object-fit:cover}.advertisement-body{font-size:12px}}
+@media(max-width:700px){.advertisement-poster.has-live-poster img,.advertisement-poster.has-live-poster video{min-height:230px;max-height:420px;object-fit:cover}.advertisement-body{font-size:12px}}
 
 
 /* Full-screen advertisement poster preview */
