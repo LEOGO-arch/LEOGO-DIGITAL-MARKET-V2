@@ -742,10 +742,13 @@
     }, 75);
   };
 
-  advertisementPoster?.addEventListener('click', openAdvertisementLightbox);
+  advertisementPoster?.addEventListener('click', (event) => {
+    if (advertisementPoster.querySelector('video')) return;
+    openAdvertisementLightbox();
+  });
   advertisementPoster?.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
-    if (!advertisementPoster.classList.contains('has-live-poster')) return;
+    if (!advertisementPoster.classList.contains('has-live-poster') || advertisementPoster.querySelector('video')) return;
     event.preventDefault();
     openAdvertisementLightbox();
   });
@@ -813,10 +816,10 @@
         const media = document.createElement(video ? 'video' : 'img');
         if (video) {
           media.src = publicUrl;
-          media.preload = 'none';
+          media.controls = true;
+          media.preload = 'metadata';
           media.playsInline = true;
-          media.muted = true;
-          media.setAttribute('aria-label', advertisement.title || 'Play short advertisement');
+          media.setAttribute('aria-label', advertisement.title ? advertisement.title + ' advertisement video' : 'Advertisement video');
         } else {
           media.src = publicUrl;
           media.alt = advertisement.title ? advertisement.title + ' advertisement poster' : 'Advertisement poster';
@@ -826,9 +829,15 @@
         }
         advertisementPoster.appendChild(media);
         advertisementPoster.classList.add('has-live-poster');
-        advertisementPoster.setAttribute('role','button');
-        advertisementPoster.setAttribute('tabindex','0');
-        advertisementPoster.setAttribute('aria-label','Open full advertisement poster');
+        if (video) {
+          advertisementPoster.setAttribute('role','group');
+          advertisementPoster.removeAttribute('tabindex');
+          advertisementPoster.setAttribute('aria-label','Advertisement video player');
+        } else {
+          advertisementPoster.setAttribute('role','button');
+          advertisementPoster.setAttribute('tabindex','0');
+          advertisementPoster.setAttribute('aria-label','Open full advertisement poster');
+        }
       } else {
         advertisementPoster.classList.remove('has-live-poster');
         advertisementPoster.removeAttribute('role');
@@ -878,21 +887,53 @@
 
   const showAdvertRequest = () => {
     if (!advertRequestModal) return;
+    const user=window.leogoAuth?.getUser?.();
+    const nameField=document.getElementById('advertRequestName');
+    const phoneField=document.getElementById('advertRequestPhone');
+    if(nameField&&!nameField.value&&user?.user_metadata?.full_name)nameField.value=user.user_metadata.full_name;
+    if(phoneField&&!phoneField.value&&user?.user_metadata?.phone)phoneField.value=user.user_metadata.phone;
     advertRequestModal.classList.add('is-open');
     advertRequestModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('advert-request-open');
     advertRequestStatus.textContent = '';
-    window.setTimeout(() => document.getElementById('advertRequestName')?.focus(), 50);
+    window.setTimeout(() => nameField?.focus(), 50);
   };
 
   openAdvertRequest?.addEventListener('click', showAdvertRequest);
   advertRequestModal?.querySelectorAll('[data-close-advert-request]').forEach((button) => {
     button.addEventListener('click', closeAdvertRequest);
   });
-  advertRequestForm?.addEventListener('submit', (event) => {
+  advertRequestForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!advertRequestForm.reportValidity()) return;
-    advertRequestStatus.textContent = 'Form design complete. Live submission and Admin review will be connected in the Admin workflow phase.';
+
+    const client=window.leogoAuth?.client;
+    const user=window.leogoAuth?.getUser?.();
+    if(!client||!user){
+      advertRequestStatus.textContent='Please log in before submitting an advertisement request.';
+      window.leogoAuth?.requireLogin?.('Please log in before submitting an advertisement request.');
+      return;
+    }
+
+    const submitButton=advertRequestForm.querySelector('button[type="submit"]');
+    const originalText=submitButton?.textContent||'Submit Request';
+    try{
+      if(submitButton){submitButton.disabled=true;submitButton.textContent='Submitting…';}
+      advertRequestStatus.textContent='Sending your request securely to LEOGO Admin…';
+      const {error}=await client.rpc('customer_submit_advertisement_request',{
+        p_requester_name:document.getElementById('advertRequestName').value.trim(),
+        p_requester_phone:document.getElementById('advertRequestPhone').value.trim(),
+        p_request_details:document.getElementById('advertRequestDetails').value.trim()
+      });
+      if(error)throw error;
+      advertRequestStatus.textContent='✓ Request submitted. LEOGO Admin will review it and contact you.';
+      advertRequestForm.reset();
+      window.setTimeout(()=>closeAdvertRequest(),1600);
+    }catch(error){
+      advertRequestStatus.textContent=error?.message||'Your advertisement request could not be submitted. Please try again.';
+    }finally{
+      if(submitButton){submitButton.disabled=false;submitButton.textContent=originalText;}
+    }
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && advertisementLightbox && !advertisementLightbox.hidden) {
