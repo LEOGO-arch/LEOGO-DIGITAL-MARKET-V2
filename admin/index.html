@@ -1119,7 +1119,7 @@
 
       <section class="admin-panel" data-admin-panel="settings">
         <div class="section-head"><div><span>ADMINISTRATION</span><h2>System Settings</h2><p>Official business information, payment destinations, fees and reserved system modules.</p></div></div>
-        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button id="adminSecuritySettingsTab" data-settings-panel="security" hidden>Admin Security</button><button data-settings-panel="email">Email Notifications</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="orders">Order Rules</button><button data-settings-panel="lipa">Lipa Pole Pole</button><button id="dataManagementSettingsTab" data-settings-panel="data" hidden>Data Cleanup &amp; Retention</button><button data-settings-panel="reserved">More Settings</button></div>
+        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button id="adminSecuritySettingsTab" data-settings-panel="security" hidden>Admin Security</button><button data-settings-panel="email">Email Notifications</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="agreements">Partner Terms &amp; Agreements</button><button data-settings-panel="orders">Order Rules</button><button data-settings-panel="lipa">Lipa Pole Pole</button><button id="dataManagementSettingsTab" data-settings-panel="data" hidden>Data Cleanup &amp; Retention</button><button data-settings-panel="reserved">More Settings</button></div>
 
         <div class="settings-panel active" data-settings-content="business">
           <form class="settings-form" id="businessSettingsForm">
@@ -1270,6 +1270,8 @@
           <div class="form-section-head"><div><span>C</span><div><h3>Assign Accounts to LEOGO Functions</h3><p>One active account may serve one or several functions.</p></div></div></div>
           <div class="assignment-grid" id="paymentAssignmentList"><div class="loading-card">Loading assignments…</div></div>
         </div>
+
+        <div class="settings-panel" data-settings-content="agreements" aria-label="Partner Terms and Agreements"></div>
 
         <div class="settings-panel" data-settings-content="fees">
 <form class="settings-form" id="aftersalesStationCommissionSettingsForm">
@@ -1834,7 +1836,7 @@
 <script src="aftersales-liability.js?v=approved-charges-v2" defer></script>
 <script src="aftersales-fee-settings.js?v=settings-runtime-safety-20261022" defer></script>
   <script src="category-management.js?v=diagnosis-safety-1" defer></script>
-<script src="../js/partner-terms-agreements.js?v=agreement-pdf-v1" defer></script>
+<script src="../js/partner-terms-agreements.js?v=agreement-own-tab-v3" defer></script>
   <script src="customer-traffic-report.js?v=traffic-v1" defer></script>
 </body>
 </html>
