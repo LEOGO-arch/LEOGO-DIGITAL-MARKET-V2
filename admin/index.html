@@ -1377,6 +1377,23 @@
               </div>
             </section>
 
+            <section class="data-cleanup-card" id="mediaHousekeepingPanel">
+              <div class="form-section-head"><div><span>🗂</span><div><h3>Media Storage Housekeeping</h3><p>Separate six-month pickup proof retention, protected by Super Admin approval. Payment receipts, private documents and active images are excluded.</p></div></div><button id="mediaRefresh" type="button">Refresh</button></div>
+              <div class="data-retention-grid">
+               <label><span>Minimum retention (days)</span><input id="mediaRetentionDays" type="number" min="180" max="3650" value="180"></label>
+               <label><span>Daily eligibility scan</span><input id="mediaAutoScan" type="checkbox"><small>When enabled, a daily scan queues six-month-old eligible proofs for review; it never deletes automatically.</small></label>
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0">
+               <button type="button" id="mediaSave">Save Media Settings</button>
+               <button type="button" id="mediaScan">Scan Eligible Proofs</button>
+               <button type="button" id="mediaExport">Export Candidates CSV</button>
+              </div>
+              <p id="mediaHousekeepingSummary" aria-live="polite">Open System Settings to load media housekeeping.</p>
+              <div id="mediaHousekeepingCandidates" class="cleanup-list">Candidates will appear here after scanning.</div>
+              <button type="button" id="mediaApprove">Approve Selected for Cleanup</button>\n              <p id="mediaApprovedCount">0 approved files</p>\n              <button type="button" id="mediaPurge" class="danger-button">Permanently Delete Approved Files (max 20 per run)</button>
+              <div class="form-status" id="mediaHousekeepingStatus" role="status" aria-live="polite"></div>
+              <div class="locked-front-note">Only explicitly approved six-month-old pickup proofs may be deleted. All deletions are final. Other media buckets and financial records remain protected.</div>
+            </section>
             <form class="data-cleanup-card" id="dataRetentionSettingsForm">
               <div class="form-section-head">
                 <div><span>⏱</span><div><h3>Retention Rules</h3><p>Longer periods preserve more history; shorter periods save database space. Minimum safe limits are enforced by the backend.</p></div></div>
@@ -1838,6 +1855,7 @@
   <script src="category-management.js?v=diagnosis-safety-1" defer></script>
 <script src="../js/partner-terms-agreements.js?v=agreement-own-tab-v3" defer></script>
   <script src="customer-traffic-report.js?v=traffic-v1" defer></script>
+  <script src="media-housekeeping.js?v=2" defer></script>
 </body>
 </html>
 
