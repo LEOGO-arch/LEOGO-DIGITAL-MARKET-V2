@@ -5,10 +5,18 @@ const root=path.resolve(__dirname,'..');
 const js=fs.readFileSync(path.join(root,'js/partner-terms-agreements.js'),'utf8');
 const sql=fs.readFileSync(path.join(root,'supabase/migrations/20261027150000_publish_leogo_partner_agreement_v1.sql'),'utf8');
 const html=fs.readFileSync(path.join(root,'partner/index.html'),'utf8');
+const adminHtml=fs.readFileSync(path.join(root,'admin/index.html'),'utf8');
 
 assert.match(js,/\['service_provider',document\.getElementById\('providerShell'\)\]/);
 assert.match(js,/\['seller',document\.getElementById\('sellerDashboard'\)\]/);
 assert.match(js,/leogo_admin_publish_partner_terms/);
+assert.match(js,/\[data-settings-content="agreements"\]/);
+assert.match(adminHtml,/data-settings-panel="agreements"/);
+assert.match(adminHtml,/data-settings-content="agreements"/);
+assert.match(js,/Save & Publish New Version/);
+assert.match(js,/previousVersion&&previousVersion!==current\?\.version/);
+assert.match(js,/visibilitychange/);
+assert.match(js,/setInterval\(\(\)=>\{if\(!document\.hidden\)load\(\);\},60000\)/);
 assert.match(js,/current\.terms_text/);
 assert.match(js,/current\.version/);
 assert.match(js,/pdf\.save\(/);
