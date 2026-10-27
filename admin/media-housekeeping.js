@@ -4,7 +4,7 @@
  const $ = id => document.getElementById(id);
  const db = () => window.leogoAdminDb;
  const msg = (s, error=false) => { const el=$('mediaHousekeepingStatus'); if(el) {el.textContent=s;el.style.color=error?'#a42832':'#147c45';} };
- let jobs=[];
+ let jobs=[]; let approved=[];
  const bytes = n => (Number(n||0)/1048576).toFixed(2)+' MB';
  const safe = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  async function rpc(name,args={}) {
@@ -18,6 +18,9 @@
    const x=await rpc('admin_media_housekeeping_summary');
    if(!x) throw new Error('Super Admin access required');
    jobs=Array.isArray(x.candidates)?x.candidates:[];
+   approved=await rpc('admin_media_housekeeping_approved');
+   if(!Array.isArray(approved))approved=[];
+   $('mediaApprovedCount').textContent=approved.length+' approved file(s) awaiting controlled deletion';
    $('mediaRetentionDays').value=x.retention_days||180;
    $('mediaAutoScan').checked=!!x.automatic_scan;
    $('mediaHousekeepingSummary').textContent=
@@ -49,6 +52,16 @@
    if(!window.confirm('Approve '+ids.length+' checked pickup proof file(s) for a future controlled purge? This does not delete them immediately.'))return;
    const n=await rpc('admin_media_housekeeping_approve',{p_job_ids:ids});
    msg(n+' files approved; none deleted.');await load();
+  },e.currentTarget));
+  $('mediaPurge').addEventListener('click',e=>task(async()=>{
+   if(!approved.length)throw new Error('There are no approved files to delete');
+   if(!window.confirm('PERMANENT DELETE: Delete '+approved.length+' previously approved pickup proof file(s)? This cannot be undone.'))return;
+   const ids=approved.slice(0,20).map(x=>x.id);
+   const {data,error}=await db().functions.invoke('media-housekeeping-purge',{body:{job_ids:ids}});
+   if(error)throw error;
+   const results=Array.isArray(data?.results)?data.results:[];
+   msg('Purge processed: '+results.filter(r=>r.status==='deleted'&&r.confirmed).length+' confirmed deleted; '+results.filter(r=>r.status!=='deleted'||!r.confirmed).length+' skipped, failed or requiring reconciliation.');
+   await load();
   },e.currentTarget));
   $('mediaExport').addEventListener('click',csv);
   // Load only when the System Settings view is opened; auth may not yet be initialized.
