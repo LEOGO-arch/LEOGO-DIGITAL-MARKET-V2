@@ -1,0 +1,23 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const js=fs.readFileSync(path.join(root,'js/partner-terms-agreements.js'),'utf8');
+const sql=fs.readFileSync(path.join(root,'supabase/migrations/20261027150000_publish_leogo_partner_agreement_v1.sql'),'utf8');
+const html=fs.readFileSync(path.join(root,'partner/index.html'),'utf8');
+
+assert.match(js,/\['service_provider',document\.getElementById\('providerShell'\)\]/);
+assert.match(js,/\['seller',document\.getElementById\('sellerDashboard'\)\]/);
+assert.match(js,/leogo_admin_publish_partner_terms/);
+assert.match(js,/current\.terms_text/);
+assert.match(js,/current\.version/);
+assert.match(js,/pdf\.save\(/);
+assert.match(js,/download\.disabled=!current/);
+assert.match(js,/Electronic acceptance will be enabled after its registration checks are verified/);
+assert.match(html,/jspdf\.umd\.min\.js/);
+assert.match(sql,/within 24 hours/);
+assert.match(sql,/30 days' written notice/);
+assert.match(sql,/within 30 days after written dispute notice/);
+assert.match(sql,/where partner_type=v_type and terms_text=v_terms/);
+assert.doesNotMatch(sql,/48 hours|pilot target/);
+console.log('Partner agreement PDF and versioned publication checks passed.');
