@@ -559,7 +559,7 @@
       flashsales: () => adminHas('approvals.read'),
       aftersales: () => adminHas('orders.read'),
       customers: () => adminHas('customers.read'),
-      customer_messages: () => adminHas('customers.read') && adminHas('settings.manage'),
+      customer_messages: () => adminHas('customers.read') && (adminHas('customers.messaging.send') || adminHas('settings.manage')),
       chat: () => adminHas('support.chat'),
       products: () => adminHas('products.read'),
       sellers: () => adminHas('sellers.read'),
@@ -1694,6 +1694,7 @@
     ['delivery.manage','Transport, Rider & Pickup','Manage Rider assignments, transport operations and Pickup Stations','Riders · Transport requests/providers/vehicles · delivery jobs · Pickup Stations · returns · delivery operations'],
     ['customers.read','Customers','View customer accounts and customer-submitted records','Customer directory · customer details · feedback/testimonial visibility'],
     ['support.chat','Customer Care','Handle assigned private Customer Care conversations','Customer Care inbox · claim/reply/close assigned chats'],
+    ['customers.messaging.send','Customer Communications','Send Customer SMS & Email messages','Individual and group messaging · promotional consent · message history; requires Customers Read'],
     ['sellers.read','Sellers','View Seller accounts and Seller operational records','Seller directory · Seller record visibility'],
     ['settlements.read','Settlements','View settlement accounts, requests and payout history','Seller · Service Provider · Transport Provider settlement records'],
     ['settlements.manage','Settlements','Approve settlement accounts and process payouts','Settlement account review · settlement requests · payout recording'],
@@ -1716,6 +1717,7 @@
     'Transport, Rider & Pickup':'Rider, Transport/Parcel, delivery and Pickup Station responsibilities.',
     'Customers':'Customer records and customer-submitted information.',
     'Customer Care':'Private Customer Care communication.',
+    'Customer Communications':'Send messages to customers without granting broad System Settings access.',
     'Sellers':'Seller account visibility.',
     'Settlements':'Partner settlement review and payout responsibilities.',
     'Marketplace Catalogue':'Products, categories, listings and review moderation.',
@@ -1767,6 +1769,7 @@
   ];
 
   const STAFF_PERMISSION_DEPENDENCIES = {
+    'customers.messaging.send':['customers.read'],
     'approvals.manage':['approvals.read'],
     'orders.write':['orders.read'],
     'orders.manage':['orders.read'],
@@ -1779,7 +1782,7 @@
 
   const STAFF_SENSITIVE_PERMISSIONS = new Set([
     'approvals.manage','orders.manage','orders.payment_verify','settlements.manage',
-    'premium.manage','payments.manage','fees.manage','settings.manage'
+    'premium.manage','payments.manage','fees.manage','settings.manage','customers.messaging.send'
   ]);
 
   const normalizeStaffPermissionValues = (values = []) => {
