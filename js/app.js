@@ -866,6 +866,9 @@
     }
     const activeAdvertisement = data && Object.keys(data).length ? data : null;
     renderActiveAdvertisement(activeAdvertisement, client);
+    window.dispatchEvent(new CustomEvent('leogo-active-advertisement',{
+      detail:{id:activeAdvertisement?.id||null}
+    }));
     maybeOpenPushedAdvertisement(activeAdvertisement);
   };
 
