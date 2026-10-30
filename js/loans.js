@@ -18,7 +18,8 @@ function loadStyle(){
  if($('#leogoLoanV1Css'))return;
  const l=document.createElement('link');l.id='leogoLoanV1Css';l.rel='stylesheet';l.href='css/loans.css?v=loan-v2-1';document.head.appendChild(l);
 }
-function destinationNumber(d){return d?.till_number||d?.paybill_number||d?.account_number||'';}
+function destinationNumber(d){return d?.account_type==='mpesa_paybill'?(d?.paybill_number||''):(d?.till_number||d?.paybill_number||d?.account_number||'');}
+function destinationDetails(d){if(!d)return '';return (d.account_type==='mpesa_paybill'?'M-PESA Paybill':'M-PESA Till')+' · '+(d.account_name||d.business_name||d.display_name||'LEOGO DIGITAL MARKET')+(d.account_type==='mpesa_paybill'?' · Paybill Account Number: '+(d.account_number||'Not configured'):'')+(d.instructions?' · '+d.instructions:'');}
 function setStatus(msg,type=''){
  const el=$('#walletLoanStatus');if(!el)return;el.textContent=msg||'';el.classList.toggle('is-error',type==='error');el.classList.toggle('is-success',type==='success');
 }
@@ -183,13 +184,15 @@ function renderPortfolio(){
  const dest=overview?.repayment_destination||null;
  const host=$('#walletLoanPortfolioBody');if(!host)return;
  let html='';
+ if(dest){html+='<div class="loan-v1-destination"><div><small>Loan Repayment — assigned by LEOGO Admin</small><strong>'+esc(destinationNumber(dest)||'Payment number missing')+'</strong><span>'+esc(destinationDetails(dest))+'</span></div></div>';}
  const current=loans.find(l=>['active','overdue'].includes(l.status));
  if(current){
    const pct=Math.min(100,Math.max(0,Number(current.repayment_progress_percent||0)));
    const number=destinationNumber(dest);
+   const usableNumber=!!number && (dest?.account_type!=='mpesa_paybill'||!!dest?.account_number);
    html+='<article class="loan-v1-card '+(current.status==='overdue'?'is-overdue':'')+'"><header><div><b>'+esc(current.loan_reference)+'</b><h5>'+pretty(current.loan_type)+' · '+pretty(current.status)+'</h5></div><strong>'+money(current.outstanding_kes)+' outstanding</strong></header><div class="loan-v1-progress"><span style="width:'+pct+'%"></span></div><div class="loan-v1-grid"><div><small>Principal</small><b>'+money(current.principal_kes)+'</b></div><div><small>Total due</small><b>'+money(current.total_due_kes)+'</b></div><div><small>Repaid</small><b>'+money(current.amount_repaid_kes)+'</b></div><div><small>Due date</small><b>'+date(current.due_date)+'</b></div><div><small>Grace until</small><b>'+date(current.grace_until)+'</b></div><div><small>Progress</small><b>'+pct+'%</b></div></div>'+
-   (number?'<div class="loan-v1-destination"><div><small>Repay to '+esc(dest.display_name||dest.account_type||'LEOGO account')+'</small><strong>'+esc(number)+'</strong><span>'+esc(dest.account_name||dest.business_name||'')+'</span></div><button type="button" data-copy-loan-destination>Copy</button></div>':'<p class="loan-v1-warning">Admin has not assigned the Loan Repayment payment account yet.</p>')+
-   '<form class="loan-v1-repay" data-loan-repayment-form="'+esc(current.id)+'"><label><span>Repayment amount</span><input name="amount" type="number" min="1" max="'+Number(current.outstanding_kes||0)+'" step="0.01" required></label><label><span>Payment transaction/reference</span><input name="reference" minlength="6" maxlength="120" required placeholder="Paste M-Pesa / bank reference"></label><button type="submit" '+(number?'':'disabled')+'>Submit Repayment for Verification</button><p class="loan-v1-form-status" aria-live="polite"></p></form></article>';
+   (usableNumber?'<div class="loan-v1-destination"><div><small>Repay to '+esc(dest.display_name||dest.account_type||'LEOGO account')+'</small><strong>'+esc(number)+'</strong><span>'+esc(dest.account_name||dest.business_name||'')+'</span></div><button type="button" data-copy-loan-destination>Copy</button></div>':'<p class="loan-v1-warning">Admin has not assigned the Loan Repayment payment account yet.</p>')+
+   '<form class="loan-v1-repay" data-loan-repayment-form="'+esc(current.id)+'"><label><span>Repayment amount</span><input name="amount" type="number" min="1" max="'+Number(current.outstanding_kes||0)+'" step="0.01" required></label><label><span>Payment transaction/reference</span><input name="reference" minlength="6" maxlength="120" required placeholder="Paste M-Pesa / bank reference"></label><button type="submit" '+(usableNumber?'':'disabled')+'>Submit Repayment for Verification</button><p class="loan-v1-form-status" aria-live="polite"></p></form></article>';
  }
  const latestApp=apps[0];
  if(latestApp){

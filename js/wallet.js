@@ -349,10 +349,12 @@
     const depositNumber = destinationNumber(walletDepositDestination);
     if (elements.savingsTillNumber) elements.savingsTillNumber.textContent = challengeNumber || 'Payment unavailable';
     if (elements.savingsTillName) elements.savingsTillName.textContent = savingsChallengeDestination
-      ? `${destinationName(savingsChallengeDestination)} · ${destinationLabel(savingsChallengeDestination)}`
+      ? `${destinationName(savingsChallengeDestination)} · ${destinationLabel(savingsChallengeDestination)}` +
+        (savingsChallengeDestination.account_type === 'mpesa_paybill'
+          ? ` · Paybill Account Number: ${savingsChallengeDestination.account_number || 'Not configured'}` : '')
       : 'Admin has not assigned a Savings Challenge account.';
     if (elements.copySavingsTill) {
-      elements.copySavingsTill.disabled = !challengeNumber;
+      elements.copySavingsTill.disabled = !challengeNumber || (savingsChallengeDestination?.account_type === 'mpesa_paybill' && !savingsChallengeDestination?.account_number);
       elements.copySavingsTill.textContent = challengeNumber ? 'Copy' : 'Unavailable';
     }
     if (elements.depositPaymentLabel) elements.depositPaymentLabel.textContent = walletDepositDestination
@@ -360,14 +362,14 @@
       : 'Wallet deposit account';
     if (elements.depositPaymentNumber) elements.depositPaymentNumber.textContent = depositNumber || 'Payment unavailable';
     if (elements.depositPaymentName) elements.depositPaymentName.textContent = walletDepositDestination
-      ? destinationName(walletDepositDestination)
+      ? destinationName(walletDepositDestination) + (walletDepositDestination.account_type === 'mpesa_paybill' ? ' · Paybill Account Number: ' + (walletDepositDestination.account_number || 'Not configured') : '')
       : 'Admin has not assigned a Wallet / SACCO deposit account.';
     if (elements.copyDepositPayment) {
       elements.copyDepositPayment.disabled = !depositNumber;
       elements.copyDepositPayment.textContent = depositNumber ? 'Copy' : 'Unavailable';
     }
     if (elements.submitChallengePayment) {
-      elements.submitChallengePayment.disabled = !challengeNumber;
+      elements.submitChallengePayment.disabled = !challengeNumber || (savingsChallengeDestination?.account_type === 'mpesa_paybill' && !savingsChallengeDestination?.account_number);
       elements.submitChallengePayment.title = challengeNumber ? '' : 'Admin must assign an active Savings Challenge payment account first.';
     }
   };
