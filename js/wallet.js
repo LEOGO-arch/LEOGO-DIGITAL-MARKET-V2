@@ -981,10 +981,15 @@
 
   const pdfEscape = (value) => String(value ?? '').replace(/[^\x20-\x7E]/g, '?').replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
 
-  const downloadStatementPdf = (statementEntries) => {
+  const downloadStatementPdf = async (statementEntries) => {
     const statement=statementData(statementEntries);
     if(!statement.rows.length)throw new Error('There are no confirmed wallet transactions in the selected period.');
     const customer=currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||currentUser?.email||'LEOGO Customer';
+    if(window.leogoWalletStatementPdf?.generate){
+      const blob=await window.leogoWalletStatementPdf.generate({statement,customer,prettyStatus,kenyaDateTime});
+      saveDownload(blob,`LEOGO-Wallet-Statement-${localDateKey()}.pdf`);
+      return;
+    }
     const lines=[
       'LEOGO DIGITAL MARKET - SAVINGS & REWARDS STATEMENT',
       'Customer: '+customer,
@@ -1074,7 +1079,7 @@
         statementEntries.push(data.ledger_entry);
       }
       if (format === 'excel') downloadStatementExcel(statementEntries);
-      else downloadStatementPdf(statementEntries);
+      else await downloadStatementPdf(statementEntries);
       delete button.dataset.requestId;
       delete button.dataset.requestSignature;
       elements.statementConsent.checked = false;
