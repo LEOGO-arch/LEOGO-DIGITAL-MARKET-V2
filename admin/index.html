@@ -171,6 +171,18 @@
           <article><span>Oldest Waiting</span><strong id="approvalOldestWaiting">—</strong><small>Age of oldest pending request</small></article>
         </div>
 
+        <section class="content-card" id="approvalPaymentReferenceLookupPanel" aria-label="Search official LEOGO payment references" style="margin-bottom:16px">
+          <div class="card-head"><div><span>PAYMENT REFERENCE SEARCH</span><h3>Fetch / Search Customer Payment</h3><p>Find matching payment records across LEOGO modules. Search results do not confirm or approve payment.</p></div></div>
+          <form class="seller-admin-toolbar payment-reference-lookup-form" data-payment-reference-lookup>
+            <div class="payment-lookup-message warning" role="note"><strong>OFFICIAL LEOGO PAYMENT NOTIFICATION ONLY.</strong> Use the transaction code from LEOGO's receiving device or official receiving-account statement. Never rely on a customer-forwarded reference. Independently match the credited amount, account and date before approval.</div>
+            <label for="approvalPaymentReferenceInput">Official LEOGO receiving-account transaction code (or original notification)</label>
+            <input id="approvalPaymentReferenceInput" type="search" autocomplete="off" maxlength="2000" required placeholder="10-character M-PESA transaction code">
+            <label class="payment-lookup-source-check"><input type="checkbox" required> I obtained this code from LEOGO's official receiving device or account record, not from a customer-forwarded message.</label>
+            <button class="primary-button" type="submit">Fetch / Search Payment</button>
+          </form>
+          <div class="payment-reference-lookup-results" aria-live="polite"></div>
+        </section>
+
         <div class="approval-workbar">
           <div class="approval-filter" id="approvalFilters">
             <button class="active" data-approval-filter="all">All <b>0</b></button>
@@ -222,7 +234,7 @@
           <section class="content-card" id="paymentReferenceLookupPanel" aria-label="Fetch customer payment by M-PESA transaction code">
           <div class="card-head"><div><span>PAYMENT REFERENCE SEARCH</span><h3>Fetch / Search Customer Payment</h3>
           <p>Search the same code across LEOGO payment modules to locate matching records. This is a search aid, not a payment confirmation or approval.</p></div></div>
-          <form id="paymentReferenceLookupForm" class="seller-admin-toolbar payment-reference-lookup-form">
+          <form id="paymentReferenceLookupForm" class="seller-admin-toolbar payment-reference-lookup-form" data-payment-reference-lookup>
             <div class="payment-lookup-message warning" role="note"><strong>IMPORTANT — OFFICIAL LEOGO PAYMENT NOTIFICATION ONLY.</strong>
               The transaction code searched must come from the M-PESA SMS received on LEOGO's designated payment-receiving device or from LEOGO's official receiving-account statement. <strong>Never rely on a reference copied or forwarded by the customer.</strong> Match the actual credited amount, receiving account and date before approving.
             </div>
@@ -1888,7 +1900,7 @@
   <script src="../js/assisted-shopping-pdf.js?v=assisted-three-documents-20261016" defer></script>
   <script src="admin.js?v=diagnosis-safety-1" defer></script>
 <script src="payment-verification-proof.js?v=payment-notification-proof-1" defer></script>
-  <script src="payment-reference-lookup.js?v=lookup-all-modules-2" defer></script>
+  <script src="payment-reference-lookup.js?v=lookup-auth-recovery-3" defer></script>
   <script src="vacant-houses.js?v=property-sale-rent-v1" defer></script>
   <script src="system-diagnostics.js?v=diagnosis-safety-1" defer></script>
   <script src="assisted-shopping.js?v=diagnosis-safety-1" defer></script>
