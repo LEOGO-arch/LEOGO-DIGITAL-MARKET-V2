@@ -84,6 +84,7 @@
      instructions.textContent='This Paybill has no account/reference number. Admin must complete it in Payment Settings before tickets can be paid.';
      return;
     }
+    p.renderInstructions(instructions.parentElement,data,'Event Ticket Payment Instructions');
     instructions.textContent=p.typeLabel(data)+': '+number+
       (data.account_type==='mpesa_paybill'?' · Paybill Account Number: '+paybillAccount:'')+
       ' · Receiving Account: '+p.destinationName(data)+
