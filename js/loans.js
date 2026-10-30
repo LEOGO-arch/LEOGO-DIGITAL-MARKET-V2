@@ -206,6 +206,7 @@ function renderPortfolio(){
  }
  if(!html)html='<div class="loan-v1-empty">'+(user?'No loan application or loan account yet.':'Sign in to view your loan account.')+'</div>';
  host.innerHTML=html;
+ if(dest)window.leogoPayments?.renderInstructions(host,dest,'Loan Repayment Instructions');
 }
 async function load(forUser){
  if(loading)return;

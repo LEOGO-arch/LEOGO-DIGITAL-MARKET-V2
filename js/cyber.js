@@ -253,6 +253,7 @@ const openOrder=async(type,data)=>{
   $('#cyberPickupBox').innerHTML='Pickup from <strong>'+esc(selectedShop?.business_name||'Cyber Shop')+'</strong> · '+esc(selectedShop?.location_details||'')+' <a href="'+esc(shopMap(selectedShop))+'" target="_blank" rel="noopener">Open shop location</a>';
   $('#cyberDeliveryAddress').value='';$('#cyberDeliveryLandmark').value='';$('#cyberDeliveryMapLink').value='';$('#cyberDeliveryLatitude').value='';$('#cyberDeliveryLongitude').value='';
   $('#cyberPaymentDestination').innerHTML=paymentText(paymentDestination);
+  window.leogoPayments?.renderInstructions($('#cyberPaymentDestination'),paymentDestination,'Cyber Services Payment Instructions');
   $('#cyberOrderStatus').textContent='';
   updateOrderPreview();
   $('#cyberOrderModal').classList.add('open');
