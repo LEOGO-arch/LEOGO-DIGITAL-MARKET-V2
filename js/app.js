@@ -614,7 +614,7 @@
       advertisementVideoNotice.hidden = false;
       advertisementVideoNotice.textContent = 'Loading video…';
       advertisementLightboxVideo.hidden = false;
-      advertisementLightboxVideo.src = source;
+      if (advertisementLightboxVideo.src !== source) advertisementLightboxVideo.src = source;
       try {
         await advertisementLightboxVideo.play();
         advertisementVideoNotice.hidden = true;
@@ -715,13 +715,16 @@
     const source = media.currentSrc || media.src;
     advertisementLightboxImage.hidden = isVideo;
     if (isVideo) {
-      // Delay downloading/decoding until the visitor taps Play. Auto-playing
-      // alongside the homepage preview can exhaust mobile browser resources.
-      advertisementLightboxVideo.hidden = true;
+      // Muted inline playback is allowed by mobile autoplay policies. The
+      // visitor can unmute using native controls once the advert starts.
+      advertisementLightboxVideo.hidden = false;
+      advertisementLightboxVideo.muted = true;
+      advertisementLightboxVideo.playsInline = true;
       advertisementVideoPlayButton.dataset.source = source;
       advertisementVideoPlayButton.textContent = '▶ Play advertisement video';
-      advertisementVideoPlayButton.hidden = false;
-      advertisementVideoNotice.hidden = true;
+      advertisementVideoPlayButton.hidden = true;
+      advertisementVideoNotice.textContent = 'Loading advertisement video…';
+      advertisementVideoNotice.hidden = false;
     } else {
       advertisementLightboxVideo.hidden = true;
       advertisementLightboxImage.src = source;
@@ -735,6 +738,16 @@
 
     advertisementLightbox.hidden = false;
     document.body.classList.add('advertisement-lightbox-open');
+    if (isVideo) {
+      advertisementLightboxVideo.src = source;
+      advertisementLightboxVideo.play().then(() => {
+        if (!advertisementLightbox.hidden) advertisementVideoNotice.hidden = true;
+      }).catch(() => {
+        if (advertisementLightbox.hidden) return;
+        advertisementVideoNotice.textContent = 'Autoplay unavailable. Tap Play to watch.';
+        advertisementVideoPlayButton.hidden = false;
+      });
+    }
 
     const seconds = Number(autoCloseSeconds) === 5 ? 5 : 0;
     if (seconds && advertisementLightboxCountdown) {
