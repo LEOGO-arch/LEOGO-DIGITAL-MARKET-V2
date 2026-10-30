@@ -7758,6 +7758,22 @@
   };
 
   const bindEvents = () => {
+    // Payment lookup may locate a deposit while the Approval queue is stale or filtered.
+    // Reuse the secured review modal; never decide or approve a payment here.
+    window.leogoOpenWalletDepositReview = async (recordId) => {
+      if(!state.user || !state.admin || !viewAllowed('approvals'))return false;
+      const id=String(recordId||'');
+      if(!id)return false;
+      let item=state.approvals.find(row=>row.kind==='wallet_deposit'&&String(row.record_id)===id);
+      if(!item){
+        await loadApprovals();
+        item=state.approvals.find(row=>row.kind==='wallet_deposit'&&String(row.record_id)===id);
+      }
+      if(!item)return false;
+      changeView('approvals');
+      await openApproval('wallet_deposit',id);
+      return true;
+    };
     $('#adminLoginForm').addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!db) {

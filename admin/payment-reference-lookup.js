@@ -93,6 +93,25 @@
      card.append(open);
     }else{
      const moduleName=String(match.module||'');
+     if(moduleName==='Wallet deposit'){
+      const open=document.createElement('button');open.type='button';open.textContent='Open Wallet deposit review';
+      open.addEventListener('click',async()=>{
+       open.disabled=true;
+       try{
+        const opened=await window.leogoOpenWalletDepositReview?.(match.record_id);
+        if(!opened){
+         const note=document.createElement('p');note.className='payment-lookup-message warning';
+         note.textContent='This wallet deposit is not in the current authorized Approval Center queue. Refresh the queue or check whether it has already been reviewed.';
+         card.append(note);
+        }
+       }catch(error){
+        const note=document.createElement('p');note.className='payment-lookup-message warning';
+        note.textContent='Wallet deposit review could not open: '+(error?.message||String(error));
+        card.append(note);
+       }finally{open.disabled=false;}
+      });
+      card.append(open);
+     }else{
      const target=moduleName.startsWith('Wallet')?'wallet'
       :moduleName.startsWith('Premium')?'premium'
       :moduleName.startsWith('Group')?'orders'
@@ -109,6 +128,7 @@
       const open=document.createElement('button');open.type='button';open.textContent='Open '+(match.module||'module')+' review';
       open.addEventListener('click',()=>nav.click());
       card.append(open);
+     }
      }
      const hint=document.createElement('p');
      hint.textContent='Review record '+(match.reference||match.record_id||'')+' in the appropriate Admin queue. This lookup does not approve it.';
