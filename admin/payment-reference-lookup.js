@@ -82,7 +82,26 @@
      open.addEventListener('click',()=>tryOpenMarketplace(match));
      card.append(open);
     }else{
-     const hint=document.createElement('p');hint.textContent='Review this record in its '+(match.module||'respective')+' Admin module before any approval.';
+     const moduleName=String(match.module||'');
+     const target=moduleName.startsWith('Wallet')?'wallet'
+      :moduleName.startsWith('Premium')?'premium'
+      :moduleName.startsWith('Group')?'orders'
+      :moduleName.startsWith('Service request')?'providers'
+      :moduleName.startsWith('Cyber')?'orders'
+      :moduleName.startsWith('Health')?'health'
+      :moduleName.startsWith('Assisted')?'assisted'
+      :moduleName.startsWith('Aftersales')?'aftersales'
+      :moduleName.startsWith('Vacant')?'vacant_houses'
+      :moduleName.startsWith('Partner')||moduleName.includes('settlement')?'settlements'
+      :moduleName.startsWith('Lipa')?'orders':null;
+     const nav=target?document.querySelector('button[data-admin-view="'+target+'"]'):null;
+     if(nav&&!nav.disabled){
+      const open=document.createElement('button');open.type='button';open.textContent='Open '+(match.module||'module')+' review';
+      open.addEventListener('click',()=>nav.click());
+      card.append(open);
+     }
+     const hint=document.createElement('p');
+     hint.textContent='Review record '+(match.reference||match.record_id||'')+' in the appropriate Admin queue. This lookup does not approve it.';
      card.append(hint);
     }
     output.append(card);
