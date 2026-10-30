@@ -91,6 +91,17 @@
    const answers=document.createElement('details'),title=document.createElement('summary');title.textContent='Registration answers';
    const pre=document.createElement('pre');pre.style.whiteSpace='pre-wrap';pre.textContent=JSON.stringify(item.form_answers||{},null,2);
    answers.append(title,pre);card.append(heading,p,summary,answers);
+   if(item.action_kind==='ticket'&&item.payment_reference){
+    const lookup=document.createElement('button');lookup.type='button';lookup.className='secondary-button';
+    lookup.textContent='Fetch / Search M-PESA Reference';
+    lookup.addEventListener('click',()=>{
+     document.querySelector('button[data-admin-view="orders"]')?.click();
+     const search=document.getElementById('paymentReferenceLookupInput');
+     if(search){search.value=item.payment_reference;search.focus();}
+     document.getElementById('paymentReferenceLookupPanel')?.scrollIntoView({behavior:'smooth',block:'center'});
+    });
+    card.append(lookup);
+   }
    if(['pending_payment','submitted'].includes(item.status)){
     const buttons=document.createElement('div');buttons.className='advert-event-entry-actions';
     for(const [label,approve] of [['Confirm',true],['Reject',false]]){
