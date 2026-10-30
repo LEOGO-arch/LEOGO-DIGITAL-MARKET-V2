@@ -1,0 +1,164 @@
+// LEOGO Customer Front — optional event actions for the published advertisement.
+// Independent of customer checkout, normal orders and advert pop-up rendering.
+(() => {
+ 'use strict';
+ const $=s=>document.querySelector(s);
+ const buttons=$('#advertEventActionButtons');
+ const dialog=$('#advertEventModal');
+ const form=$('#advertEventForm');
+ if(!buttons||!dialog||!form)return;
+ let active=null,chosen=null,requestKey=0,destinationReady=false;
+ const user=()=>window.leogoAuth?.getUser?.();
+ const api=()=>window.leogoAuth?.client;
+ const fieldsHost=$('#advertEventDynamicFields');
+ const status=$('#advertEventFormStatus');
+ const payment=$('#advertEventPaymentFields');
+ const reference=$('#advertEventPaymentReference');
+ function renderConfig(config){
+  buttons.replaceChildren();active=config?.advertisement_id?config:null;
+  if(!active){buttons.hidden=true;return;}
+  const offers=[['ticket','Book & Pay Ticket',active.allow_ticket],
+    ['register','Register',active.allow_register],['join','Join',active.allow_join]];
+  for(const [key,label,enabled] of offers){
+   if(!enabled)continue;
+   const b=document.createElement('button');b.type='button';
+   b.textContent=label;b.addEventListener('click',()=>openForm(key));
+   buttons.append(b);
+  }
+  if(buttons.childElementCount){
+   const track=document.createElement('button');track.type='button';track.textContent='Track Event Request';
+   track.addEventListener('click',async()=>{
+    if(!user()){window.leogoAuth?.requireLogin?.('Sign in to track your event request.');return;}
+    const code=window.prompt('Enter your LEOGO event tracking number (LEO-...)','');
+    if(!code)return;
+    const client=api();if(!client)return;
+    const {data,error}=await client.rpc('customer_check_advert_event_entry',{p_ticket_code:code.trim().toUpperCase()});
+    if(error){window.alert(error.message);return;}
+    window.alert('Event: '+data.event+'\\nReference: '+data.tracking_code+
+      '\\nStatus: '+data.status+'\\nAmount: KSh '+Number(data.amount_due_kes||0).toLocaleString('en-KE')+
+      (data.status==='confirmed'?'\\nYour request has been confirmed by LEOGO.':'\\nWait for LEOGO confirmation before assuming admission.'));
+   });
+   buttons.append(track);
+  }
+  buttons.hidden=!buttons.childElementCount;
+ }
+ function openForm(kind){
+  if(!active)return;
+  if(!user()){window.leogoAuth?.requireLogin?.('Please sign in to book or register for this event.');return;}
+  chosen=kind;
+  form.reset();status.textContent='';fieldsHost.replaceChildren();
+  form.querySelectorAll('input,select').forEach(el=>el.disabled=false);
+  const submit=$('#advertEventSubmit');submit.hidden=false;submit.disabled=false;submit.textContent='Submit Request';
+  $('#advertEventModalTitle').textContent=kind==='ticket'?'Book & Pay Ticket':kind==='register'?'Event Registration':'Join Event';
+  const price=Number(active.ticket_price_kes||0);
+  $('#advertEventIntro').textContent=kind==='ticket'
+   ?'Ticket rate: KSh '+price.toLocaleString('en-KE',{minimumFractionDigits:2})+' — ticket will be confirmed after LEOGO verifies payment.'
+   :'Complete the questions set by LEOGO Admin for this event.';
+  payment.hidden=kind!=='ticket'||price<=0;
+  reference.required=kind==='ticket'&&price>0;
+  destinationReady=kind!=='ticket'||price<=0;
+  if(!destinationReady)submit.disabled=true;
+  const instructions=$('#advertEventPaymentInstructions');
+  if(instructions){instructions.textContent='Loading official LEOGO payment destination…';}
+  if(kind==='ticket'&&price>0){
+   window.leogoPayments?.getDestination('other_revenue').then(({data,error})=>{
+    if(!instructions||chosen!=='ticket'||!dialog.open)return;
+    if(error||!data){
+     instructions.textContent='LEOGO has not published an event payment destination. Contact LEOGO Customer Care before paying; never transfer to an unverified account.';
+     return;
+    }
+    if(!['mpesa_till','mpesa_paybill'].includes(data.account_type)){
+     instructions.textContent='Event tickets require an official LEOGO M-PESA Till or Paybill. Admin must select a supported account under Other Revenue.';
+     return;
+    }
+    const p=window.leogoPayments;
+    const number=p.paymentNumber(data);
+    if(!number){
+     instructions.textContent='No valid payment number is configured for LEOGO event tickets. Ask LEOGO Admin to assign the Other Revenue receiving account.';
+     return;
+    }
+    destinationReady=true;submit.disabled=false;
+    instructions.textContent=p.typeLabel(data)+': '+number+' · Account: '+p.destinationName(data)+
+      (data.instructions?' · '+data.instructions:'')+
+      '. Verify these are LEOGO details before paying.';
+   }).catch(()=>{if(instructions)instructions.textContent='Official payment details could not load. Contact LEOGO before paying.';});
+  }
+  const person=user();
+  if(person?.user_metadata?.full_name)$('#advertEventCustomerName').value=person.user_metadata.full_name;
+  if(person?.user_metadata?.phone)$('#advertEventCustomerPhone').value=person.user_metadata.phone;
+  if(kind!=='ticket'){
+   for(const field of Array.isArray(active.form_fields)?active.form_fields:[]){
+    if(!field?.key||!field?.label)continue;
+    const label=document.createElement('label');label.textContent=String(field.label);
+    let inp;
+    if(field.type==='select'){
+     inp=document.createElement('select');
+     const empty=document.createElement('option');empty.value='';empty.textContent='Choose an option';inp.append(empty);
+     for(const option of Array.isArray(field.options)?field.options:[]){
+      const o=document.createElement('option');o.value=String(option);o.textContent=String(option);inp.append(o);
+     }
+    }else{
+     inp=document.createElement('input');
+     inp.type=['number','date','checkbox'].includes(field.type)?field.type:'text';
+     if(inp.type==='text')inp.maxLength=250;
+    }
+    inp.dataset.eventField=field.key;
+    inp.required=!!field.required;
+    label.append(inp);fieldsHost.append(label);
+   }
+  }
+  dialog.showModal();
+ }
+ const close=$('#advertEventClose');close?.addEventListener('click',()=>dialog.close());
+ dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!form.reportValidity()||!active||!chosen)return;
+  if(chosen==='ticket'&&Number(active.ticket_price_kes)>0&&!destinationReady){
+   status.textContent='Official LEOGO ticket payment account is not configured. Contact LEOGO Admin before attempting payment.';
+   return;
+  }
+  const client=api();
+  if(!client||!user()){
+   status.textContent='Please sign in to LEOGO before booking a ticket or joining an event.';
+   window.leogoAuth?.requireLogin?.('Sign in to submit your event booking.');
+   return;
+  }
+  const answers={};
+  for(const element of fieldsHost.querySelectorAll('[data-event-field]')){
+   if(!element.required&&element.value===''&&element.tagName==='SELECT')continue;
+   answers[element.dataset.eventField]=element.type==='checkbox'?element.checked:
+     element.type==='number'&&element.value!==''?Number(element.value):element.value;
+  }
+  const submit=$('#advertEventSubmit');submit.disabled=true;submit.textContent='Submitting…';
+  status.textContent='';
+  const {data,error}=await client.rpc('customer_submit_advert_event_entry',{
+   p_advertisement_id:active.advertisement_id,
+   p_action_kind:chosen,
+   p_attendee_name:$('#advertEventCustomerName').value.trim(),
+   p_attendee_phone:$('#advertEventCustomerPhone').value.trim(),
+   p_form_answers:answers,
+   p_payment_reference:chosen==='ticket'?reference.value.trim().toUpperCase():null
+  });
+  submit.disabled=false;submit.textContent='Submit Request';
+  if(error){status.textContent=error.message||'Could not submit. Please retry.';return;}
+  form.querySelectorAll('input,select').forEach(el=>el.disabled=true);
+  submit.hidden=true;
+  status.textContent='Saved! Your tracking number is '+(data?.ticket_code||'unavailable')+'. '+
+   (data?.status==='pending_payment'
+     ?'Payment verification is pending. This is not an approved admission ticket.'
+     :'Your event request was submitted. Keep this tracking number.');
+ });
+ window.addEventListener('leogo-active-advertisement',async e=>{
+  const id=e.detail?.id||null;
+  if(!id){renderConfig(null);return;}
+  const seq=++requestKey;
+  try{
+   const client=api();if(!client)return;
+   const {data,error}=await client.rpc('public_get_active_advert_event_actions');
+   if(error)throw error;
+   if(seq===requestKey && data?.advertisement_id===id)renderConfig(data);
+   else if(seq===requestKey)renderConfig(null);
+  }catch(err){console.warn('Event actions unavailable:',err?.message);if(seq===requestKey)renderConfig(null);}
+ });
+})();

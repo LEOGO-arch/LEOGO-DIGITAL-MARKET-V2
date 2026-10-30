@@ -35,6 +35,21 @@
 .payment-lookup-message.warning{background:#fff3d7;color:#704814}
 @media(max-width:650px){.payment-reference-lookup-form{flex-direction:column;align-items:stretch}.payment-reference-lookup-form input{width:100%}}
 </style>
+<style>
+.advert-event-setup{min-width:0;border:1px solid #cbd7e8;border-radius:12px;padding:14px;margin:16px 0;display:grid;gap:10px}
+.advert-event-setup legend{font-weight:850;padding:0 7px;color:#183c73}
+.advert-event-setup label{display:block;font-size:13px;line-height:1.6}
+.advert-event-setup input[type=checkbox]{width:17px;height:17px;margin-right:8px}
+.advert-event-fields{padding:12px;background:#f3f7fd;border-radius:9px}
+.advert-event-field-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:11px 0;padding:12px;background:white;border:1px solid #d5deec;border-radius:9px}
+.advert-event-field-row input,.advert-event-field-row select,.advert-event-setup input[type=number]{width:100%;min-width:0;padding:9px;border:1px solid #bac8da;border-radius:7px}
+.advert-event-field-row .advert-event-field-options{grid-column:1/-1}
+.advert-event-entries-list{display:grid;gap:12px}
+.advert-event-entry{border:1px solid #d5e0ee;padding:14px;border-radius:10px}
+.advert-event-entry p{overflow-wrap:anywhere;margin:6px 0}
+.advert-event-entry-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+@media(max-width:650px){.advert-event-field-row{grid-template-columns:1fr}.advert-event-field-row .advert-event-field-options{grid-column:1}}
+</style>
 </head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
@@ -1045,6 +1060,25 @@
                 <span><b>Auto-close pop-up after 5 seconds</b><small>The advert opens automatically, waits until the poster is fully loaded, then displays a 5 → 4 → 3 → 2 → 1 second countdown and disappears. Turning this on also turns on website pop-up.</small></span>
               </label>
 
+              <fieldset class="advert-event-setup">
+                <legend>Event actions — activate only for this advertisement</legend>
+                <p>Choose the actions customers can use. Ticket payment is manually verified before admission. Registration and Join can use the event-specific questions below.</p>
+                <p><strong>Paid tickets:</strong> Configure an active LEOGO M-PESA receiving account and assign it to <strong>Other Revenue</strong> in Admin Payment Settings. The customer form uses that account; tickets cannot be paid through an unconfigured destination.</p>
+                <label><input id="advertEventTickets" type="checkbox"> Enable <strong>Book &amp; Pay Ticket</strong></label>
+                <div class="advert-form-grid">
+                  <label>Ticket price (KES)<input id="advertEventTicketPrice" type="number" min="0" max="10000000" step="0.01" value="0"></label>
+                  <label>Maximum confirmed tickets (optional)<input id="advertEventTicketCapacity" type="number" min="1" max="1000000" placeholder="Unlimited"></label>
+                </div>
+                <label><input id="advertEventRegister" type="checkbox"> Enable <strong>Register</strong></label>
+                <label><input id="advertEventJoin" type="checkbox"> Enable <strong>Join</strong></label>
+                <label>Registration/Join capacity (optional)<input id="advertEventRegisterCapacity" type="number" min="1" max="1000000" placeholder="Unlimited"></label>
+                <div class="advert-event-fields">
+                  <strong>Registration form builder</strong>
+                  <p>Name and phone are always collected. Add up to 12 questions below for the event's needs.</p>
+                  <div id="advertEventFields"></div>
+                  <button type="button" class="secondary-button" id="advertEventAddField">＋ Add Question</button>
+                </div>
+              </fieldset>
               <div class="advert-rich-field">
                 <span>Advertisement text</span>
                 <div class="advert-rich-toolbar" role="toolbar" aria-label="Advertisement text formatting">
@@ -1069,6 +1103,12 @@
             <div class="responsive-table"><table class="advert-admin-table"><thead><tr><th>Advertisement</th><th>Period</th><th>State</th><th>Poster</th><th>Action</th></tr></thead><tbody id="advertisementTableBody"><tr><td colspan="5">Loading advertisements…</td></tr></tbody></table></div>
           </section>
         </div>
+        <section class="content-card advert-event-review-panel">
+          <div class="card-head"><div><span>EVENT ATTENDANCE</span><h3>Ticket Payments &amp; Registrations</h3>
+          <p>Review submitted event registrations, ticket requests, and their unique tracking numbers. Verify payment on LEOGO's official M-PESA receiving device before confirming paid tickets.</p></div>
+          <button type="button" class="secondary-button" id="advertEventRefreshEntries">↻ Refresh Entries</button></div>
+          <div id="advertEventEntriesList" class="advert-event-entries-list"><p>Loading event entries…</p></div>
+        </section>
         <section class="content-card advert-request-review-panel">
           <div class="card-head"><div><span>CUSTOMER INQUIRIES</span><h3>Advertisement Requests</h3><p>Customer contact details and notes are visible to authorized Admin reviewers only.</p></div><button id="refreshAdvertisementRequests" class="secondary-button" type="button">↻ Refresh Requests</button></div>
           <div id="advertisementRequestList" class="advert-request-review-list" aria-live="polite"><div class="empty-mini">Loading customer advertisement requests…</div></div>
@@ -1857,6 +1897,7 @@
   <script src="wallet-payouts.js?v=cash-isolation-1" defer></script>
   <script src="customer-messaging.js?v=messaging-safety-20261017" defer></script>
   <script src="advertisements.js?v=advert-request-review-1" defer></script>
+  <script src="advert-event-actions.js?v=event-actions-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
   <script src="health.js?v=health-runtime-guards-20261017" defer></script>
   <script src="health-specialist.js?v=health-runtime-guards-20261017" defer></script>
