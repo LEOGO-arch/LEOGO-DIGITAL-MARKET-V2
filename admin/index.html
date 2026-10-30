@@ -20,7 +20,22 @@
   <link rel="stylesheet" href="customer-messaging.css?v=messaging-v1">
 <style>
 .service-operations-card{margin-top:18px}.service-fee-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.service-fee-form label{display:grid;gap:6px;font-weight:800}.service-fee-form input{border:1px solid #d8e0eb;border-radius:9px;padding:10px;width:180px}.service-fee-form button,.admin-service-request-actions button{border:0;border-radius:9px;padding:10px 13px;font-weight:900;background:#071a3a;color:#fff}.service-fee-form small{width:100%;font-weight:800}.admin-service-request-list{display:grid;gap:14px}.admin-service-request-card{border:1px solid #dce3ed;border-radius:15px;padding:16px;display:grid;gap:12px}.admin-service-request-card header{display:flex;justify-content:space-between;gap:12px}.admin-service-request-card header strong,.admin-service-request-card header small{display:block}.admin-service-request-card header b{font-size:11px;text-transform:capitalize;background:#edf4ff;color:#164f98;border-radius:999px;padding:6px 9px;height:max-content}.admin-service-request-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.admin-service-request-grid div{background:#f6f8fb;border-radius:10px;padding:10px}.admin-service-request-grid small,.admin-service-request-grid strong{display:block}.admin-service-request-actions{display:flex;gap:8px;flex-wrap:wrap}.admin-service-request-actions .verify{background:#157f3d}.admin-service-request-actions .reject,.admin-service-request-actions .cancel{background:#a42832}.admin-service-request-actions .dispatch{background:#ff7200}.admin-service-request-card p{margin:0;color:#526177}.service-request-summary-grid{margin:14px 0}@media(max-width:720px){.admin-service-request-grid{grid-template-columns:1fr}.admin-service-request-card header{display:grid}}
- .advert-request-review-panel{margin-top:18px}.advert-request-review-list{display:grid;gap:12px}.advert-request-review-card{display:grid;gap:10px;border:1px solid #dce3ed;border-radius:14px;padding:14px;background:#fff}.advert-request-review-card header{display:flex;justify-content:space-between;gap:10px;align-items:center}.advert-request-review-card header strong,.advert-request-review-card header small{display:block}.advert-request-review-card header span{padding:5px 9px;border-radius:999px;background:#edf4ff;color:#164f98;font-size:12px;font-weight:800;text-transform:capitalize}.advert-request-review-card p{margin:0;white-space:pre-wrap;color:#526177}.advert-request-review-card label{display:grid;gap:5px;font-weight:800}.advert-request-review-card select,.advert-request-review-card textarea{border:1px solid #d8e0eb;border-radius:9px;padding:10px;font:inherit}.advert-request-review-card textarea{resize:vertical}.advert-request-review-card button{justify-self:start}.advert-request-review-contact{font-weight:800}.advert-request-review-contact a{color:#164f98} </style><link rel="stylesheet" href="aftersales-negotiation.css?v=branded-operations-20261014"></head>
+ .advert-request-review-panel{margin-top:18px}.advert-request-review-list{display:grid;gap:12px}.advert-request-review-card{display:grid;gap:10px;border:1px solid #dce3ed;border-radius:14px;padding:14px;background:#fff}.advert-request-review-card header{display:flex;justify-content:space-between;gap:10px;align-items:center}.advert-request-review-card header strong,.advert-request-review-card header small{display:block}.advert-request-review-card header span{padding:5px 9px;border-radius:999px;background:#edf4ff;color:#164f98;font-size:12px;font-weight:800;text-transform:capitalize}.advert-request-review-card p{margin:0;white-space:pre-wrap;color:#526177}.advert-request-review-card label{display:grid;gap:5px;font-weight:800}.advert-request-review-card select,.advert-request-review-card textarea{border:1px solid #d8e0eb;border-radius:9px;padding:10px;font:inherit}.advert-request-review-card textarea{resize:vertical}.advert-request-review-card button{justify-self:start}.advert-request-review-contact{font-weight:800}.advert-request-review-contact a{color:#164f98} </style><link rel="stylesheet" href="aftersales-negotiation.css?v=branded-operations-20261014"><style>
+.payment-reference-lookup-form{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.payment-reference-lookup-form label{flex:1 1 100%;font-weight:700;font-size:13px}
+.payment-reference-lookup-form .payment-lookup-source-check{display:flex;align-items:flex-start;gap:9px;line-height:1.55}
+.payment-reference-lookup-form .payment-lookup-source-check input{flex:none;width:18px;height:18px;min-width:18px;margin-top:3px}
+.payment-reference-lookup-form input{flex:1 1 280px;min-width:0;max-width:100%;padding:12px;border:1px solid #cdd9e8;border-radius:8px}
+.payment-reference-lookup-form button{min-height:44px}
+.payment-reference-lookup-results{display:grid;gap:12px;margin-top:12px}
+.payment-lookup-match{padding:14px;border:1px solid #d8e2ee;border-radius:10px;background:#fff}
+.payment-lookup-match p{margin:6px 0;overflow-wrap:anywhere}
+.payment-lookup-match button{padding:9px 13px;margin-top:9px;border:1px solid #286ba3;border-radius:7px;background:#edf5ff;color:#174d7c;font-weight:700}
+.payment-lookup-message{padding:10px;border-radius:8px;background:#eaf3ff;color:#234b6c;line-height:1.5}
+.payment-lookup-message.warning{background:#fff3d7;color:#704814}
+@media(max-width:650px){.payment-reference-lookup-form{flex-direction:column;align-items:stretch}.payment-reference-lookup-form input{width:100%}}
+</style>
+</head>
 <body>
   <section class="auth-gate" id="adminAuthGate">
     <div class="auth-visual">
@@ -189,7 +204,23 @@
         </div>
         <section class="content-card" id="leogoUnifiedOrders">
           <div class="card-head"><div><span>ALL LEOGO ORDERS</span><h3>Unified Order List</h3><p>Marketplace, Health &amp; Medicine, Service and Transport orders in one place. Open each order in its original module for actions and delivery updates.</p></div><button id="leogoUnifiedOrderRefresh" class="primary-button" type="button">↻ Refresh All Orders</button></div>
-          <div class="seller-admin-toolbar admin-order-toolbar">
+          <section class="content-card" id="paymentReferenceLookupPanel" aria-label="Fetch customer payment by M-PESA transaction code">
+          <div class="card-head"><div><span>PAYMENT REFERENCE SEARCH</span><h3>Fetch / Search Customer Payment</h3>
+          <p>Search the same code across LEOGO payment modules to locate matching records. This is a search aid, not a payment confirmation or approval.</p></div></div>
+          <form id="paymentReferenceLookupForm" class="seller-admin-toolbar payment-reference-lookup-form">
+            <div class="payment-lookup-message warning" role="note"><strong>IMPORTANT — OFFICIAL LEOGO PAYMENT NOTIFICATION ONLY.</strong>
+              The transaction code searched must come from the M-PESA SMS received on LEOGO's designated payment-receiving device or from LEOGO's official receiving-account statement. <strong>Never rely on a reference copied or forwarded by the customer.</strong> Match the actual credited amount, receiving account and date before approving.
+            </div>
+            <label for="paymentReferenceLookupInput">Official LEOGO receiving-account transaction code (or original notification)</label>
+            <input id="paymentReferenceLookupInput" type="search" autocomplete="off" maxlength="2000" placeholder="e.g. UJU5F0LSYN — from LEOGO receiving device" required>
+            <label class="payment-lookup-source-check"><input type="checkbox" id="paymentReferenceOfficialSource" required>
+              I obtained this code from LEOGO's receiving device or official receiving-account record, not from a customer-forwarded message.
+            </label>
+            <button class="primary-button" type="submit" id="paymentReferenceLookupFetch">Fetch / Search Payment</button>
+          </form>
+          <div id="paymentReferenceLookupResults" class="payment-reference-lookup-results" aria-live="polite"></div>
+        </section>
+        <div class="seller-admin-toolbar admin-order-toolbar">
             <select id="leogoUnifiedOrderType" aria-label="Order type">
               <option value="all">All order types</option>
               <option value="marketplace">Marketplace &amp; Sellers</option>
@@ -1817,6 +1848,7 @@
   <script src="../js/assisted-shopping-pdf.js?v=assisted-three-documents-20261016" defer></script>
   <script src="admin.js?v=diagnosis-safety-1" defer></script>
 <script src="payment-verification-proof.js?v=payment-notification-proof-1" defer></script>
+  <script src="payment-reference-lookup.js?v=lookup-all-modules-2" defer></script>
   <script src="vacant-houses.js?v=property-sale-rent-v1" defer></script>
   <script src="system-diagnostics.js?v=diagnosis-safety-1" defer></script>
   <script src="assisted-shopping.js?v=diagnosis-safety-1" defer></script>
