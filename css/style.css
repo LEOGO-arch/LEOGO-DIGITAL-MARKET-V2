@@ -1696,6 +1696,7 @@ body.advertisement-lightbox-open{overflow:hidden}
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
   display:flex;
+  flex-direction:column;
   align-items:flex-start;
   justify-content:center;
   padding:64px 14px 28px;
@@ -1713,6 +1714,10 @@ body.advertisement-lightbox-open{overflow:hidden}
 }
 .advertisement-lightbox-image[hidden]{display:none!important}
 .advertisement-lightbox-video{max-height:80vh;width:min(92vw,850px);background:#080808}
+.advertisement-video-play{align-self:center;width:min(92vw,430px);min-height:54px;margin:12vh auto 0;padding:14px 22px;border:0;border-radius:14px;background:#ff7800;color:#07152f;font-size:17px;font-weight:850;cursor:pointer}
+.advertisement-video-play[hidden],.advertisement-video-notice[hidden]{display:none!important}
+.advertisement-video-notice{align-self:center;color:#fff;font-size:14px;text-align:center;margin:14px auto}
+.advertisement-lightbox-video:not([hidden]){align-self:center}
 .advertisement-poster video{display:block;max-width:100%;width:100%;max-height:340px;object-fit:contain;background:#0c1426;cursor:pointer}
 
 .advertisement-lightbox-close{
