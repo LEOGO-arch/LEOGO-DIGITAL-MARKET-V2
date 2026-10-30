@@ -7,7 +7,7 @@
  const dialog=$('#advertEventModal');
  const form=$('#advertEventForm');
  if(!buttons||!dialog||!form)return;
- let active=null,chosen=null,requestKey=0;
+ let active=null,chosen=null,requestKey=0,destinationReady=false;
  const user=()=>window.leogoAuth?.getUser?.();
  const api=()=>window.leogoAuth?.client;
  const fieldsHost=$('#advertEventDynamicFields');
@@ -43,7 +43,9 @@
   buttons.hidden=!buttons.childElementCount;
  }
  function openForm(kind){
-  if(!active)return;chosen=kind;
+  if(!active)return;
+  if(!user()){window.leogoAuth?.requireLogin?.('Please sign in to book or register for this event.');return;}
+  chosen=kind;
   form.reset();status.textContent='';fieldsHost.replaceChildren();
   form.querySelectorAll('input,select').forEach(el=>el.disabled=false);
   const submit=$('#advertEventSubmit');submit.hidden=false;submit.disabled=false;submit.textContent='Submit Request';
@@ -54,6 +56,8 @@
    :'Complete the questions set by LEOGO Admin for this event.';
   payment.hidden=kind!=='ticket'||price<=0;
   reference.required=kind==='ticket'&&price>0;
+  destinationReady=kind!=='ticket'||price<=0;
+  if(!destinationReady)submit.disabled=true;
   const instructions=$('#advertEventPaymentInstructions');
   if(instructions){instructions.textContent='Loading official LEOGO payment destination…';}
   if(kind==='ticket'&&price>0){
@@ -65,6 +69,11 @@
     }
     const p=window.leogoPayments;
     const number=p.paymentNumber(data);
+    if(!number){
+     instructions.textContent='No valid payment number is configured for LEOGO event tickets. Ask LEOGO Admin to assign the Other Revenue receiving account.';
+     return;
+    }
+    destinationReady=true;submit.disabled=false;
     instructions.textContent=p.typeLabel(data)+': '+number+' · Account: '+p.destinationName(data)+
       (data.instructions?' · '+data.instructions:'')+
       '. Verify these are LEOGO details before paying.';
@@ -101,6 +110,10 @@
  form.addEventListener('submit',async e=>{
   e.preventDefault();
   if(!form.reportValidity()||!active||!chosen)return;
+  if(chosen==='ticket'&&Number(active.ticket_price_kes)>0&&!destinationReady){
+   status.textContent='Official LEOGO ticket payment account is not configured. Contact LEOGO Admin before attempting payment.';
+   return;
+  }
   const client=api();
   if(!client||!user()){
    status.textContent='Please sign in to LEOGO before booking a ticket or joining an event.';
