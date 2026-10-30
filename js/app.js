@@ -573,6 +573,8 @@
   let advertisementLightbox = null;
   let advertisementLightboxImage = null;
   let advertisementLightboxVideo = null;
+  let advertisementVideoPlayButton = null;
+  let advertisementVideoNotice = null;
   const isVideoAdvertisement = (path='') => /\.(mp4|webm)(?:[?#]|$)/i.test(String(path));
   let advertisementLightboxClose = null;
   let advertisementLightboxCountdown = null;
@@ -595,12 +597,43 @@
         '<button type="button" class="advertisement-lightbox-close" data-close-advert-lightbox aria-label="Close">×</button>'+
         '<img class="advertisement-lightbox-image" alt="Full advertisement poster">'+
         '<video class="advertisement-lightbox-video advertisement-lightbox-image" controls playsinline preload="none" hidden></video>'+
+        '<button type="button" class="advertisement-video-play" hidden>▶ Play advertisement video</button>'+
+        '<p class="advertisement-video-notice" role="status" hidden></p>'+
       '</div>';
 
     document.body.appendChild(overlay);
     advertisementLightbox = overlay;
     advertisementLightboxImage = overlay.querySelector('img.advertisement-lightbox-image');
     advertisementLightboxVideo = overlay.querySelector('video.advertisement-lightbox-video');
+    advertisementVideoPlayButton = overlay.querySelector('.advertisement-video-play');
+    advertisementVideoNotice = overlay.querySelector('.advertisement-video-notice');
+    advertisementVideoPlayButton.addEventListener('click', async () => {
+      const source = advertisementVideoPlayButton.dataset.source;
+      if (!source) return;
+      advertisementVideoPlayButton.hidden = true;
+      advertisementVideoNotice.hidden = false;
+      advertisementVideoNotice.textContent = 'Loading video…';
+      advertisementLightboxVideo.hidden = false;
+      advertisementLightboxVideo.src = source;
+      try {
+        await advertisementLightboxVideo.play();
+        advertisementVideoNotice.hidden = true;
+      } catch {
+        advertisementVideoNotice.textContent = 'Video could not start. Tap to try again.';
+        advertisementVideoPlayButton.textContent = '↻ Retry video';
+        advertisementVideoPlayButton.hidden = false;
+      }
+    });
+    advertisementLightboxVideo.addEventListener('error', () => {
+      if (advertisementLightbox?.hidden) return;
+      advertisementVideoNotice.hidden = false;
+      advertisementVideoNotice.textContent = 'Video unavailable or unsupported on this device.';
+      advertisementVideoPlayButton.textContent = '↻ Retry video';
+      advertisementVideoPlayButton.hidden = false;
+    });
+    advertisementLightboxVideo.addEventListener('playing', () => {
+      advertisementVideoNotice.hidden = true;
+    });
     advertisementLightboxClose = overlay.querySelector('.advertisement-lightbox-close');
     advertisementLightboxCountdown = overlay.querySelector('.advertisement-lightbox-countdown');
 
@@ -620,6 +653,11 @@
     advertisementLightbox.hidden = true;
     document.body.classList.remove('advertisement-lightbox-open');
     if (advertisementLightboxImage) advertisementLightboxImage.removeAttribute('src');
+    if (advertisementVideoPlayButton) {
+      advertisementVideoPlayButton.hidden = true;
+      delete advertisementVideoPlayButton.dataset.source;
+    }
+    if (advertisementVideoNotice) advertisementVideoNotice.hidden = true;
     if (advertisementLightboxVideo) {
       advertisementLightboxVideo.pause();
       advertisementLightboxVideo.removeAttribute('src');
@@ -677,9 +715,13 @@
     const source = media.currentSrc || media.src;
     advertisementLightboxImage.hidden = isVideo;
     if (isVideo) {
-      advertisementLightboxVideo.hidden = false;
-      advertisementLightboxVideo.src = source;
-      advertisementLightboxVideo.muted = true; // Muted autoplay is broadly permitted; users may unmute via controls.
+      // Delay downloading/decoding until the visitor taps Play. Auto-playing
+      // alongside the homepage preview can exhaust mobile browser resources.
+      advertisementLightboxVideo.hidden = true;
+      advertisementVideoPlayButton.dataset.source = source;
+      advertisementVideoPlayButton.textContent = '▶ Play advertisement video';
+      advertisementVideoPlayButton.hidden = false;
+      advertisementVideoNotice.hidden = true;
     } else {
       advertisementLightboxVideo.hidden = true;
       advertisementLightboxImage.src = source;
@@ -693,9 +735,6 @@
 
     advertisementLightbox.hidden = false;
     document.body.classList.add('advertisement-lightbox-open');
-    if (isVideo) {
-      advertisementLightboxVideo.play().catch(() => {});
-    }
 
     const seconds = Number(autoCloseSeconds) === 5 ? 5 : 0;
     if (seconds && advertisementLightboxCountdown) {
