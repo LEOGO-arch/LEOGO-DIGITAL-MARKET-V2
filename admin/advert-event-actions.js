@@ -98,10 +98,21 @@
      b.addEventListener('click',async()=>{
       if(approve&&item.action_kind==='ticket'&&Number(item.amount_due_kes)>0 &&
         !window.confirm('Have you independently verified the payment code and exact credited amount on LEOGO official M-PESA device/statement?'))return;
+      let officialCode=null;
+      if(approve&&item.action_kind==='ticket'&&Number(item.amount_due_kes)>0){
+       officialCode=window.prompt('Enter the transaction code exactly as received on LEOGO official M-PESA payment device or statement:','');
+       if(officialCode===null)return;
+       officialCode=officialCode.trim().toUpperCase();
+       if(!/^[A-Z0-9]{10}$/.test(officialCode)||officialCode!==String(item.payment_reference||'').toUpperCase()){
+        window.alert('The official payment code must be 10 characters and match the customer-submitted reference.');return;
+       }
+      }
       const notes=window.prompt(approve?'Review note (optional)':'Reason for rejection','');
       if(notes===null)return;
       b.disabled=true;
-      const {error:e}=await db.rpc('admin_review_advert_event_entry',{p_entry_id:item.id,p_approve:approve,p_notes:notes});
+      const {error:e}=await db.rpc('admin_review_advert_event_entry',{
+        p_entry_id:item.id,p_approve:approve,p_notes:notes,p_official_reference:officialCode
+      });
       b.disabled=false;
       if(e){window.alert(e.message);return;}
       await refreshEntries();
