@@ -5,9 +5,15 @@ const path=require('node:path');
 const renderer=fs.readFileSync(path.join(__dirname,'../js/wallet-statement-pdf.js'),'utf8');
 const wallet=fs.readFileSync(path.join(__dirname,'../js/wallet.js'),'utf8');
 const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-assert.match(html,/js\/wallet-statement-pdf\.js\?v=branded-statement-1/);
+assert.match(html,/js\/wallet-statement-pdf\.js\?v=portrait-statement-2/);
 assert.match(wallet,/await window\.leogoWalletStatementPdf\.generate/);
-assert.match(wallet,/else await downloadStatementPdf\(statementEntries\)/);
+assert.match(wallet,/else await downloadStatementPdf\(statementEntries,financialSnapshot\)/);
+assert.match(renderer,/orientation:'portrait'/);
+for(const label of ['Date &','Transaction /','Reference','Transaction','Type / Source','Paid In','Paid Out','Balance','C\/F','LOAN BALANCE','SAVINGS WAITING APPROVAL']){
+ assert.ok(renderer.includes(label.replace('\\/','/')),`Missing statement label: ${label}`);
+}
+assert.match(wallet,/get_my_wallet_loan_overview/);
+assert.match(wallet,/wallet_deposit_requests/);
 
 class MockPDF{
   constructor(){this.pages=1;this.current=1;this.writes=[];}
