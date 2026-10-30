@@ -1879,6 +1879,7 @@
     }
     if (copyCheckoutPaymentDestination) copyCheckoutPaymentDestination.disabled = !number;
 
+    window.leogoPayments?.renderInstructions(checkoutPaymentDestinationDetails,destination,'Marketplace Payment Instructions');
     clearUnavailableMarketplaceSelection();
     syncSelectedPaymentPresentation();
   };
