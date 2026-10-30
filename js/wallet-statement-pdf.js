@@ -21,6 +21,21 @@
     image.onerror=()=>resolve(null);
     image.src='assets/images/leogo-official-logo.jpg';
   });
+  const wrapCell=(value,maxChars)=>{
+    const words=String(value||'').split(/\s+/).filter(Boolean);
+    const lines=[];let current='';
+    for(let word of words){
+      while(word.length>maxChars){
+        if(current){lines.push(current);current='';}
+        lines.push(word.slice(0,maxChars));word=word.slice(maxChars);
+      }
+      if(!word)continue;
+      if(current&&current.length+word.length+1>maxChars){lines.push(current);current=word;}
+      else current+=(current?' ':'')+word;
+    }
+    if(current)lines.push(current);
+    return lines.length?lines:['-'];
+  };
 
   const generate=async ({statement,customer,prettyStatus,kenyaDateTime})=>{
     const jsPDF=window.jspdf?.jsPDF;
@@ -39,7 +54,7 @@
     ];
     const put=(text,x,y,size=9,color=navy,style='normal',align='left')=>{
       pdf.setFont('helvetica',style);pdf.setFontSize(size);pdf.setTextColor(...color);
-      pdf.text(String(text??''),x,y,{align});
+      pdf.text(Array.isArray(text)?text:String(text??''),x,y,{align});
     };
     const line=(y)=>{pdf.setDrawColor(224,231,239);pdf.line(left,y,right,y);};
     const header=()=>{
@@ -87,8 +102,8 @@
       const entry=statement.rows[index];
       const label=String(entry.statement_label||entry.description||'');
       const description=prettyStatus(entry.entry_type)+(label?' - '+label:'');
-      const detailLines=pdf.splitTextToSize(description,62);
-      const referenceLines=pdf.splitTextToSize(String(entry.external_reference||'-'),39);
+      const detailLines=wrapCell(description,29);
+      const referenceLines=wrapCell(String(entry.external_reference||'-'),19);
       const rowHeight=Math.max(11,Math.max(detailLines.length,referenceLines.length)*4.1+5);
       if(y+rowHeight>bottom){pdf.addPage();header();put('TRANSACTION HISTORY - CONTINUED',left,41,10,navy,'bold');y=tableHeader(47);}
       if(index%2===0){pdf.setFillColor(...pale);pdf.rect(left,y,right-left,rowHeight,'F');}
