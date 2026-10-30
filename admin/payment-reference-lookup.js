@@ -62,7 +62,7 @@
    output.append(count);
    if(matches.length>1){
     const dup=document.createElement('p');dup.className='payment-lookup-message warning';
-    dup.textContent='ATTENTION: This code appears in multiple payment records. Check for duplicated, reused or split references before approving any transaction.';
+    dup.textContent='ATTENTION: This code appears in multiple records, potentially including linked ledger entries. Check that it has not been credited more than once.';
     output.append(dup);
    }
    for(const match of matches){
@@ -73,9 +73,9 @@
     const state=document.createElement('p');state.textContent='Current status: '+(match.status||'Not provided');
     const date=document.createElement('p');date.textContent='Submitted: '+(match.submitted_at?new Date(match.submitted_at).toLocaleString('en-KE',{timeZone:'Africa/Nairobi'}):'Not recorded');
     card.append(heading,ref,amount,state,date);
-    if(match.module==='Aftersales refund (outgoing)'){
+    if(String(match.module||'').includes('(outgoing)')){
      const note=document.createElement('p');note.className='payment-lookup-message warning';
-     note.textContent='Outgoing refund reference: this is not a customer payment received by LEOGO.';
+     note.textContent='Outgoing disbursement reference; do not treat as funds received.';
      card.append(note);
     }
     if(['Marketplace order','Marketplace COD fee'].includes(match.module)){
