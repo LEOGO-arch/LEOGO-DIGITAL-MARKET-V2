@@ -25,6 +25,21 @@
    b.textContent=label;b.addEventListener('click',()=>openForm(key));
    buttons.append(b);
   }
+  if(buttons.childElementCount){
+   const track=document.createElement('button');track.type='button';track.textContent='Track Event Request';
+   track.addEventListener('click',async()=>{
+    if(!user()){window.leogoAuth?.requireLogin?.('Sign in to track your event request.');return;}
+    const code=window.prompt('Enter your LEOGO event tracking number (LEO-...)','');
+    if(!code)return;
+    const client=api();if(!client)return;
+    const {data,error}=await client.rpc('customer_check_advert_event_entry',{p_ticket_code:code.trim().toUpperCase()});
+    if(error){window.alert(error.message);return;}
+    window.alert('Event: '+data.event+'\\nReference: '+data.tracking_code+
+      '\\nStatus: '+data.status+'\\nAmount: KSh '+Number(data.amount_due_kes||0).toLocaleString('en-KE')+
+      (data.status==='confirmed'?'\\nYour request has been confirmed by LEOGO.':'\\nWait for LEOGO confirmation before assuming admission.'));
+   });
+   buttons.append(track);
+  }
   buttons.hidden=!buttons.childElementCount;
  }
  function openForm(kind){
