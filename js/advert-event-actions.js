@@ -61,10 +61,10 @@
   const instructions=$('#advertEventPaymentInstructions');
   if(instructions){instructions.textContent='Loading official LEOGO payment destination…';}
   if(kind==='ticket'&&price>0){
-   window.leogoPayments?.getDestination('other_revenue').then(({data,error})=>{
+   window.leogoPayments?.getDestination('other_revenue',{force:true}).then(({data,error})=>{
     if(!instructions||chosen!=='ticket'||!dialog.open)return;
     if(error||!data){
-     instructions.textContent='LEOGO has not published an event payment destination. Contact LEOGO Customer Care before paying; never transfer to an unverified account.';
+     instructions.textContent='No event payment account is assigned. Admin must assign a Till or Paybill to Other Revenue under Payment Settings → Assign Accounts. Do not pay until the official details appear.';
      return;
     }
     if(!['mpesa_till','mpesa_paybill'].includes(data.account_type)){
@@ -78,7 +78,15 @@
      return;
     }
     destinationReady=true;submit.disabled=false;
-    instructions.textContent=p.typeLabel(data)+': '+number+' · Account: '+p.destinationName(data)+
+    const paybillAccount=String(data.account_number||'').trim();
+    if(data.account_type==='mpesa_paybill'&&!paybillAccount){
+     destinationReady=false;submit.disabled=true;
+     instructions.textContent='This Paybill has no account/reference number. Admin must complete it in Payment Settings before tickets can be paid.';
+     return;
+    }
+    instructions.textContent=p.typeLabel(data)+': '+number+
+      (data.account_type==='mpesa_paybill'?' · Paybill Account Number: '+paybillAccount:'')+
+      ' · Receiving Account: '+p.destinationName(data)+
       (data.instructions?' · '+data.instructions:'')+
       '. Verify these are LEOGO details before paying.';
    }).catch(()=>{if(instructions)instructions.textContent='Official payment details could not load. Contact LEOGO before paying.';});
