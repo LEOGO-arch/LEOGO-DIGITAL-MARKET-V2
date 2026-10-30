@@ -342,6 +342,7 @@
       }
 
       const savedId=savedAdvertisement?.id||id;
+      if(savedId)$('#advertisementId').value=savedId;
       if(savedId){
         const eventResult=await db.rpc('admin_save_advert_event_actions',{
           p_advertisement_id:savedId,p_config:eventConfig
