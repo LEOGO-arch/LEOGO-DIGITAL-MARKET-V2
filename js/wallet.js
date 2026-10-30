@@ -368,6 +368,8 @@
       elements.copyDepositPayment.disabled = !depositNumber;
       elements.copyDepositPayment.textContent = depositNumber ? 'Copy' : 'Unavailable';
     }
+    window.leogoPayments?.renderInstructions(elements.savingsTillName?.closest('.wallet-till-box')?.parentElement, savingsChallengeDestination, 'Savings Challenge Payment Instructions');
+    window.leogoPayments?.renderInstructions(elements.depositPaymentName?.closest('.wallet-till-box')?.parentElement, walletDepositDestination, 'Wallet Deposit Payment Instructions');
     if (elements.submitChallengePayment) {
       elements.submitChallengePayment.disabled = !challengeNumber || (savingsChallengeDestination?.account_type === 'mpesa_paybill' && !savingsChallengeDestination?.account_number);
       elements.submitChallengePayment.title = challengeNumber ? '' : 'Admin must assign an active Savings Challenge payment account first.';
