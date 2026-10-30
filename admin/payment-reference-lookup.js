@@ -2,13 +2,8 @@
 // The lookup is NOT a bank reconciliation service, and NEVER approves funds.
 (() => {
  'use strict';
- const form=document.getElementById('paymentReferenceLookupForm');
- const input=document.getElementById('paymentReferenceLookupInput');
- const output=document.getElementById('paymentReferenceLookupResults');
- const button=document.getElementById('paymentReferenceLookupFetch');
- const acknowledgement=document.getElementById('paymentReferenceOfficialSource');
  const db=window.leogoAdminDb;
- if(!form||!input||!output||!db)return;
+ if(!db)return;
  const normalize=s=>String(s||'').toUpperCase().trim();
  const parseCode=s=>{
   const value=normalize(s);
@@ -17,7 +12,7 @@
   const first=value.split(/\s+/)[0]||'';
   return /^(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*[0-9])[A-Z0-9]{10}$/.test(first)?first:'';
  };
- const status=(message,kind='info')=>{
+ const status=(output,message,kind='info')=>{
   const p=document.createElement('p');p.setAttribute('role','status');p.className='payment-lookup-message '+kind;
   p.textContent=message;output.replaceChildren(p);
  };
@@ -40,17 +35,32 @@
   else document.getElementById('adminMarketplaceOrderBody')?.scrollIntoView({behavior:'smooth',block:'center'});
   return true;
  };
- form.addEventListener('submit',async e=>{
+ const isExpiredToken=error=>/jwt expired|token.*expired|invalid jwt/i.test(String(error?.message||''));
+ const searchPayment=async code=>{
+  let result=await db.rpc('admin_search_payment_reference',{p_code:code});
+  if(result.error&&isExpiredToken(result.error)){
+   const {data,error}=await db.auth.refreshSession();
+   if(error||!data?.session?.access_token)throw new Error('Your Admin session expired. Please sign in again and retry.');
+   result=await db.rpc('admin_search_payment_reference',{p_code:code});
+  }
+  return result;
+ };
+ document.querySelectorAll('[data-payment-reference-lookup]').forEach(form=>form.addEventListener('submit',async e=>{
   e.preventDefault();
+  const input=form.querySelector('input[type="search"]');
+  const acknowledgement=form.querySelector('input[type="checkbox"]');
+  const button=form.querySelector('button[type="submit"]');
+  const output=form.nextElementSibling;
+  if(!input||!button||!output)return;
   const code=parseCode(input.value);
-  if(!code){status('Enter one 10-character transaction code from the official LEOGO payment device, or paste its complete notification beginning with the code.','warning');return;}
+  if(!code){status(output,'Enter one 10-character transaction code from the official LEOGO payment device, or paste its complete notification beginning with the code.','warning');return;}
   if(!acknowledgement?.checked){
-   status('Confirm that you obtained this transaction code from the LEOGO receiving device or official receiving-account record. Customer-forwarded codes must not be used as verification evidence.','warning');return;
+   status(output,'Confirm that you obtained this transaction code from the LEOGO receiving device or official receiving-account record. Customer-forwarded codes must not be used as verification evidence.','warning');return;
   }
   button.disabled=true;button.textContent='Searching…';
-  status('Looking for matching payment references across LEOGO modules…');
+  status(output,'Looking for matching payment references across LEOGO modules…');
   try{
-   const {data,error}=await db.rpc('admin_search_payment_reference',{p_code:code});
+   const {data,error}=await searchPayment(code);
    if(error)throw error;
    const matches=Array.isArray(data?.matches)?data.matches:[];
    output.replaceChildren();
@@ -109,7 +119,7 @@
    const warning=document.createElement('p');warning.className='payment-lookup-message warning';
    warning.textContent='Only approve after independently confirming transaction code, credited amount, payment destination, transaction date, and absence of prior use in the LEOGO official M-PESA statement or notification device. Search itself never approves.';
    output.append(warning);
-  }catch(err){status('Search unavailable: '+(err?.message||String(err)),'warning');}
+  }catch(err){status(output,'Search unavailable: '+(isExpiredToken(err)?'Your Admin session expired. Sign in again and retry.':(err?.message||String(err))),'warning');}
   finally{button.disabled=false;button.textContent='Fetch / Search Payment';}
- });
+ }));
 })();
