@@ -291,11 +291,28 @@
             return;
           }
         }
-        const ext = (String(file.name || 'poster.jpg').split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+        let uploadFile = file;
+        if (file.type.startsWith('video/')) {
+          if (!window.leogoCompressAdvertVideo) {
+            setStatus('Video optimizer unavailable. Refresh the Admin page and try again.','error');
+            return;
+          }
+          setStatus('Optimizing video for mobile playback. Keep this page open until complete.');
+          try {
+            uploadFile = await window.leogoCompressAdvertVideo(file, (percentage) => {
+              setStatus('Optimizing video: ' + percentage + '%. Keep this page open.');
+            });
+          } catch (error) {
+            setStatus(friendlyError(error), 'error');
+            return;
+          }
+        }
+        const ext = (String(uploadFile.name || 'poster.jpg').split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
         const random = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
         uploadedPath = String((await db.auth.getUser()).data?.user?.id || 'admin')+'/'+Date.now()+'-'+random+'.'+ext;
-        const upload = await db.storage.from('advertisement-media').upload(uploadedPath,file,{
-          cacheControl:'31536000',upsert:false,contentType:file.type
+        setStatus('Uploading ' + (uploadFile.size / 1048576).toFixed(1) + ' MB advertisement media…');
+        const upload = await db.storage.from('advertisement-media').upload(uploadedPath,uploadFile,{
+          cacheControl:'31536000',upsert:false,contentType:uploadFile.type
         });
         if (upload.error) {
           setStatus(friendlyError(upload.error),'error');

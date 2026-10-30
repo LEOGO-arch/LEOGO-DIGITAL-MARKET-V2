@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const script = fs.readFileSync('admin/advert-video-compress.js', 'utf8');
+const admin = fs.readFileSync('admin/advertisements.js', 'utf8');
+const html = fs.readFileSync('admin/index.html', 'utf8');
+new vm.Script(script);
+assert.match(script, /canvas\.captureStream\(24\)/);
+assert.match(script, /audioBitsPerSecond: 96000/);
+assert.match(script, /new File\(\[compressed\]/);
+assert.match(script, /compressed\.size >= file\.size/);
+assert.match(admin, /await window\.leogoCompressAdvertVideo\(file/);
+assert.match(admin, /\.upload\(uploadedPath,uploadFile/);
+assert.match(html, /advert-video-compress\.js\?v=advert-video-compress-1/);
+console.log('Admin advert compression integration checks passed.');
