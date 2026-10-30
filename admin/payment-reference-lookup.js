@@ -8,14 +8,14 @@
  const button=document.getElementById('paymentReferenceLookupFetch');
  const db=window.leogoAdminDb;
  if(!form||!input||!output||!db)return;
- const codePattern=/\b[A-Z0-9]{10}\b/g;
+ const codePattern=/\b(?=[A-Z0-9]{0,9}[A-Z])(?=[A-Z0-9]{0,9}[0-9])[A-Z0-9]{10}\b/g;
  const html=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
  const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
  const normalize=s=>String(s||'').toUpperCase();
  function codes(s){return [...new Set(normalize(s).match(codePattern)||[])];}
  function queryCode(s){
   const clean=normalize(s).trim();
-  if(/^[A-Z0-9]{10}$/.test(clean))return clean;
+  if(/^(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*[0-9])[A-Z0-9]{10}$/.test(clean))return clean;
   // Full SMS or customer-pasted message: take the first transaction code,
   // never match a similar substring to a different reference.
   return codes(clean)[0]||'';
