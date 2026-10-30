@@ -39,6 +39,22 @@
    :'Complete the questions set by LEOGO Admin for this event.';
   payment.hidden=kind!=='ticket'||price<=0;
   reference.required=kind==='ticket'&&price>0;
+  const instructions=$('#advertEventPaymentInstructions');
+  if(instructions){instructions.textContent='Loading official LEOGO payment destination…';}
+  if(kind==='ticket'&&price>0){
+   window.leogoPayments?.getDestination('other_revenue').then(({data,error})=>{
+    if(!instructions||chosen!=='ticket'||!dialog.open)return;
+    if(error||!data){
+     instructions.textContent='LEOGO has not published an event payment destination. Contact LEOGO Customer Care before paying; never transfer to an unverified account.';
+     return;
+    }
+    const p=window.leogoPayments;
+    const number=p.paymentNumber(data);
+    instructions.textContent=p.typeLabel(data)+': '+number+' · Account: '+p.destinationName(data)+
+      (data.instructions?' · '+data.instructions:'')+
+      '. Verify these are LEOGO details before paying.';
+   }).catch(()=>{if(instructions)instructions.textContent='Official payment details could not load. Contact LEOGO before paying.';});
+  }
   const person=user();
   if(person?.user_metadata?.full_name)$('#advertEventCustomerName').value=person.user_metadata.full_name;
   if(person?.user_metadata?.phone)$('#advertEventCustomerPhone').value=person.user_metadata.phone;
@@ -73,6 +89,7 @@
   const client=api();
   if(!client||!user()){
    status.textContent='Please sign in to LEOGO before booking a ticket or joining an event.';
+   window.leogoAuth?.requireLogin?.('Sign in to submit your event booking.');
    return;
   }
   const answers={};
