@@ -149,6 +149,7 @@
     $('#advertisementPopupAutoClose5s').checked = false;
     $('#advertisementEditorTitle').textContent = 'Create Advertisement';
     renderPosterPreview();
+    window.leogoAdvertEventEditor?.reset();
     setStatus();
   };
 
@@ -205,6 +206,7 @@
       throw error;
     }
     state.advertisements = Array.isArray(data) ? data : [];
+    await window.leogoAdvertEventEditor?.loadConfigs?.();
     render();
   };
 
@@ -225,6 +227,7 @@
     $('#advertisementBodyEditor').innerHTML = sanitizeHtml(item.body_html || '');
     $('#advertisementEditorTitle').textContent = 'Edit Advertisement';
     renderPosterPreview(item.poster_path || '');
+    window.leogoAdvertEventEditor?.edit(item.id);
     setStatus();
     $('#advertisementForm')?.scrollIntoView({behavior:'smooth',block:'start'});
   };
@@ -324,7 +327,10 @@
         popup_auto_close_seconds: $('#advertisementPopupAutoClose5s')?.checked ? 5 : 0
       };
 
-      const { error } = await db.rpc('admin_save_advertisement',{
+      let eventConfig;
+      try { eventConfig=window.leogoAdvertEventEditor?.getConfig?.()||{}; }
+      catch(e){setStatus(e.message,'error');return;}
+      const { data:savedAdvertisement, error } = await db.rpc('admin_save_advertisement',{
         p_advertisement_id:id,
         p_advertisement:payload
       });
@@ -333,6 +339,18 @@
         if (uploadedPath) await db.storage.from('advertisement-media').remove([uploadedPath]).catch(() => {});
         setStatus(friendlyError(error),'error');
         return;
+      }
+
+      const savedId=savedAdvertisement?.id||id;
+      if(savedId){
+        const eventResult=await db.rpc('admin_save_advert_event_actions',{
+          p_advertisement_id:savedId,p_config:eventConfig
+        });
+        if(eventResult.error){
+          setStatus('Advertisement saved, but event settings could not save: '+friendlyError(eventResult.error)+'. Please retry before advertising this event.','error');
+          return;
+        }
+        await window.leogoAdvertEventEditor?.loadConfigs?.();
       }
 
       if (oldPoster && oldPoster !== posterPath) {
