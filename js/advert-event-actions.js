@@ -30,6 +30,8 @@
  function openForm(kind){
   if(!active)return;chosen=kind;
   form.reset();status.textContent='';fieldsHost.replaceChildren();
+  form.querySelectorAll('input,select').forEach(el=>el.disabled=false);
+  const submit=$('#advertEventSubmit');submit.hidden=false;submit.disabled=false;submit.textContent='Submit Request';
   $('#advertEventModalTitle').textContent=kind==='ticket'?'Book & Pay Ticket':kind==='register'?'Event Registration':'Join Event';
   const price=Number(active.ticket_price_kes||0);
   $('#advertEventIntro').textContent=kind==='ticket'
