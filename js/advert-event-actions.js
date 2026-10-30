@@ -122,6 +122,7 @@
   }
   const answers={};
   for(const element of fieldsHost.querySelectorAll('[data-event-field]')){
+   if(!element.required&&element.value===''&&element.tagName==='SELECT')continue;
    answers[element.dataset.eventField]=element.type==='checkbox'?element.checked:
      element.type==='number'&&element.value!==''?Number(element.value):element.value;
   }
