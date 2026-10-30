@@ -9,7 +9,6 @@
  const acknowledgement=document.getElementById('paymentReferenceOfficialSource');
  const db=window.leogoAdminDb;
  if(!form||!input||!output||!db)return;
- const refPattern=/\b(?=[A-Z0-9]{0,9}[A-Z])(?=[A-Z0-9]{0,9}[0-9])[A-Z0-9]{10}\b/g;
  const normalize=s=>String(s||'').toUpperCase().trim();
  const parseCode=s=>{
   const value=normalize(s);
