@@ -2,13 +2,30 @@
 // The lookup is NOT a bank reconciliation service, and NEVER approves funds.
 (() => {
  'use strict';
- const form=document.getElementById('paymentReferenceLookupForm');
- const input=document.getElementById('paymentReferenceLookupInput');
- const output=document.getElementById('paymentReferenceLookupResults');
- const button=document.getElementById('paymentReferenceLookupFetch');
- const acknowledgement=document.getElementById('paymentReferenceOfficialSource');
  const db=window.leogoAdminDb;
- if(!form||!input||!output||!db)return;
+ const original=document.getElementById('paymentReferenceLookupPanel');
+ const mount=document.getElementById('approvalPaymentReferenceLookupMount');
+ if(!original||!db)return;
+ // A second view of the same read-only tool; each form has independent inputs/results.
+ if(mount){
+  const copy=original.cloneNode(true);
+  copy.querySelectorAll('[id]').forEach(node=>node.id+='Approvals');
+  copy.querySelectorAll('[for]').forEach(node=>node.htmlFor+='Approvals');
+  mount.append(copy);
+ }
+ const isExpired=error=>/jwt expired|token.*expired|expired.*token/i.test(String(error?.message||''));
+ const searchWithSessionRecovery=async code=>{
+  let result=await db.rpc('admin_search_payment_reference',{p_code:code});
+  if(!result.error||!isExpired(result.error))return result;
+  // Refresh at most once; never weaken the RPC's existing admin authorization.
+  const refreshed=await db.auth.refreshSession();
+  if(refreshed.error||!refreshed.data?.session){
+   throw new Error('Your admin session has expired. Sign in again to search payments.');
+  }
+  result=await db.rpc('admin_search_payment_reference',{p_code:code});
+  if(result.error&&isExpired(result.error))throw new Error('Your admin session has expired. Sign in again to search payments.');
+  return result;
+ };
  const normalize=s=>String(s||'').toUpperCase().trim();
  const parseCode=s=>{
   const value=normalize(s);
@@ -16,10 +33,6 @@
   // For a pasted payment message, the confirmation code must be its first token.
   const first=value.split(/\s+/)[0]||'';
   return /^(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*[0-9])[A-Z0-9]{10}$/.test(first)?first:'';
- };
- const status=(message,kind='info')=>{
-  const p=document.createElement('p');p.setAttribute('role','status');p.className='payment-lookup-message '+kind;
-  p.textContent=message;output.replaceChildren(p);
  };
  const money=n=>{
   if(n==null||n==='')return 'Not recorded';
@@ -40,6 +53,17 @@
   else document.getElementById('adminMarketplaceOrderBody')?.scrollIntoView({behavior:'smooth',block:'center'});
   return true;
  };
+ const initializePanel=panel=>{
+ const form=panel.querySelector('form');
+ const input=panel.querySelector('input[type="search"]');
+ const output=panel.querySelector('.payment-reference-lookup-results');
+ const button=panel.querySelector('button[type="submit"]');
+ const acknowledgement=panel.querySelector('.payment-lookup-source-check input');
+ if(!form||!input||!output||!button)return;
+ const status=(message,kind='info')=>{
+  const p=document.createElement('p');p.setAttribute('role','status');p.className='payment-lookup-message '+kind;
+  p.textContent=message;output.replaceChildren(p);
+ };
  form.addEventListener('submit',async e=>{
   e.preventDefault();
   const code=parseCode(input.value);
@@ -50,7 +74,7 @@
   button.disabled=true;button.textContent='Searching…';
   status('Looking for matching payment references across LEOGO modules…');
   try{
-   const {data,error}=await db.rpc('admin_search_payment_reference',{p_code:code});
+   const {data,error}=await searchWithSessionRecovery(code);
    if(error)throw error;
    const matches=Array.isArray(data?.matches)?data.matches:[];
    output.replaceChildren();
@@ -112,4 +136,7 @@
   }catch(err){status('Search unavailable: '+(err?.message||String(err)),'warning');}
   finally{button.disabled=false;button.textContent='Fetch / Search Payment';}
  });
+ };
+ initializePanel(original);
+ if(mount?.firstElementChild)initializePanel(mount.firstElementChild);
 })();
