@@ -116,7 +116,7 @@
       ? `${window.leogoPayments.typeLabel(destination)}: ${number} · ${window.leogoPayments.destinationName(destination)}${destination.instructions ? ` · ${destination.instructions}` : ''}`
       : 'Premium payments are temporarily unavailable because Admin has not assigned an active payment account.';
     [applicationPaymentDestination, paymentDestination].forEach((element) => {
-      if (element) element.textContent = message;
+      if (element) {element.textContent = message; window.leogoPayments?.renderInstructions(element.parentElement,destination,'Premium Payment Instructions');}
     });
   };
 
