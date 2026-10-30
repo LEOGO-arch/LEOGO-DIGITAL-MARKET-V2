@@ -23,7 +23,7 @@ must(auth.indexOf('window.leogoAuth =') < auth.indexOf("document.addEventListene
 must(admin.includes("db.rpc('admin_list_advertisement_requests')"),'Admin must load submitted advertisement requests.');
 must(admin.includes("db.rpc('admin_update_advertisement_request'"),'Admin must be able to save review status and notes.');
 must(adminHtml.includes('id="advertisementRequestList"'),'Advertisement review queue must exist in Admin.');
-must(customerHtml.includes('js/app.js?v=advert-video-on-demand-1'),'Customer app cache must be refreshed.');
+must(customerHtml.includes('js/app.js?v=advert-video-muted-autoplay-1'),'Customer app cache must be refreshed.');
 must(css.includes('.advertisement-poster.has-live-poster video'),'Short video must receive responsive styling.');
 must(css.includes('object-fit:contain'),'Short video must keep the full frame visible.');
 must(migration.includes('alter table public.advertisement_requests enable row level security'),'Request records must use row level security.');
