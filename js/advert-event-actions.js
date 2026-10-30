@@ -67,6 +67,10 @@
      instructions.textContent='LEOGO has not published an event payment destination. Contact LEOGO Customer Care before paying; never transfer to an unverified account.';
      return;
     }
+    if(!['mpesa_till','mpesa_paybill'].includes(data.account_type)){
+     instructions.textContent='Event tickets require an official LEOGO M-PESA Till or Paybill. Admin must select a supported account under Other Revenue.';
+     return;
+    }
     const p=window.leogoPayments;
     const number=p.paymentNumber(data);
     if(!number){
