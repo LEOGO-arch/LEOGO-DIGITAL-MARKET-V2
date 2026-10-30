@@ -981,12 +981,12 @@
 
   const pdfEscape = (value) => String(value ?? '').replace(/[^\x20-\x7E]/g, '?').replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
 
-  const downloadStatementPdf = async (statementEntries) => {
+  const downloadStatementPdf = async (statementEntries, financialSnapshot) => {
     const statement=statementData(statementEntries);
     if(!statement.rows.length)throw new Error('There are no confirmed wallet transactions in the selected period.');
     const customer=currentUser?.user_metadata?.full_name||currentUser?.user_metadata?.name||currentUser?.email||'LEOGO Customer';
     if(window.leogoWalletStatementPdf?.generate){
-      const blob=await window.leogoWalletStatementPdf.generate({statement,customer,prettyStatus,kenyaDateTime});
+      const blob=await window.leogoWalletStatementPdf.generate({statement,customer,prettyStatus,kenyaDateTime,financialSnapshot});
       saveDownload(blob,`LEOGO-Wallet-Statement-${localDateKey()}.pdf`);
       return;
     }
@@ -1061,6 +1061,20 @@
     try {
       setMessage(elements.statementStatus, 'Preparing your statement and confirming the wallet deduction…');
       const statementEntries = await fetchStatementLedger();
+      let financialSnapshot=null;
+      if(format==='pdf'){
+        const [loansResult,pendingResult]=await Promise.all([
+          client.rpc('get_my_wallet_loan_overview'),
+          client.from('wallet_deposit_requests').select('requested_amount_kes')
+            .eq('user_id',currentUser.id).in('request_status',['pending','under_review','submitted'])
+        ]);
+        if(loansResult.error)throw loansResult.error;
+        if(pendingResult.error)throw pendingResult.error;
+        financialSnapshot={
+          loanBalance:(loansResult.data?.loans||[]).reduce((sum,loan)=>sum+Math.max(0,Number(loan.outstanding_kes||0)),0),
+          savingsWaitingApproval:(pendingResult.data||[]).reduce((sum,deposit)=>sum+Number(deposit.requested_amount_kes||0),0)
+        };
+      }
       const requestSignature = `${format}|${elements.statementFrom?.value || ''}|${elements.statementTo?.value || ''}`;
       if (button.dataset.requestSignature !== requestSignature) delete button.dataset.requestId;
       const requestId = button.dataset.requestId || crypto.randomUUID();
@@ -1079,7 +1093,7 @@
         statementEntries.push(data.ledger_entry);
       }
       if (format === 'excel') downloadStatementExcel(statementEntries);
-      else await downloadStatementPdf(statementEntries);
+      else await downloadStatementPdf(statementEntries,financialSnapshot);
       delete button.dataset.requestId;
       delete button.dataset.requestSignature;
       elements.statementConsent.checked = false;
