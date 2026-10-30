@@ -5522,6 +5522,7 @@
       ? 'This fee pays for processing and dispatching your direct service request. It is separate from the provider’s service charge.'
       : 'This fee pays for preparing and processing your quotation. It is separate from the provider’s quoted service price.';
     document.getElementById('serviceQuotationDestination').innerHTML=servicePaymentDestinationHtml(customerServiceConfig.payment_destination);
+    window.leogoPayments?.renderInstructions(document.getElementById('serviceQuotationDestination'),customerServiceConfig.payment_destination,'Service Request Payment Instructions');
     document.getElementById('serviceQuotationReference').required=fee>0;
     document.getElementById('submitServiceRequest').textContent=fee>0
       ? (requestType==='quotation'?'Submit Paid Quotation Request':'Submit Paid Service Request')
