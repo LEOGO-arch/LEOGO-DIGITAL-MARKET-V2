@@ -31,7 +31,7 @@ must(appJs.includes('closeAdvertisementLightbox({restoreFocus:false})'),'Custome
 must(appJs.includes('}, 75);'),'Automatic pop-up startup delay should be reduced.');
 must(appJs.includes('configuredSeconds === 5 || configuredSeconds === 3 ? 5 : 0'),'Legacy 3-second data must safely behave as 5 seconds during rollout.');
 must(css.includes('.advertisement-lightbox-countdown'),'Customer countdown styling missing.');
-must(customerHtml.includes('js/app.js?v=advert-video-on-demand-1'),'Customer app cache marker missing.');
+must(customerHtml.includes('js/app.js?v=advert-video-muted-autoplay-1'),'Customer app cache marker missing.');
 
 must(baseMigration.includes('popup_auto_close_seconds'),'Original timed pop-up migration must remain in history.');
 must(upgradeMigration.includes('where popup_auto_close_seconds=3'),'Upgrade must migrate existing 3-second adverts.');
