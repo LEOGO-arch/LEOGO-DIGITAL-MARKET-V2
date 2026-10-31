@@ -10,7 +10,7 @@
     const {data:{user}}=await client.auth.getUser();if(!user)return;
     const [{data,error},{data:products,error:productsError}]=await Promise.all([
       client.rpc('seller_market_day_overview'),
-      client.from('seller_products').select('id,product_name,price_kes').eq('seller_id',user.id).eq('product_approval_status','approved').order('product_name')
+      client.from('seller_products').select('id,product_name,price_kes').eq('seller_id',user.id).eq('product_approval_status','approved').eq('listing_status','active').eq('has_variants',false).eq('fulfilment_type','normal').order('product_name')
     ]);
     if(error||productsError){status((error||productsError).message);return;}
     $('#sellerMarketDayEvent').innerHTML='<option value="">Choose a Market Day…</option>'+(data?.events||[]).map(e=>`<option value="${escape(e.id)}">${escape(e.title)} (${escape(e.starts_on)} – ${escape(e.ends_on)})</option>`).join('');
