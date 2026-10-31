@@ -86,6 +86,7 @@
         <button data-admin-view="approvals"><i>✓</i><span>Approval Center</span><em id="sidebarApprovalCount">0</em></button>
         <button data-admin-view="orders"><i>▤</i><span>Orders</span><em id="sidebarOrderCount">0</em></button><button data-admin-view="assisted"><i>📝</i><span>Assisted Shopping</span><em id="sidebarAssistedShoppingCount">0</em></button>
         <button data-admin-view="flashsales"><i>⚡</i><span>Flash Sales</span><em id="sidebarFlashSaleCount">0</em></button>
+        <button data-admin-view="marketday"><i>📅</i><span>Market Day &amp; Free Delivery</span></button>
         <button data-admin-view="aftersales"><i>↺</i><span>Aftersales</span><em id="sidebarAftersalesCount">0</em></button>
         <button data-admin-view="customers"><i>♙</i><span>Customers</span><em id="sidebarFeedbackCount">0</em></button>
         <button data-admin-view="chat"><i>💬</i><span>Customer Care Chats</span><em id="sidebarChatCount">0</em></button>
@@ -399,6 +400,37 @@
           <label>Status<select id="flashAdminStatusFilter"><option value="all">All statuses</option><option value="requested">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="expired">Expired</option></select></label>
         </div>
         <div id="adminFlashSaleList" class="flash-admin-list"><div class="loading-card">Loading partner Flash Sale requests…</div></div>
+      </section>
+
+      <section class="admin-panel" data-admin-panel="marketday">
+        <div class="section-head"><div><span>SEPARATE FROM FLASH SALE</span><h2>Market Day &amp; LEOGO Free Delivery</h2><p>Schedule recurring seller promotions, approve participating offers, and define LEOGO-funded delivery areas.</p></div><button type="button" id="marketDayRefresh">↻ Refresh</button></div>
+        <div id="marketDayAdminStatus" class="form-status" role="status"></div>
+        <div class="panel" style="margin-bottom:16px"><h3>Schedule Market Day</h3>
+          <form id="marketDayScheduleForm" class="form-grid">
+            <label>Name<input name="title" required placeholder="Wednesday Grocery Market"></label>
+            <label>County (optional)<input name="county" placeholder="Siaya"></label>
+            <label>Start date<input name="starts" type="date" required></label><label>End date<input name="ends" type="date" required></label>
+            <label>Opens<input name="opens" type="time" value="06:00" required></label><label>Closes<input name="closes" type="time" value="23:59" required></label>
+            <label>Repeat days<select name="days"><option value="3">Wednesday</option><option value="6">Saturday</option><option value="3,6">Wednesday &amp; Saturday</option><option value="1,2,3,4,5,6,0">Every day</option></select></label>
+            <label>Status<select name="status"><option value="draft">Draft</option><option value="published">Publish schedule</option></select></label>
+            <div class="wide"><button class="primary-button" type="submit">Save Market Day</button></div>
+          </form>
+        </div>
+        <div class="panel" style="margin-bottom:16px"><h3>LEOGO-Funded Free Delivery</h3><p>Customer must meet the shopping threshold and exact destination. Delivery funding must later be verified at checkout before this is offered publicly.</p>
+          <form id="marketDayDeliveryForm" class="form-grid">
+            <label>Campaign name<input name="title" required placeholder="Siaya Wednesday Free Delivery"></label>
+            <label>Minimum shopping (KSh)<input name="min" type="number" min="1" required></label>
+            <label>County<input name="county" required placeholder="Siaya"></label>
+            <label>Sub-county (optional)<input name="subcounty"></label>
+            <label>Estate / specific area (optional)<input name="estate"></label>
+            <label>Delivery zone<select name="zone"><option value="cbd">CBD</option><option value="estate">Surrounding estates</option><option value="outside">Outside town</option></select></label>
+            <label>Start date &amp; time<input name="starts" type="datetime-local" required></label><label>End date &amp; time<input name="ends" type="datetime-local" required></label>
+            <label>Maximum funded delivery (KSh)<input name="maxfee" type="number" min="0" required></label>
+            <label>Campaign budget (KSh)<input name="budget" type="number" min="0" required></label>
+            <div class="wide"><button class="primary-button" type="submit">Save Draft Campaign</button></div>
+          </form>
+        </div>
+        <div class="panel"><h3>Market Day Offers Awaiting Approval</h3><div id="marketDayOffersList">Loading…</div><h3>Scheduled Market Days</h3><div id="marketDayEventsList">Loading…</div><h3>Delivery Campaigns</h3><div id="marketDayDeliveryList">Loading…</div></div>
       </section>
 
       <section class="admin-panel" data-admin-panel="aftersales">
@@ -1910,6 +1942,7 @@
   <script src="customer-messaging.js?v=messaging-safety-20261017" defer></script>
   <script src="advert-video-compress.js?v=advert-video-compress-1" defer></script>
   <script src="advertisements.js?v=advert-video-compress-1" defer></script>
+  <script src="market-day.js?v=market-day-v1" defer></script>
   <script src="advert-event-actions.js?v=event-actions-1" defer></script>
   <script src="cyber.js?v=sidebar-action-badges-1" defer></script>
   <script src="health.js?v=health-runtime-guards-20261017" defer></script>
