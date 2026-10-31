@@ -29,8 +29,8 @@ begin
       'transport_provider_submit_settlement_account'
     );
 
-  if v_count <> 16 then
-    raise exception 'Expected 16 reviewed user-scoped RPC overloads; found %', v_count;
+  if v_count <> 15 then
+    raise exception 'Expected 15 reviewed user-scoped RPC overloads; found %', v_count;
   end if;
 
   for v in
