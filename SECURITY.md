@@ -10,7 +10,7 @@ Include only information necessary to reproduce the issue: affected feature, exp
 
 ## Supported version
 
-The deployed production version from the protected `main` branch is the supported version. Experimental branches and staging environments are for internal testing.
+The deployed production version from the `main` branch is the supported version. Branch-protection status must be verified separately. Experimental branches and staging environments are for internal testing.
 
 ## Handling security changes
 
