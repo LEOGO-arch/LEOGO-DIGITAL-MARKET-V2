@@ -1318,10 +1318,13 @@
                 <span id="checkoutServiceRuleHigh">Orders from KSh 3,000: <b>1.5%</b></span>
               </div>
               <div class="checkout-total-row"><span>Items subtotal</span><strong id="checkoutSubtotalValue">KSh 0</strong></div>
+              <div class="checkout-total-row" id="checkoutMarketDaySavingsRow" hidden><span>Market Day savings</span><strong id="checkoutMarketDaySavingsValue">KSh 0</strong></div>
               <div class="checkout-total-row"><span>Service fee <small id="checkoutServiceRate">(2%)</small></span><strong id="checkoutServiceFeeValue">KSh 0</strong></div>
               <div class="checkout-total-row pickup-fee-row" id="checkoutPickupFeeRow" hidden><span>Pickup station fee <small id="checkoutPickupFeeRate">(0%)</small></span><strong id="checkoutPickupFeeValue">KSh 0</strong></div>
               <div class="checkout-total-row"><span>Delivery fee</span><strong id="checkoutDeliveryFeeValue">Select zone</strong></div>
+              <div class="checkout-total-row" id="checkoutLeogoDeliveryOfferRow" hidden><span>LEOGO free delivery</span><strong id="checkoutLeogoDeliveryOfferValue">KSh 0 saved</strong></div>
               <div class="checkout-total-row grand"><span>Grand total</span><strong id="checkoutGrandTotalValue">KSh 0</strong></div>
+              <p id="checkoutPromotionQuoteStatus" class="status" role="status" aria-live="polite"></p>
               <button class="checkout-confirm" id="continueToPayment" type="button" data-requires-auth data-auth-message="Please log in before continuing to payment." disabled>Continue to Payment</button>
               <p class="checkout-readiness" id="checkoutReadinessMessage" aria-live="polite">Complete all required delivery details to continue.</p>
               
