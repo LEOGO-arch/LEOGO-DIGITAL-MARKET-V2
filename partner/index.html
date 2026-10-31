@@ -1539,6 +1539,7 @@
           <button data-seller-view="aftersales" type="button"><span>↺</span>Aftersales <b id="sellerAftersalesBadge" hidden>0</b></button>
           <button data-seller-view="reviews" type="button"><span>★</span>Product Reviews <b id="sellerReviewBadge" hidden>0</b></button>
           <button data-seller-view="flashsale" type="button"><span>⚡</span>Flash Sale</button>
+          <button data-seller-view="marketday" type="button"><span>📅</span>Market Day</button>
           <button data-seller-view="earnings" type="button"><span>↗</span>Earnings</button>
           <button data-seller-view="settlements" type="button"><span>₿</span>Settlements</button>
           <button data-seller-view="subscription" type="button"><span>💳</span>Subscription &amp; Billing</button>
@@ -1724,6 +1725,23 @@
             </section>
           </section>
 
+          <section class="seller-view" data-seller-content="marketday">
+            <div class="seller-view-heading"><div><span>LEOGO MARKET DAY</span><h3>Join a Scheduled Market Day</h3><p>Choose an existing approved product and propose a reduced price or bulk discount. Your offer appears to customers only after Admin approval.</p></div></div>
+            <div id="sellerMarketDayStatus" class="status" role="status"></div>
+            <form id="sellerMarketDayForm" class="panel">
+              <div class="form-grid">
+                <label>Market Day<select name="event" id="sellerMarketDayEvent" required></select></label>
+                <label>Product<select name="product" id="sellerMarketDayProduct" required></select></label>
+                <label>Offer type<select name="kind" id="sellerMarketDayKind"><option value="reduced_price">Reduced selling price</option><option value="bulk_discount">Bulk quantity discount</option></select></label>
+                <label>Promotional stock quantity<input name="quantity" type="number" min="0.001" step="0.001" required></label>
+                <label>Market Day price (KSh)<input name="price" type="number" min="0.01" step="0.01"></label>
+                <label class="wide">Bulk tiers (one per line: minimum quantity, unit price)<textarea name="tiers" rows="3" placeholder="5, 170\n10, 160\n20, 150"></textarea></label>
+              </div>
+              <button type="submit">Submit Market Day Offer for Approval</button>
+            </form>
+            <div class="panel"><h3>My Market Day Offers</h3><div id="sellerMarketDayList">No offers yet.</div></div>
+          </section>
+
           <section class="seller-view" data-seller-content="earnings">
             <div class="seller-view-heading">
               <div><span>EARNINGS</span><h3>Seller Earnings & Balance</h3><p>Daily earnings, cumulative earnings and settlement-ready balance from completed, verified orders.</p></div>
@@ -1868,6 +1886,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
 <script src="partner.js?v=seller-aftersales-nav-1" defer></script>
+<script src="market-day.js?v=market-day-v1" defer></script>
 <script src="health.js?v=portal-session-guard-1" defer></script>
 <script src="health-specialist.js?v=portal-session-guard-1" defer></script>
 <script src="cyber.js?v=notification-realtime-1" defer></script>

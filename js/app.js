@@ -1580,7 +1580,7 @@
   }
 
   function updateCheckoutFees() {
-    const subtotal = Number(checkoutShell?.dataset.checkoutSubtotal || 0);
+    const subtotal = Number(checkoutShell?.dataset.checkoutOriginalSubtotal || checkoutShell?.dataset.checkoutSubtotal || 0);
     const serviceRate = checkoutServiceRateFor(subtotal);
     const serviceFee = subtotal * serviceRate;
     const deliveryRules = {
@@ -1610,7 +1610,71 @@
         : deliveryMoney(grandTotal);
     }
     updateCheckoutPointsTotals();
+    void refreshMarketplacePromotionQuote();
   }
+  let promotionQuoteRequest=0;
+  let promotionQuoteKey='';
+  let promotionQuoteValue=null;
+  let promotionQuoteAt=0;
+  const promotionNode=(id)=>document.getElementById(id);
+  async function refreshMarketplacePromotionQuote(force=false) {
+    const client=window.leogoAuth?.client;
+    if(!client||!window.leogoAuth?.isAuthenticated?.()||!testCart.length||
+       testCart.some(item=>cartItemSource(item)!=='seller')||!checkoutDeliveryZone?.value){
+      promotionQuoteKey='';promotionQuoteValue=null;
+      promotionNode('checkoutMarketDaySavingsRow')?.setAttribute('hidden','');
+      promotionNode('checkoutLeogoDeliveryOfferRow')?.setAttribute('hidden','');
+      return null;
+    }
+    const args={
+      p_items:testCart.map(item=>({product_id:item.productId,variant_id:item.variantId||null,quantity:item.quantity})),
+      p_delivery_zone:checkoutDeliveryZone.value,p_county:checkoutCounty?.value||null,
+      p_sub_county:checkoutSubCounty?.value||null,
+      p_estate:promotionNode('checkoutEstate')?.value.trim()||null,
+      p_pickup_station_id:checkoutDeliveryZone.value==='pickup'?selectedPickupStation()?.id||null:null
+    };
+    if(args.p_delivery_zone==='pickup'&&!args.p_pickup_station_id)return null;
+    const key=JSON.stringify(args);
+    // Always re-check server prices: stock, market schedules and delivery
+    // campaign budgets can change while a customer has the checkout open.
+    const request=++promotionQuoteRequest;
+    const quoteStatus=promotionNode('checkoutPromotionQuoteStatus');
+    if(quoteStatus)quoteStatus.textContent='Checking current Market Day and delivery offers…';
+    const {data,error}=await client.rpc('customer_market_day_checkout_quote',args);
+    if(request!==promotionQuoteRequest)return null;
+    if(error||!data){
+      promotionQuoteKey='';promotionQuoteValue=null;
+      if(quoteStatus)quoteStatus.textContent='Live promotional total is temporarily unavailable. Please retry before paying.';
+      return null;
+    }
+    promotionQuoteKey=key;promotionQuoteValue=data;promotionQuoteAt=Date.now();
+    const savings=Math.max(0,Number(data.discount_kes||0));
+    const subsidy=Math.max(0,Number(data.leogo_delivery_subsidy_kes||0));
+    const show=(id,on)=>{const n=promotionNode(id);if(n)n.hidden=!on;};
+    show('checkoutMarketDaySavingsRow',savings>0);
+    show('checkoutLeogoDeliveryOfferRow',subsidy>0);
+    if(promotionNode('checkoutMarketDaySavingsValue'))promotionNode('checkoutMarketDaySavingsValue').textContent='−'+deliveryMoney(savings);
+    if(promotionNode('checkoutLeogoDeliveryOfferValue'))promotionNode('checkoutLeogoDeliveryOfferValue').textContent=deliveryMoney(subsidy)+' saved';
+    if(promotionNode('checkoutSubtotalValue'))promotionNode('checkoutSubtotalValue').textContent=deliveryMoney(data.items_subtotal_kes);
+    if(checkoutServiceFeeValue)checkoutServiceFeeValue.textContent=deliveryMoney(data.service_fee_kes);
+    if(checkoutPickupFeeValue)checkoutPickupFeeValue.textContent=deliveryMoney(data.pickup_fee_kes);
+    if(checkoutDeliveryFeeValue)checkoutDeliveryFeeValue.textContent=subsidy>0?'FREE — LEOGO offer':deliveryMoney(data.delivery_fee_kes);
+    if(checkoutGrandTotalValue)checkoutGrandTotalValue.textContent=deliveryMoney(data.grand_total_kes);
+    if(checkoutShell){
+      checkoutShell.dataset.checkoutSubtotal=String(data.items_subtotal_kes);
+      checkoutShell.dataset.checkoutGrandTotal=String(data.grand_total_kes);
+    }
+    if(quoteStatus)quoteStatus.textContent=savings>0||subsidy>0
+      ? '✓ Approved LEOGO promotions applied. Offers and stock are reconfirmed when you place the order.'
+      : '✓ Current server-calculated checkout total.';
+    updateCheckoutPointsTotals();
+    if(paymentOrderTotal)paymentOrderTotal.textContent=checkoutTotalText();
+    return data;
+  }
+  [checkoutCounty,checkoutSubCounty,promotionNode('checkoutEstate'),checkoutPickupStation].forEach(field=>{
+    field?.addEventListener('change',()=>{void refreshMarketplacePromotionQuote(true);});
+    if(field?.id==='checkoutEstate')field.addEventListener('blur',()=>{void refreshMarketplacePromotionQuote(true);});
+  });
   checkoutDeliveryZone?.addEventListener('change', () => {
     const isPickup = checkoutDeliveryZone.value === 'pickup';
     if (checkoutPickupStationWrap) checkoutPickupStationWrap.hidden = !isPickup;
@@ -2047,6 +2111,13 @@
       openCustomerShell('cart');
       return;
     }
+    if(testCart.every(item=>cartItemSource(item)==='seller')){
+      const quote=await refreshMarketplacePromotionQuote(true);
+      if(!quote){
+        if(checkoutReadinessMessage)checkoutReadinessMessage.textContent='Please wait for a verified checkout total before continuing to payment.';
+        return;
+      }
+    }
     showCheckoutStep('payment');
     await Promise.all([
       loadMarketplacePaymentDestination(true),
@@ -2090,6 +2161,15 @@
   });
 
   makeCheckoutOrder?.addEventListener('click', async () => {
+    if(testCart.length&&testCart.every(item=>cartItemSource(item)==='seller')){
+      const oldTotal=Number(promotionQuoteValue?.grand_total_kes);
+      const quote=await refreshMarketplacePromotionQuote(true);
+      if(!quote){if(paymentStepStatus)paymentStepStatus.textContent='Unable to verify your promotional total. Please retry.';return;}
+      if(Number.isFinite(oldTotal)&&Math.abs(oldTotal-Number(quote.grand_total_kes))>0.01){
+        if(paymentStepStatus)paymentStepStatus.textContent='Your checkout total changed. Review the new total before paying or placing the order.';
+        return;
+      }
+    }
     paymentStepStatus.textContent = '';
     updateCheckoutPointsTotals();
 
@@ -2517,7 +2597,7 @@
     const subtotal = testCartSubtotal();
     if (headerCartCount) headerCartCount.textContent = count;
     if (cartShellCount) cartShellCount.textContent = count + (count === 1 ? ' item' : ' items');
-    if (checkoutShell) checkoutShell.dataset.checkoutSubtotal = String(subtotal);
+    if (checkoutShell){checkoutShell.dataset.checkoutOriginalSubtotal=String(subtotal);checkoutShell.dataset.checkoutSubtotal=String(subtotal);}
     const healthOnlyCart=testCart.length>0&&testCart.every((item)=>cartItemSource(item)==='health_medicine');
     syncHealthPrescriptionPanel();
     if(checkoutUsePoints){
