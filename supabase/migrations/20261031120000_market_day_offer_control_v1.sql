@@ -119,8 +119,9 @@ begin
     and e.ends_on >= (now() at time zone 'Africa/Nairobi')::date)
     then raise exception 'Market Day is unavailable'; end if;
   select p.price_kes into v_price from public.seller_products p
-    where p.id=p_product_id and p.seller_id=v_uid and p.product_approval_status='approved';
-  if not found then raise exception 'Approved seller product required'; end if;
+    where p.id=p_product_id and p.seller_id=v_uid and p.product_approval_status='approved'
+      and p.listing_status='active' and p.has_variants=false and p.fulfilment_type='normal';
+  if not found then raise exception 'Choose an active standard product without variants'; end if;
   if p_quantity_limit is null or p_quantity_limit <= 0 then raise exception 'Promotional stock must be positive'; end if;
   if p_kind='reduced_price' then
     if p_offer_price_kes is null or p_offer_price_kes<=0 or p_offer_price_kes>=v_price then
@@ -217,6 +218,15 @@ begin
   );
 end $$;
 
+create or replace function public.admin_set_free_delivery_campaign_status(p_id uuid,p_status text)
+returns void language plpgsql security definer set search_path='' as $$
+begin
+  if not private.is_leogo_admin('settings.manage') then raise exception 'Admin permission required'; end if;
+  if p_status not in ('active','paused') then raise exception 'Invalid campaign status'; end if;
+  update public.leogo_free_delivery_campaigns set status=p_status where id=p_id;
+  if not found then raise exception 'Campaign not found'; end if;
+end $$;
+
 create or replace function public.seller_market_day_overview()
 returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(
@@ -237,5 +247,7 @@ revoke all on function public.admin_save_free_delivery_campaign(uuid,text,numeri
 grant execute on function public.admin_save_free_delivery_campaign(uuid,text,numeric,text,text,text,text,timestamptz,timestamptz,numeric,numeric,text) to authenticated;
 revoke all on function public.admin_market_day_overview() from public;
 grant execute on function public.admin_market_day_overview() to authenticated;
+revoke all on function public.admin_set_free_delivery_campaign_status(uuid,text) from public;
+grant execute on function public.admin_set_free_delivery_campaign_status(uuid,text) to authenticated;
 revoke all on function public.seller_market_day_overview() from public;
 grant execute on function public.seller_market_day_overview() to authenticated;
