@@ -18,13 +18,17 @@
         <label>House type<select name="house_type" id="rentHouseType" required><option value="">Choose house type</option></select></label>
         <label>Monthly rent (KSh)<input name="monthly_rent" type="number" min="1" max="10000000" step="0.01" required></label>
         <label>Deposit, if applicable (KSh)<input name="deposit_amount" type="number" min="0" max="10000000" step="0.01" value="0"></label>
-        <label>Payment frequency<select name="payment_frequency" required><option value="monthly">Monthly</option><option value="quarterly">Quarterly (3 months)</option><option value="four_months">Every 4 months</option><option value="half_yearly">Half-yearly (6 months)</option><option value="annually">Annually (12 months)</option></select></label>
+        <label>Rent billing terms<select name="payment_frequency" required><option value="monthly">Monthly</option><option value="quarterly">Quarterly (3 months)</option><option value="four_months">Every 4 months</option><option value="half_yearly">Half-yearly (6 months)</option><option value="annually">Annually (12 months)</option></select></label>
+        <label>Preferred instalment payment schedule<select name="preferred_installment_cadence" required><option value="">Choose your preference</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
+        <label>Preferred minimum amount per instalment (KSh)<input name="preferred_minimum_installment" type="number" min="1" max="10000000" step="0.01" required placeholder="e.g. 500"></label>
         <label>County<select name="county" id="rentCounty" required><option value="">Loading counties…</option></select></label>
         <label>Sub-county<select name="sub_county" id="rentSubCounty" required disabled><option value="">Choose county first</option></select></label>
         <label>Estate / Area<input name="estate" maxlength="150" required></label>
         <label>Map pin or location URL (optional)<input name="map_pin" maxlength="400" placeholder="https://maps.google.com/..."></label>
         <label>Landlord payment account (optional)<input name="landlord_account" maxlength="180" placeholder="Name, bank/till/paybill, account reference"></label>
       </div>
+      <label class="rent-consent"><input type="checkbox" name="reminder_opt_in" value="yes"> I would like to receive optional rent instalment reminders when LEOGO enables them.</label>
+      <p class="rent-preference-note">Your preferred instalment amount and schedule are requests for Admin review. They do not change the approved rent billing terms or guarantee a reminder service.</p>
       <label>Additional description (optional)<textarea name="description" rows="3" maxlength="1500"></textarea></label>
       <label class="rent-consent"><input type="checkbox" required> I consent to LEOGO processing the identification and property information for rent application review and landlord verification. I understand that submitting an application does not activate a payment plan.</label>
       <button type="submit">Submit for Admin Review</button><p id="rentApplicationStatus" role="status" aria-live="polite"></p>
@@ -75,9 +79,9 @@
     const list = document.getElementById('rentApplicationList');
     const user = await currentUser();
     if (!user) { list.textContent = 'Sign in to view your applications.'; return; }
-    const {data,error} = await client.from('rent_installment_applications').select('id,house_type,monthly_rent,payment_frequency,county,estate,status,created_at').eq('customer_id',user.id).order('created_at',{ascending:false}).limit(30);
+    const {data,error} = await client.from('rent_installment_applications').select('id,house_type,monthly_rent,payment_frequency,preferred_installment_cadence,preferred_minimum_installment,reminder_opt_in,county,estate,status,created_at').eq('customer_id',user.id).order('created_at',{ascending:false}).limit(30);
     if (error) { list.textContent = 'Could not load applications. Try again later.'; return; }
-    list.innerHTML = data?.length ? data.map(a => `<article class="rent-application-item"><strong>${escapeHtml(a.house_type)} • KSh ${Number(a.monthly_rent).toLocaleString('en-KE')}/month</strong><span>${escapeHtml(a.estate)} • ${escapeHtml(a.status.replaceAll('_',' '))}</span><small>${new Date(a.created_at).toLocaleDateString('en-KE')}</small></article>`).join('') : '<p>No rent applications yet.</p>';
+    list.innerHTML = data?.length ? data.map(a => `<article class="rent-application-item"><strong>${escapeHtml(a.house_type)} • KSh ${Number(a.monthly_rent).toLocaleString('en-KE')}/month</strong><span>${escapeHtml(a.estate)} • ${escapeHtml(a.status.replaceAll('_',' '))}</span>${a.preferred_installment_cadence?`<small>Preferred: ${escapeHtml(a.preferred_installment_cadence)}, minimum KSh ${Number(a.preferred_minimum_installment).toLocaleString('en-KE')} • Reminders: ${a.reminder_opt_in?'requested':'not requested'}</small>`:''}<small>${new Date(a.created_at).toLocaleDateString('en-KE')}</small></article>`).join('') : '<p>No rent applications yet.</p>';
   };
   const goWallet = () => {
     document.querySelector('[data-open-customer-view="wallet"]')?.click();
@@ -94,12 +98,17 @@
       const user = await currentUser();
       if (!user) throw new Error('Please sign in before submitting your application.');
       const fd = new FormData(form);
+      const minInstalment = Number(fd.get('preferred_minimum_installment'));
+      const monthlyRent = Number(fd.get('monthly_rent'));
+      if (!['daily','weekly','monthly'].includes(String(fd.get('preferred_installment_cadence'))) || !Number.isFinite(minInstalment) || minInstalment <= 0 || minInstalment > monthlyRent) throw new Error('Choose daily, weekly or monthly instalments and a minimum amount no higher than your monthly rent.');
       const photo = fd.get('portrait');
       if (!(photo instanceof File) || !['image/jpeg','image/png','image/webp'].includes(photo.type) || photo.size > 2*1024*1024 || !photo.size) throw new Error('Select a JPG, PNG or WebP photograph of up to 2MB.');
       button.disabled = true;
       const record = {
         customer_id:user.id,full_name:String(fd.get('full_name')).trim(),identity_number:String(fd.get('identity_number')).trim(),
-        house_type:String(fd.get('house_type')),monthly_rent:Number(fd.get('monthly_rent')),deposit_amount:Number(fd.get('deposit_amount') || 0),
+        house_type:String(fd.get('house_type')),monthly_rent:monthlyRent,deposit_amount:Number(fd.get('deposit_amount') || 0),
+        preferred_installment_cadence:String(fd.get('preferred_installment_cadence')),preferred_minimum_installment:minInstalment,
+        reminder_opt_in:fd.get('reminder_opt_in')==='yes',
         payment_frequency:String(fd.get('payment_frequency')),county:String(fd.get('county')),sub_county:String(fd.get('sub_county')),
         estate:String(fd.get('estate')).trim(),map_pin:String(fd.get('map_pin')).trim() || null,
         landlord_account:String(fd.get('landlord_account')).trim() || null,description:String(fd.get('description')).trim() || null
