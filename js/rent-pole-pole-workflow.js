@@ -8,6 +8,8 @@
  if(!host)return;
  const content=document.createElement('section');content.id='rentWorkflowDetails';host.append(content);
  const notice=document.createElement('p');notice.setAttribute('role','status');content.before(notice);
+ const destinationIsUsable=d=>d?.account_type==='mpesa_till'&&/^\d{5,12}$/.test(d.till_number||'')
+  ||d?.account_type==='mpesa_paybill'&&/^\d{5,12}$/.test(d.paybill_number||'')&&!!d.account_number;
  const show=async()=>{
   const user=(await db.auth.getUser()).data?.user;
   if(!user){content.textContent='Sign in to view rent plans.';return;}
@@ -15,6 +17,11 @@
   if(error){content.textContent='Plan details are unavailable until the workflow database update is deployed.';return;}
   const ids=apps.map(a=>a.id);
   if(!ids.length){content.innerHTML='';return;}
+  const payment=window.leogoPayments;
+  const paymentResult=payment?.getDestination ? await payment.getDestination('marketplace_orders',{force:true}) : {data:null,error:new Error('Payment instructions unavailable')};
+  const paymentDestination=paymentResult.error?null:paymentResult.data;
+  const canPay=destinationIsUsable(paymentDestination);
+  const provider=paymentDestination?.account_type==='mpesa_paybill'?'M-Pesa Paybill':'M-Pesa Till';
   const [schedule,claims,changes,settlements]=await Promise.all([
    db.from('rent_payment_schedule').select('id,application_id,category,due_on,amount').in('application_id',ids).order('due_on'),
    db.from('rent_payment_claims').select('application_id,schedule_id,amount,status,transaction_reference').in('application_id',ids),
@@ -30,11 +37,12 @@
    return `<article class="rent-application-item" data-rent-app="${esc(a.id)}"><h4>${esc(a.estate)} • ${esc(a.status.replaceAll('_',' '))}</h4>
     <p>Monthly rent: KSh ${Number(a.monthly_rent).toLocaleString('en-KE')} • ${esc(a.payment_frequency)}. Landlord payouts confirmed: KSh ${released.toLocaleString('en-KE')}.</p>
     <p>${pending?'A change request awaits review. Further settlement is paused.':'Only LEOGO-admin-verified payment receipts count toward your schedule.'}</p>
+    ${a.status==='active'?`<div class="rent-payment-destination"><strong>Pay LEOGO for rent instalments</strong><p>Use the same Admin-assigned LEOGO payment account as ordinary marketplace orders. Never send an instalment to an unverified landlord account.</p><div data-rent-payment-guide="${esc(a.id)}"></div>${canPay?'':'<p role="status">No LEOGO Till/Paybill is currently assigned. Payment reference submission is unavailable; contact LEOGO Admin.</p>'}</div>`:''}
     ${a.status==='verified'?`<button type="button" data-rent-accept="${esc(a.id)}" ${a.customer_accepted_at?'disabled':''}>${a.customer_accepted_at?'Terms accepted; awaiting activation':'Accept approved 12-month schedule'}</button>`:''}
     <details><summary>Payment schedule and receipts</summary>${entries.length?entries.map(s=>{
      const verified=paid.filter(c=>c.schedule_id===s.id&&c.status==='verified').reduce((n,c)=>n+Number(c.amount),0);
      return `<div class="rent-application-item"><strong>${esc(s.category)} • ${esc(s.due_on)} • KSh ${Number(s.amount).toLocaleString('en-KE')}</strong><span>Verified: KSh ${verified.toLocaleString('en-KE')}</span>
-      ${a.status==='active'?`<form data-rent-claim="${esc(a.id)}"><input type="hidden" name="schedule_id" value="${esc(s.id)}"><label>Payment provider<input name="provider" required maxlength="80" placeholder="M-Pesa or bank"></label><label>External transaction reference<input name="transaction_reference" required minlength="5" maxlength="120"></label><label>Amount paid (KSh)<input name="amount" type="number" min="0.01" step="0.01" max="${Number(s.amount)-verified}" required></label><label>Payment date<input name="paid_on" type="date" required></label><button type="submit">Submit receipt for verification</button></form>`:''}
+      ${a.status==='active'&&canPay&&Number(s.amount)>verified?`<form data-rent-claim="${esc(a.id)}"><input type="hidden" name="schedule_id" value="${esc(s.id)}"><input type="hidden" name="provider" value="${esc(provider)}"><label>M-Pesa confirmation message / transaction reference<input name="transaction_reference" required minlength="8" maxlength="120" placeholder="Paste the genuine M-Pesa reference"></label><label>Amount paid (KSh)<input name="amount" type="number" min="0.01" step="0.01" max="${Number(s.amount)-verified}" required></label><label>Payment date<input name="paid_on" type="date" required></label><button type="submit">Submit M-Pesa payment for verification</button></form>`:''}
       ${paid.filter(c=>c.schedule_id===s.id).map(c=>`<small>${esc(c.transaction_reference)}: ${esc(c.status)}</small>`).join('')}</div>`;
     }).join(''):'Not yet approved.'}</details>
     <details><summary>Request location or landlord detail changes</summary><form data-rent-change="${esc(a.id)}"><p>Enter only fields to change. The landlord must be reverified before settlement resumes.</p>
@@ -43,6 +51,7 @@
     <label>Landlord name<input name="proposed_landlord_name" maxlength="150" placeholder="${esc(a.landlord_name||'')}"></label><label>Landlord payment account<input name="proposed_landlord_account" maxlength="180" placeholder="${esc(a.landlord_account||'')}"></label>
     <label>Reason<input name="reason" required minlength="5" maxlength="1000"></label><button type="submit" ${pending?'disabled':''}>${pending?'Change pending':'Request change'}</button></form></details></article>`;
   }).join('');
+  if(canPay)content.querySelectorAll('[data-rent-payment-guide]').forEach(el=>payment.renderInstructions(el,paymentDestination,'LEOGO Rent Instalment Payment Instructions'));
  };
  content.addEventListener('click',async e=>{
   const btn=e.target.closest('[data-rent-accept]');if(!btn)return;
@@ -53,6 +62,7 @@
  content.addEventListener('submit',async e=>{
   const form=e.target.closest('[data-rent-change],[data-rent-claim]');if(!form)return;e.preventDefault();
   const fd=new FormData(form),claim=form.hasAttribute('data-rent-claim');
+  if(claim){const result=await window.leogoPayments?.getDestination('marketplace_orders',{force:true});if(!destinationIsUsable(result?.data)){notice.textContent='LEOGO payment details are unavailable. Do not submit a payment reference.';return;}}
   const record=Object.fromEntries([...fd.entries()].filter(([k,v])=>String(v).trim()).map(([k,v])=>[k,String(v).trim()]));
   const app=form.dataset.rentChange||form.dataset.rentClaim;
   record.application_id=app;
