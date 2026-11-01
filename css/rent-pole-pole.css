@@ -8,6 +8,7 @@
 .rent-form input:not([type=checkbox]),.rent-form select,.rent-form textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #c5c8df;border-radius:9px;padding:11px;background:#fff;color:#172342;font:inherit}
 .rent-form .rent-consent{display:flex;flex-direction:row;align-items:flex-start;line-height:1.5;font-weight:450}
 .rent-consent input{margin-top:4px}.rent-form button:disabled{opacity:.6;cursor:wait}
+.rent-form .rent-preference-note{margin:2px 0 18px;color:#53617e;font-size:.9rem;line-height:1.5}
 .rent-property-shortcut{display:inline-flex;align-items:center;background:#ffce37;color:#1c2856;border-radius:11px;padding:10px 14px;font-weight:800;text-decoration:none}
 .rent-application-item{display:flex;flex-direction:column;gap:5px;border:1px solid #e0e2ee;border-radius:12px;padding:12px;margin:10px 0}
 .rent-application-item span{color:#556078}.rent-pole-pole-card{background:linear-gradient(140deg,#fff8dd,#ede7ff)}
