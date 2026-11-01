@@ -1,0 +1,14 @@
+.rent-pole-pole{max-width:1180px;margin:36px auto;padding:20px;color:#192342}
+.rent-intro{display:flex;justify-content:space-between;align-items:center;gap:18px;border-radius:20px;padding:26px;background:linear-gradient(120deg,#172d69,#5540a1);color:white;flex-wrap:wrap}
+.rent-intro h2{font-size:clamp(1.6rem,4vw,2.6rem);margin:8px 0}.rent-intro p{max-width:640px;line-height:1.5}
+.rent-intro button,.rent-form button[type=submit]{border:0;border-radius:12px;padding:13px 20px;background:#ffce37;color:#182344;font-weight:800;cursor:pointer}
+.rent-form{margin:20px 0;padding:25px;border:1px solid #dedff0;border-radius:18px;background:#fff;box-shadow:0 10px 30px #18234b12}
+.rent-form h3{margin:0 0 18px}.rent-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px}
+.rent-form label{display:flex;flex-direction:column;gap:6px;font-size:.92rem;font-weight:650;margin-bottom:14px}
+.rent-form input:not([type=checkbox]),.rent-form select,.rent-form textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #c5c8df;border-radius:9px;padding:11px;background:#fff;color:#172342;font:inherit}
+.rent-form .rent-consent{display:flex;flex-direction:row;align-items:flex-start;line-height:1.5;font-weight:450}
+.rent-consent input{margin-top:4px}.rent-form button:disabled{opacity:.6;cursor:wait}
+.rent-property-shortcut{display:inline-flex;align-items:center;background:#ffce37;color:#1c2856;border-radius:11px;padding:10px 14px;font-weight:800;text-decoration:none}
+.rent-application-item{display:flex;flex-direction:column;gap:5px;border:1px solid #e0e2ee;border-radius:12px;padding:12px;margin:10px 0}
+.rent-application-item span{color:#556078}.rent-pole-pole-card{background:linear-gradient(140deg,#fff8dd,#ede7ff)}
+@media(max-width:600px){.rent-pole-pole{padding:12px}.rent-form{padding:15px}.rent-intro{padding:20px}}
