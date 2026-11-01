@@ -3,6 +3,7 @@
  'use strict';
  const db=window.leogoAuth?.client;
  if(!db)return;
+ const advanceStagingOnly=location.hostname==='leogo-phase1-staging.vincentozzomondi1997.chatgpt.site';
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const host=document.getElementById('walletTabRent');
  if(!host)return;
@@ -22,19 +23,25 @@
   const paymentDestination=paymentResult.error?null:paymentResult.data;
   const canPay=destinationIsUsable(paymentDestination);
   const provider=paymentDestination?.account_type==='mpesa_paybill'?'M-Pesa Paybill':'M-Pesa Till';
-  const [schedule,claims,changes,settlements]=await Promise.all([
+  const [schedule,claims,changes,settlements,advances]=await Promise.all([
    db.from('rent_payment_schedule').select('id,application_id,category,due_on,amount').in('application_id',ids).order('due_on'),
-   db.from('rent_payment_claims').select('application_id,schedule_id,amount,status,transaction_reference').in('application_id',ids),
+   db.from('rent_payment_claims').select('application_id,schedule_id,amount,status,transaction_reference,verified_at').in('application_id',ids),
    db.from('rent_change_requests').select('application_id,status,reason,created_at').in('application_id',ids).order('created_at',{ascending:false}),
-   db.from('rent_landlord_settlements').select('application_id,amount,settled_on').in('application_id',ids)
+   db.from('rent_landlord_settlements').select('application_id,amount,settled_on').in('application_id',ids),
+   advanceStagingOnly?db.from('rent_advance_simulations').select('application_id,simulated_advance,created_at,status').in('application_id',ids):Promise.resolve({data:[],error:null})
   ]);
-  if([schedule,claims,changes,settlements].some(r=>r.error)){content.textContent='Plan records are temporarily unavailable.';return;}
+  if([schedule,claims,changes,settlements,advances].some(r=>r.error)){content.textContent='Plan or staging-simulation records are temporarily unavailable.';return;}
   content.innerHTML=apps.map(a=>{
    const entries=(schedule.data||[]).filter(s=>s.application_id===a.id);
    const paid=(claims.data||[]).filter(c=>c.application_id===a.id);
    const released=(settlements.data||[]).filter(s=>s.application_id===a.id).reduce((n,s)=>n+Number(s.amount),0);
    const pending=(changes.data||[]).some(r=>r.application_id===a.id&&r.status==='pending');
+   const advance=(advances.data||[]).find(x=>x.application_id===a.id);
+   const recovered=advance?paid.filter(x=>x.status==='verified'&&x.verified_at&&new Date(x.verified_at)>new Date(advance.created_at)).reduce((n,x)=>n+Number(x.amount),0):0;
+   const negative=advance?Math.max(0,Number(advance.simulated_advance)-recovered):0;
    return `<article class="rent-application-item" data-rent-app="${esc(a.id)}"><h4>${esc(a.estate)} • ${esc(a.status.replaceAll('_',' '))}</h4>
+    ${advance?`<div class="rent-application-item"><strong>Rent Advance — staging simulation only</strong><p>Simulated outstanding balance: <strong>−KSh ${negative.toLocaleString('en-KE')}</strong> ${negative===0?'• Cleared':''}</p><small>Simulated advance KSh ${Number(advance.simulated_advance).toLocaleString('en-KE')}; verified later instalments KSh ${recovered.toLocaleString('en-KE')}. This is not a real loan, payment to landlord, or savings-wallet deduction.</small></div>`:''}
+    ${advanceStagingOnly?'<small>Rent Advance eligibility (staging only): LEOGO membership for at least 1 year, verified on-time payments for at least two different rent periods, no overdue unpaid rent, and Admin approval. No real advances are available.</small>':''}
     <p>Monthly rent: KSh ${Number(a.monthly_rent).toLocaleString('en-KE')} • ${esc(a.payment_frequency)}. Landlord payouts confirmed: KSh ${released.toLocaleString('en-KE')}.</p>
     <p>${pending?'A change request awaits review. Further settlement is paused.':'Only LEOGO-admin-verified payment receipts count toward your schedule.'}</p>
     ${a.status==='active'?`<div class="rent-payment-destination"><strong>Pay LEOGO for rent instalments</strong><p>Use the same Admin-assigned LEOGO payment account as ordinary marketplace orders. Never send an instalment to an unverified landlord account.</p><div data-rent-payment-guide="${esc(a.id)}"></div>${canPay?'':'<p role="status">No LEOGO Till/Paybill is currently assigned. Payment reference submission is unavailable; contact LEOGO Admin.</p>'}</div>`:''}
