@@ -1,0 +1,18 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const {spawnSync}=require('node:child_process');
+const root=path.join(__dirname,'..');
+const source=fs.readFileSync(path.join(root,'partner/partner.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'partner/index.html'),'utf8');
+const syntax=spawnSync(process.execPath,['--check',path.join(root,'partner/partner.js')],{encoding:'utf8'});
+assert.equal(syntax.status,0,syntax.stderr);
+assert.doesNotMatch(source,/Warning: truncated output|tokens truncated|Total output lines:/);
+assert.match(source,/window\.leogoPartnerLoginReady=true/);
+assert.match(source,/signInWithPassword/);
+assert.match(source,/TOKEN_REFRESHED/);
+assert.match(html,/partnerLoginForm'\)\.addEventListener\('submit'/);
+assert.match(html,/event\.preventDefault\(\)/);
+assert.match(html,/!window\.leogoPartnerLoginReady/);
+assert.match(html,/partner\.js\?v=seller-signin-repair-20261103/);
+console.log('Seller login bootstrap and syntax checks passed.');
