@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 93893)
-Total output lines: 6110
+Warning: truncated output (original token count: 93965)
+Total output lines: 6113
 
 (() => {
 'use strict';
@@ -529,6 +529,7 @@ resetUpdateForm.addEventListener('submit',async e=>{
   status($('#partnerAuthStatus'),'Password updated successfully. Sign in with your new password.','success');
 });
 
+window.leogoPartnerLoginReady=true;
 $('#partnerLoginForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const button=e.submitter||$('#partnerLoginForm button[type="submit"]');
@@ -538,8 +539,10 @@ $('#partnerLoginForm').addEventListener('submit',async e=>{
   try{
     const {data,error}=await client.auth.signInWithPassword({email:$('#partnerLoginEmail').value.trim(),password:$('#partnerLoginPassword').value});
     if(error){status($('#partnerAuthStatus'),error.message,'error');return;}
-    status($('#partnerAuthStatus'),'Signed in successfully.','success');
-    await handleSession(data.session);
+    if(!data.session?.user)throw new Error('Sign-in succeeded but the session was not returned. Please retry.');
+    status($('#partnerAuthStatus'),'Signed in. Opening your Partner Portal…','success');
+    // SIGNED_IN is already handled by onAuthStateChange below. Running both
+    // paths concurrently can reopen or hide the workspace while it boots.
   }catch(error){
     status($('#partnerAuthStatus'),error?.message||'Sign in failed. Please try again.','error');
   }finally{
@@ -2970,12 +2973,7 @@ $('#providerSettlementAccountForm')?.addEventListener('submit',async(event)=>{
   const original=button.textContent;button.disabled=true;button.textContent='Sending…';
   try{
     status($('#providerSettlementStatus'),'Sending settlement account to LEOGO Admin for verification…');
-    const {error}=await client.rpc('service_provider_submit_settlement_account',{
-      p_account_id:$('#providerSettlementAccountId').value||null,
-      p_account_type:type,
-      p_account_name:$('#providerSettlementName').value.trim(),
-      p_phone_number:type==='mpesa_mobile'?phone:null,
-      p_till_number:type==='…3893 tokens truncated…ror?.message||'Photo change could not be submitted.','error');
+    const {error}=await client.rpc('service_provider_submit_settlement_account…3965 tokens truncated…ubmitted.','error');
   }finally{
     if(button){button.disabled=false;button.textContent=original;}
   }
@@ -5763,7 +5761,8 @@ client.auth.onAuthStateChange((event,s)=>{
 
   // A routine token refresh is not a new login. Reopening the active role here
   // rebuilds item editors and silently discards fields the partner is typing.
-  if(['TOKEN_REFRESHED','USER_UPDATED'].includes(event)&&s?.user&&currentUser?.id===s.user.id){
+  if((['TOKEN_REFRESHED','USER_UPDATED'].includes(event)||(event==='SIGNED_IN'&&activeRole))
+    &&s?.user&&currentUser?.id===s.user.id){
     currentUser=s.user;
     return;
   }

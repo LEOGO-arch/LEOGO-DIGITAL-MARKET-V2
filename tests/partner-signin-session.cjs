@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const code=fs.readFileSync(path.join(__dirname,'../partner/partner.js'),'utf8');
+const submit=code.match(/\$\('#partnerLoginForm'\)\.addEventListener\('submit',[\s\S]*?\n\}\);/);
+assert.ok(submit,'Partner sign-in submit handler should exist');
+assert.match(submit[0],/signInWithPassword/);
+assert.doesNotMatch(submit[0],/await handleSession\(/,'Sign-in must not initialize the session twice');
+assert.match(submit[0],/Opening your Partner Portal/);
+assert.match(code,/event==='SIGNED_IN'&&activeRole/);
+assert.match(code,/\['TOKEN_REFRESHED','USER_UPDATED'\]/);
+console.log('Partner sign-in session race checks passed.');
