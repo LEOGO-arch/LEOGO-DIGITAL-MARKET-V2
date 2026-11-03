@@ -58,6 +58,20 @@
       <button type="submit">Sign In</button>
       <button id="showPartnerResetPassword" class="link-button" type="button">Forgot password?</button>
     </form>
+    <script>
+      // Fail closed if a dependency or partner script fails before it binds sign-in.
+      // Keep the entered credentials visible and explain why sign-in is unavailable.
+      document.getElementById('partnerLoginForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        if (!window.leogoPartnerLoginReady) {
+          const output = document.getElementById('partnerAuthStatus');
+          if (output) {
+            output.textContent = 'Partner sign-in is not ready. Reload the page or contact LEOGO Support.';
+            output.className = 'status error';
+          }
+        }
+      });
+    </script>
     <form id="partnerResetRequestForm" class="auth-form" hidden>
       <div class="reset-heading"><strong>Reset your password</strong><small>Enter the email you used to create your LEOGO account. We will send one secure reset link.</small></div>
       <div class="reset-link-warning">Use only the newest LEOGO password-reset email. Requesting another reset link makes earlier links unusable, and some email apps may group older reset emails in the same conversation.</div>
@@ -1885,7 +1899,7 @@
   <script src="../js/runtime-monitor.js?v=diagnosis-safety-1" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="taxonomy.js?v=taxonomy-5" defer></script>
-<script src="partner.js?v=seller-aftersales-nav-1" defer></script>
+<script src="partner.js?v=seller-signin-repair-20261103" defer></script>
 <script src="draft-recovery.js?v=partner-drafts-1" defer></script>
 <script src="market-day.js?v=market-day-v1" defer></script>
 <script src="health.js?v=portal-session-guard-1" defer></script>
