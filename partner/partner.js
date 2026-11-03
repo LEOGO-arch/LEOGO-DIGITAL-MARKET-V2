@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 93893)
-Total output lines: 6110
-
 (() => {
 'use strict';
 const PROJECT_URL='https://dzdciuqkqixwutvtfotj.supabase.co';
@@ -529,6 +526,7 @@ resetUpdateForm.addEventListener('submit',async e=>{
   status($('#partnerAuthStatus'),'Password updated successfully. Sign in with your new password.','success');
 });
 
+window.leogoPartnerLoginReady=true;
 $('#partnerLoginForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const button=e.submitter||$('#partnerLoginForm button[type="submit"]');
@@ -2975,7 +2973,281 @@ $('#providerSettlementAccountForm')?.addEventListener('submit',async(event)=>{
       p_account_type:type,
       p_account_name:$('#providerSettlementName').value.trim(),
       p_phone_number:type==='mpesa_mobile'?phone:null,
-      p_till_number:type==='…3893 tokens truncated…ror?.message||'Photo change could not be submitted.','error');
+      p_till_number:type==='mpesa_till'?$('#providerSettlementTill').value.trim():null,
+      p_paybill_number:type==='mpesa_paybill'?$('#providerSettlementPaybill').value.trim():null,
+      p_account_number:['mpesa_paybill','bank'].includes(type)?$('#providerSettlementAccountNumber').value.trim():null,
+      p_bank_name:type==='bank'?$('#providerSettlementBank').value.trim():null,
+      p_bank_branch:type==='bank'?$('#providerSettlementBranch').value.trim():null,
+      p_make_primary:$('#providerSettlementPrimary').checked
+    });
+    if(error)throw error;
+    resetProviderSettlementForm();
+    status($('#providerSettlementStatus'),'Settlement account submitted. LEOGO Admin must approve it before use.','success');
+    await Promise.all([loadProviderSettlementAccounts(),loadProviderNotifications()]);
+  }catch(error){
+    status($('#providerSettlementStatus'),error?.message||'Settlement account could not be submitted.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+});
+toggleProviderSettlementFields();
+
+$('#providerSettlementRequestForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const accountId=$('#providerSettlementRequestAccount').value;
+  const amount=Number($('#providerSettlementRequestAmount').value);
+  const note=$('#providerSettlementRequestNote').value.trim();
+  const available=Number(providerEarningsReport?.available_balance_kes||0);
+  if(!accountId){status($('#providerSettlementRequestStatus'),'Choose an approved settlement account.','error');return;}
+  if(!amount||amount<=0){status($('#providerSettlementRequestStatus'),'Enter the amount you want to request.','error');return;}
+  if(amount>available){status($('#providerSettlementRequestStatus'),'Requested amount exceeds your available balance of '+money(available)+'.','error');return;}
+  const button=$('#providerSettlementRequestButton');
+  const original=button.textContent;button.disabled=true;button.textContent='Submitting…';
+  try{
+    status($('#providerSettlementRequestStatus'),'Sending settlement request to LEOGO Admin…');
+    const {error}=await client.rpc('service_provider_request_settlement',{p_account_id:accountId,p_amount_kes:amount,p_note:note||null});
+    if(error)throw error;
+    event.target.reset();
+    status($('#providerSettlementRequestStatus'),'Settlement request submitted to Admin for review.','success');
+    await Promise.all([loadProviderSettlementAccounts(),loadProviderNotifications(),loadProviderEarnings()]);
+  }catch(error){
+    status($('#providerSettlementRequestStatus'),error?.message||'Settlement request could not be submitted.','error');
+  }finally{button.disabled=false;button.textContent=original;}
+});
+
+async function loadProviderNotifications(){
+  const {data,error}=await client.from('partner_notifications').select('*').eq('partner_type','service_provider').order('created_at',{ascending:false}).limit(50);
+  if(error)throw error;providerNotifications=data||[];renderProviderNotifications();
+}
+function renderProviderNotifications(){
+  const target=$('#providerNotificationList');if(!target)return;
+  const unread=providerNotifications.filter((item)=>!item.read_at).length;
+  const sideBadge=$('#providerNotificationBadge');
+  const headBadge=$('#providerHeadNotificationBadge');
+  if(sideBadge){sideBadge.hidden=!unread;sideBadge.textContent=unread>99?'99+':String(unread);}
+  if(headBadge){headBadge.hidden=!unread;headBadge.textContent=unread>99?'99+':String(unread);}
+  updateSharedPartnerNotificationBadge(unread);
+  target.innerHTML=providerNotifications.length?providerNotifications.map((item)=>
+    '<article class="seller-notification-item '+(item.read_at?'':'unread')+'" data-provider-notification-id="'+escapeHtml(item.id)+'"><div><strong>'+escapeHtml(item.title)+'</strong><p>'+escapeHtml(item.message)+'</p><small>'+escapeHtml(formatDate(item.created_at))+'</small></div><div class="seller-notification-actions">'+
+      (item.action_view?'<button type="button" data-open-provider-notification="'+escapeHtml(item.id)+'" data-provider-notification-view="'+escapeHtml(item.action_view)+'">Open</button>':'')+
+      (item.read_at?'':'<button class="secondary" type="button" data-mark-provider-notification="'+escapeHtml(item.id)+'">Mark read</button>')+
+    '</div></article>'
+  ).join(''):'<div class="empty-card">No Service Provider notifications yet.</div>';
+  $$('[data-mark-provider-notification]').forEach((button)=>button.addEventListener('click',async()=>{
+    const {error}=await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.markProviderNotification});
+    if(!error)await loadProviderNotifications();
+  }));
+  $$('[data-open-provider-notification]').forEach((button)=>button.addEventListener('click',async()=>{
+    await client.rpc('mark_partner_notification_read',{p_notification_id:button.dataset.openProviderNotification}).catch?.(()=>{});
+    const view=button.dataset.providerNotificationView;
+    if(view==='provider-jobs')openProviderView('jobs');
+    else if(view==='provider-services')openProviderView('services');
+    else if(view==='flashsale'||view==='provider-flashsale')openProviderView('flashsale');
+    else if(view==='provider-earnings')openProviderView('earnings');
+    else if(view==='provider-settlements')openProviderView('settlements');
+    else if(view==='provider-profile')openProviderView('profile');
+    else openProviderView('notifications');
+    await loadProviderNotifications();
+  }));
+}
+
+$('#providerPhotoForm')?.addEventListener('submit',async(event)=>{
+  event.preventDefault();
+  const form=event.currentTarget;
+  const profileFile=$('#providerProfilePictureUpdate')?.files?.[0]||null;
+  const passportFile=$('#providerPassportPhotoUpdate')?.files?.[0]||null;
+  if(!profileFile&&!passportFile){
+    status($('#providerPhotoStatus'),'Choose a profile picture or passport photo to save.','error');
+    return;
+  }
+  const button=form.querySelector('button[type="submit"]');
+  const original=button.textContent;
+  button.disabled=true;
+  button.textContent='Saving…';
+  try{
+    status($('#providerPhotoStatus'),'Uploading profile photos…');
+    const [profilePath,passportPath]=await Promise.all([
+      profileFile?uploadProviderPublicPhoto(profileFile):Promise.resolve(null),
+      passportFile?uploadProviderPassportPhoto(passportFile):Promise.resolve(null)
+    ]);
+    const {data,error}=await client.rpc('service_provider_update_profile_photos',{
+      p_profile_picture_path:profilePath,
+      p_passport_photo_path:passportPath
+    });
+    if(error)throw error;
+    provider=data||provider;
+    form.reset();
+    renderProviderPhotoManager();
+    status($('#providerPhotoStatus'),'Profile photos saved successfully.','success');
+    window.setTimeout(()=>openProviderView('overview'),700);
+  }catch(error){
+    status($('#providerPhotoStatus'),error?.message||'Profile photos could not be saved.','error');
+  }finally{
+    button.disabled=false;
+    button.textContent=original;
+  }
+});
+
+$('#markAllProviderNotificationsRead')?.addEventListener('click',async()=>{
+  const {error}=await client.rpc('mark_all_partner_notifications_read',{p_partner_type:'service_provider'});
+  if(error){status($('#providerServiceFormStatus'),error.message,'error');return;}
+  await loadProviderNotifications();
+});
+
+
+
+
+/* PREMIUM PARTNER MODULE — reuses the existing Premium Profile approval records */
+const premiumBootStatus=$('#premiumBootStatus');
+const premiumOnboarding=$('#premiumOnboarding');
+const premiumReg=$('#premiumRegistrationForm');
+const premiumPendingArea=$('#premiumPendingArea');
+const premiumDashboard=$('#premiumDashboard');
+const premiumSidebar=$('#premiumSidebar');
+
+function showPremiumBoot(message='Loading your Premium Profile…',isError=false){
+  if(!premiumBootStatus)return;
+  premiumBootStatus.hidden=false;
+  $('#premiumBootTitle').textContent=isError?'Premium Profile needs attention':'Opening your Premium Profile…';
+  $('#premiumBootMessage').textContent=message;
+  const spinner=$('.seller-boot-spinner',premiumBootStatus);if(spinner)spinner.hidden=isError;
+  $('#retryPremiumBoot').hidden=!isError;
+}
+function hidePremiumBoot(){if(premiumBootStatus)premiumBootStatus.hidden=true;}
+function closePremiumSidebar(){premiumSidebar?.classList.remove('open');$('#premiumSidebarScrim')?.classList.remove('open');}
+function premiumStatusCopy(value){
+  if(value==='submitted')return 'Submitted to LEOGO Admin and waiting for review.';
+  if(value==='under_review')return 'LEOGO Admin is reviewing your Premium Profile application.';
+  if(value==='changes_requested')return 'LEOGO Admin requested corrections. Update and resubmit your Premium Profile.';
+  if(value==='approved')return 'Approved. You can manage your public profile and availability.';
+  if(value==='rejected')return 'This application was not approved. You may correct it and resubmit.';
+  if(value==='suspended')return 'This Premium Profile is currently suspended. Contact LEOGO Admin.';
+  return 'Create your Premium Profile application.';
+}
+function premiumViewDescription(view){
+  return {overview:'Manage Premium Profile status and availability.',requests:'Incoming Premium Customer meetup requests.',profile:'Your approved public Premium Profile.',subscription:'Review your Premium Partner subscription, renewal plan and payment status.',notifications:'Admin decisions and Premium activity.'}[view]||'Premium Partner Portal';
+}
+function openPremiumView(view='overview'){
+  const allowed=['overview','requests','profile','subscription','notifications'];
+  const resolved=allowed.includes(view)?view:'overview';
+  [...document.querySelectorAll('[data-premium-content]')].forEach(panel=>panel.classList.toggle('active',panel.dataset.premiumContent===resolved));
+  [...document.querySelectorAll('[data-premium-view]')].forEach(button=>button.classList.toggle('active',button.dataset.premiumView===resolved));
+  if($('#premiumViewDescription'))$('#premiumViewDescription').textContent=premiumViewDescription(resolved);
+  if(resolved==='requests')loadPremiumMeetupRequests().catch(error=>status($('#premiumRequestStatus'),error?.message||'Premium requests could not load.','error'));
+  if(resolved==='subscription')mountPartnerSubscription('premium',premiumDashboard).catch(error=>console.warn('Premium subscription refresh failed:',error));
+  if(resolved==='notifications')loadPremiumNotifications().catch(console.warn);
+  closePremiumSidebar();
+}
+async function uploadPremiumPartnerFile(bucket,file,maxBytes){
+  if(!file)return null;
+  if(file.size>maxBytes)throw new Error('Selected file is too large.');
+  const allowed=['image/jpeg','image/png','image/webp','application/pdf'];
+  if(!allowed.includes(file.type))throw new Error('Choose JPG, PNG, WEBP or PDF as allowed.');
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':file.type==='application/pdf'?'pdf':'jpg';
+  const path=currentUser.id+'/'+Date.now()+'-'+crypto.randomUUID()+'.'+ext;
+  const {error}=await client.storage.from(bucket).upload(path,file,{upsert:false,contentType:file.type});
+  if(error)throw error;
+  return path;
+}
+function populatePremiumApplication(){
+  if(!premiumProfile?.profile)return;
+  const p=premiumProfile.profile,d=premiumProfile.details||{},i=premiumProfile.identity||{};
+  $('#premiumPartnerDisplayName').value=p.display_name||'';
+  $('#premiumPartnerGender').value=p.gender||'';
+  $('#premiumPartnerAge').value=d.age||'';
+  $('#premiumPartnerOrientation').value=d.orientation||'';
+  $('#premiumPartnerLocation').value=p.general_location||'';
+  $('#premiumPartnerAbout').value=p.about||'';
+  $('#premiumPartnerRealName').value=i.real_name||'';
+  $('#premiumPartnerIdNumber').value=i.id_number||'';
+  $('#premiumPartnerPhone').value=i.phone||'';
+  $('#premiumPartnerAgeConsent').checked=Boolean(i.age_consent);
+  $('#premiumPartnerResponsibilityConsent').checked=Boolean(i.responsibility_consent);
+  $('#premiumPartnerPrivacyConsent').checked=Boolean(i.privacy_consent);
+  $('#premiumPartnerProfilePhoto').dataset.existingPath=p.profile_picture_path||'';
+  $('#premiumPartnerIdDocument').dataset.existingPath=i.id_document_path||'';
+  $('#premiumPartnerProfilePhoto').required=!p.profile_picture_path;
+  $('#premiumPartnerIdDocument').required=!i.id_document_path;
+}
+async function premiumSignedUrl(path){
+  if(!path)return '';
+  const {data}=await client.storage.from('premium-profile-media').createSignedUrl(path,900);
+  return data?.signedUrl||'';
+}
+async function cleanupPremiumPartnerMedia(paths=null){
+  try{
+    let targets=Array.isArray(paths)?paths.filter(Boolean):null;
+    if(!targets){
+      const {data,error}=await client.rpc('premium_partner_list_media_cleanup');
+      if(error)throw error;
+      targets=Array.isArray(data)?data.filter(Boolean):[];
+    }
+    if(!targets.length)return true;
+    let removal=await client.storage.from('premium-profile-media').remove(targets);
+    if(removal.error){
+      await new Promise(resolve=>setTimeout(resolve,250));
+      removal=await client.storage.from('premium-profile-media').remove(targets);
+    }
+    if(removal.error)throw removal.error;
+    await client.rpc('premium_partner_ack_media_cleanup',{p_paths:targets});
+    return true;
+  }catch(error){
+    console.warn('Premium media cleanup pending:',error);
+    return false;
+  }
+}
+function premiumGalleryItemForSlot(slot){
+  const sort=Number(String(slot||'').replace('gallery_',''));
+  return (premiumProfile?.gallery||[]).find(item=>Number(item.sort_order)===sort)||null;
+}
+function premiumMediaPathForSlot(slot){
+  if(slot==='profile')return premiumProfile?.profile?.profile_picture_path||'';
+  return premiumGalleryItemForSlot(slot)?.media_path||'';
+}
+function premiumMediaLabel(slot){
+  if(slot==='profile')return 'Profile Picture';
+  return 'Gallery Photo '+String(slot||'').replace('gallery_','');
+}
+async function replacePremiumMediaSlot(slot,file,button=null){
+  if(!file||!premiumProfile?.profile)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+    status($('#premiumPublicProfileNotice'),'Choose a JPG, PNG or WEBP image.','error');
+    return;
+  }
+  if(file.size>5*1024*1024){
+    status($('#premiumPublicProfileNotice'),'Photo must be 5 MB or smaller.','error');
+    return;
+  }
+
+  const original=button?.textContent||'Update Photo';
+  if(button){button.disabled=true;button.textContent='Uploading…';}
+  status($('#premiumPublicProfileNotice'),'Uploading '+premiumMediaLabel(slot)+' for Admin approval…');
+
+  let newPath='';
+  try{
+    newPath=await uploadPremiumPartnerFile('premium-profile-media',file,5*1024*1024);
+    const payload={};
+    if(slot==='profile'){
+      payload.profile_picture_path=newPath;
+    }else{
+      const targetSlot=Number(String(slot||'').replace('gallery_',''));
+      const gallery=[1,2,3].map((index)=>{
+        if(index===targetSlot)return newPath;
+        return premiumGalleryItemForSlot('gallery_'+index)?.media_path||'';
+      }).filter(Boolean);
+      payload.gallery_paths=gallery;
+    }
+
+    const {data,error}=await client.rpc('premium_partner_submit_profile_change',{p_payload:payload});
+    if(error)throw error;
+    if(data?.error)throw new Error(data.error);
+
+    openPremiumView('profile');
+    status($('#premiumPublicProfileNotice'),premiumMediaLabel(slot)+' sent to LEOGO Admin for approval. Your current approved photo remains visible until approval.','success');
+    await loadPremiumNotifications().catch(()=>{});
+  }catch(error){
+    if(newPath){
+      try{await client.storage.from('premium-profile-media').remove([newPath]);}catch(_error){}
+    }
+    status($('#premiumPublicProfileNotice'),error?.message||'Photo change could not be submitted.','error');
   }finally{
     if(button){button.disabled=false;button.textContent=original;}
   }
