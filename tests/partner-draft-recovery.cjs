@@ -5,7 +5,8 @@ const read=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
 const portal=read('partner/partner.js');
 const drafts=read('partner/draft-recovery.js');
 const html=read('partner/index.html');
-assert.match(portal,/\['TOKEN_REFRESHED','USER_UPDATED'\]\.includes\(event\)&&s\?\.user&&currentUser\?\.id===s\.user\.id/);
+assert.match(portal,/\['TOKEN_REFRESHED','USER_UPDATED'\]\.includes\(event\)/);
+assert.match(portal,/s\?\.user&&currentUser\?\.id===s\.user\.id/);
 assert.match(html,/draft-recovery\.js\?v=partner-drafts-1/);
 for(const name of ['sellerProductForm','providerServiceForm','transportVehicleForm','accommodationPropertyForm','accommodationUnitForm','cyberProductForm','cyberServiceForm','healthMedicineProductForm','healthSpecialistServiceForm']){
  assert.match(drafts,new RegExp(`'${name}'`));
