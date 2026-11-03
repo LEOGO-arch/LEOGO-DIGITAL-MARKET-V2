@@ -90,6 +90,18 @@ download.addEventListener('click',async()=>{
    for(const line of lines){if(y>279){pdf.addPage();y=18;}pdf.text(line,16,y);y+=5.2;}
    y+=paragraph?2:1;
   }
+  // Keep the entire wet-signature block together on the same printable page.
+  if(y+64>283){pdf.addPage();y=18;}
+  y+=5;
+  pdf.setDrawColor(255,121,0);pdf.setLineWidth(.6);pdf.line(16,y,194,y);y+=8;
+  pdf.setFont('helvetica','bold');pdf.setFontSize(11);pdf.setTextColor(7,27,61);
+  pdf.text('PHYSICAL SIGNING & OFFICIAL STAMP',16,y);y+=12;
+  pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(24,39,62);pdf.setDrawColor(95,109,127);pdf.setLineWidth(.3);
+  pdf.text('Partner Name:',16,y);pdf.line(51,y+1,125,y+1);y+=13;
+  pdf.text('Signature:',16,y);pdf.line(51,y+1,125,y+1);y+=13;
+  pdf.text('Date of Signing:',16,y);pdf.line(51,y+1,125,y+1);
+  pdf.rect(137,y-30,56,36);
+  pdf.setFontSize(8);pdf.setTextColor(105,117,134);pdf.text('PARTNER OFFICIAL STAMP',165,y-24,{align:'center'});
   pdf.save('LEOGO-'+panelType+'-agreement-v'+current.version+'.pdf');
   status.textContent='Published agreement PDF downloaded.';
  }catch(error){status.textContent='PDF download failed: '+(error.message||String(error));}

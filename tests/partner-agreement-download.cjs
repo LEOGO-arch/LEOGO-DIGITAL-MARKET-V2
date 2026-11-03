@@ -20,6 +20,11 @@ assert.match(js,/setInterval\(\(\)=>\{if\(!document\.hidden\)load\(\);\},60000\)
 assert.match(js,/current\.terms_text/);
 assert.match(js,/current\.version/);
 assert.match(js,/pdf\.save\(/);
+assert.match(js,/PHYSICAL SIGNING & OFFICIAL STAMP/);
+assert.match(js,/Partner Name:/);
+assert.match(js,/Date of Signing:/);
+assert.match(js,/PARTNER OFFICIAL STAMP/);
+assert.match(js,/if\(y\+64>283\)\{pdf\.addPage\(\);y=18;\}/);
 assert.match(js,/download\.disabled=!current/);
 assert.match(js,/Electronic acceptance will be enabled after its registration checks are verified/);
 assert.match(html,/jspdf\.umd\.min\.js/);
