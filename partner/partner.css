@@ -697,3 +697,6 @@
 .premium-partner-message-photo{display:block;width:min(280px,100%);max-height:320px;object-fit:cover;border-radius:9px;margin-top:6px;background:#e9eef5}
 .premium-partner-message.mine .premium-partner-message-photo{border:1px solid rgba(255,255,255,.18)}
 @media(max-width:650px){.premium-partner-compose{grid-template-columns:auto minmax(0,1fr) auto}.premium-partner-message-photo{max-height:260px}}
+.partner-draft-actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-top:15px;padding:12px;border:1px dashed #8d9cc4;border-radius:12px;background:#f5f8ff}
+.partner-draft-actions button{font-size:.86rem;padding:8px 12px}
+.partner-draft-actions small{flex-basis:100%;color:#53617e;line-height:1.4}
