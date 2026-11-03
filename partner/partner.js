@@ -529,6 +529,7 @@ resetUpdateForm.addEventListener('submit',async e=>{
   status($('#partnerAuthStatus'),'Password updated successfully. Sign in with your new password.','success');
 });
 
+window.leogoPartnerLoginReady=true;
 $('#partnerLoginForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const button=e.submitter||$('#partnerLoginForm button[type="submit"]');
