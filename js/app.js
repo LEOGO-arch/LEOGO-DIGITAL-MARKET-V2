@@ -451,10 +451,20 @@
     window.setTimeout(() => barSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40);
   };
 
-  openLeogoBar?.addEventListener('click', (event) => {
+  openLeogoBar?.addEventListener('click', async (event) => {
     event.preventDefault();
-    if (sessionStorage.getItem(barConsentKey) === 'accepted') revealLeogoBar();
-    else showBarConsent();
+    const client=window.leogoAuth?.client;
+    if(!window.leogoAuth?.isAuthenticated?.() || !client){
+      showBarConsent();
+      barConsentStatus.textContent='Sign in to your LEOGO customer account before entering the 18+ Bar.';
+      return;
+    }
+    const {data,error}=await client.rpc('customer_bar_declaration_status');
+    if(!error&&data===true){
+      sessionStorage.setItem(barConsentKey,'accepted');
+      revealLeogoBar();
+      await loadBarProducts();
+    }else showBarConsent();
   });
 
   reviewBarWarning?.addEventListener('click', showBarConsent);
@@ -465,13 +475,26 @@
     enterLeogoBar.disabled = !barAgeConsent.checked;
     barConsentStatus.textContent = '';
   });
-  enterLeogoBar?.addEventListener('click', () => {
+  enterLeogoBar?.addEventListener('click', async () => {
     if (!barAgeConsent.checked) {
       barConsentStatus.textContent = 'You must confirm that you are 18 years or older before entering.';
       return;
     }
-    sessionStorage.setItem(barConsentKey, 'accepted');
+    const client=window.leogoAuth?.client;
+    if(!window.leogoAuth?.isAuthenticated?.()||!client){
+      barConsentStatus.textContent='Sign in to your LEOGO customer account before confirming adult access.';
+      return;
+    }
+    enterLeogoBar.disabled=true;
+    const {error}=await client.rpc('customer_confirm_bar_adult');
+    if(error){
+      barConsentStatus.textContent='Adult declaration could not be recorded: '+error.message;
+      enterLeogoBar.disabled=false;
+      return;
+    }
+    sessionStorage.setItem(barConsentKey,'accepted');
     revealLeogoBar();
+    await loadBarProducts();
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && barConsentModal?.classList.contains('is-open')) closeBarConsent();
@@ -2702,6 +2725,8 @@
   const quickDeliveryViewMarket = document.getElementById('quickDeliveryViewMarket');
 
   let marketplaceProducts = [];
+  let barProducts = [];
+  let selectedBarDrink = 'all';
   let healthMarketplaceProducts = [];
   let marketplaceCategories = [];
   let personalSaleListings = [];
@@ -2713,6 +2738,35 @@
   const MARKETPLACE_BATCH_SIZE = 12;
   let marketplaceVisibleCount = MARKETPLACE_BATCH_SIZE;
   const resetMarketplaceVisibleCount = () => { marketplaceVisibleCount = MARKETPLACE_BATCH_SIZE; };
+
+  const barDrinkLabels={beer:'Beer',wine:'Wine',spirits:'Spirits',cider:'Cider & Ready-to-Drink',all:'All Bar Drinks'};
+  const matchesBarDrink=(product,type)=>{
+    if(type==='all')return true;
+    const sub=String(product.subcategory_name||'').toLowerCase();
+    return ({
+      beer:/beer|lager|stout|ale/,
+      wine:/wine/,
+      spirits:/spirit|gin|vodka|whisk|rum|brandy|liqueur/,
+      cider:/cider|ready.to.drink|cocktail|mixed.drink/
+    }[type]||/^$/).test(sub);
+  };
+  const loadBarProducts=async()=>{
+    const client=window.leogoAuth?.client;
+    if(!client||!window.leogoAuth?.isAuthenticated?.())return false;
+    const {data,error}=await client.rpc('customer_leogo_bar_catalogue');
+    if(error){
+      const note=barSection?.querySelector('.bar-menu-note');
+      if(note)note.textContent='Bar products could not load: '+error.message;
+      return false;
+    }
+    barProducts=Array.isArray(data)?data:[];
+    marketplaceProducts=marketplaceProducts.filter(p=>p.category_code!=='alcoholic_leogo_bar').concat(barProducts);
+    const note=barSection?.querySelector('.bar-menu-note');
+    if(note)note.textContent=barProducts.length
+      ? barProducts.length+' approved LEOGO BAR product'+(barProducts.length===1?'':'s')+' available. Select a card to view them.'
+      : 'No approved LEOGO BAR products are currently available.';
+    return true;
+  };
 
   const categoryIcon = (code) => ({
     food_drinks: '🍔',
@@ -2830,8 +2884,13 @@
 
   const filteredMarketplaceProducts = () => {
     let rows = marketplaceProducts;
-    if (selectedMarketplaceCategory !== 'all' && selectedMarketplaceCategory !== 'marketplace') {
+    if (selectedMarketplaceCategory === 'all' || selectedMarketplaceCategory === 'marketplace') {
+      rows = rows.filter((product) => product.category_code !== 'alcoholic_leogo_bar');
+    } else {
       rows = rows.filter((product) => product.category_code === selectedMarketplaceCategory);
+    }
+    if(selectedMarketplaceCategory==='alcoholic_leogo_bar'){
+      rows=rows.filter(product=>matchesBarDrink(product,selectedBarDrink));
     }
     if (selectedMarketplaceSellerId) {
       rows = rows.filter((product) => String(product.seller_id) === String(selectedMarketplaceSellerId));
@@ -3244,6 +3303,7 @@
 
     const category = marketplaceCategories.find((item) => item.code === selectedMarketplaceCategory);
     const sellerFiltered = Boolean(selectedMarketplaceSellerId);
+    const barOnly = !sellerFiltered && selectedMarketplaceCategory === 'alcoholic_leogo_bar';
     const healthOnly = !sellerFiltered && selectedMarketplaceCategory === 'health_medicine';
     const allProducts = !sellerFiltered && (selectedMarketplaceCategory === 'all' || selectedMarketplaceCategory === 'marketplace');
     const sellerProducts = healthOnly ? [] : filteredMarketplaceProducts();
@@ -3268,6 +3328,11 @@
           : allProducts
             ? 'Admin-approved Seller products, Health & Medicine products and approved personal customer listings available on LEOGO.'
             : 'Admin-approved Seller products in '+categoryDisplayName(category?.name || selectedMarketplaceCategory.replaceAll('_',' '))+'.';
+    }
+
+    if(barOnly){
+      if(liveCatalogueTitle)liveCatalogueTitle.textContent='LEOGO BAR — '+(barDrinkLabels[selectedBarDrink]||'All Bar Drinks');
+      if(liveCatalogueSubtitle)liveCatalogueSubtitle.textContent='Approved alcoholic drinks for signed-in customers who confirmed they are 18 or older.';
     }
 
     let combined;
@@ -3296,7 +3361,7 @@
         ? 'No approved Health & Medicine products are available yet.'
         : allProducts
           ? 'No approved Marketplace listings are available yet.'
-          : 'No approved Seller products are available in this category yet.';
+          : barOnly ? 'No approved drinks in this Bar section. Try All Bar Drinks or ask the seller to classify the product.' : 'No approved Seller products are available in this category yet.';
       liveProductGrid.innerHTML = '<div class="customer-empty-state live-catalogue-empty"><span>'+categoryIcon(selectedMarketplaceCategory)+'</span><h4>No approved listings yet</h4><p>Listings appear here only after LEOGO Admin approves them.</p></div>';
       if (showAllLiveProducts) {
         showAllLiveProducts.hidden = !expanded;
@@ -3370,6 +3435,7 @@
       marketplaceProducts = [];
     } else {
       marketplaceProducts = Array.isArray(productResult.data) ? productResult.data : [];
+      if(barProducts.length&&window.leogoAuth?.isAuthenticated?.())marketplaceProducts=marketplaceProducts.concat(barProducts);
     }
 
     if (personalSaleResult.error) {
@@ -3671,6 +3737,32 @@
     addLiveProductToCart(event.target.closest('[data-live-add-cart]'));
   });
 
+  const barCards=barSection?.querySelector('.bar-menu-grid');
+  const openBarDrink=async(card)=>{
+    if(!card)return;
+    if(!window.leogoAuth?.isAuthenticated?.()||sessionStorage.getItem(barConsentKey)!=='accepted'){
+      showBarConsent();
+      barConsentStatus.textContent='Sign in and confirm that you are 18 or older to view Bar products.';
+      return;
+    }
+    if(!await loadBarProducts())return;
+    selectedMarketplaceSellerId='';
+    selectedMarketplaceSellerName='';
+    selectedMarketplaceCategory='alcoholic_leogo_bar';
+    selectedBarDrink=card.dataset.barDrink||'all';
+    resetMarketplaceVisibleCount();
+    renderLiveCatalogue();
+    document.getElementById('live-product-catalogue')?.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  barCards?.addEventListener('click',event=>{void openBarDrink(event.target.closest('[data-bar-drink]'));});
+  barCards?.addEventListener('keydown',event=>{
+    if(!['Enter',' '].includes(event.key))return;
+    const card=event.target.closest('[data-bar-drink]');
+    if(!card)return;
+    event.preventDefault();
+    void openBarDrink(card);
+  });
+
   marketplaceCategoryShortcuts?.addEventListener('click',(event)=>{
     const shortcut=event.target.closest('[data-marketplace-shortcut]');
     if(!shortcut) return;
@@ -3738,7 +3830,16 @@
     healthMarketplaceProducts=Array.isArray(event.detail?.products)?event.detail.products:[];
     renderLiveCatalogue();
   });
-  document.addEventListener('leogo:authchange', () => loadMarketplaceProducts());
+  document.addEventListener('leogo:authchange', () => {
+    if(!window.leogoAuth?.isAuthenticated?.()){
+      barProducts=[];
+      marketplaceProducts=marketplaceProducts.filter(p=>p.category_code!=='alcoholic_leogo_bar');
+      sessionStorage.removeItem(barConsentKey);
+      if(barSection)barSection.hidden=true;
+      if(selectedMarketplaceCategory==='alcoholic_leogo_bar')selectedMarketplaceCategory='all';
+    }
+    loadMarketplaceProducts();
+  });
   document.addEventListener('leogo:customer-data-refresh', () => loadMarketplaceProducts());
   window.setTimeout(loadMarketplaceProducts, 500);
   window.setTimeout(()=>{
