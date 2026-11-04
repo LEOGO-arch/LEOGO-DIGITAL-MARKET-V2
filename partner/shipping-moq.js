@@ -105,10 +105,7 @@ function ensureProductFields(){
 
   const basePrice=$('#productPrice',form);
   const basePriceLabel=basePrice?.closest('label');
-  if(basePriceLabel){
-    basePriceLabel.hidden=true;
-    basePriceLabel.dataset.productModeCorePrice='true';
-  }
+  if(basePriceLabel)basePriceLabel.hidden=false;
 
   const marker=$('#restrictedCategoryNotice',form)||$('#variantSection',form)||form.lastElementChild;
   const box=document.createElement('section');
@@ -124,7 +121,7 @@ function ensureProductFields(){
       '<label class="product-mode-switch"><input id="productLocalAvailable" type="checkbox" checked><span><b>1. Available Locally</b><small>Sell this item from local stock through the normal LEOGO cart.</small></span></label>'+
       '<div id="productLocalFields" class="product-mode-fields">'+
         '<div class="shipping-form-grid two">'+
-          '<label>Local selling price (KSh)<input id="localSellingPrice" type="number" min="0" step="0.01"></label>'+
+          '<div class="product-mode-price-note"><b>Local selling price</b><small>Uses the default selling price in Product Details. Each variant can keep its own price; no second local price is required.</small></div>'+
           '<label>Expected local delivery date <small>(optional)</small><input id="localExpectedDeliveryDate" type="date"></label>'+
         '</div>'+
         '<div class="product-mode-system-fee"><div><b>Customer local delivery fee</b><small>Uses the LEOGO system delivery rules automatically.</small></div><div id="localDeliveryRatePreview">'+deliveryRateHtml()+'</div></div>'+
@@ -185,7 +182,7 @@ function ensureProductFields(){
     'productLocalAvailable','productInternationalEnabled','productMoqEnabled','productGroupEnabled'
   ].forEach(id=>$('#'+id)?.addEventListener('change',handleModeChange));
 
-  ['localSellingPrice','internationalItemPrice','internationalCenterFee'].forEach(id=>{
+  ['productPrice','internationalItemPrice','internationalCenterFee'].forEach(id=>{
     $('#'+id)?.addEventListener('input',()=>{
       updateLandedPrice();
       syncCorePrice();
@@ -232,7 +229,7 @@ function prefillGroupPrice(){
   const target=$('#groupUnitPrice');
   if(!target||target.value)return;
   const international=internationalLandedPrice();
-  const local=numberValue('localSellingPrice');
+  const local=numberValue('productPrice');
   const amount=$('#productInternationalEnabled')?.checked&&international!=null?international:local;
   if(amount!=null)target.value=String(amount);
 }
@@ -249,11 +246,8 @@ function syncCorePrice(){
   if(!core)return;
   const local=$('#productLocalAvailable')?.checked;
   const international=$('#productInternationalEnabled')?.checked;
-  const localPrice=numberValue('localSellingPrice');
   const landed=internationalLandedPrice();
-
-  if(local&&localPrice!=null)core.value=String(localPrice);
-  else if(international&&landed!=null)core.value=String(landed);
+  if(!local&&international&&landed!=null)core.value=String(landed);
 }
 
 function updateModeSummary(){
@@ -282,7 +276,6 @@ function handleModeChange(event){
   $('#productMoqFields').hidden=!$('#productMoqEnabled')?.checked;
   $('#groupCampaignFields').hidden=!group;
 
-  setRequired('localSellingPrice',local);
   ['internationalOriginCountry','internationalItemPrice','internationalCenterFee'].forEach(id=>setRequired(id,international));
   setRequired('internationalExpectedDeliveryDate',international&&!group);
   const internationalDateLabel=$('#internationalExpectedDeliveryDate')?.closest('label');
@@ -314,7 +307,6 @@ function validateSettings(){
 
   if(!local&&!international)throw new Error('Choose at least Local availability or International order.');
 
-  if(local&&numberValue('localSellingPrice')==null)throw new Error('Enter the local selling price.');
 
   if(international){
     if(textValue('internationalOriginCountry').length<2)throw new Error('Enter the international origin country.');
@@ -349,7 +341,8 @@ function shippingPayload(){
   const international=$('#productInternationalEnabled')?.checked;
   return {
     local_available:Boolean($('#productLocalAvailable')?.checked),
-    local_price_kes:numberValue('localSellingPrice'),
+    // The database falls back to the saved product's default price.
+    local_price_kes:null,
     local_expected_delivery_date:textValue('localExpectedDeliveryDate')||null,
 
     international_order_enabled:Boolean(international),
@@ -481,7 +474,6 @@ function applyProductExtension(product){
     : legacyInternational;
 
   setChecked('productLocalAvailable',local);
-  setv('localSellingPrice',profile.local_price_kes??(local?product.price_kes:''));
   setv('localExpectedDeliveryDate',dateOnly(profile.local_expected_delivery_date));
 
   setChecked('productInternationalEnabled',international);
@@ -523,7 +515,6 @@ function applyProductExtension(product){
 function resetProductExtension(){
   activeEditingProduct=null;
   setChecked('productLocalAvailable',true);
-  setv('localSellingPrice',$('#productPrice')?.value||'');
   setv('localExpectedDeliveryDate','');
 
   setChecked('productInternationalEnabled',false);

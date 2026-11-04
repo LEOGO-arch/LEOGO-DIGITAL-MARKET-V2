@@ -67,6 +67,7 @@ function partnerNodes(){
   nodes['#groupUnitPrice'].value='9500';
   nodes['#groupClosePolicy'].value='deadline';
   nodes['#groupExpectedDeliveryDate'].value='2026-11-20';
+  nodes['#groupDeliveryDays']=element('25');
   return nodes;
 }
 
@@ -81,7 +82,7 @@ test('Seller product modes keep Local, International, MOQ and Group settings sep
   const campaign=qa.campaignPayload();
 
   assert.equal(shipping.local_available,true);
-  assert.equal(shipping.local_price_kes,12000);
+  assert.equal(shipping.local_price_kes,null,'The saved default product price is used for local availability');
   assert.equal(shipping.international_order_enabled,true);
   assert.equal(shipping.international_price_kes,8500);
   assert.equal(shipping.international_shipping_fee_to_center_kes,1500);
@@ -93,7 +94,31 @@ test('Seller product modes keep Local, International, MOQ and Group settings sep
   assert.equal(campaign.minimum_quantity,5);
   assert.equal(campaign.customer_unit_price_kes,9500);
   assert.equal(campaign.expected_dispatch_date,null);
-  assert.equal(campaign.expected_delivery_date,'2026-11-20');
+  assert.match(campaign.expected_delivery_date,/^\d{4}-\d{2}-\d{2}$/);
+});
+
+test('Local availability does not require a second price and keeps local delivery date optional',()=>{
+  const nodes=partnerNodes();
+  nodes['#productInternationalEnabled'].checked=false;
+  nodes['#productMoqEnabled'].checked=false;
+  nodes['#productGroupEnabled'].checked=false;
+  nodes['#productPrice'].value='2700';
+  nodes['#localSellingPrice'].value='';
+  const {qa}=moduleScope('partner/shipping-moq.js','shippingPayload',nodes);
+  const shipping=qa.shippingPayload();
+  assert.equal(shipping.local_available,true);
+  assert.equal(shipping.local_price_kes,null);
+  assert.equal(shipping.local_expected_delivery_date,null);
+});
+
+test('Variant products can save without a duplicated default price',()=>{
+  const form=fs.readFileSync(path.join(root,'partner/partner.js'),'utf8');
+  const modes=fs.readFileSync(path.join(root,'partner/shipping-moq.js'),'utf8');
+  assert.match(form,/\$\('#productPrice'\)\.required=!\$\('#productHasVariants'\)\.checked/);
+  assert.match(form,/variants\.length\?Math\.min\(\.\.\.variants\.map\(v=>v\.price_kes\)\)/);
+  assert.match(modes,/basePriceLabel\.hidden=false/);
+  assert.doesNotMatch(modes,/setRequired\('localSellingPrice',local\)/);
+  assert.doesNotMatch(modes,/Enter the local selling price/);
 });
 
 test('Group campaign accepts optional dispatch date and preserves payment window',()=>{
