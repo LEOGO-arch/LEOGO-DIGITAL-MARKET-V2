@@ -118,13 +118,27 @@ function joinButtonHtml(campaign){
 function localDeliveryFeeHtml(product){
   const rates=product.delivery_rates||{};
   if(rates.cbd_fee_kes==null&&rates.estate_fee_kes==null&&rates.outside_town_fee_kes==null)return '';
+  const rate=(label,fee,zone,suffix='')=>{
+    if(fee==null)return '';
+    const duration=window.leogoDeliveryEta?.zoneEstimate?.(product.id,zone);
+    return '<b>'+esc(label)+' '+money(fee)+suffix+
+      ' <small data-delivery-zone-estimate="'+esc(zone)+'" data-delivery-product-id="'+esc(product.id)+'">'+
+      esc(duration?.label||'Estimate loading…')+'</small></b>';
+  };
   return '<div class="product-public-rate-strip">'+
     '<span>Local delivery by LEOGO:</span>'+
-    '<b>CBD '+money(rates.cbd_fee_kes)+'</b>'+
-    '<b>Estate '+money(rates.estate_fee_kes)+'</b>'+
-    '<b>Outside town '+money(rates.outside_town_fee_kes)+'+</b>'+
+    rate('CBD',rates.cbd_fee_kes,'cbd')+
+    rate('Estate',rates.estate_fee_kes,'estate')+
+    rate('Outside town',rates.outside_town_fee_kes,'outside','+')+
   '</div>';
 }
+// Update rate labels after Admin timelines arrive, even when product details rendered first.
+document.addEventListener('leogo:delivery-estimates-ready',()=>{
+  document.querySelectorAll('[data-delivery-zone-estimate]').forEach(node=>{
+    const result=window.leogoDeliveryEta?.zoneEstimate?.(node.dataset.deliveryProductId,node.dataset.deliveryZone);
+    node.textContent=result?.label||'Estimate unavailable';
+  });
+});
 
 function detailsHtml(product){
   const profile=product.shipping_profile||{};
