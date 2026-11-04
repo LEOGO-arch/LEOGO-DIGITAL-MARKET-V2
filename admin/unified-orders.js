@@ -61,17 +61,27 @@
     if(state.loading)return;
     state.loading=true;const token=++lastRequest;render();
     try{
-      const results=await Promise.allSettled(sources.map(s=>db.rpc(s.rpc)));
+      // Keep the read-only summary gentle on the Supabase connection pool.
+      const results=new Array(sources.length);
+      let index=0;
+      await Promise.all(Array.from({length:2},async()=>{
+        while(index<sources.length){
+          const i=index++;
+          try{results[i]={status:'fulfilled',value:await db.rpc(sources[i].rpc)};}
+          catch(reason){results[i]={status:'rejected',reason};}
+        }
+      }));
       if(token!==lastRequest)return;
       const next=[],errors=[];
       results.forEach((result,index)=>{
+        const preservePrevious=()=>next.push(...state.records.filter(row=>row.source===sources[index].key));
         const src=sources[index];
         if(result.status==='rejected'){
-          errors.push(src.title+': '+(result.reason?.message||'unavailable'));return;
+          errors.push(src.title+': '+(result.reason?.message||'unavailable'));preservePrevious();return;
         }
-        if(result.value?.error){errors.push(src.title+': '+(result.value.error.message||'unavailable'));return;}
+        if(result.value?.error){errors.push(src.title+': '+(result.value.error.message||'unavailable'));preservePrevious();return;}
         const data=src.extract?src.extract(result.value?.data):result.value?.data;
-        if(!Array.isArray(data)){errors.push(src.title+': invalid response');return;}
+        if(!Array.isArray(data)){errors.push(src.title+': invalid response');preservePrevious();return;}
         next.push(...data.map(r=>normalise(src,r)));
       });
       state.records=next.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
