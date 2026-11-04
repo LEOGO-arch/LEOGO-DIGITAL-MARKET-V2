@@ -28,6 +28,20 @@
   return {minutes:total,route,crossCounty,from:item.seller_county,to:county,
    date:kenyaDate(base,total),label:'Approximate delivery: '+kenyaDate(base,total)};
  }
+ function zoneEstimate(productId,zone){
+  const route=norm(zone);
+  const adminMinutes=Number(minutesByZone[route]);
+  if(!loaded||!Number.isFinite(adminMinutes)||adminMinutes<=0)return null;
+  const item=itemById.get(String(productId));
+  const sellerMinutes=Number(item?.zone_minutes?.[route])||0;
+  const handlingMinutes=Number(item?.local_minutes)||0;
+  const minutes=Math.max(adminMinutes,sellerMinutes,handlingMinutes);
+  const time=minutes%1440===0?(minutes/1440)+' day'+(minutes===1440?'':'s')
+    :minutes%60===0?(minutes/60)+' hr'+(minutes===60?'':'s')
+    :minutes<60?minutes+' mins'
+    :Math.floor(minutes/60)+' hr '+minutes%60+' mins';
+  return {minutes,label:'approx. '+time};
+ }
  function showCheckout(cart,county,zone){
   let node=$('#checkoutDeliveryEstimate');
   const parent=$('#checkoutDeliveryFeeValue')?.closest('.checkout-total-row')?.parentElement;
@@ -51,7 +65,7 @@
   loaded=true;
   document.dispatchEvent(new Event('leogo:delivery-estimates-ready'));
  }
- window.leogoDeliveryEta={estimate,showCheckout,load,kenyaDate};
+ window.leogoDeliveryEta={estimate,zoneEstimate,showCheckout,load,kenyaDate};
  document.addEventListener('leogo:authchange',load);
  load();
 })();
