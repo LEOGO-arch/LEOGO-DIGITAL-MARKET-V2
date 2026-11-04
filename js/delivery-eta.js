@@ -8,6 +8,7 @@
  const minutesByZone={cbd:120,estate:240,outside:1440,inter_county:2880,pickup:1440};
  const itemById=new Map();
  let loaded=false;
+ let shippingDefaults=null;
  const kenyaDate=(base,minutes)=>new Date(new Date(base).getTime()+minutes*60000).toLocaleString('en-KE',{
   timeZone:'Africa/Nairobi',day:'numeric',month:'long',year:'numeric',
   hour:minutes<1440?'numeric':undefined,minute:minutes<1440?'2-digit':undefined
@@ -28,19 +29,36 @@
   return {minutes:total,route,crossCounty,from:item.seller_county,to:county,
    date:kenyaDate(base,total),label:'Approximate delivery: '+kenyaDate(base,total)};
  }
+ // Product-facing ranges come from Admin's saved shipping defaults, not from
+ // the separate zone floor or seller handling estimate used by checkout.
+ function adminRange(route){
+  if(!loaded||!shippingDefaults)return null;
+  const key=route==='outside'?'same_county':route==='inter_county'?'inter_county':route==='international'?'international':'local';
+  const min=Number(shippingDefaults[key+'_min']);
+  const max=Number(shippingDefaults[key+'_max']);
+  const unit=shippingDefaults[key+'_unit'];
+  const factor={minutes:1,hours:60,days:1440}[unit];
+  if(!factor||!Number.isFinite(min)||!Number.isFinite(max)||min<=0||max<min)return null;
+  return {min,max,unit,minMinutes:min*factor,maxMinutes:max*factor};
+ }
+ function formatAdminRange(range){
+  const unit={minutes:'mins',hours:'hrs',days:'days'}[range.unit];
+  return range.min===range.max?range.min+' '+unit:range.min+'–'+range.max+' '+unit;
+ }
  function zoneEstimate(productId,zone){
-  const route=norm(zone);
-  const adminMinutes=Number(minutesByZone[route]);
-  if(!loaded||!Number.isFinite(adminMinutes)||adminMinutes<=0)return null;
+  const range=adminRange(norm(zone));
+  return range?{...range,minutes:range.maxMinutes,label:'within '+formatAdminRange(range)}:null;
+ }
+ function productEstimate(productId,county,zone,base=new Date()){
   const item=itemById.get(String(productId));
-  const sellerMinutes=Number(item?.zone_minutes?.[route])||0;
-  const handlingMinutes=Number(item?.local_minutes)||0;
-  const minutes=Math.max(adminMinutes,sellerMinutes,handlingMinutes);
-  const time=minutes%1440===0?(minutes/1440)+' day'+(minutes===1440?'':'s')
-    :minutes%60===0?(minutes/60)+' hr'+(minutes===60?'':'s')
-    :minutes<60?minutes+' mins'
-    :Math.floor(minutes/60)+' hr '+minutes%60+' mins';
-  return {minutes,label:'approx. '+time};
+  if(!item||!norm(county)||!norm(item.seller_county)||!zone)return null;
+  const crossCounty=norm(county)!==norm(item.seller_county);
+  const route=crossCounty?'inter_county':norm(zone);
+  const range=adminRange(route);
+  if(!range)return null;
+  const from=kenyaDate(base,range.minMinutes);
+  const to=kenyaDate(base,range.maxMinutes);
+  return {route,crossCounty,...range,label:'LEOGO estimated delivery: within '+formatAdminRange(range)+' ('+from+(from===to?'':' – '+to)+')'};
  }
  function showCheckout(cart,county,zone){
   let node=$('#checkoutDeliveryEstimate');
@@ -58,14 +76,15 @@
   node.textContent=latest.label+' (longer of item estimate and '+(latest.crossCounty?'inter-county':'selected zone')+' timeframe; subject to confirmation).';
  }
  async function load(){
-  const [durations,zones]=await Promise.all([db.rpc('public_product_delivery_durations'),db.rpc('public_delivery_eta_settings')]);
-  if(durations.error||zones.error){loaded=true;document.dispatchEvent(new Event('leogo:delivery-estimates-ready'));return;}
+  const [durations,zones,defaults]=await Promise.all([db.rpc('public_product_delivery_durations'),db.rpc('public_delivery_eta_settings'),db.rpc('customer_shipping_defaults')]);
+  if(durations.error||zones.error||defaults.error){loaded=true;document.dispatchEvent(new Event('leogo:delivery-estimates-ready'));return;}
+  shippingDefaults=defaults.data||null;
   (durations.data||[]).forEach(row=>itemById.set(String(row.product_id),row));
   Object.entries(zones.data||{}).forEach(([k,v])=>{if(Number.isInteger(Number(v))&&Number(v)>0)minutesByZone[k]=Number(v);});
   loaded=true;
   document.dispatchEvent(new Event('leogo:delivery-estimates-ready'));
  }
- window.leogoDeliveryEta={estimate,zoneEstimate,showCheckout,load,kenyaDate};
+ window.leogoDeliveryEta={estimate,zoneEstimate,productEstimate,showCheckout,load,kenyaDate};
  document.addEventListener('leogo:authchange',load);
  load();
 })();
