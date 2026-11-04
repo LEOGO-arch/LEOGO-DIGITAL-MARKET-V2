@@ -26,7 +26,11 @@
       </div>
       <p id="walletCheckoutReadiness" style="margin:10px 0 0;color:#58677b"></p>
     </div>
-    <div id="walletPartnerStatus" class="form-status" role="status" aria-live="polite"></div>`;
+    <div id="walletPartnerStatus" class="form-status" role="status" aria-live="polite"></div>
+    <section style="margin-top:18px"><div class="card-head"><div><h3>Wallet Order → Seller Reconciliation</h3><p>Review verified wallet-funded seller orders before recording SACCO settlement. A paid seller settlement requires actual transfer evidence.</p></div><button id="walletReconciliationRefresh" type="button">Refresh Records</button></div>
+      <div id="walletReconciliationSummary" role="status" aria-live="polite">Not loaded</div>
+      <div id="walletReconciliationList" style="overflow-x:auto"></div>
+    </section>`;
   panel.appendChild(host);
   const form=host.querySelector('#walletPartnerForm');
   const status=host.querySelector('#walletPartnerStatus');
@@ -88,6 +92,82 @@
   activate.addEventListener('click',()=>toggle(true));
   deactivate.addEventListener('click',()=>toggle(false));
   refresh.addEventListener('click',load);
+  const reconciliationSummary=host.querySelector('#walletReconciliationSummary');
+  const reconciliationList=host.querySelector('#walletReconciliationList');
+  async function loadWalletReconciliation(){
+    reconciliationSummary.textContent='Loading wallet order settlement records…';
+    reconciliationList.replaceChildren();
+    const {data,error}=await db.rpc('admin_list_wallet_order_settlement_reconciliation');
+    if(error){reconciliationSummary.textContent='Unable to load reconciliation: '+error.message;return;}
+    const rows=Array.isArray(data)?data:[];
+    reconciliationSummary.textContent=rows.length+' wallet-funded seller order record(s). Amounts are indicative; use the existing settlement approval workflow for transfers.';
+    if(!rows.length)return;
+    const table=document.createElement('table');
+    table.style.cssText='width:100%;border-collapse:collapse;min-width:780px';
+    const headers=['Order','Seller ID','Seller amount','Wallet payment','Delivery','Approved accounts','Available seller balance','Settlement eligible'];
+    const thead=document.createElement('thead');const tr=document.createElement('tr');
+    headers.forEach(h=>{const th=document.createElement('th');th.textContent=h;th.style.padding='9px';tr.appendChild(th);});
+    thead.appendChild(tr);table.appendChild(thead);
+    const tbody=document.createElement('tbody');
+    rows.slice(0,100).forEach(item=>{
+      const values=[item.order_reference||item.order_id,item.seller_id,item.seller_subtotal_kes,item.wallet_payment_status,item.seller_fulfilment_status,item.seller_approved_account_count,item.seller_available_balance_kes,item.eligible_for_settlement?'Yes':'No'];
+      const row=document.createElement('tr');
+      values.forEach(v=>{const cell=document.createElement('td');cell.textContent=String(v??'—');cell.style.cssText='padding:9px;border-top:1px solid #d8e1ed';row.appendChild(cell);});
+      tbody.appendChild(row);
+    });
+    table.appendChild(tbody);reconciliationList.appendChild(table);
+  }
+  host.querySelector('#walletReconciliationRefresh').addEventListener('click',loadWalletReconciliation);
   document.addEventListener('leogo:admin-access-change',load);
+  const financialHosts=[host,document.querySelector('[data-admin-panel="reports"]')].filter(Boolean);
+  const financialSurfaces=financialHosts.map((parent)=>{
+    const section=document.createElement('section');
+    section.className='content-card';
+    section.style.cssText='margin-top:18px;padding:16px';
+    const heading=document.createElement('h3');
+    heading.textContent='Savings Wallet Financial Reconciliation';
+    const description=document.createElement('p');
+    description.textContent='Wallet receipts and seller earnings are wallet-specific. Seller payouts below are all payment methods combined until per-order payout allocation is available.';
+    const reload=document.createElement('button');
+    reload.type='button';reload.textContent='↻ Refresh Wallet Report';
+    const statusNode=document.createElement('p');
+    statusNode.setAttribute('role','status');statusNode.textContent='Loading wallet financial summary…';
+    const items=document.createElement('div');
+    items.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px';
+    section.append(heading,description,reload,statusNode,items);
+    parent.appendChild(section);
+    return {reload,statusNode,items};
+  });
+  const money=(n)=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  async function loadWalletFinancialReport(){
+    financialSurfaces.forEach(surface=>{surface.statusNode.textContent='Refreshing wallet financial data…';surface.items.replaceChildren();});
+    const {data,error}=await db.rpc('admin_get_wallet_checkout_financial_report');
+    if(error){
+      financialSurfaces.forEach(surface=>surface.statusNode.textContent='Report unavailable: '+error.message);
+      return;
+    }
+    const figures=[
+      ['Wallet collections',data.wallet_cash_collected_kes],
+      ['Wallet refunds',data.wallet_cash_refunded_kes],
+      ['Net wallet collections',data.wallet_cash_net_kes],
+      ['Delivered seller earnings from wallet orders',data.wallet_seller_earned_delivered_kes],
+      ['Wallet-funded seller orders awaiting delivery',data.wallet_seller_awaiting_delivery_kes],
+      ['Seller settlements paid — all methods',data.all_methods_seller_settlements_paid_kes],
+      ['Seller settlement requests pending — all methods',data.all_methods_seller_settlement_requests_pending_kes]
+    ];
+    financialSurfaces.forEach(surface=>{
+      surface.statusNode.textContent=String(data.wallet_paid_order_count||0)+' wallet order(s), '+String(data.wallet_refunded_order_count||0)+' refunded. Seller settlements are not yet allocated by payment source.';
+      figures.forEach(([label,value])=>{
+        const tile=document.createElement('div');
+        tile.style.cssText='background:#f4f7fc;border:1px solid #d8e1ed;border-radius:12px;padding:12px';
+        const title=document.createElement('div');title.textContent=label;title.style.cssText='font-size:12px;color:#506078';
+        const amount=document.createElement('strong');amount.textContent=money(value);
+        tile.append(title,amount);surface.items.appendChild(tile);
+      });
+    });
+  }
+  financialSurfaces.forEach(surface=>surface.reload.addEventListener('click',loadWalletFinancialReport));
   load();
+  loadWalletReconciliation();
+  loadWalletFinancialReport();
 })();
