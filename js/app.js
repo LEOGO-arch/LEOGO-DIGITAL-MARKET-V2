@@ -1798,6 +1798,10 @@
   const backToCheckoutDetails = document.getElementById('backToCheckoutDetails');
   const paymentMethodButtons = customerShellModal?.querySelectorAll('[data-payment-method]');
   const walletCheckoutPanel = document.getElementById('walletCheckoutPanel');
+  const walletCheckoutPayButton = document.getElementById('walletCheckoutPayButton');
+  const walletCheckoutStatus = document.getElementById('walletCheckoutStatus');
+  let walletCheckoutReady = false;
+  let walletCheckoutRequestId = null;
   const checkoutWalletRewards = document.getElementById('checkoutWalletRewards');
   const paymentRuleNotice = checkoutPaymentStep?.querySelector('[data-admin-managed="cod-payment-rules"]');
   const paymentOrderSummary = checkoutPaymentStep?.querySelector('.payment-order-summary');
@@ -1897,6 +1901,22 @@
     return checkoutRewardPointsBalance;
   };
 
+  const refreshWalletCheckoutReadiness = async () => {
+    walletCheckoutReady = false;
+    if(walletCheckoutPayButton){walletCheckoutPayButton.disabled=true;walletCheckoutPayButton.textContent='Partner Activation Required';}
+    if(walletCheckoutStatus)walletCheckoutStatus.textContent='Wallet cash checkout is awaiting LEOGO activation and settlement verification.';
+    if(!window.leogoAuth?.isAuthenticated?.())return false;
+    try{
+      const {data,error}=await window.leogoAuth.client.rpc('customer_wallet_checkout_readiness');
+      walletCheckoutReady=!error && data===true;
+    }catch(_error){walletCheckoutReady=false;}
+    if(walletCheckoutPayButton){walletCheckoutPayButton.disabled=!walletCheckoutReady;walletCheckoutPayButton.textContent=walletCheckoutReady?'Pay securely from Savings Wallet':'Partner Activation Required';}
+    if(walletCheckoutStatus)walletCheckoutStatus.textContent=walletCheckoutReady
+      ? 'LEOGO will deduct the confirmed order balance from your verified savings and settle the seller after delivery.'
+      : 'Wallet cash checkout is awaiting LEOGO activation and settlement verification.';
+    return walletCheckoutReady;
+  };
+
   function syncSelectedPaymentPresentation() {
     const due=checkoutExternalAmountDueNumber();
 
@@ -1940,7 +1960,7 @@
     if(isLipaPolePole){
       openLppDepositForm();
     }else if(isWallet){
-      if(selectedPaymentStatus)selectedPaymentStatus.textContent='Wallet cash checkout pending activation · vouchers remain available';
+      if(selectedPaymentStatus)selectedPaymentStatus.textContent=walletCheckoutReady?'Wallet checkout ready for verified payment':'Wallet cash checkout pending activation · vouchers remain available';
       const walletOrderTotal=document.getElementById('walletCheckoutOrderTotal');
       if(walletOrderTotal)walletOrderTotal.textContent=deliveryMoney(due);
     }else if(selectedCheckoutPayment==='cod'){
@@ -2187,7 +2207,8 @@
     await Promise.all([
       loadMarketplacePaymentDestination(true),
       loadCheckoutRewardPoints(),
-      checkCodOrderFirstCapability()
+      checkCodOrderFirstCapability(),
+      refreshWalletCheckoutReadiness()
     ]);
   });
   backToCheckoutDetails?.addEventListener('click', () => showCheckoutStep('details'));
@@ -2223,6 +2244,11 @@
     } catch {
       if (paymentStepStatus) paymentStepStatus.textContent = `Payment number: ${number}. Press and hold the number to copy it.`;
     }
+  });
+
+  walletCheckoutPayButton?.addEventListener('click',()=>{
+    if(!walletCheckoutReady || selectedCheckoutPayment!=='wallet' || walletCheckoutPayButton.disabled)return;
+    makeCheckoutOrder?.click();
   });
 
   makeCheckoutOrder?.addEventListener('click', async () => {
@@ -2269,19 +2295,24 @@
       paymentStepStatus.textContent = 'Select a payment method for the remaining amount.';
       return;
     }
-    if (!['till','paybill','cod'].includes(selectedCheckoutPayment)) {
+    if (!['till','paybill','cod','wallet'].includes(selectedCheckoutPayment)) {
       paymentStepStatus.textContent = 'For the remaining amount, use Till, Paybill or Cash on Delivery.';
       return;
     }
+    const walletPayment=selectedCheckoutPayment==='wallet';
+    if(walletPayment && (!walletCheckoutReady || healthCheckout)){
+      paymentStepStatus.textContent='Savings Wallet payments are not active for this checkout.';
+      return;
+    }
     const isCodOrderFirst = selectedCheckoutPayment==='cod' && codOrderFirstReady && !healthCheckout;
-    if (!isCodOrderFirst && !mpesaPaymentMessage.value.trim()) {
+    if (!walletPayment && !isCodOrderFirst && !mpesaPaymentMessage.value.trim()) {
       paymentStepStatus.textContent = selectedCheckoutPayment === 'cod'
         ? 'Paste the M-Pesa confirmation for LEOGO service and delivery fees.'
         : 'Paste the complete M-Pesa payment confirmation message for the remaining amount.';
       mpesaPaymentMessage.focus();
       return;
     }
-    if (!isCodOrderFirst && !markPaymentPaid.checked) {
+    if (!walletPayment && !isCodOrderFirst && !markPaymentPaid.checked) {
       paymentStepStatus.textContent = 'Tick the payment confirmation box before making the order.';
       markPaymentPaid.focus();
       return;
@@ -2320,6 +2351,7 @@
 
     const button = makeCheckoutOrder;
     const original = button.textContent;
+    if(walletPayment && walletCheckoutPayButton)walletCheckoutPayButton.disabled=true;
     button.disabled = true;
     button.textContent = healthCheckout?'Creating Health Order…':'Creating Order…';
     paymentStepStatus.textContent = healthCheckout
@@ -2363,7 +2395,26 @@
         p_payment_method: selectedCheckoutPayment,
         p_payment_message: isCodOrderFirst ? '' : mpesaPaymentMessage.value.trim()
       };
-      const orderRequest=healthCheckout
+      if(walletPayment && !walletCheckoutRequestId){
+        walletCheckoutRequestId=globalThis.crypto?.randomUUID?.()||null;
+        if(!walletCheckoutRequestId)throw new Error('Secure checkout request identifier unavailable. Try an updated browser.');
+      }
+      const orderRequest=walletPayment
+        ? await window.leogoAuth.client.rpc('customer_create_marketplace_wallet_order',{
+            p_items:testCart.map(item=>({product_id:item.productId,variant_id:item.variantId||null,quantity:item.quantity})),
+            p_receiver_name:commonOrderArgs.p_receiver_name,
+            p_contact_number:commonOrderArgs.p_contact_number,
+            p_delivery_zone:commonOrderArgs.p_delivery_zone,
+            p_county:commonOrderArgs.p_county,
+            p_sub_county:commonOrderArgs.p_sub_county,
+            p_estate:commonOrderArgs.p_estate,
+            p_landmark:commonOrderArgs.p_landmark,
+            p_location_link:commonOrderArgs.p_location_link,
+            p_pickup_station_id:commonOrderArgs.p_pickup_station_id,
+            p_client_request_id:walletCheckoutRequestId,
+            p_use_reward_points:usePoints
+          })
+        : healthCheckout
         ? await window.leogoAuth.client.rpc('customer_create_health_medicine_order',{
             ...commonOrderArgs,
             p_items:testCart.map((item,index)=>({
@@ -2380,17 +2431,22 @@
       const {data,error}=orderRequest;
       if (error) throw error;
 
-      previewOrderReference = data?.order_reference || '';
+      if(walletPayment && data?.ok!==true)throw new Error('Wallet payment confirmation was not received. Please retry with the same cart.');
+      previewOrderReference = data?.order_reference || (walletPayment?String(data?.order_id||''):'');
       createdOrderReference.textContent = previewOrderReference;
 
       const actualPoints=Number(data?.reward_points_redeemed_kes||0);
-      const actualDue=Number(data?.external_amount_due_kes??data?.grand_total_kes??0);
+      const actualDue=walletPayment?Number(data?.amount_paid_kes||0):Number(data?.external_amount_due_kes??data?.grand_total_kes??0);
       const feeAdvance=isCodOrderFirst?Math.min(actualDue,Math.max(0,Number(data?.delivery_fee_kes||0))+Math.max(0,Number(data?.service_fee_kes||0))):0;
       const handoverDue=Math.max(0,Math.round((actualDue-feeAdvance)*100)/100);
-      selectedPaymentStatus.textContent = selectedCheckoutPayment === 'cod'
+      selectedPaymentStatus.textContent = walletPayment
+        ? 'Savings Wallet payment confirmed — '+deliveryMoney(actualDue)
+        : selectedCheckoutPayment === 'cod'
         ? (isCodOrderFirst?'COD created · '+deliveryMoney(feeAdvance)+' service + delivery fees to verify before dispatch · '+deliveryMoney(handoverDue)+' at handover':'COD — '+deliveryMoney(actualDue)+' remaining')
         : 'Payment submitted — '+deliveryMoney(actualDue)+' awaiting Admin verification';
-      paymentStepStatus.textContent = isCodOrderFirst
+      paymentStepStatus.textContent = walletPayment
+        ? 'Wallet payment confirmed. LEOGO will settle the Seller following verified delivery and reconciliation.'
+        : isCodOrderFirst
         ? 'Order created. Pay '+deliveryMoney(feeAdvance)+' service and delivery fees for LEOGO Admin to verify before rider assignment. Remaining COD on handover: '+deliveryMoney(handoverDue)+'.'
         : actualPoints>0
           ? 'Order created successfully. '+deliveryMoney(actualPoints)+' from your Shopping Voucher was applied; '+deliveryMoney(actualDue)+' remains on '+(selectedCheckoutPayment==='cod'?'Cash on Delivery':'your selected payment method')+'.'
@@ -2413,6 +2469,7 @@
             : 'Ask LEOGO Customer Care for the current order-payment Till or Paybill before paying.';
         }
       }
+      if(walletPayment)walletCheckoutRequestId=null;
       testCart = [];
       saveTestCart();
       if(healthPrescriptionFile)healthPrescriptionFile.value='';
@@ -2438,6 +2495,7 @@
     } finally {
       button.disabled = false;
       button.textContent = original;
+      if(walletPayment && walletCheckoutPayButton)walletCheckoutPayButton.disabled=!walletCheckoutReady;
     }
   });
 
