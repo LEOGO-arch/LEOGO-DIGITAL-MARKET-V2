@@ -15,6 +15,13 @@ assert.match(admin,/Different counties/);
 assert.match(sql,/seller_id=v_uid/);
 assert.match(sql,/private\.is_leogo_admin\('delivery\.manage'\)/);
 assert.match(sql,/enable row level security/);
+const atomicSql=read('supabase/migrations/20261104113000_atomic_delivery_rates_and_eta.sql');
+assert.match(atomicSql,/security invoker/);
+assert.match(atomicSql,/public\.admin_update_delivery_rate_settings/);
+assert.match(atomicSql,/public\.admin_set_delivery_eta_settings/);
+assert.match(admin,/admin_update_delivery_rates_and_eta/);
+assert.doesNotMatch(admin,/Delivery fees saved, but timing settings failed/);
+
 
 const events=[];
 const context={
