@@ -45,16 +45,59 @@
       '<td>'+(x.amount===null?'—':'KSh '+Number(x.amount||0).toLocaleString('en-KE'))+'</td>'+
       '<td><span class="status-chip">'+esc(String(x.status).replaceAll('_',' '))+'</span></td>'+
       '<td>'+esc(String(x.payment).replaceAll('_',' '))+'</td>'+
-      '<td><button type="button" data-unified-open="'+esc(x.view)+'">Open '+esc(x.type)+'</button></td>'+
+      '<td><button type="button" data-unified-open="'+esc(x.view)+'" data-unified-source="'+esc(x.source)+'" data-unified-id="'+esc(x.id)+'">View Order</button></td>'+
       '</tr>').join(''):'<tr><td colspan="7">'+(state.loading?'Loading orders…':'No matching orders.')+'</td></tr>';
     if(status)status.textContent=state.loading?'Loading all LEOGO order categories…':
       state.errors.length?'Showing '+state.records.length+' orders. Some categories could not load: '+state.errors.join('; '):
       'Showing '+state.records.length+' orders from '+sources.length+' categories.';
     body.querySelectorAll('[data-unified-open]').forEach(button=>button.addEventListener('click',()=>{
-      const view=button.dataset.unifiedOpen;
-      const nav=document.querySelector('[data-admin-view="'+view+'"]');
-      if(nav)nav.click();
-      else if(status)status.textContent='Could not locate the '+view+' screen. Please use the Admin sidebar.';
+      const source=button.dataset.unifiedSource;
+      const id=button.dataset.unifiedId;
+      if(source==='marketplace'){
+        document.dispatchEvent(new CustomEvent('leogo:admin-open-marketplace-order',{detail:{orderId:id}}));
+        return;
+      }
+
+      // Other categories already own their verification/dispatch controls.
+      // Navigate to the exact record within that existing workflow.
+      const selectorBySource={
+        transport:'[data-admin-transport-request]',
+        services:'[data-admin-service-request]',
+        health:'[data-admin-health-order]',
+        specialist:'[data-admin-health-specialist-booking]'
+      };
+      const filterBySource={
+        services:'adminServiceRequestFilter',
+        health:'adminHealthOrderFilter',
+        specialist:'adminHealthSpecialistBookingFilter'
+      };
+      const filter=document.getElementById(filterBySource[source]);
+      if(filter && filter.value!=='all'){
+        filter.value='all';
+        filter.dispatchEvent(new Event('change',{bubbles:true}));
+      }
+      const nav=source==='transport'
+        ?document.querySelector('[data-admin-view="transport"][data-transport-target="jobs"]')
+        :document.querySelector('[data-admin-view="'+button.dataset.unifiedOpen+'"]');
+      if(!nav){if(status)status.textContent='Order category is unavailable to this Admin account.';return;}
+      nav.click();
+      const containerSelector=selectorBySource[source];
+      if(!containerSelector)return;
+      let attempts=0;
+      const locate=()=>{
+        const record=[...document.querySelectorAll(containerSelector)]
+          .find(node=>node.getAttribute(containerSelector.slice(1,-1))===id);
+        if(record){
+          record.scrollIntoView({behavior:'smooth',block:'center'});
+          record.style.outline='3px solid #ff7900';
+          record.style.outlineOffset='3px';
+          window.setTimeout(()=>{record.style.outline='';record.style.outlineOffset='';},3500);
+          return;
+        }
+        if(++attempts<12){window.setTimeout(locate,180);}
+        else if(status){status.textContent='Opened '+button.dataset.unifiedOpen+'; selected order is not loaded yet. Refresh that category and try again.';}
+      };
+      window.setTimeout(locate,100);
     }));
   };
   const load=async()=>{

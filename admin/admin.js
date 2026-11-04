@@ -6200,7 +6200,7 @@
       if(!['completed','cancelled'].includes(item.request_status))actions.push('<button class="cancel" type="button" data-cancel-service-request="'+escapeHtml(item.id)+'">Cancel</button>');
       const feeAmount=item.request_type==='direct'?Number(item.direct_request_fee_kes||0):Number(item.quotation_fee_kes||0);
       const feeLabel=item.request_type==='direct'?'Direct request fee':'Quotation fee';
-      return '<article class="admin-service-request-card"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at,true))+' · '+escapeHtml(item.service_name||'Service')+'</small></div><b>'+escapeHtml(serviceRequestStatusText(item.request_status))+'</b></header>'+
+      return '<article class="admin-service-request-card" data-admin-service-request="'+escapeHtml(item.id)+'"><header><div><strong>'+escapeHtml(item.request_reference)+'</strong><small>'+escapeHtml(formatDate(item.created_at,true))+' · '+escapeHtml(item.service_name||'Service')+'</small></div><b>'+escapeHtml(serviceRequestStatusText(item.request_status))+'</b></header>'+
         '<div class="admin-service-request-grid"><div><small>CUSTOMER</small><strong>'+escapeHtml(item.customer_name||'Customer')+'</strong><span>'+escapeHtml(item.customer_phone||'—')+'</span></div><div><small>PROVIDER</small><strong>'+escapeHtml(item.business_name||'Provider')+'</strong><span>'+escapeHtml(item.provider_phone||'—')+'</span></div><div><small>REQUEST</small><strong>'+(item.request_type==='quotation'?'Paid quotation':'Direct service')+'</strong><span>'+escapeHtml(item.service_location||'—')+'</span></div></div>'+
         '<p><strong>Job details:</strong> '+escapeHtml(item.request_details||'—')+'</p>'+
         '<p><strong>Preferred schedule:</strong> '+escapeHtml((item.preferred_date||'Flexible date')+(item.preferred_time?' · '+String(item.preferred_time).slice(0,5):''))+(item.nearest_landmark?' · Landmark: '+escapeHtml(item.nearest_landmark):'')+'</p>'+
@@ -7868,6 +7868,15 @@
       if($('#adminPassword'))$('#adminPassword').value='';
       setFormStatus($('#adminLoginStatus'),'Signed out. Sign in with an authorized LEOGO Admin account.');
     };
+    // Unified Orders deep-link: open the selected Marketplace order, not merely its category.
+    document.addEventListener('leogo:admin-open-marketplace-order',(event)=>{
+      const orderId=String(event.detail?.orderId||'');
+      if(!/^[0-9a-f-]{36}$/i.test(orderId))return;
+      if(!adminHas('orders.read')){globalStatus('Order details permission required.','error');return;}
+      changeView('orders');
+      loadMarketplaceOrderDetail(orderId,{scroll:true})
+        .catch(error=>globalStatus('Unable to open the selected order: '+friendlyError(error),'error'));
+    });
     $('#adminLogout').addEventListener('click', signOut);
     $('#deniedLogout').addEventListener('click', signOut);
     $('#openSidebar').addEventListener('click', () => { $('#adminSidebar').classList.add('open'); $('#sidebarScrim').classList.add('open'); });
