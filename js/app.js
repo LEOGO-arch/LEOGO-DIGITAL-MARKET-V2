@@ -3165,7 +3165,7 @@
           const variantEffectivePrice=sellerEffectivePrice(product,variant.price_kes);
           return '<button type="button" class="live-product-variant-option" data-product-variant="'+receiptEscape(variant.id)+'" data-product-id="'+receiptEscape(product.id)+'" data-variant-name="'+receiptEscape(variant.variant_name)+'" data-variant-price="'+Number(variantEffectivePrice || 0)+'" data-variant-stock="'+Number(variantEffectiveStock || 0)+'" data-variant-image="'+receiptEscape(variantImage)+'" '+(variantAvailable?'':'disabled')+'>'+
             (variantImage?'<img src="'+receiptEscape(variantImage)+'" alt="">':'')+
-            '<span><b>'+receiptEscape(variant.variant_name)+'</b><small>'+money(variantEffectivePrice)+(flashActive?' <s>'+money(variant.price_kes)+'</s>':'')+' · Qty '+Number(variantEffectiveStock || 0)+'</small></span>'+
+            '<span><b>'+receiptEscape(variant.variant_name)+'</b><small>'+money(variantEffectivePrice)+(flashActive?' <s>'+money(variant.price_kes)+'</s>':'')+'</small></span>'+
           '</button>';
         }).join('')+'</div><p class="live-variant-selection-note" data-variant-selection-note>Select one variant before adding to cart.</p></div>'
       : '';
@@ -3191,7 +3191,7 @@
       '<div class="live-product-body">'+
         '<h3>'+receiptEscape(product.product_name)+'</h3>'+
         (modeBadges?'<div class="live-product-mode-badges">'+modeBadges+'</div>':'')+
-        (flashActive?'<span class="live-flash-sale-badge">⚡ FLASH SALE · '+Number(flashRemaining||0)+' left</span>':'')+
+        (flashActive?'<span class="live-flash-sale-badge">⚡ FLASH SALE</span>':'')+
         '<div class="live-product-compact-price"><strong data-live-product-price>'+money(cardPrice)+'</strong>'+(flashActive?'<del>'+money(localPrice)+'</del>':'')+'</div>'+
         '<div class="live-product-rating live-product-rating-compact"><strong>'+productRatingStars(rating)+'</strong><span>'+rating.toFixed(1)+(reviewCount?' · '+reviewCount+' review'+(reviewCount===1?'':'s'):'')+'</span></div>'+
         '<div class="live-product-primary-actions">'+
@@ -3211,7 +3211,7 @@
             '<small>Seller: '+receiptEscape(product.seller_name || 'LEOGO Seller')+'</small>'+
             '<button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="seller" data-partner-id="'+receiptEscape(product.seller_id||'')+'" data-partner-name="'+receiptEscape(product.seller_name||'LEOGO Seller')+'">↗ Share Seller</button></div>'+
           (ordinaryOrderAvailable
-            ? '<div class="live-product-detail-stock"><small>'+(localAvailable?'Local availability':'Pre-order availability')+'</small><strong data-live-product-stock>Qty '+Number(hasVariants?effectiveVariantStock:effectiveProductStock)+' '+receiptEscape(product.measurement_unit || 'item')+(flashActive?' on Flash Sale':'')+'</strong></div>'
+            ? '<div class="live-product-detail-stock"><small>Availability</small><strong>'+(available?'Available':'Out of Stock')+'</strong></div>'
             : '')+
           (window.leogoShippingMoq?.detailsHtml(product) || '')+
           galleryMarkup+
@@ -3288,7 +3288,7 @@
             '<small>Health Partner: '+receiptEscape(product.provider_name||'LEOGO Health Partner')+'</small>'+
             '<button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="health_medicine" data-partner-id="'+receiptEscape(product.provider_id||'')+'" data-partner-name="'+receiptEscape(product.provider_name||'LEOGO Health Partner')+'">↗ Share Health Partner</button></div>'+
           '<div class="live-product-detail-stock"><small>Availability</small><strong>'+receiptEscape(product.availability_status==='available'?'Available':'Unavailable')+
-            (product.cart_eligible?' · Qty '+Number(product.quantity_available||0):'')+'</strong></div>'+
+            ''+'</strong></div>'+
           '<div class="live-product-detail-section"><div class="live-product-detail-label">Health classification</div><p class="live-product-description">'+receiptEscape(classification)+'</p></div>'+
           (product.description?'<div class="live-product-detail-section"><div class="live-product-detail-label">Description</div><p class="live-product-description">'+receiptEscape(product.description)+'</p></div>':'')+
           '<div class="live-product-detail-section"><div class="live-product-detail-label">Location</div><p class="live-product-description">📍 '+receiptEscape(location)+'</p></div>'+
@@ -3745,7 +3745,7 @@
       const imageWrap = card.querySelector('[data-live-product-image]');
 
       if (price) price.textContent = money(Number(variantButton.dataset.variantPrice || 0));
-      if (stock) stock.textContent = 'Qty '+Number(variantButton.dataset.variantStock || 0)+' '+(product.measurement_unit || 'item');
+      if (stock) stock.textContent = 'Available';
       if (note) note.textContent = 'Selected: '+variantButton.dataset.variantName;
       if (addButton) {
         addButton.disabled=false;
