@@ -10,7 +10,7 @@
   host.style.cssText='margin-top:18px';
   host.innerHTML=`
     <div class="card-head"><div><span>WALLET PARTNER & SETTLEMENT</span><h3>Partner Details & Wallet Checkout Activation</h3>
-      <p>Record the approved financial partner. Wallet purchases remain blocked until backend debit, refund and settlement tests are complete.</p></div>
+      <p>Record the approved financial partner. Wallet checkout may be enabled for supervised testing once the required transaction components are installed. Seller payouts remain manual.</p></div>
       <button id="walletPartnerRefresh" type="button">↻ Refresh</button></div>
     <form id="walletPartnerForm" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));padding:12px 0">
       <label>Approved SACCO / payment partner name<input name="partner_name" required minlength="2" maxlength="160" placeholder="Enter legal partner name"></label>
@@ -51,7 +51,7 @@
       ['Refund workflow',data.refund_flow_verified],
       ['Settlement reconciliation',data.settlement_reconciliation_verified]
     ];
-    readiness.textContent='Required checks: '+checks.map(([label,ready])=>label+' '+(ready?'✓':'pending')).join(' · ');
+    readiness.textContent='Installed payment safeguards: '+checks.map(([label,ready])=>label+' '+(ready?'✓':'pending')).join(' · ');
     activate.disabled=Boolean(data.enabled)||busy;
     deactivate.disabled=!data.enabled||busy;
   };
@@ -82,6 +82,7 @@
   });
   async function toggle(enabled){
     if(busy)return;
+    if(enabled && !window.confirm('Activate wallet checkout for ALL eligible customer wallets? Purchases will deduct recorded savings and mark orders paid. Seller transfers remain manual. Continue only for supervised testing.'))return;
     busy=true;activate.disabled=true;deactivate.disabled=true;
     show(enabled?'Checking activation requirements…':'Deactivating wallet checkout…');
     const {data,error}=await db.rpc('admin_set_wallet_checkout_enabled',{p_enabled:enabled});
