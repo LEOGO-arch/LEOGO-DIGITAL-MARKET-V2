@@ -137,13 +137,16 @@ function detailsHtml(product){
   const internationalEnabled=hasProfile ? Boolean(profile.international_order_enabled) : legacyInternational;
   const moqEnabled=hasProfile ? Boolean(profile.moq_enabled) : Boolean(campaign);
   const blocks=[];
+  const customerCounty=locationValue(['#checkoutCounty','#profileCounty','#customerCounty']);
+  const zone=locationValue(['#checkoutDeliveryZone'])||'outside';
+  const localEta=window.leogoDeliveryEta?.estimate(product.id,customerCounty,zone);
 
   if(localAvailable){
     const localPrice=profile.local_price_kes??product.price_kes;
     blocks.push(
       '<div class="product-public-mode local">'+
         '<div class="product-public-mode-head"><b>📍 Available Locally</b><strong>'+money(localPrice)+'</strong></div>'+
-        (profile.local_expected_delivery_date?'<small>Expected delivery: '+fmtDate(profile.local_expected_delivery_date)+'</small>':'')+
+        (localEta?'<small>'+esc(localEta.label)+'</small>':profile.local_expected_delivery_date?'<small>Legacy estimated date: '+fmtDate(profile.local_expected_delivery_date)+'</small>':'<small>Select your delivery location for an approximate date.</small>')+
         localDeliveryFeeHtml(product)+
       '</div>'
     );
@@ -159,7 +162,7 @@ function detailsHtml(product){
         '<div class="product-public-mode-head"><b>🌍 International Order</b><strong>'+money(landed)+'</strong></div>'+
         '<small>Item '+money(itemPrice)+' + freight to '+esc(profile.distribution_center||'LEOGO Distribution Center — Nairobi')+' '+money(centerFee)+'</small>'+
         (origin?'<small>Ships from '+esc(origin)+'</small>':'')+
-        (profile.international_expected_delivery_date?'<small>Expected delivery: '+fmtDate(profile.international_expected_delivery_date)+'</small>':'')+
+        (window.leogoDeliveryEta?.estimate(product.id,customerCounty,zone,new Date(),'international')?'<small>'+esc(window.leogoDeliveryEta.estimate(product.id,customerCounty,zone,new Date(),'international').label)+'</small>':profile.international_expected_delivery_date?'<small>Legacy estimated date: '+fmtDate(profile.international_expected_delivery_date)+'</small>':'')+
         '<small>Local delivery from LEOGO to you is calculated separately using the system delivery rules.</small>'+
       '</div>'
     );
@@ -309,6 +312,7 @@ function refreshEstimates(){
     if(product)element.outerHTML=detailsHtml(product);
   });
 }
+document.addEventListener?.('leogo:delivery-estimates-ready',refreshEstimates);
 
 async function loadMarket(){
   const status=$('#groupOrderMarketStatus');

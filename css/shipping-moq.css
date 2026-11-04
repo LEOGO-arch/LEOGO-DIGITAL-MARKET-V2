@@ -96,3 +96,6 @@
   .product-public-rate-strip{display:grid;grid-template-columns:1fr 1fr}
   .product-public-rate-strip span{grid-column:1/-1}
 }
+.shipping-duration-field{display:flex;gap:8px;align-items:center}
+.shipping-duration-field input{min-width:0;flex:1}
+.shipping-duration-field select{width:112px;flex:none}
