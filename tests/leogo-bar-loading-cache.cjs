@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const app=fs.readFileSync(path.join(__dirname,'..','js','app.js'),'utf8');
+assert.match(app,/BAR_CATALOGUE_CACHE_MS=120000/);
+assert.match(app,/if\(barCatalogLoadedAt&&Date\.now\(\)-barCatalogLoadedAt<BAR_CATALOGUE_CACHE_MS\)return true/);
+assert.match(app,/if\(barCatalogRequest\)return barCatalogRequest/);
+assert.match(app,/selection!==barCardSelectionGeneration/);
+assert.match(app,/const generation=barCatalogGeneration/);
+assert.match(app,/invalidateBarCatalogue\(\);\s*barCardSelectionGeneration\+\+/);
+assert.match(app,/sessionStorage\.getItem\(barConsentKey\)!=='accepted'/);
+assert.match(app,/customer_leogo_bar_catalogue/);
+console.log('LEOGO BAR cache, single-flight, last-tap, and consent contracts passed.');

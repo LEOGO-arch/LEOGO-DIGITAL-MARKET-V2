@@ -2750,22 +2750,47 @@
       cider:/cider|ready.to.drink|cocktail|mixed.drink/
     }[type]||/^$/).test(sub);
   };
+  // Keep the approved BAR catalogue in memory for this signed-in session.
+  // A shared promise prevents rapid card taps from generating duplicate RPC calls.
+  const BAR_CATALOGUE_CACHE_MS=120000;
+  let barCatalogLoadedAt=0;
+  let barCatalogRequest=null;
+  let barCatalogGeneration=0;
+  const invalidateBarCatalogue=()=>{
+    barCatalogGeneration++;
+    barCatalogLoadedAt=0;
+    barCatalogRequest=null;
+    barProducts=[];
+  };
   const loadBarProducts=async()=>{
     const client=window.leogoAuth?.client;
-    if(!client||!window.leogoAuth?.isAuthenticated?.())return false;
-    const {data,error}=await client.rpc('customer_leogo_bar_catalogue');
-    if(error){
+    if(!client||!window.leogoAuth?.isAuthenticated?.()||sessionStorage.getItem(barConsentKey)!=='accepted')return false;
+    if(barCatalogLoadedAt&&Date.now()-barCatalogLoadedAt<BAR_CATALOGUE_CACHE_MS)return true;
+    if(barCatalogRequest)return barCatalogRequest;
+    const generation=barCatalogGeneration;
+    const request=(async()=>{
       const note=barSection?.querySelector('.bar-menu-note');
-      if(note)note.textContent='Bar products could not load: '+error.message;
-      return false;
-    }
-    barProducts=Array.isArray(data)?data:[];
-    marketplaceProducts=marketplaceProducts.filter(p=>p.category_code!=='alcoholic_leogo_bar').concat(barProducts);
-    const note=barSection?.querySelector('.bar-menu-note');
-    if(note)note.textContent=barProducts.length
-      ? barProducts.length+' approved LEOGO BAR product'+(barProducts.length===1?'':'s')+' available. Select a card to view them.'
-      : 'No approved LEOGO BAR products are currently available.';
-    return true;
+      if(note)note.textContent='Loading approved LEOGO BAR products…';
+      try{
+        const {data,error}=await client.rpc('customer_leogo_bar_catalogue');
+        if(generation!==barCatalogGeneration||!window.leogoAuth?.isAuthenticated?.())return false;
+        if(error)throw error;
+        barProducts=Array.isArray(data)?data:[];
+        marketplaceProducts=marketplaceProducts.filter(p=>p.category_code!=='alcoholic_leogo_bar').concat(barProducts);
+        barCatalogLoadedAt=Date.now();
+        if(note)note.textContent=barProducts.length
+          ? barProducts.length+' approved LEOGO BAR product'+(barProducts.length===1?'':'s')+' available. Select a card to view them.'
+          : 'No approved LEOGO BAR products are currently available.';
+        return true;
+      }catch(error){
+        if(generation===barCatalogGeneration&&note)note.textContent='Bar products could not load: '+(error?.message||'Please try again.');
+        return false;
+      }finally{
+        if(generation===barCatalogGeneration)barCatalogRequest=null;
+      }
+    })();
+    barCatalogRequest=request;
+    return request;
   };
 
   const categoryIcon = (code) => ({
@@ -3738,6 +3763,7 @@
   });
 
   const barCards=barSection?.querySelector('.bar-menu-grid');
+  let barCardSelectionGeneration=0;
   const openBarDrink=async(card)=>{
     if(!card)return;
     if(!window.leogoAuth?.isAuthenticated?.()||sessionStorage.getItem(barConsentKey)!=='accepted'){
@@ -3745,11 +3771,14 @@
       barConsentStatus.textContent='Sign in and confirm that you are 18 or older to view Bar products.';
       return;
     }
-    if(!await loadBarProducts())return;
+    const selection=++barCardSelectionGeneration;
+    const drink=card.dataset.barDrink||'all';
+    // The latest tap wins, even if an earlier catalogue request completes later.
+    if(!await loadBarProducts()||selection!==barCardSelectionGeneration)return;
     selectedMarketplaceSellerId='';
     selectedMarketplaceSellerName='';
     selectedMarketplaceCategory='alcoholic_leogo_bar';
-    selectedBarDrink=card.dataset.barDrink||'all';
+    selectedBarDrink=drink;
     resetMarketplaceVisibleCount();
     renderLiveCatalogue();
     document.getElementById('live-product-catalogue')?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -3831,6 +3860,8 @@
     renderLiveCatalogue();
   });
   document.addEventListener('leogo:authchange', () => {
+    invalidateBarCatalogue();
+    barCardSelectionGeneration++;
     if(!window.leogoAuth?.isAuthenticated?.()){
       barProducts=[];
       marketplaceProducts=marketplaceProducts.filter(p=>p.category_code!=='alcoholic_leogo_bar');
@@ -3840,7 +3871,10 @@
     }
     loadMarketplaceProducts();
   });
-  document.addEventListener('leogo:customer-data-refresh', () => loadMarketplaceProducts());
+  document.addEventListener('leogo:customer-data-refresh', () => {
+    invalidateBarCatalogue();
+    loadMarketplaceProducts();
+  });
   window.setTimeout(loadMarketplaceProducts, 500);
   window.setTimeout(()=>{
     const existing=window.leogoHealthMarketplace?.getProducts?.();
