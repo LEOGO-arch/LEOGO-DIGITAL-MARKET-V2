@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const app=fs.readFileSync(path.join(__dirname,'..','js','app.js'),'utf8');
+const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+assert.match(app,/data-share-product data-product-id/);
+assert.match(app,/Share Product<\/button>/);
+assert.doesNotMatch(app,/data-partner-type="seller"[^\n]+Share Seller/);
+assert.match(app,/url\.searchParams\.set\('product_id'/);
+assert.match(app,/shareProduct\(/);
+assert.match(app,/const openSharedProductIfReady=/);
+assert.match(app,/sessionStorage\.getItem\(barConsentKey\)!=='accepted'/);
+assert.match(app,/openSharedProductIfReady\(\)/);
+assert.match(html,/js\/app\.js\?v=product-share-1/);
+console.log('Product-specific share and adult-gated deep-link contracts passed.');
