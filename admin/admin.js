@@ -5720,12 +5720,26 @@
     state.deliveryRateSettings=data||{};
     const form=$('#deliveryRateSettingsForm');
     if(form){
+      if(!form.querySelector('#deliveryEtaSettings')){
+        const box=document.createElement('fieldset');box.id='deliveryEtaSettings';
+        box.innerHTML='<legend>Estimated delivery time by zone (independent of fees)</legend><p>Set a number and unit for each delivery route. Inter-county applies when customer and Seller counties differ.</p>'+
+          ['cbd','estate','outside','inter_county','pickup'].map(k=>'<label>'+({cbd:'Same-town CBD',estate:'Local estate',outside:'Outside town',inter_county:'Different counties',pickup:'Pickup station'}[k])+'<div class="shipping-duration-field"><input type="number" min="1" max="525600" step="1" required data-eta-amount="'+k+'"><select data-eta-unit="'+k+'"><option value="hours">Hours</option><option value="minutes">Minutes</option><option value="days">Days</option></select></div></label>').join('');
+        form.querySelector('[type=submit]')?.before(box);
+      }
       form.elements.cbd_fee_kes.value=Number(data?.cbd_fee_kes??50);
       form.elements.estate_fee_kes.value=Number(data?.estate_fee_kes??80);
       form.elements.outside_town_fee_kes.value=Number(data?.outside_town_fee_kes??200);
       form.elements.standard_max_weight_kg.value=Number(data?.standard_max_weight_kg??50);
       form.elements.standard_max_area_sqm.value=Number(data?.standard_max_area_sqm??1);
       form.elements.rate_note.value=data?.rate_note||'';
+      const eta=await db.rpc('public_delivery_eta_settings');
+      if(!eta.error&&eta.data){
+        Object.entries(eta.data).forEach(([key,value])=>{
+          const n=Number(value),unit=n%1440===0?'days':n%60===0?'hours':'minutes',factor={days:1440,hours:60,minutes:1}[unit];
+          const input=form.querySelector('[data-eta-amount="'+key+'"]'),select=form.querySelector('[data-eta-unit="'+key+'"]');
+          if(input&&select){input.value=String(n/factor);select.value=unit;}
+        });
+      }
     }
     if($('#deliveryRateCbdSummary'))$('#deliveryRateCbdSummary').textContent=formatMoney(data?.cbd_fee_kes??50);
     if($('#deliveryRateEstateSummary'))$('#deliveryRateEstateSummary').textContent=formatMoney(data?.estate_fee_kes??80);
@@ -5745,6 +5759,16 @@
         p_rate_note:String(values.rate_note||'').trim()||null
       });
       if(error){setFormStatus($('#deliveryRateSettingsStatus'),friendlyError(error),'error');return;}
+      const etaValues={};
+      for(const key of ['cbd','estate','outside','inter_county','pickup']){
+        const amount=Number(event.currentTarget.querySelector('[data-eta-amount="'+key+'"]')?.value);
+        const unit=event.currentTarget.querySelector('[data-eta-unit="'+key+'"]')?.value;
+        const minutes=amount*({minutes:1,hours:60,days:1440}[unit]||0);
+        if(!Number.isInteger(minutes)||minutes<1||minutes>525600){setFormStatus($('#deliveryRateSettingsStatus'),'Check delivery time for '+key+'.','error');return;}
+        etaValues[key]=minutes;
+      }
+      const etaResult=await db.rpc('admin_set_delivery_eta_settings',{p_values:etaValues});
+      if(etaResult.error){setFormStatus($('#deliveryRateSettingsStatus'),'Delivery fees saved, but timing settings failed: '+friendlyError(etaResult.error),'error');return;}
       state.deliveryRateSettings=data||state.deliveryRateSettings;
       setFormStatus($('#deliveryRateSettingsStatus'),'Delivery rates updated. New Marketplace and Cyber orders will use these charges immediately.','success');
       await Promise.all([loadDeliveryRateSettings(),loadAuditLog().catch(()=>{})]);
