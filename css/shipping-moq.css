@@ -31,9 +31,11 @@
 .product-mode-system-fee>div:first-child{display:grid;gap:3px}
 .product-mode-system-fee b{font-size:10px;color:#154c29}
 .product-mode-system-fee small{font-size:8px;color:#5f7165;line-height:1.45}
-.product-mode-system-rates{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.product-mode-system-rates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .product-mode-system-rates>div{padding:8px;border-radius:9px;background:#fff;border:1px solid #dce8e0}
 .product-mode-system-rates span,.product-mode-system-rates strong{display:block}
+.product-mode-system-rates>div>small{display:block;margin-top:6px;font-size:9px;line-height:1.45;color:#315b45}
+.product-mode-system-rates>div>small b{color:#123a29;font-weight:900}
 .product-mode-system-rates span{font-size:7px;color:#76837a}
 .product-mode-system-rates strong{margin-top:2px;color:#146232;font-size:10px}
 .product-mode-system-rates>small{grid-column:1/-1}
