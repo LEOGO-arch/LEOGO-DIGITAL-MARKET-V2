@@ -22,7 +22,9 @@
   const handling=Number(mode==='international'?item.international_minutes:item.local_minutes)||0;
   // Seller item time and zone transit time are both end-to-end estimates;
   // take the longer promise rather than double-counting overlapping periods.
-  const total=Math.max(handling,travel);
+  const sellerZone=Number(item.zone_minutes?.[route])||0;
+  // Admin's travel time is always a floor, including after a later Admin increase.
+  const total=Math.max(handling,travel,sellerZone);
   return {minutes:total,route,crossCounty,from:item.seller_county,to:county,
    date:kenyaDate(base,total),label:'Approximate delivery: '+kenyaDate(base,total)};
  }
