@@ -5750,15 +5750,6 @@
     const button=event.submitter;
     await withButtonLock(button,'Saving…',async()=>{
       const values=Object.fromEntries(new FormData(event.currentTarget).entries());
-      const {data,error}=await db.rpc('admin_update_delivery_rate_settings',{
-        p_cbd_fee_kes:Number(values.cbd_fee_kes),
-        p_estate_fee_kes:Number(values.estate_fee_kes),
-        p_outside_town_fee_kes:Number(values.outside_town_fee_kes),
-        p_standard_max_weight_kg:Number(values.standard_max_weight_kg),
-        p_standard_max_area_sqm:Number(values.standard_max_area_sqm),
-        p_rate_note:String(values.rate_note||'').trim()||null
-      });
-      if(error){setFormStatus($('#deliveryRateSettingsStatus'),friendlyError(error),'error');return;}
       const etaValues={};
       for(const key of ['cbd','estate','outside','inter_county','pickup']){
         const amount=Number(event.currentTarget.querySelector('[data-eta-amount="'+key+'"]')?.value);
@@ -5767,8 +5758,16 @@
         if(!Number.isInteger(minutes)||minutes<1||minutes>525600){setFormStatus($('#deliveryRateSettingsStatus'),'Check delivery time for '+key+'.','error');return;}
         etaValues[key]=minutes;
       }
-      const etaResult=await db.rpc('admin_set_delivery_eta_settings',{p_values:etaValues});
-      if(etaResult.error){setFormStatus($('#deliveryRateSettingsStatus'),'Delivery fees saved, but timing settings failed: '+friendlyError(etaResult.error),'error');return;}
+      const {data,error}=await db.rpc('admin_update_delivery_rates_and_eta',{
+        p_cbd_fee_kes:Number(values.cbd_fee_kes),
+        p_estate_fee_kes:Number(values.estate_fee_kes),
+        p_outside_town_fee_kes:Number(values.outside_town_fee_kes),
+        p_standard_max_weight_kg:Number(values.standard_max_weight_kg),
+        p_standard_max_area_sqm:Number(values.standard_max_area_sqm),
+        p_rate_note:String(values.rate_note||'').trim()||null,
+        p_eta_values:etaValues
+      });
+      if(error){setFormStatus($('#deliveryRateSettingsStatus'),friendlyError(error),'error');return;}
       state.deliveryRateSettings=data||state.deliveryRateSettings;
       setFormStatus($('#deliveryRateSettingsStatus'),'Delivery rates updated. New Marketplace and Cyber orders will use these charges immediately.','success');
       await Promise.all([loadDeliveryRateSettings(),loadAuditLog().catch(()=>{})]);
