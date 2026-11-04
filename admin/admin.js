@@ -1103,26 +1103,41 @@
     $$('[data-alert-view]').forEach((button) => button.addEventListener('click', () => changeView(button.dataset.alertView, button.dataset.alertTab)));
   };
 
+  // Limit Approval Center's independent RPCs so it cannot exhaust the shared
+  // PostgREST connection pool when other Admin sections load in parallel.
+  const limitedApprovalRpcBatch = async (requests, concurrency=3) => {
+    const results=new Array(requests.length);
+    let cursor=0;
+    await Promise.all(Array.from({length:Math.min(concurrency,requests.length)},async()=>{
+      while(cursor<requests.length){
+        const i=cursor++;
+        try { results[i]=await requests[i](); }
+        catch(error){ results[i]={data:null,error}; }
+      }
+    }));
+    return results;
+  };
+
   const loadApprovals = async () => {
-    const [coreResult,personalSaleResult,lookingRequestResult,serviceProviderResult,healthMedicineResult,healthSpecialistResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,partnerBillingResult,customerMeetupBillingResult,flashSaleResult,paymentActionsResult,transportRequestsResult] = await Promise.all([
-      db.rpc('admin_list_approval_queue'),
-      db.rpc('admin_list_personal_sale_approvals'),
-      db.rpc('admin_list_looking_request_approvals'),
-      db.rpc('admin_list_service_provider_approvals'),
-      db.rpc('admin_list_health_medicine_approvals'),
-      db.rpc('admin_list_health_specialist_approvals'),
-      db.rpc('admin_list_transport_approvals'),
-      db.rpc('admin_list_pickup_station_approvals'),
-      db.rpc('admin_list_partner_profile_changes'),
-      db.rpc('admin_list_partner_settlement_approvals'),
-      db.rpc('admin_list_accommodation_corrections'),
-      db.rpc('admin_list_accommodation_unit_approvals'),
-      db.rpc('admin_list_cyber_approvals'),
-      db.rpc('admin_list_partner_billing_approvals'),
-      db.rpc('admin_list_premium_customer_meetup_approvals'),
-      db.rpc('admin_list_partner_flash_sales'),
-      db.rpc('admin_list_pending_payment_actions'),
-      db.rpc('admin_list_transport_requests')
+    const [coreResult,personalSaleResult,lookingRequestResult,serviceProviderResult,healthMedicineResult,healthSpecialistResult,transportResult,pickupStationResult,profileChangesResult,partnerSettlementResult,accommodationCorrectionsResult,accommodationUnitsResult,cyberResult,partnerBillingResult,customerMeetupBillingResult,flashSaleResult,paymentActionsResult,transportRequestsResult] = await limitedApprovalRpcBatch([
+      ()=>db.rpc('admin_list_approval_queue'),
+      ()=>db.rpc('admin_list_personal_sale_approvals'),
+      ()=>db.rpc('admin_list_looking_request_approvals'),
+      ()=>db.rpc('admin_list_service_provider_approvals'),
+      ()=>db.rpc('admin_list_health_medicine_approvals'),
+      ()=>db.rpc('admin_list_health_specialist_approvals'),
+      ()=>db.rpc('admin_list_transport_approvals'),
+      ()=>db.rpc('admin_list_pickup_station_approvals'),
+      ()=>db.rpc('admin_list_partner_profile_changes'),
+      ()=>db.rpc('admin_list_partner_settlement_approvals'),
+      ()=>db.rpc('admin_list_accommodation_corrections'),
+      ()=>db.rpc('admin_list_accommodation_unit_approvals'),
+      ()=>db.rpc('admin_list_cyber_approvals'),
+      ()=>db.rpc('admin_list_partner_billing_approvals'),
+      ()=>db.rpc('admin_list_premium_customer_meetup_approvals'),
+      ()=>db.rpc('admin_list_partner_flash_sales'),
+      ()=>db.rpc('admin_list_pending_payment_actions'),
+      ()=>db.rpc('admin_list_transport_requests')
     ]);
     // Isolate source failures so healthy approval queues remain accessible.
     const sources=[['Core',coreResult],['Personal sales',personalSaleResult],['Looking requests',lookingRequestResult],['Service providers',serviceProviderResult],['Health',healthMedicineResult],['Specialists',healthSpecialistResult],['Transport',transportResult],['Pickup',pickupStationResult],['Profile changes',profileChangesResult],['Settlements',partnerSettlementResult],['Accommodation corrections',accommodationCorrectionsResult],['Accommodation units',accommodationUnitsResult],['Cyber',cyberResult],['Partner billing',partnerBillingResult],['Premium billing',customerMeetupBillingResult],['Flash sales',flashSaleResult],['Payment actions',paymentActionsResult],['Transport requests',transportRequestsResult]];
