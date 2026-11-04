@@ -1507,7 +1507,7 @@
     });
     if (checkoutSubCounty) checkoutSubCounty.disabled = options.length === 0;
   };
-  checkoutCounty?.addEventListener('change', populateCheckoutSubCounties);
+  checkoutCounty?.addEventListener('change',()=>{populateCheckoutSubCounties();updateCheckoutFees();});
 
   const prefillCheckoutFromPrimaryProfile = async () => {
     const client=window.leogoAuth?.client;
@@ -1580,6 +1580,7 @@
   }
 
   function updateCheckoutFees() {
+    window.leogoDeliveryEta?.showCheckout(testCart,checkoutCounty?.value,checkoutDeliveryZone?.value);
     const subtotal = Number(checkoutShell?.dataset.checkoutOriginalSubtotal || checkoutShell?.dataset.checkoutSubtotal || 0);
     const serviceRate = checkoutServiceRateFor(subtotal);
     const serviceFee = subtotal * serviceRate;
@@ -1612,6 +1613,9 @@
     updateCheckoutPointsTotals();
     void refreshMarketplacePromotionQuote();
   }
+  document.addEventListener('leogo:delivery-estimates-ready',()=>{
+    window.leogoDeliveryEta?.showCheckout(testCart,checkoutCounty?.value,checkoutDeliveryZone?.value);
+  });
   let promotionQuoteRequest=0;
   let promotionQuoteKey='';
   let promotionQuoteValue=null;
