@@ -44,6 +44,24 @@ begin
    'all_methods_seller_settlements_paid_kes',v_seller_settlements_all_methods,
    'all_methods_seller_settlement_requests_pending_kes',v_pending_all_methods,
    'wallet_to_seller_payout_attribution_available',false,
+   'seller_recovery_pending_kes',(
+     select coalesce(sum(rr.liability_amount_kes),0)
+     from public.wallet_refund_seller_reviews rr
+     join public.wallet_checkout_payments wp on wp.order_id=rr.order_id
+     where wp.status='refunded' and rr.liability_treatment='recovery_pending'
+   ),
+   'seller_recovery_recorded_kes',(
+     select coalesce(sum(rr.liability_amount_kes),0)
+     from public.wallet_refund_seller_reviews rr
+     join public.wallet_checkout_payments wp on wp.order_id=rr.order_id
+     where wp.status='refunded' and rr.liability_treatment='recovered'
+   ),
+   'leogo_refund_liability_kes',(
+     select coalesce(sum(rr.liability_amount_kes),0)
+     from public.wallet_refund_seller_reviews rr
+     join public.wallet_checkout_payments wp on wp.order_id=rr.order_id
+     where wp.status='refunded' and rr.liability_treatment='leogo_absorbs'
+   ),
    'generated_at',now()
  );
 end $$;
