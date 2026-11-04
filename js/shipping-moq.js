@@ -132,6 +132,15 @@ function localDeliveryFeeHtml(product){
     rate('Outside town',rates.outside_town_fee_kes,'outside','+')+
   '</div>';
 }
+// Admin-range product dates are also refreshed after the delivery configuration loads.
+document.addEventListener('leogo:delivery-estimates-ready',()=>{
+  document.querySelectorAll('[data-admin-product-eta]').forEach(node=>{
+    const county=locationValue(['#checkoutCounty','#profileCounty','#customerCounty']);
+    const zone=locationValue(['#checkoutDeliveryZone'])||'outside';
+    const result=window.leogoDeliveryEta?.productEstimate?.(node.dataset.adminProductEta,county,zone);
+    node.textContent=result?.label||(county?'LEOGO delivery estimate unavailable.':'Select your delivery location for an approximate date.');
+  });
+});
 // Update rate labels after Admin timelines arrive, even when product details rendered first.
 document.addEventListener('leogo:delivery-estimates-ready',()=>{
   document.querySelectorAll('[data-delivery-zone-estimate]').forEach(node=>{
@@ -153,14 +162,14 @@ function detailsHtml(product){
   const blocks=[];
   const customerCounty=locationValue(['#checkoutCounty','#profileCounty','#customerCounty']);
   const zone=locationValue(['#checkoutDeliveryZone'])||'outside';
-  const localEta=window.leogoDeliveryEta?.estimate(product.id,customerCounty,zone);
+  const localEta=window.leogoDeliveryEta?.productEstimate?.(product.id,customerCounty,zone);
 
   if(localAvailable){
     const localPrice=profile.local_price_kes??product.price_kes;
     blocks.push(
       '<div class="product-public-mode local">'+
         '<div class="product-public-mode-head"><b>📍 Available Locally</b><strong>'+money(localPrice)+'</strong></div>'+
-        (localEta?'<small>'+esc(localEta.label)+'</small>':profile.local_expected_delivery_date?'<small>Legacy estimated date: '+fmtDate(profile.local_expected_delivery_date)+'</small>':'<small>Select your delivery location for an approximate date.</small>')+
+        ('<small data-admin-product-eta="'+esc(product.id)+'">'+esc(localEta?.label||(customerCounty?'Loading LEOGO delivery timeline…':'Select your delivery location for an approximate date.'))+'</small>')+
         localDeliveryFeeHtml(product)+
       '</div>'
     );
