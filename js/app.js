@@ -12,6 +12,33 @@
     }catch(_error){return null;}
   })();
 
+  const sharedProductTarget=(()=>{
+    try{
+      const params=new URLSearchParams(window.location.search);
+      const id=String(params.get('product_id')||'').trim();
+      const category=String(params.get('product_category')||'').trim();
+      return id?{id,category,handled:false}:null;
+    }catch(_error){return null;}
+  })();
+  const shareProduct=async({id,name,category,price})=>{
+    if(!id)return false;
+    const url=new URL(window.location.href);
+    url.search='';
+    url.hash='';
+    url.searchParams.set('product_id',String(id));
+    if(category)url.searchParams.set('product_category',String(category));
+    const title=String(name||'LEOGO product');
+    const text='See '+title+(price?' at '+price:'')+' on LEOGO DIGITAL MARKET.';
+    try{
+      if(navigator.share){await navigator.share({title,text,url:url.toString()});return true;}
+    }catch(error){if(error?.name==='AbortError')return false;}
+    try{
+      await navigator.clipboard.writeText(url.toString());
+      window.alert('LEOGO product link copied. You can now share it.');
+    }catch(_error){window.prompt('Copy this LEOGO product link:',url.toString());}
+    return true;
+  };
+
   const buildPartnerShareUrl=({type,id,name=''})=>{
     const url=new URL(window.location.href);
     url.hash='';
@@ -57,6 +84,17 @@
   };
 
   document.addEventListener('click',(event)=>{
+    const productButton=event.target.closest?.('[data-share-product]');
+    if(productButton){
+      event.preventDefault();
+      void shareProduct({
+        id:productButton.dataset.productId,
+        name:productButton.dataset.productName,
+        category:productButton.dataset.productCategory,
+        price:productButton.dataset.productPrice
+      });
+      return;
+    }
     const button=event.target.closest?.('[data-share-partner]');
     if(!button)return;
     event.preventDefault();
@@ -2781,6 +2819,7 @@
         if(note)note.textContent=barProducts.length
           ? barProducts.length+' approved LEOGO BAR product'+(barProducts.length===1?'':'s')+' available. Select a card to view them.'
           : 'No approved LEOGO BAR products are currently available.';
+        window.setTimeout(openSharedProductIfReady,0);
         return true;
       }catch(error){
         if(generation===barCatalogGeneration&&note)note.textContent='Bar products could not load: '+(error?.message||'Please try again.');
@@ -3209,7 +3248,7 @@
           '<div class="live-product-details-head"><span>'+receiptEscape(categoryDisplayName(product.category_name || product.category_code || 'Marketplace'))+
             (product.subcategory_name ? ' · '+receiptEscape(product.subcategory_name) : '')+'</span>'+
             '<small>Seller: '+receiptEscape(product.seller_name || 'LEOGO Seller')+'</small>'+
-            '<button type="button" class="leogo-partner-share-button" data-share-partner data-partner-type="seller" data-partner-id="'+receiptEscape(product.seller_id||'')+'" data-partner-name="'+receiptEscape(product.seller_name||'LEOGO Seller')+'">↗ Share Seller</button></div>'+
+            '<button type="button" class="leogo-partner-share-button" data-share-product data-product-id="'+receiptEscape(product.id)+'" data-product-name="'+receiptEscape(product.product_name)+'" data-product-category="'+receiptEscape(product.category_code||'')+'" data-product-price="'+receiptEscape(money(cardPrice))+'">↗ Share Product</button></div>'+
           (ordinaryOrderAvailable
             ? '<div class="live-product-detail-stock"><small>Availability</small><strong>'+(available?'Available':'Out of Stock')+'</strong></div>'
             : '')+
@@ -3435,6 +3474,31 @@
       : '<div class="customer-empty-state compact"><span>🏷️</span><h4>No approved personal items yet</h4><p>Customer one-off items will appear here after Admin approval.</p></div>';
   };
 
+  const openSharedProductIfReady=()=>{
+    if(!sharedProductTarget||sharedProductTarget.handled)return;
+    const isBar=sharedProductTarget.category==='alcoholic_leogo_bar';
+    if(isBar&&(!window.leogoAuth?.isAuthenticated?.()||sessionStorage.getItem(barConsentKey)!=='accepted')){
+      // Never reveal a restricted product before its authenticated adult declaration.
+      if(!barConsentModal?.classList.contains('is-open'))openLeogoBar?.click();
+      return;
+    }
+    const product=marketplaceProducts.find(row=>String(row.id)===sharedProductTarget.id);
+    if(!product)return;
+    if(product.category_code==='alcoholic_leogo_bar'&&!isBar)return;
+    selectedMarketplaceSellerId='';
+    selectedMarketplaceSellerName='';
+    selectedMarketplaceCategory=product.category_code||'all';
+    selectedBarDrink='all';
+    marketplaceVisibleCount=Number.MAX_SAFE_INTEGER;
+    renderLiveCatalogue();
+    const card=liveProductGrid?.querySelector('[data-live-product-card="'+CSS.escape(sharedProductTarget.id)+'"]');
+    if(!card)return;
+    sharedProductTarget.handled=true;
+    const toggle=card.querySelector('[data-product-details-toggle]');
+    if(toggle&&toggle.getAttribute('aria-expanded')==='false')toggle.click();
+    window.setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'center'}),80);
+  };
+
   const loadMarketplaceProducts = async () => {
     const client = window.leogoAuth?.client;
     if (!client) return;
@@ -3489,6 +3553,7 @@
     }
 
     renderLiveCatalogue();
+    openSharedProductIfReady();
     await loadHomeSellerSections();
 
     if(selectedMarketplaceSellerId){
