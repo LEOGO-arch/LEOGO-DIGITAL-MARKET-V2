@@ -101,3 +101,9 @@
 .shipping-duration-field{display:flex;gap:8px;align-items:center}
 .shipping-duration-field input{min-width:0;flex:1}
 .shipping-duration-field select{width:112px;flex:none}
+
+.seller-zone-eta-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;border:1px solid #d4e2ef;border-radius:12px;padding:12px;margin:10px 0;background:#f5f9fd}
+.seller-zone-eta-fields legend{font-size:12px;font-weight:900;color:#12385e;padding:0 5px}
+.seller-zone-eta-fields>p{grid-column:1/-1;font-size:11px;color:#526781;margin:0}
+.seller-zone-eta-fields label{min-width:0;font-size:11px;font-weight:750}
+@media(max-width:500px){.seller-zone-eta-fields{grid-template-columns:1fr}}

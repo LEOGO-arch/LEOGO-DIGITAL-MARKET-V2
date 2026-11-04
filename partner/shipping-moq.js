@@ -29,7 +29,7 @@ function loadStyle(){
   const link=document.createElement('link');
   link.id='shippingMoqPartnerStyle';
   link.rel='stylesheet';
-  link.href='../css/shipping-moq.css?v=product-modes-2';
+  link.href='../css/shipping-moq.css?v=seller-zone-minimum-1';
   document.head.appendChild(link);
 }
 
@@ -59,6 +59,28 @@ function setDuration(prefix,minutes){
   if(!Number.isInteger(n)||n<=0){setv(prefix+'Duration','');setv(prefix+'DurationUnit','hours');return;}
   const unit=n%1440===0?'days':n%60===0?'hours':'minutes';
   setv(prefix+'Duration',n/({days:1440,hours:60,minutes:1}[unit]));setv(prefix+'DurationUnit',unit);
+}
+const sellerZoneLabels={"cbd":"CBD","estate":"Local estates","outside":"Outside town","pickup":"Pickup station","inter_county":"Different counties"};
+const sellerZoneIds=["cbd","estate","outside","pickup","inter_county"];
+function zonePrefix(key){return 'zone'+key.replace(/(^|_)([a-z])/g,(_,p,c)=>c.toUpperCase());}
+function sellerZoneFieldsHtml(){
+  return '<fieldset class="seller-zone-eta-fields"><legend>Optional product time by delivery zone</legend>'+
+    '<p>Leave blank to use the LEOGO Admin minimum. Sellers can choose longer timelines, never shorter ones.</p>'+
+    sellerZoneIds.map(key=>durationInput(zonePrefix(key),sellerZoneLabels[key])).join('')+
+    '</fieldset>';
+}
+function sellerZoneMinutes(){
+  const result={};
+  if(!$('#productLocalAvailable')?.checked)return result;
+  for(const key of sellerZoneIds){
+    const value=durationMinutes(zonePrefix(key));
+    if(value==null)continue;
+    const minimum=Number(deliveryEtaSettings?.[key]);
+    if(!Number.isInteger(minimum)||minimum<1)throw new Error('Admin delivery minimums are unavailable. Please try again.');
+    if(value<minimum)throw new Error(sellerZoneLabels[key]+' cannot be earlier than the LEOGO minimum of '+zoneDurationLabel(minimum)+'.');
+    result[key]=value;
+  }
+  return result;
 }
 function setv(id,value){const el=$('#'+id);if(el)el.value=value??'';}
 function setChecked(id,value){const el=$('#'+id);if(el)el.checked=Boolean(value);}
@@ -150,6 +172,7 @@ function ensureProductFields(){
         '<div class="shipping-form-grid two">'+
           '<div class="product-mode-price-note"><b>Local selling price</b><small>Uses the default selling price in Product Details. Each variant can keep its own price; no second local price is required.</small></div>'+
           durationInput('local','Local item delivery time')+
+          sellerZoneFieldsHtml()+
         '</div>'+
         '<div class="product-mode-system-fee"><div><b>Customer delivery zones: fees and arrival times</b><small>Each zone has a LEOGO-managed arrival estimate.</small></div><div id="localDeliveryRatePreview">'+deliveryRateHtml()+'</div></div>'+
       '</div>'+
@@ -364,6 +387,7 @@ function validateSettings(){
 
 function shippingPayload(){
   validateSettings();
+  sellerZoneMinutes();
   const international=$('#productInternationalEnabled')?.checked;
   return {
     local_available:Boolean($('#productLocalAvailable')?.checked),
@@ -426,7 +450,7 @@ async function loadProducts(){
   const {data,error}=await client.rpc('seller_list_own_products');
   if(error)throw error;
   products=Array.isArray(data)?data:[];
-  const durations=await client.from('product_delivery_durations').select('product_id,local_minutes,international_minutes');
+  const durations=await client.from('product_delivery_durations').select('product_id,local_minutes,international_minutes,zone_minutes');
   if(!durations.error){const byId=new Map((durations.data||[]).map(row=>[row.product_id,row]));products.forEach(product=>{product.delivery_duration=byId.get(product.id)||null;});}
 }
 
@@ -449,6 +473,11 @@ async function saveForProduct(productId,pShipping,pCampaign){
     p_international_minutes:pShipping.international_order_enabled?pShipping.international_delivery_minutes:null
   });
   if(durationError)throw new Error('Product saved, but delivery duration needs attention: '+durationError.message);
+
+  const {error:zoneError}=await client.rpc('seller_save_product_zone_durations',{
+    p_product_id:productId,p_zone_minutes:sellerZoneMinutes()
+  });
+  if(zoneError)throw new Error('Product saved, but zone timelines need attention: '+zoneError.message);
 
   const previousCampaign=activeCampaign(activeEditingProduct);
   const unchangedLockedLead=Number(previousCampaign?.participant_count||0)>0
@@ -514,6 +543,7 @@ function applyProductExtension(product){
 
   setChecked('productLocalAvailable',local);
   setDuration('local',product.delivery_duration?.local_minutes);
+  for(const key of sellerZoneIds)setDuration(zonePrefix(key),product.delivery_duration?.zone_minutes?.[key]);
 
   setChecked('productInternationalEnabled',international);
   setv('internationalOriginCountry',profile.origin_country||(international?'':''));
@@ -555,6 +585,7 @@ function resetProductExtension(){
   activeEditingProduct=null;
   setChecked('productLocalAvailable',true);
   setDuration('local',null);
+  for(const key of sellerZoneIds)setDuration(zonePrefix(key),null);
 
   setChecked('productInternationalEnabled',false);
   setv('internationalOriginCountry','');
