@@ -20,6 +20,7 @@ const activeCampaignStatuses=new Set([
 let products=[];
 let campaigns=[];
 let deliveryRates=null;
+let deliveryEtaSettings=null;
 let pendingProductExtensionSave=null;
 let activeEditingProduct=null;
 
@@ -102,18 +103,29 @@ function internationalLandedPrice(){
   return item+Number(freight||0);
 }
 
+function zoneDurationLabel(minutes){
+  const value=Number(minutes);
+  if(!Number.isInteger(value)||value<1)return 'Time awaiting confirmation';
+  if(value%1440===0)return (value/1440)+' '+(value===1440?'day':'days');
+  if(value%60===0)return (value/60)+' '+(value===60?'hour':'hours');
+  return value+' '+(value===1?'minute':'minutes');
+}
 function deliveryRateHtml(){
-  if(!deliveryRates){
-    return '<div class="product-mode-system-rate-loading">Loading current LEOGO delivery rates…</div>';
-  }
+  if(!deliveryRates)return '<div class="product-mode-system-rate-loading">Loading current LEOGO delivery rates…</div>';
+  const zones=[
+    ['cbd','CBD',money(deliveryRates.cbd_fee_kes),'customer'],
+    ['estate','Local estates',money(deliveryRates.estate_fee_kes),'customer'],
+    ['outside','Outside town',money(deliveryRates.outside_town_fee_kes)+'+','customer'],
+    ['pickup','Pickup station','Per checkout route','station']
+  ];
   return '<div class="product-mode-system-rates">'+
-    '<div><span>CBD</span><strong>'+money(deliveryRates.cbd_fee_kes)+'</strong></div>'+
-    '<div><span>Estates</span><strong>'+money(deliveryRates.estate_fee_kes)+'</strong></div>'+
-    '<div><span>Outside town</span><strong>'+money(deliveryRates.outside_town_fee_kes)+'+</strong></div>'+
-    '<small>Calculated automatically by LEOGO at checkout. Seller does not enter this last-mile fee.</small>'+
+    zones.map(([key,title,fee,destination])=>
+      '<div><span>'+title+'</span><strong>'+fee+'</strong><small>Approx. arrival to '+destination+': <b>'+
+      (deliveryEtaSettings?zoneDurationLabel(deliveryEtaSettings[key]):'Confirming time…')+'</b></small></div>'
+    ).join('')+
+    '<small>LEOGO sets zone times and fees centrally. Customer location selects the route at checkout; item time may extend the estimate. Different counties use the separate inter-county setting.</small>'+
   '</div>';
 }
-
 function ensureProductFields(){
   const form=$('#sellerProductForm')||$('#productForm');
   if(!form||$('#productShippingFields'))return;
@@ -139,7 +151,7 @@ function ensureProductFields(){
           '<div class="product-mode-price-note"><b>Local selling price</b><small>Uses the default selling price in Product Details. Each variant can keep its own price; no second local price is required.</small></div>'+
           durationInput('local','Local item delivery time')+
         '</div>'+
-        '<div class="product-mode-system-fee"><div><b>Customer local delivery fee</b><small>Uses the LEOGO system delivery rules automatically.</small></div><div id="localDeliveryRatePreview">'+deliveryRateHtml()+'</div></div>'+
+        '<div class="product-mode-system-fee"><div><b>Customer delivery zones: fees and arrival times</b><small>Each zone has a LEOGO-managed arrival estimate.</small></div><div id="localDeliveryRatePreview">'+deliveryRateHtml()+'</div></div>'+
       '</div>'+
     '</article>'+
 
@@ -400,8 +412,12 @@ function campaignPayload(){
 }
 
 async function loadDeliveryRates(){
-  const {data,error}=await client.rpc('public_get_delivery_rate_settings');
-  if(!error&&data)deliveryRates=data;
+  const [rates,eta]=await Promise.all([
+    client.rpc('public_get_delivery_rate_settings'),
+    client.rpc('public_delivery_eta_settings')
+  ]);
+  if(!rates.error&&rates.data)deliveryRates=rates.data;
+  if(!eta.error&&eta.data)deliveryEtaSettings=eta.data;
   const host=$('#localDeliveryRatePreview');
   if(host)host.innerHTML=deliveryRateHtml();
 }
