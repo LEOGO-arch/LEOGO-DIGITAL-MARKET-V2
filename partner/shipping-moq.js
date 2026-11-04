@@ -44,6 +44,21 @@ function numberValue(id){
   return Number.isFinite(value)?value:null;
 }
 function textValue(id){return String($('#'+id)?.value||'').trim();}
+function durationMinutes(prefix){
+  const quantity=numberValue(prefix+'Duration');
+  if(quantity==null)return null;
+  const factor={minutes:1,hours:60,days:1440}[textValue(prefix+'DurationUnit')];
+  const minutes=quantity*factor;
+  if(!factor||!Number.isInteger(minutes)||minutes<1||minutes>525600)throw new Error('Choose a delivery time between 1 minute and 365 days.');
+  return minutes;
+}
+function durationInput(prefix,label){return '<label>'+label+' <small>(estimated from order time)</small><div class="shipping-duration-field"><input id="'+prefix+'Duration" type="number" min="1" max="525600" step="1" placeholder="e.g. 2"><select id="'+prefix+'DurationUnit"><option value="hours">Hours</option><option value="minutes">Minutes</option><option value="days">Days</option></select></div></label>';}
+function setDuration(prefix,minutes){
+  const n=Number(minutes);
+  if(!Number.isInteger(n)||n<=0){setv(prefix+'Duration','');setv(prefix+'DurationUnit','hours');return;}
+  const unit=n%1440===0?'days':n%60===0?'hours':'minutes';
+  setv(prefix+'Duration',n/({days:1440,hours:60,minutes:1}[unit]));setv(prefix+'DurationUnit',unit);
+}
 function setv(id,value){const el=$('#'+id);if(el)el.value=value??'';}
 function setChecked(id,value){const el=$('#'+id);if(el)el.checked=Boolean(value);}
 function localDateTime(value){
@@ -122,7 +137,7 @@ function ensureProductFields(){
       '<div id="productLocalFields" class="product-mode-fields">'+
         '<div class="shipping-form-grid two">'+
           '<div class="product-mode-price-note"><b>Local selling price</b><small>Uses the default selling price in Product Details. Each variant can keep its own price; no second local price is required.</small></div>'+
-          '<label>Expected local delivery date <small>(optional)</small><input id="localExpectedDeliveryDate" type="date"></label>'+
+          durationInput('local','Local item delivery time')+
         '</div>'+
         '<div class="product-mode-system-fee"><div><b>Customer local delivery fee</b><small>Uses the LEOGO system delivery rules automatically.</small></div><div id="localDeliveryRatePreview">'+deliveryRateHtml()+'</div></div>'+
       '</div>'+
@@ -138,7 +153,7 @@ function ensureProductFields(){
           '<label>International item price (KSh)<input id="internationalItemPrice" type="number" min="0" step="0.01"></label>'+
           '<label>Shipping / freight to LEOGO Distribution Center (KSh)<input id="internationalCenterFee" type="number" min="0" step="0.01" value="0"></label>'+
           '<label>LEOGO Distribution Center<input id="internationalDistributionCenter" value="LEOGO Distribution Center — Nairobi"></label>'+
-          '<label>Expected delivery date<input id="internationalExpectedDeliveryDate" type="date"></label>'+
+          durationInput('international','International item delivery time')+
           '<label class="wide">Shipping / dispatch details <small>(optional)</small><input id="internationalDispatchDetails" placeholder="Courier, container, flight, supplier dispatch details…"></label>'+
         '</div>'+
         '<div class="international-landed-summary"><span>International landed amount before local delivery</span><strong id="internationalLandedPrice">KSh 0</strong><small>Item price + freight to the LEOGO Distribution Center. Customer last-mile delivery still follows LEOGO system rates.</small></div>'+
@@ -192,9 +207,6 @@ function ensureProductFields(){
   });
 
   $('#groupDeliveryDays')?.addEventListener('input',syncGroupDeliveryEstimate);
-  $('#internationalExpectedDeliveryDate')?.addEventListener('change',()=>{
-    if(!textValue('groupExpectedDeliveryDate'))setv('groupExpectedDeliveryDate',textValue('internationalExpectedDeliveryDate'));
-  });
 }
 
 function setRequired(id,required){
@@ -312,7 +324,7 @@ function validateSettings(){
     if(textValue('internationalOriginCountry').length<2)throw new Error('Enter the international origin country.');
     if(numberValue('internationalItemPrice')==null)throw new Error('Enter the international item price.');
     if(numberValue('internationalCenterFee')==null||numberValue('internationalCenterFee')<0)throw new Error('Enter a valid freight fee to the LEOGO Distribution Center.');
-    if(!group&&!textValue('internationalExpectedDeliveryDate'))throw new Error('Choose the expected international delivery date.');
+    if(!group&&durationMinutes('international')==null)throw new Error('Enter the international delivery duration.');
   }
 
   if(moq){
@@ -333,6 +345,8 @@ function validateSettings(){
   }
 
   syncCorePrice();
+  if(local)durationMinutes('local');
+  if(international)durationMinutes('international');
   return true;
 }
 
@@ -341,15 +355,17 @@ function shippingPayload(){
   const international=$('#productInternationalEnabled')?.checked;
   return {
     local_available:Boolean($('#productLocalAvailable')?.checked),
+    local_delivery_minutes:durationMinutes('local'),
     // The database falls back to the saved product's default price.
     local_price_kes:null,
-    local_expected_delivery_date:textValue('localExpectedDeliveryDate')||null,
+    local_expected_delivery_date:null,
 
     international_order_enabled:Boolean(international),
+    international_delivery_minutes:durationMinutes('international'),
     international_price_kes:numberValue('internationalItemPrice'),
     international_shipping_fee_to_center_kes:numberValue('internationalCenterFee')??0,
     distribution_center:textValue('internationalDistributionCenter')||'LEOGO Distribution Center — Nairobi',
-    international_expected_delivery_date:($('#productGroupEnabled')?.checked?textValue('groupExpectedDeliveryDate'):textValue('internationalExpectedDeliveryDate'))||null,
+    international_expected_delivery_date:($('#productGroupEnabled')?.checked?textValue('groupExpectedDeliveryDate'):null)||null,
 
     origin_type:international?'international':'local',
     origin_country:international?textValue('internationalOriginCountry'):'Kenya',
@@ -394,6 +410,8 @@ async function loadProducts(){
   const {data,error}=await client.rpc('seller_list_own_products');
   if(error)throw error;
   products=Array.isArray(data)?data:[];
+  const durations=await client.from('product_delivery_durations').select('product_id,local_minutes,international_minutes');
+  if(!durations.error){const byId=new Map((durations.data||[]).map(row=>[row.product_id,row]));products.forEach(product=>{product.delivery_duration=byId.get(product.id)||null;});}
 }
 
 async function saveForProduct(productId,pShipping,pCampaign){
@@ -410,6 +428,11 @@ async function saveForProduct(productId,pShipping,pCampaign){
     if(status)status.textContent=error.message;
     throw error;
   }
+  const {error:durationError}=await client.rpc('seller_save_product_delivery_durations',{
+    p_product_id:productId,p_local_minutes:pShipping.local_available?pShipping.local_delivery_minutes:null,
+    p_international_minutes:pShipping.international_order_enabled?pShipping.international_delivery_minutes:null
+  });
+  if(durationError)throw new Error('Product saved, but delivery duration needs attention: '+durationError.message);
 
   const previousCampaign=activeCampaign(activeEditingProduct);
   const unchangedLockedLead=Number(previousCampaign?.participant_count||0)>0
@@ -474,7 +497,7 @@ function applyProductExtension(product){
     : legacyInternational;
 
   setChecked('productLocalAvailable',local);
-  setv('localExpectedDeliveryDate',dateOnly(profile.local_expected_delivery_date));
+  setDuration('local',product.delivery_duration?.local_minutes);
 
   setChecked('productInternationalEnabled',international);
   setv('internationalOriginCountry',profile.origin_country||(international?'':''));
@@ -483,7 +506,7 @@ function applyProductExtension(product){
   setv('internationalItemPrice',profile.international_price_kes??(international?product.price_kes:''));
   setv('internationalCenterFee',profile.international_shipping_fee_to_center_kes??0);
   setv('internationalDistributionCenter',profile.distribution_center||'LEOGO Distribution Center — Nairobi');
-  setv('internationalExpectedDeliveryDate',dateOnly(profile.international_expected_delivery_date||profile.expected_delivery_from));
+  setDuration('international',product.delivery_duration?.international_minutes);
   setv('internationalDispatchDetails',profile.dispatch_details);
 
   const moq=bool(profile.moq_enabled,Boolean(campaign));
@@ -515,7 +538,7 @@ function applyProductExtension(product){
 function resetProductExtension(){
   activeEditingProduct=null;
   setChecked('productLocalAvailable',true);
-  setv('localExpectedDeliveryDate','');
+  setDuration('local',null);
 
   setChecked('productInternationalEnabled',false);
   setv('internationalOriginCountry','');
@@ -524,7 +547,7 @@ function resetProductExtension(){
   setv('internationalItemPrice','');
   setv('internationalCenterFee',0);
   setv('internationalDistributionCenter','LEOGO Distribution Center — Nairobi');
-  setv('internationalExpectedDeliveryDate','');
+  setDuration('international',null);
   setv('internationalDispatchDetails','');
 
   setChecked('productMoqEnabled',false);
