@@ -584,7 +584,8 @@ begin
         then least(coalesce(v_product.leogo_price_kes,v_product.price_kes),v_product.flash_sale_price_kes)
         else coalesce(v_product.leogo_price_kes,v_product.price_kes) end;
 
-      v_seller_unit_price:=private.market_day_checkout_unit_price(v_product.id,v_seller_unit_price,v_qty,v_flash_active,true,p_county);
+      -- LEOGO-funded Market Day pricing changes the customer amount only.
+      -- Preserve seller settlement at the agreed seller unit price and reserve the offer once.
       v_unit_price:=private.market_day_checkout_unit_price(v_product.id,v_unit_price,v_qty,v_flash_active,true,p_county);
 
       insert into public.marketplace_order_items(
