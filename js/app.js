@@ -4553,6 +4553,8 @@
         shipment_received:['Parcel received at '+(destination||'next sorting center'),'LEOGO staff confirmed the shipment receipt.'],
         last_mile_assigned:['Assigned for last-mile delivery','Parcel was assigned for local delivery.'],
         out_for_delivery:['Out for delivery','The parcel is with the delivery agent.'],
+        pickup_station_arrived:['Arrived at '+(event.pickup_station_name||'Pickup Station'),'Rider recorded arrival; the station must confirm physical receipt.'],
+        pickup_station_received:['Received at '+(event.pickup_station_name||'Pickup Station'),'Pickup Station staff confirmed receipt with photo evidence.'],
         delivered:['Delivered to customer','Delivery was verified.']
       }[event.event_type];
       if(stages)add(stages[0],event.created_at,stages[1]+manifest);

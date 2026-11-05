@@ -329,9 +329,13 @@ $('#refreshRiderAftersales')?.addEventListener('click',()=>{loadRiderAftersales(
 
 async function loadJobs(){
   setStatus('#riderStatus');
-  const {data,error}=await client.rpc('rider_list_delivery_jobs_v4');
-  if(error){setStatus('#riderStatus',error.message,'error');return;}
-  jobs=data||[];
+  const [jobsResult,sortingPickupResult]=await Promise.all([
+    client.rpc('rider_list_delivery_jobs_v4'),
+    client.rpc('rider_list_sorting_center_pickups')
+  ]);
+  if(jobsResult.error){setStatus('#riderStatus',jobsResult.error.message,'error');return;}
+  const sortingPickups=new Map((sortingPickupResult.error?[]:sortingPickupResult.data||[]).map(row=>[row.order_id,row]));
+  jobs=(jobsResult.data||[]).map(job=>({...job,sorting_center_pickup:sortingPickups.get(job.order_id)||null}));
   render();
   const qrOrder=requestedOrderId();
   if(qrOrder){
@@ -360,7 +364,8 @@ function render(){
         :jobs.filter(j=>['assigned','picked_up','arrived_sorting_center','sorting_received','ready_for_dispatch','on_the_way','delivered_to_pickup_station','ready_for_pickup'].includes(j.status));
 
   $('#riderJobList').innerHTML=visible.length?visible.map(job=>{
-    const pickups=(job.seller_pickups||[]).map(s=>{
+    const sortingCenters=job.sorting_center_pickup?.centers||[];
+    const pickups=sortingCenters.length?sortingCenters.map(c=>'<div class="pickup-card"><small>SORTING CENTER · '+(job.status==='assigned'?'AWAITING HANDOVER':'COLLECTED')+'</small><strong>'+esc(c.center_name)+'</strong><p>'+esc(c.location||'Location not provided')+'</p><p><strong>Parcels:</strong> '+(c.parcel_references||[]).map(esc).join(', ')+'</p></div>').join(''):(job.seller_pickups||[]).map(s=>{
       const sellerItems=(s.items||[]).map(item=>'<li><strong>'+esc(item.product_name||'Product')+'</strong>'+(item.variant_name?' · '+esc(item.variant_name):'')+' · '+esc(item.quantity)+(item.measurement_unit?' '+esc(item.measurement_unit):'')+'</li>').join('');
       return '<div class="pickup-card"><small>SELLER PICKUP</small><strong>'+esc(s.seller_name)+'</strong><p>'+
         esc(s.seller_location||'Location not provided')+(s.seller_phone?' · '+esc(s.seller_phone):'')+
@@ -371,7 +376,7 @@ function render(){
     }).join('');
 
     const next=job.status==='assigned'
-      ?['picked_up','Mark Picked Up from Seller']
+      ?['picked_up',sortingCenters.length?'Confirm Handover from Sorting Center':'Mark Picked Up from Seller']
       :job.status==='picked_up'
         ?['arrived_sorting_center','Mark Arrived at Sorting Center']
         :job.status==='ready_for_dispatch'
@@ -416,11 +421,11 @@ function render(){
       esc(deliveryStatusLabel(job.status).toUpperCase())+'</strong></div></div>'+adminInstructions+
       '<div class="pickup-list">'+pickups+'</div>'+
       '<div class="rider-note-box"><label><small>RIDER NOTES / DELIVERY UPDATE</small><textarea maxlength="2000" rows="3" data-rider-note placeholder="Add customer response, payment detail, access issue, delay or other delivery update…">'+esc(job.rider_notes||'')+'</textarea></label><button type="button" data-save-rider-note data-job-id="'+esc(job.delivery_job_id)+'">Save Rider Note</button></div>'+
-      '<div class="rider-sorting-progress"><small>LEOGO SORTING CENTER</small><div>'+
+      (sortingCenters.length?'<div class="rider-sorting-progress"><small>FINAL SORTING CENTER HANDOVER</small><div><span class="done">Assigned parcels ready for Rider collection</span></div></div>':'<div class="rider-sorting-progress"><small>LEOGO SORTING CENTER</small><div>'+
         '<span class="'+(job.arrived_sorting_center_at?'done':'')+'">Arrived'+(job.arrived_sorting_center_at?'<b>'+esc(fmt(job.arrived_sorting_center_at))+'</b>':'')+'</span>'+
         '<span class="'+(job.sorting_received_at?'done':'')+'">Received'+(job.sorting_received_at?'<b>'+esc(fmt(job.sorting_received_at))+'</b>':'')+'</span>'+
         '<span class="'+(job.ready_for_dispatch_at?'done':'')+'">Ready for Dispatch'+(job.ready_for_dispatch_at?'<b>'+esc(fmt(job.ready_for_dispatch_at))+'</b>':'')+'</span>'+
-      '</div></div>'+
+      '</div></div>')+
       '</div><div class="job-actions">'+codConfirm+
       (next?'<button data-rider-next="'+next[0]+'" data-job-id="'+esc(job.delivery_job_id)+'">'+next[1]+'</button>'
         :waitingMessage?'<strong class="waiting">'+esc(waitingMessage)+'</strong>'
@@ -464,6 +469,8 @@ function render(){
       ?(job?.cod_payment_required
         ?'Confirm full '+money(job.external_amount_due_kes??job.grand_total_kes)+' COD payment has been collected and the order has been physically delivered?'
         :'Confirm that this order has been physically delivered to the customer?')
+      :next==='picked_up'&&sortingCenters.length
+        ?'Confirm that you physically received all listed parcels from the assigned Sorting Center locations?'
       :next==='arrived_sorting_center'
         ?'Confirm that you and this order have arrived at the LEOGO Sorting Center?'
         :next==='on_the_way'
