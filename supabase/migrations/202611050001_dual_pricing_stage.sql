@@ -665,3 +665,668 @@ $function$
 ;
 revoke all on function public.admin_get_leogo_markup_financial_report() from public,anon;
 grant execute on function public.admin_get_leogo_markup_financial_report() to authenticated;
+
+-- Secondary catalogue, search, promotional display and quote compatibility.
+CREATE OR REPLACE FUNCTION public.customer_global_search(p_query text, p_limit integer DEFAULT 24)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_query text:=lower(btrim(coalesce(p_query,'')));
+  v_limit integer:=greatest(1,least(coalesce(p_limit,24),50));
+  v_location_only boolean:=false;
+  v_result jsonb;
+begin
+  if char_length(v_query)<2 then
+    return '[]'::jsonb;
+  end if;
+
+  select
+    exists(select 1 from public.kenya_counties c where lower(c.name)=v_query or lower(c.code)=v_query)
+    or exists(select 1 from public.kenya_subcounties s where lower(s.name)=v_query or lower(s.code)=v_query)
+  into v_location_only;
+
+  with searchable as (
+    select
+      'product'::text as result_type,
+      p.id,
+      p.seller_id as provider_id,
+      p.product_name::text as title,
+      s.business_name::text as subtitle,
+      coalesce(p.product_details,'')::text as description,
+      concat_ws(' · ',nullif(s.town,''),nullif(s.sub_county,''),nullif(s.county,''))::text as location,
+      s.county::text,
+      s.sub_county::text,
+      s.town::text,
+      coalesce(p.leogo_price_kes,p.price_kes)::numeric as price_kes,
+      coalesce(nullif(p.custom_category_name,''),c.name)::text as category,
+      p.main_image_path::text as image_path,
+      'seller-product-media'::text as media_bucket,
+      null::text as image_url,
+      'live-product-catalogue'::text as section_id,
+      p.availability_status::text as availability,
+      (
+        p.flash_sale_requested=true
+        and p.flash_sale_status='approved'
+        and p.flash_sale_price_kes is not null
+        and p.flash_sale_starts_at<=now()
+        and p.flash_sale_ends_at>now()
+      ) as is_flash_sale,
+      p.updated_at,
+      lower(concat_ws(' ',
+        p.product_name,s.business_name,p.product_details,p.group_name,
+        coalesce(nullif(p.custom_category_name,''),c.name),
+        coalesce(nullif(p.custom_subcategory_name,''),sc.name),
+        s.town,s.sub_county,s.county,s.location_details
+      )) as haystack
+    from public.seller_products p
+    join public.seller_accounts s on s.user_id=p.seller_id
+    join public.product_categories c on c.id=p.category_id
+    left join public.product_subcategories sc on sc.id=p.subcategory_id
+    where s.application_status='approved'
+      and private.partner_has_active_subscription(s.user_id,'seller')
+      and p.product_approval_status='approved'
+      and p.listing_status='active'
+      and p.availability_status in ('available','out_of_stock')
+      and c.is_active
+      and c.code<>'alcoholic_leogo_bar'
+
+    union all
+
+    select
+      'service'::text,
+      sv.id,
+      sv.provider_id,
+      sv.service_name,
+      sp.business_name,
+      coalesce(sv.description,''),
+      concat_ws(' · ',nullif(sv.service_area,''),nullif(sp.town,''),nullif(sp.sub_county,''),nullif(sp.county,'')),
+      sp.county,sp.sub_county,sp.town,
+      sv.price_from_kes,
+      coalesce(nullif(sv.category_name,''),sp.service_category,'Services'),
+      sp.profile_picture_path,
+      'service-provider-public-media'::text,
+      null::text,
+      'services'::text,
+      sp.availability_status,
+      (
+        sv.pricing_model='fixed'
+        and sv.flash_sale_requested=true
+        and sv.flash_sale_status='approved'
+        and sv.flash_sale_price_kes is not null
+        and sv.flash_sale_starts_at<=now()
+        and sv.flash_sale_ends_at>now()
+      ),
+      sv.updated_at,
+      lower(concat_ws(' ',
+        sv.service_name,sv.category_name,sv.description,sv.service_area,sv.availability_notes,
+        sp.business_name,sp.primary_service,sp.service_category,sp.business_description,
+        sp.town,sp.sub_county,sp.county,sp.location_details,sp.service_area_notes
+      ))
+    from public.service_provider_services sv
+    join public.service_provider_accounts sp on sp.user_id=sv.provider_id
+    where sv.approval_status='approved'
+      and sv.is_available
+      and sp.application_status='approved'
+      and sp.availability_status<>'offline'
+      and private.partner_has_active_subscription(sp.user_id,'service_provider')
+
+    union all
+
+    select
+      'transport'::text,
+      v.id,
+      tp.user_id,
+      concat_ws(' ',nullif(v.vehicle_type,''),nullif(v.make_model,''))::text,
+      tp.business_name,
+      coalesce(v.capacity_description,tp.business_description,''),
+      concat_ws(' · ',nullif(v.service_area,''),nullif(tp.town,''),nullif(tp.sub_county,''),nullif(tp.county,'')),
+      tp.county,tp.sub_county,tp.town,
+      null::numeric,
+      'Transport & Parcel Delivery'::text,
+      v.vehicle_profile_picture_path,
+      'transport-public-media'::text,
+      null::text,
+      'verifiedTransportProviders'::text,
+      tp.availability_status,
+      false,
+      v.updated_at,
+      lower(concat_ws(' ',
+        v.vehicle_type,v.make_model,v.registration_number,v.capacity_description,v.service_area,
+        array_to_string(v.service_types,' '),
+        tp.business_name,tp.provider_type,array_to_string(tp.services_offered,' '),
+        tp.business_description,tp.coverage_notes,tp.town,tp.sub_county,tp.county,tp.location_details
+      ))
+    from public.transport_provider_accounts tp
+    join public.transport_provider_vehicles v on v.provider_id=tp.user_id
+    where tp.application_status='approved'
+      and tp.availability_status<>'offline'
+      and private.partner_has_active_subscription(tp.user_id,'transport')
+      and v.approval_status='approved'
+      and v.is_available=true
+
+    union all
+
+    select
+      'accommodation'::text,
+      ap.id,
+      ah.user_id,
+      ap.property_name,
+      ah.business_name,
+      coalesce(ap.description,''),
+      concat_ws(' · ',nullif(ap.public_location,''),nullif(ap.town,''),nullif(ap.sub_county,''),nullif(ap.county,'')),
+      ap.county,ap.sub_county,ap.town,
+      (
+        select min(u.nightly_price_kes)::numeric
+        from public.accommodation_units u
+        where u.property_id=ap.id
+          and u.is_active
+          and u.approval_status='approved'
+      ),
+      initcap(replace(coalesce(ap.property_type,'accommodation'),'_',' ')),
+      null::text,
+      null::text,
+      ap.cover_image_url,
+      'accommodation'::text,
+      'available'::text,
+      false,
+      ap.updated_at,
+      lower(concat_ws(' ',
+        ap.property_name,ap.property_type,ap.description,ap.public_location,
+        array_to_string(ap.amenities,' '),
+        ah.business_name,ah.business_description,
+        ap.town,ap.sub_county,ap.county,ah.location_details
+      ))
+    from public.accommodation_properties ap
+    join public.accommodation_hosts ah on ah.id=ap.host_id
+    where ah.verification_status='approved'
+      and private.partner_has_active_subscription(ah.user_id,'accommodation')
+      and ap.approval_status='approved'
+      and ap.is_published=true
+      and exists(
+        select 1 from public.accommodation_units u
+        where u.property_id=ap.id
+          and u.is_active
+          and u.approval_status='approved'
+      )
+
+    union all
+
+    select
+      'cyber_service'::text,
+      cs.id,
+      cp.user_id,
+      cs.service_name,
+      cp.business_name,
+      coalesce(cs.description,''),
+      concat_ws(' · ',nullif(cp.location_details,''),nullif(cp.town,''),nullif(cp.sub_county,''),nullif(cp.county,'')),
+      cp.county,cp.sub_county,cp.town,
+      cs.price_kes,
+      coalesce(nullif(cs.service_category,''),'Cyber Service'),
+      cp.profile_picture_path,
+      'cyber-public-media'::text,
+      null::text,
+      'cyberMarketplace'::text,
+      cp.availability_status,
+      (
+        cs.pricing_model='fixed'
+        and cs.flash_sale_requested=true
+        and cs.flash_sale_status='approved'
+        and cs.flash_sale_price_kes is not null
+        and cs.flash_sale_starts_at<=now()
+        and cs.flash_sale_ends_at>now()
+      ),
+      cs.updated_at,
+      lower(concat_ws(' ',
+        cs.service_name,cs.service_category,cs.description,cs.unit_label,
+        cp.business_name,cp.business_description,cp.location_details,
+        cp.town,cp.sub_county,cp.county
+      ))
+    from public.cyber_services cs
+    join public.cyber_provider_accounts cp on cp.user_id=cs.provider_id
+    where cp.application_status='approved'
+      and private.partner_has_active_subscription(cp.user_id,'cyber')
+      and cs.approval_status='approved'
+      and cs.is_available
+
+    union all
+
+    select
+      'cyber_product'::text,
+      cprod.id,
+      cp.user_id,
+      cprod.product_name,
+      cp.business_name,
+      coalesce(cprod.description,''),
+      concat_ws(' · ',nullif(cp.location_details,''),nullif(cp.town,''),nullif(cp.sub_county,''),nullif(cp.county,'')),
+      cp.county,cp.sub_county,cp.town,
+      cprod.price_kes,
+      'Cyber Shop Item'::text,
+      cprod.image_path,
+      'cyber-public-media'::text,
+      null::text,
+      'cyberMarketplace'::text,
+      cprod.availability_status,
+      false,
+      cprod.updated_at,
+      lower(concat_ws(' ',
+        cprod.product_name,cprod.description,cprod.measurement_unit,
+        cp.business_name,cp.business_description,cp.location_details,
+        cp.town,cp.sub_county,cp.county
+      ))
+    from public.cyber_products cprod
+    join public.cyber_provider_accounts cp on cp.user_id=cprod.provider_id
+    where cp.application_status='approved'
+      and private.partner_has_active_subscription(cp.user_id,'cyber')
+      and cprod.approval_status='approved'
+      and cprod.availability_status='available'
+      and cprod.quantity_available>0
+
+    union all
+
+    select
+      'personal_sale'::text,
+      ps.id,
+      ps.user_id,
+      ps.item_name,
+      split_part(btrim(ps.seller_name),' ',1),
+      'Admin-approved personal marketplace listing'::text,
+      ps.location,
+      null::text,null::text,null::text,
+      ps.marked_price_kes,
+      'Personal Marketplace'::text,
+      ps.item_image_path,
+      'customer-sale-media'::text,
+      null::text,
+      'live-product-catalogue'::text,
+      ps.sale_status,
+      false,
+      ps.updated_at,
+      lower(concat_ws(' ',ps.item_name,ps.location,split_part(btrim(ps.seller_name),' ',1)))
+    from public.customer_personal_sale_listings ps
+    where ps.approval_status='approved'
+      and ps.sale_status='available'
+  ),
+  ranked as (
+    select
+      *,
+      case
+        when lower(title)=v_query then 100
+        when lower(title) like v_query||'%' then 95
+        when lower(title) like '%'||v_query||'%' then 90
+        when lower(coalesce(subtitle,'')) like '%'||v_query||'%' then 82
+        when lower(coalesce(category,'')) like '%'||v_query||'%' then 78
+        when lower(coalesce(location,'')) like '%'||v_query||'%' then 74
+        else 60
+      end as score
+    from searchable
+    where haystack like '%'||v_query||'%'
+      and (
+        not v_location_only
+        or lower(coalesce(location,'')) like '%'||v_query||'%'
+        or lower(coalesce(county,''))=v_query
+        or lower(coalesce(sub_county,''))=v_query
+        or lower(coalesce(town,''))=v_query
+      )
+  ),
+  limited as (
+    select *
+    from ranked
+    order by score desc,
+      case result_type
+        when 'product' then 1
+        when 'service' then 2
+        when 'accommodation' then 3
+        when 'cyber_service' then 4
+        when 'cyber_product' then 5
+        when 'transport' then 6
+        else 7
+      end,
+      updated_at desc nulls last
+    limit v_limit
+  )
+  select coalesce(jsonb_agg(
+    jsonb_build_object(
+      'type',result_type,
+      'id',id,
+      'provider_id',provider_id,
+      'title',title,
+      'subtitle',subtitle,
+      'description',description,
+      'location',location,
+      'county',county,
+      'sub_county',sub_county,
+      'town',town,
+      'price_kes',price_kes,
+      'category',category,
+      'image_path',image_path,
+      'media_bucket',media_bucket,
+      'image_url',image_url,
+      'section_id',section_id,
+      'availability',availability,
+      'is_flash_sale',is_flash_sale,
+      'score',score
+    )
+    order by score desc,updated_at desc nulls last
+  ),'[]'::jsonb)
+  into v_result
+  from limited;
+
+  return v_result;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.customer_leogo_bar_catalogue()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_result jsonb;
+begin
+  if auth.uid() is null or not exists(
+    select 1 from public.customer_bar_age_declarations d where d.user_id=auth.uid()
+  ) then raise exception 'Sign in and confirm you are 18 or older to view LEOGO BAR'; end if;
+  perform private.close_expired_group_campaigns();
+
+  select coalesce(jsonb_agg(row_data order by (row_data->>'updated_at')::timestamptz desc),'[]'::jsonb)
+  into v_result
+  from (
+    select (to_jsonb(p) - 'leogo_price_kes' - 'price_kes' - ARRAY['product_review_notes','product_reviewed_by','product_reviewed_at','flash_sale_admin_notes','flash_sale_reviewed_by','flash_sale_reviewed_at']::text[])||jsonb_build_object(
+      'seller_name',s.business_name,
+      'category_code',c.code,
+      'category_name',coalesce(nullif(p.custom_category_name,''),c.name),
+      'category_is_aggregator',c.is_aggregator,
+      'category_restricted',c.restricted_category,
+      'subcategory_name',coalesce(nullif(p.custom_subcategory_name,''),sc.name),
+      'shipping_profile',case when ship.product_id is null then null else to_jsonb(ship)-'seller_id'-'created_at'-'updated_at' end,
+      'shipping_defaults',(select to_jsonb(d)-'updated_by'-'updated_at' from public.platform_shipping_defaults d where d.id=1),
+      'delivery_rates',(select public.public_get_delivery_rate_settings()),
+      'group_campaign',case when go.id is null then null else jsonb_build_object(
+        'id',go.id,
+        'campaign_reference',go.campaign_reference,
+        'minimum_quantity',go.minimum_quantity,
+        'maximum_quantity',go.maximum_quantity,
+        'price_kes',coalesce(p.leogo_price_kes,p.price_kes),
+        'customer_unit_price_kes',go.customer_unit_price_kes,
+        'opening_at',go.opening_at,
+        'closing_at',go.closing_at,
+        'expected_dispatch_date',go.expected_dispatch_date,
+        'expected_delivery_from',go.expected_delivery_from,
+        'expected_delivery_to',go.expected_delivery_to,
+        'close_policy',go.close_policy,
+        'status',go.status,
+        'quantity_committed',go.quantity_committed,
+        'participant_count',go.participant_count
+      ) end,
+      'variants',coalesce((
+        select jsonb_agg((to_jsonb(v)-'leogo_price_kes'-'price_kes')||jsonb_build_object('price_kes',coalesce(v.leogo_price_kes,v.price_kes)) order by v.display_order,v.created_at)
+        from public.seller_product_variants v
+        where v.product_id=p.id and v.is_active
+      ),'[]'::jsonb),
+      'rating_average',coalesce((
+        select round(avg(r.rating)::numeric,1)
+        from public.marketplace_product_reviews r
+        where r.product_id=p.id and r.moderation_status='approved'
+      ),0),
+      'review_count',(
+        select count(*)
+        from public.marketplace_product_reviews r
+        where r.product_id=p.id and r.moderation_status='approved'
+      ),
+      'approved_reviews',coalesce((
+        select jsonb_agg(review_row order by (review_row->>'created_at')::timestamptz desc)
+        from (
+          select jsonb_build_object(
+            'review_id',r.id,
+            'rating',r.rating,
+            'comment',r.comment,
+            'variant_name',v.variant_name,
+            'created_at',r.created_at,
+            'verified_purchase',true
+          ) review_row
+          from public.marketplace_product_reviews r
+          left join public.seller_product_variants v on v.id=r.variant_id
+          where r.product_id=p.id and r.moderation_status='approved'
+          order by r.created_at desc
+          limit 8
+        ) approved
+      ),'[]'::jsonb)
+    ) row_data
+    from public.seller_products p
+    join public.seller_accounts s on s.user_id=p.seller_id
+    join public.product_categories c on c.id=p.category_id
+    left join public.product_subcategories sc on sc.id=p.subcategory_id
+    left join public.product_shipping_profiles ship on ship.product_id=p.id
+    left join lateral(
+      select g.*
+      from public.group_order_campaigns g
+      where g.product_id=p.id
+        and g.status in (
+          'collecting_orders','paused','moq_reached','order_confirmed',
+          'seller_preparing','dispatched_origin','in_transit',
+          'arrived_destination','at_sorting_center','out_for_delivery','ready_pickup'
+        )
+      order by g.created_at desc
+      limit 1
+    ) go on true
+    where s.application_status='approved'
+      and private.partner_has_active_subscription(s.user_id,'seller')
+      and p.product_approval_status='approved'
+      and p.listing_status='active'
+      and p.availability_status in ('available','out_of_stock')
+      and c.is_active
+      and c.code='alcoholic_leogo_bar'
+  ) q;
+
+  return v_result;
+end
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.customer_market_day_checkout_quote(p_items jsonb, p_delivery_zone text, p_county text DEFAULT NULL::text, p_sub_county text DEFAULT NULL::text, p_estate text DEFAULT NULL::text, p_pickup_station_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_item jsonb; v_product public.seller_products%rowtype;
+  v_variant public.seller_product_variants%rowtype;
+  v_qty numeric; v_price numeric; v_regular numeric; v_subtotal numeric:=0;
+  v_regular_subtotal numeric:=0; v_service numeric:=0; v_pickup numeric:=0;
+  v_delivery numeric:=0; v_subsidy numeric:=0; v_flash boolean; v_campaign uuid;
+begin
+  if (select auth.uid()) is null then raise exception 'Sign in required'; end if;
+  if jsonb_typeof(p_items)<>'array' or jsonb_array_length(p_items)=0 or jsonb_array_length(p_items)>100 then
+    raise exception 'Choose a valid cart'; end if;
+  if p_delivery_zone not in ('pickup','cbd','estate','outside') then raise exception 'Choose delivery zone'; end if;
+  for v_item in select * from jsonb_array_elements(p_items) loop
+    v_qty:=nullif(v_item->>'quantity','')::numeric;
+    if v_qty is null or v_qty<=0 then raise exception 'Invalid quantity'; end if;
+    select * into v_product from public.seller_products p where p.id=(v_item->>'product_id')::uuid
+      and p.product_approval_status='approved' and p.listing_status='active'
+      and p.availability_status='available';
+    if not found or v_product.fulfilment_type='group_order' then raise exception 'Product is unavailable'; end if;
+    if not exists(select 1 from public.seller_accounts a where a.user_id=v_product.seller_id
+      and a.application_status='approved') then raise exception 'Seller is unavailable'; end if;
+    v_flash:=v_product.flash_sale_requested and v_product.flash_sale_status='approved'
+      and v_product.flash_sale_price_kes>0 and v_product.flash_sale_starts_at<=now()
+      and v_product.flash_sale_ends_at>now() and coalesce(v_product.flash_sale_quantity,0)>0;
+    if v_flash and (select coalesce(sum((x->>'quantity')::numeric),0)
+      from jsonb_array_elements(p_items) x where (x->>'product_id')::uuid=v_product.id)>v_product.flash_sale_quantity then
+      raise exception 'Flash Sale quantity is no longer available'; end if;
+    if v_product.has_variants then
+      select * into v_variant from public.seller_product_variants x
+      where x.id=nullif(v_item->>'variant_id','')::uuid and x.product_id=v_product.id and x.is_active=true;
+      if not found then raise exception 'Choose a valid product variant'; end if;
+      if v_variant.quantity_available<v_qty then raise exception 'Not enough variant stock'; end if;
+      v_regular:=coalesce(v_variant.leogo_price_kes,v_variant.price_kes);
+      v_price:=case when v_flash then least(v_regular,v_product.flash_sale_price_kes) else v_regular end;
+    else
+      if v_product.quantity_available<v_qty then raise exception 'Not enough product stock'; end if;
+      v_regular:=coalesce(v_product.leogo_price_kes,v_product.price_kes);
+      v_price:=case when v_flash then least(v_regular,v_product.flash_sale_price_kes) else v_regular end;
+      v_price:=private.market_day_checkout_unit_price(v_product.id,v_price,v_qty,v_flash,false,p_county);
+    end if;
+    v_subtotal:=v_subtotal+(v_price*v_qty);
+    v_regular_subtotal:=v_regular_subtotal+(v_regular*v_qty);
+  end loop;
+
+  v_service:=round(v_subtotal * case when v_subtotal>=coalesce((select service_fee_threshold_kes from public.order_settings where id=1),3000)
+    then coalesce((select service_fee_at_or_above_percent from public.order_settings where id=1),1.5)/100
+    else coalesce((select service_fee_below_percent from public.order_settings where id=1),2)/100 end,2);
+  if p_delivery_zone='pickup' then
+    select round(v_subtotal*(coalesce(service_fee_percent,0)/100),2),coalesce(shipping_fee_kes,0)
+    into v_pickup,v_delivery from public.pickup_stations where id=p_pickup_station_id and is_active=true;
+    if not found then raise exception 'Pickup station unavailable'; end if;
+  else
+    v_delivery:=private.delivery_fee_for_zone(p_delivery_zone);
+    select c.id into v_campaign from public.leogo_free_delivery_campaigns c
+    where c.status='active' and now() between c.starts_at and c.ends_at
+      and v_subtotal>=c.min_items_subtotal_kes and c.budget_kes>=v_delivery
+      and c.max_funded_delivery_kes>=v_delivery
+      and lower(btrim(c.county))=lower(btrim(coalesce(p_county,'')))
+      and (c.sub_county is null or lower(btrim(c.sub_county))=lower(btrim(coalesce(p_sub_county,''))))
+      and (c.estate is null or lower(btrim(c.estate))=lower(btrim(coalesce(p_estate,''))))
+      and c.delivery_zone=p_delivery_zone order by c.max_funded_delivery_kes desc,c.starts_at desc limit 1;
+    if found then v_subsidy:=v_delivery;v_delivery:=0;end if;
+  end if;
+  return jsonb_build_object('items_subtotal_kes',round(v_subtotal,2),
+    'discount_kes',round(greatest(0,v_regular_subtotal-v_subtotal),2),
+    'service_fee_kes',v_service,'pickup_fee_kes',v_pickup,'delivery_fee_kes',v_delivery,
+    'leogo_delivery_subsidy_kes',v_subsidy,
+    'grand_total_kes',round(v_subtotal+v_service+v_pickup+v_delivery,2));
+end $function$
+;
+
+CREATE OR REPLACE FUNCTION public.customer_public_partner_flash_sales()
+ RETURNS TABLE(partner_type text, item_type text, item_id uuid, partner_id uuid, partner_name text, item_name text, normal_price_kes numeric, flash_price_kes numeric, remaining_quantity numeric, starts_at timestamp with time zone, ends_at timestamp with time zone, image_path text, media_bucket text, category_name text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  perform private.expire_partner_flash_sales();
+
+  return query
+    select
+      q.partner_type,
+      q.item_type,
+      q.item_id,
+      q.partner_id,
+      q.partner_name,
+      q.item_name,
+      q.normal_price_kes,
+      q.flash_price_kes,
+      q.remaining_quantity,
+      q.starts_at,
+      q.ends_at,
+      q.image_path,
+      q.media_bucket,
+      q.category_name
+    from (
+      select
+        'seller'::text as partner_type,
+        'product'::text as item_type,
+        p.id as item_id,
+        p.seller_id as partner_id,
+        s.business_name as partner_name,
+        p.product_name as item_name,
+        coalesce(p.leogo_price_kes,p.price_kes) as normal_price_kes,
+        p.flash_sale_price_kes as flash_price_kes,
+        least(p.flash_sale_quantity,p.quantity_available) as remaining_quantity,
+        p.flash_sale_starts_at as starts_at,
+        p.flash_sale_ends_at as ends_at,
+        p.main_image_path as image_path,
+        'seller-product-media'::text as media_bucket,
+        c.name as category_name
+      from public.seller_products p
+      join public.seller_accounts s on s.user_id=p.seller_id
+      join public.product_categories c on c.id=p.category_id
+      where s.application_status='approved'
+        and private.partner_has_active_subscription(s.user_id,'seller')
+        and p.product_approval_status='approved'
+        and p.listing_status='active'
+        and p.availability_status='available'
+        and c.is_active
+        and not c.restricted_category
+        and c.code<>'alcoholic_leogo_bar'
+        and p.fulfilment_type<>'group_order'
+        and p.flash_sale_requested
+        and p.flash_sale_status='approved'
+        and p.flash_sale_price_kes>0 and p.flash_sale_price_kes<coalesce(p.leogo_price_kes,p.price_kes) and p.quantity_available>0
+        and p.flash_sale_starts_at<=now()
+        and p.flash_sale_ends_at>now()
+        and coalesce(p.flash_sale_quantity,0)>0
+
+      union all
+
+      select
+        'service_provider'::text,
+        'service'::text,
+        v.id,
+        v.provider_id,
+        a.business_name,
+        v.service_name,
+        v.price_from_kes,
+        v.flash_sale_price_kes,
+        null::numeric,
+        v.flash_sale_starts_at,
+        v.flash_sale_ends_at,
+        a.profile_picture_path,
+        'service-provider-public-media'::text,
+        coalesce(v.category_name,a.primary_service)
+      from public.service_provider_services v
+      join public.service_provider_accounts a on a.user_id=v.provider_id
+      where a.application_status='approved'
+        and a.availability_status<>'offline'
+        and private.partner_has_active_subscription(a.user_id,'service_provider')
+        and v.approval_status='approved'
+        and v.is_available
+        and v.pricing_model='fixed'
+        and v.flash_sale_requested
+        and v.flash_sale_status='approved'
+        and v.flash_sale_price_kes>0
+        and v.flash_sale_price_kes<v.price_from_kes
+        and v.flash_sale_starts_at<=now()
+        and v.flash_sale_ends_at>now()
+
+      union all
+
+      select
+        'cyber'::text,
+        'service'::text,
+        c.id,
+        c.provider_id,
+        a.business_name,
+        c.service_name,
+        c.price_kes,
+        c.flash_sale_price_kes,
+        null::numeric,
+        c.flash_sale_starts_at,
+        c.flash_sale_ends_at,
+        a.profile_picture_path,
+        'cyber-public-media'::text,
+        c.service_category
+      from public.cyber_services c
+      join public.cyber_provider_accounts a on a.user_id=c.provider_id
+      where a.application_status='approved'
+        and a.availability_status<>'offline'
+        and private.partner_has_active_subscription(a.user_id,'cyber')
+        and c.approval_status='approved'
+        and c.is_available
+        and c.flash_sale_requested
+        and c.flash_sale_status='approved'
+        and c.flash_sale_price_kes>0
+        and c.flash_sale_price_kes<c.price_kes
+        and c.flash_sale_starts_at<=now()
+        and c.flash_sale_ends_at>now()
+    ) q
+    order by q.ends_at asc,q.item_name;
+end
+$function$
+;
