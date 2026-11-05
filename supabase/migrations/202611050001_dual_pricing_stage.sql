@@ -442,7 +442,7 @@ begin
         then least(v_variant.price_kes,v_product.flash_sale_price_kes)
         else v_variant.price_kes end;
       v_unit_price:=case when v_flash_active
-        then least(coalesce(v_variant.leogo_price_kes,v_variant.price_kes),v_product.flash_sale_price_kes)
+        then least(v_variant.price_kes,v_product.flash_sale_price_kes) + (coalesce(v_variant.leogo_price_kes,v_variant.price_kes)-v_variant.price_kes)
         else coalesce(v_variant.leogo_price_kes,v_variant.price_kes) end;
     else
       if v_product.quantity_available < v_qty then
@@ -452,13 +452,13 @@ begin
         then least(v_product.price_kes,v_product.flash_sale_price_kes)
         else v_product.price_kes end;
       v_unit_price:=case when v_flash_active
-        then least(coalesce(v_product.leogo_price_kes,v_product.price_kes),v_product.flash_sale_price_kes)
+        then least(v_product.price_kes,v_product.flash_sale_price_kes) + (coalesce(v_product.leogo_price_kes,v_product.price_kes)-v_product.price_kes)
         else coalesce(v_product.leogo_price_kes,v_product.price_kes) end;
       v_variant_id:=null;
     end if;
 
     if not v_product.has_variants then
-      v_unit_price:=private.market_day_checkout_unit_price(v_product.id,v_unit_price,v_qty,v_flash_active,false,p_county);
+      v_unit_price:=private.market_day_checkout_unit_price(v_product.id,v_product.price_kes,v_qty,v_flash_active,false,p_county) + (coalesce(v_product.leogo_price_kes,v_product.price_kes)-v_product.price_kes);
     end if;
     v_subtotal:=v_subtotal+(v_unit_price*v_qty);
   end loop;
@@ -544,7 +544,7 @@ begin
         then least(v_variant.price_kes,v_product.flash_sale_price_kes)
         else v_variant.price_kes end;
       v_unit_price:=case when v_flash_active
-        then least(coalesce(v_variant.leogo_price_kes,v_variant.price_kes),v_product.flash_sale_price_kes)
+        then least(v_variant.price_kes,v_product.flash_sale_price_kes) + (coalesce(v_variant.leogo_price_kes,v_variant.price_kes)-v_variant.price_kes)
         else coalesce(v_variant.leogo_price_kes,v_variant.price_kes) end;
 
       insert into public.marketplace_order_items(
@@ -581,12 +581,13 @@ begin
         then least(v_product.price_kes,v_product.flash_sale_price_kes)
         else v_product.price_kes end;
       v_unit_price:=case when v_flash_active
-        then least(coalesce(v_product.leogo_price_kes,v_product.price_kes),v_product.flash_sale_price_kes)
+        then least(v_product.price_kes,v_product.flash_sale_price_kes) + (coalesce(v_product.leogo_price_kes,v_product.price_kes)-v_product.price_kes)
         else coalesce(v_product.leogo_price_kes,v_product.price_kes) end;
 
       -- LEOGO-funded Market Day pricing changes the customer amount only.
       -- Preserve seller settlement at the agreed seller unit price and reserve the offer once.
-      v_unit_price:=private.market_day_checkout_unit_price(v_product.id,v_unit_price,v_qty,v_flash_active,true,p_county);
+      v_seller_unit_price:=private.market_day_checkout_unit_price(v_product.id,v_product.price_kes,v_qty,v_flash_active,true,p_county);
+      v_unit_price:=v_seller_unit_price + (coalesce(v_product.leogo_price_kes,v_product.price_kes)-v_product.price_kes);
 
       insert into public.marketplace_order_items(
         order_id,seller_id,product_id,product_name,unit_price_kes,quantity,line_total_kes,seller_unit_price_kes,leogo_markup_kes
@@ -1168,12 +1169,12 @@ begin
       if not found then raise exception 'Choose a valid product variant'; end if;
       if v_variant.quantity_available<v_qty then raise exception 'Not enough variant stock'; end if;
       v_regular:=coalesce(v_variant.leogo_price_kes,v_variant.price_kes);
-      v_price:=case when v_flash then least(v_regular,v_product.flash_sale_price_kes) else v_regular end;
+      v_price:=case when v_flash then least(v_variant.price_kes,v_product.flash_sale_price_kes) + (v_regular-v_variant.price_kes) else v_regular end;
     else
       if v_product.quantity_available<v_qty then raise exception 'Not enough product stock'; end if;
       v_regular:=coalesce(v_product.leogo_price_kes,v_product.price_kes);
-      v_price:=case when v_flash then least(v_regular,v_product.flash_sale_price_kes) else v_regular end;
-      v_price:=private.market_day_checkout_unit_price(v_product.id,v_price,v_qty,v_flash,false,p_county);
+      v_price:=case when v_flash then least(v_product.price_kes,v_product.flash_sale_price_kes) + (v_regular-v_product.price_kes) else v_regular end;
+      v_price:=private.market_day_checkout_unit_price(v_product.id,v_product.price_kes,v_qty,v_flash,false,p_county) + (v_regular-v_product.price_kes);
     end if;
     v_subtotal:=v_subtotal+(v_price*v_qty);
     v_regular_subtotal:=v_regular_subtotal+(v_regular*v_qty);
@@ -1240,7 +1241,7 @@ begin
         s.business_name as partner_name,
         p.product_name as item_name,
         coalesce(p.leogo_price_kes,p.price_kes) as normal_price_kes,
-        p.flash_sale_price_kes as flash_price_kes,
+        least(p.price_kes,p.flash_sale_price_kes) + (coalesce(p.leogo_price_kes,p.price_kes)-p.price_kes) as flash_price_kes,
         least(p.flash_sale_quantity,p.quantity_available) as remaining_quantity,
         p.flash_sale_starts_at as starts_at,
         p.flash_sale_ends_at as ends_at,
@@ -1261,7 +1262,7 @@ begin
         and p.fulfilment_type<>'group_order'
         and p.flash_sale_requested
         and p.flash_sale_status='approved'
-        and p.flash_sale_price_kes>0 and p.flash_sale_price_kes<coalesce(p.leogo_price_kes,p.price_kes) and p.quantity_available>0
+        and p.flash_sale_price_kes>0 and p.flash_sale_price_kes<p.price_kes and p.quantity_available>0
         and p.flash_sale_starts_at<=now()
         and p.flash_sale_ends_at>now()
         and coalesce(p.flash_sale_quantity,0)>0
