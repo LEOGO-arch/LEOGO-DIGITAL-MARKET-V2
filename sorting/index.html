@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07152f">
+  <title>LEOGO Sorting Center Staff Portal</title><link rel="stylesheet" href="sorting.css?v=1">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="../"><img src="../assets/images/leogo-official-logo.jpg" alt=""><span><b>LEOGO DIGITAL MARKET</b><small>Sorting Center Staff Portal</small></span></a><button id="logout" class="quiet" hidden>Sign out</button></header>
+  <main>
+    <section class="login card" id="loginPanel"><span class="eyebrow">AUTHORIZED STAFF</span><h1>Sorting Center Sign In</h1><p>Use your LEOGO staff account. Your assigned centers determine which parcels and shipments you can access.</p><form id="loginForm"><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Password<input id="password" type="password" autocomplete="current-password" required></label><button>Sign in</button></form><p id="loginMessage" class="message" role="status"></p></section>
+    <section id="appPanel" hidden>
+      <div class="welcome"><div><span class="eyebrow">SORTING OPERATIONS</span><h1 id="staffTitle">Sorting dashboard</h1><p id="staffSub">Parcel custody is recorded with each verified scan.</p></div><button id="refresh" class="secondary">↻ Refresh</button></div>
+      <div class="toolbar card"><label>Assigned sorting center<select id="centerSelect"></select></label><label class="search">Search order, QR, shipment, seller or destination<input id="search" type="search" placeholder="Order number, LGS tracking…"></label></div>
+      <div class="metrics" id="metrics"></div>
+      <div class="tabs" role="tablist"><button class="active" data-tab="parcels">Parcels</button><button data-tab="shipments">Shipments &amp; manifests</button><button data-tab="incidents">Incidents</button></div>
+      <section class="card content"><div class="view-head"><div><span class="eyebrow">CENTER NOTIFICATIONS</span><h2>Incoming parcel notices</h2></div><span id="notificationCount" class="count"></span></div><div id="notificationList" class="record-list"></div></section>
+      <section class="card content" id="parcelsView"><div class="view-head"><div><span class="eyebrow">PARCEL LEDGER</span><h2 id="parcelHeading">Parcels</h2></div><span id="parcelCount" class="count"></span></div><div id="parcelList" class="record-list"></div></section>
+      <section class="card content" id="shipmentsView" hidden><div class="view-head"><div><span class="eyebrow">CHAIN OF CUSTODY</span><h2>Consolidated shipments</h2></div><div class="record-actions"><button id="scanShipmentQr" class="secondary" type="button">Scan shipment QR</button><select id="shipmentFilter"><option value="">All statuses</option><option value="building">Building</option><option value="in_transit">In transit</option><option value="exception">Exception</option><option value="received">Received</option></select></div></div><div id="shipmentList" class="record-list"></div></section>
+      <section class="card content" id="incidentsView" hidden><div class="view-head"><div><span class="eyebrow">EXCEPTIONS</span><h2>Report a missing or damaged parcel</h2></div></div><form id="incidentForm" class="incident-form"><label>Parcel or shipment<select id="incidentTarget" required></select></label><label>Incident type<select id="incidentType"><option value="missing">Missing</option><option value="damaged">Damaged</option><option value="incorrect_route">Incorrect route</option><option value="other">Other</option></select></label><label class="wide">Details<textarea id="incidentDetails" minlength="3" maxlength="2000" required></textarea></label><button>Submit incident</button></form><p id="incidentMessage" class="message" role="status"></p></section>
+      <p id="appMessage" class="message" role="status"></p>
+    </section>
+  </main>
+  <div id="scanModal" class="scan-modal" hidden><div class="scan-dialog"><div class="scan-top"><div><span class="eyebrow">VERIFIED SHIPMENT RECEIPT</span><h2 id="scanTitle">Scan parcel labels</h2></div><button id="scanClose" type="button" class="secondary">Close</button></div><p class="scan-note">Scan each parcel QR code physically present in this shipment. You can also type the printed parcel reference. Unscanned parcels will be recorded as missing.</p><video id="scanVideo" playsinline muted></video><p id="scanStatus" class="message" role="status"></p><div class="manual-scan"><input id="manualParcelReference" type="text" placeholder="Parcel reference e.g. LGP-…"><button id="addManualParcel" type="button">Add scanned reference</button></div><div id="receiptParcelList" class="parcel-checks"></div><button id="submitReceipt" type="button">Confirm verified receipt</button></div></div>
+  <script src="../js/vendor/supabase-2.116.0.min.js" defer></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script><script src="sorting.js?v=1" defer></script>
+</body></html>

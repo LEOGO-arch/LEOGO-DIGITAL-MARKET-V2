@@ -102,6 +102,18 @@ async function routeStaffAccount(){
   $('#assistedStaffName').textContent=(staff.display_name||'LEOGO Staff')+' — Assigned Shopping Lists';
   if(staff.staff_role==='rider')$('#riderName').textContent=staff.display_name||'Rider Dashboard';
   show('app');
+  if(document.querySelector('[data-sorting-portal-link]'))document.querySelector('[data-sorting-portal-link]').remove();
+  try{
+    const {data:sortingCenters}=await client.rpc('sorting_staff_get_centers');
+    if(Array.isArray(sortingCenters)&&sortingCenters.length){
+      const link=document.createElement('a');
+      link.href='../sorting/';
+      link.dataset.sortingPortalLink='true';
+      link.textContent='Open Sorting Center Portal · '+sortingCenters.length+' assigned center'+(sortingCenters.length===1?'':'s');
+      link.style.cssText='display:inline-flex;margin:12px 16px;padding:11px 14px;border-radius:10px;background:#eaf3fc;color:#07589b;font-weight:800;text-decoration:none';
+      document.querySelector('.staff-header')?.insertAdjacentElement('afterend',link);
+    }
+  }catch(_sortingAccessError){/* Most LEOGO staff do not have sorting-center assignments. */}
   const tasks=[loadAssistedLists()];
   if(staff.staff_role==='rider'){tasks.push(loadJobs());tasks.push(loadRiderAftersales());tasks.push(loadExchangeRiderJobs());}
   await Promise.all(tasks);

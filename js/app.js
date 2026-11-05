@@ -4435,6 +4435,9 @@
 
 
   let customerMarketplaceOrders = [];
+  const customerSortingTrackingByOrder = new Map();
+  let customerDeliveryDurationsByProduct = new Map();
+  let customerDeliveryEtaSettings = null;
   let customerActivityFilter = 'all';
   const customerOrderFormatDate = (value, withTime = true) => {
     if(!value) return '—';
@@ -4537,7 +4540,48 @@
     add('Ready for Dispatch',order.ready_for_dispatch_at,'Order cleared for final delivery from the Sorting Center.');
     add('On the way to you',order.on_the_way_at,'Rider left the Sorting Center for final delivery.');
     add('Delivered',order.delivery_delivered_at||order.delivered_at,'Order delivery was completed.');
+    const sortingEvents=customerSortingTrackingByOrder.get(order.id)||[];
+    sortingEvents.forEach((event)=>{
+      const destination=event.to_center||event.from_center||'';
+      const manifest=event.shipment_tracking_number?' Shipment '+event.shipment_tracking_number+'.':'';
+      const stages={
+        seller_handover:['Parcel handed over for collection','Seller confirmed parcel handover.'],
+        center_received:['Parcel received at '+(destination||'LEOGO Sorting Center'),'LEOGO staff confirmed physical receipt.'],
+        sorted:['Parcel sorted for onward delivery','LEOGO staff prepared the parcel for the next stage.'],
+        shipment_created:['Parcel packed into a consolidated shipment',''],
+        shipment_dispatched:['Parcel dispatched from '+(event.from_center||'sorting center')+' to '+(event.to_center||'next center'),event.route_expected_at?'Approximate arrival at next center: '+new Intl.DateTimeFormat('en-KE',{day:'numeric',month:'short',year:'numeric',timeZone:'Africa/Nairobi'}).format(new Date(event.route_expected_at))+'.':''],
+        shipment_received:['Parcel received at '+(destination||'next sorting center'),'LEOGO staff confirmed the shipment receipt.'],
+        last_mile_assigned:['Assigned for last-mile delivery','Parcel was assigned for local delivery.'],
+        out_for_delivery:['Out for delivery','The parcel is with the delivery agent.'],
+        delivered:['Delivered to customer','Delivery was verified.']
+      }[event.event_type];
+      if(stages)add(stages[0],event.created_at,stages[1]+manifest);
+    });
     return events.sort((a,b)=>new Date(a.at)-new Date(b.at));
+  };
+
+  const customerOrderEstimatedDate = (order) => {
+    const items=Array.isArray(order?.items)?order.items:[];
+    const international=items.some((item)=>{
+      const duration=customerDeliveryDurationsByProduct.get(item.product_id);
+      return duration?.seller_county&&order.county&&duration.seller_county.toLowerCase()!==String(order.county).toLowerCase();
+    });
+    const zone=international?'inter_county':(['cbd','estate','outside','pickup'].includes(order.delivery_zone)?order.delivery_zone:'outside');
+    let minutes=0;
+    for(const item of items){
+      const duration=customerDeliveryDurationsByProduct.get(item.product_id);
+      const configured=Number(duration?.zone_minutes?.[zone]||0);
+      const legacy=international?Number(duration?.international_minutes||0):Number(duration?.local_minutes||0);
+      minutes=Math.max(minutes,configured||legacy);
+    }
+    minutes=minutes||Number(customerDeliveryEtaSettings?.[zone]||0);
+    if(!minutes||!order.created_at)return '';
+    let estimate=new Date(new Date(order.created_at).getTime()+minutes*60000);
+    const sortingEvents=customerSortingTrackingByOrder.get(order.id)||[];
+    const lastDispatch=[...sortingEvents].reverse().find((event)=>event.event_type==='shipment_dispatched'&&event.route_expected_at);
+    const receivedAfterDispatch=lastDispatch&&sortingEvents.some((event)=>event.event_type==='shipment_received'&&event.shipment_tracking_number===lastDispatch.shipment_tracking_number&&new Date(event.created_at)>=new Date(lastDispatch.created_at));
+    if(lastDispatch&&!receivedAfterDispatch&&new Date(lastDispatch.route_expected_at)>estimate)estimate=new Date(lastDispatch.route_expected_at);
+    return new Intl.DateTimeFormat('en-KE',{day:'numeric',month:'short',year:'numeric',timeZone:'Africa/Nairobi'}).format(estimate);
   };
 
   const customerOrderTimelineHtml = (order,compact=false) => {
@@ -4545,6 +4589,7 @@
     if(!events.length) return '';
     const visible=compact?events.slice(-4):events;
     return '<div class="customer-order-history '+(compact?'compact':'')+'">'+
+      (customerOrderEstimatedDate(order)?'<div class="customer-order-estimate"><strong>Approximate delivery</strong><span>'+receiptEscape(customerOrderEstimatedDate(order))+'</span><small>Based on the seller’s configured delivery time and the delivery area.</small></div>':'')+
       visible.map((event,index)=>'<div class="customer-order-history-event done">'+
         '<i></i><div><strong>'+receiptEscape(event.label)+'</strong>'+
         '<small>'+receiptEscape(customerOrderFormatDate(event.at))+'</small>'+
@@ -4805,6 +4850,18 @@
         delivery_status:row.order_status,
         seller_fulfilments:[],
         items:(Array.isArray(row.items)?row.items:[]).map((item)=>({...item,order_item_id:item.id}))
+      }));
+      try{
+        const [durationsResult,etaResult]=await Promise.all([client.rpc('public_product_delivery_durations'),client.rpc('public_delivery_eta_settings')]);
+        if(!durationsResult.error)customerDeliveryDurationsByProduct=new Map((Array.isArray(durationsResult.data)?durationsResult.data:[]).map(row=>[row.product_id,row]));
+        if(!etaResult.error)customerDeliveryEtaSettings=etaResult.data||null;
+      }catch(_deliveryEstimateUnavailable){}
+      customerSortingTrackingByOrder.clear();
+      await Promise.all(marketRows.slice(0,50).map(async(order)=>{
+        try{
+          const {data,error}=await client.rpc('customer_list_sorting_order_tracking',{p_order_id:order.id});
+          if(!error&&Array.isArray(data?.events))customerSortingTrackingByOrder.set(order.id,data.events.filter(event=>event.verified));
+        }catch(_sortingTrackingUnavailable){}
       }));
       customerMarketplaceOrders=[...marketRows,...healthRows].sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
       renderCustomerMarketplaceOrders();
