@@ -1559,6 +1559,30 @@
       }
       return `<div><small>${label}</small><b>${escapeHtml(display)}</b></div>`;
     }).join('');
+    const pricingPanel = document.getElementById('reviewLeogoPricing') || document.createElement('section');
+    pricingPanel.id = 'reviewLeogoPricing';
+    pricingPanel.hidden = kind !== 'seller_product';
+    if (kind === 'seller_product') {
+      const product = item.payload || {};
+      const sellerPrice = Number(product.price_kes || 0);
+      const currentPrice = Number(product.leogo_price_kes ?? sellerPrice);
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      pricingPanel.innerHTML = '<h3>LEOGO Selling Price</h3><p>Seller price remains unchanged. LEOGO markup is additional to existing marketplace commission.</p>'
+        + '<div class="review-details"><div><small>Seller price (KSh)</small><b>' + formatMoney(sellerPrice) + '</b></div>'
+        + '<label><small>LEOGO customer price (KSh)</small><input id="reviewLeogoPrice" type="number" min="' + sellerPrice + '" step="0.01" required value="' + currentPrice + '"></label>'
+        + '<div><small>LEOGO markup / unit</small><b id="reviewLeogoMarkup">' + formatMoney(currentPrice - sellerPrice) + '</b></div></div>'
+        + variants.map(v => {
+          const base = Number(v.price_kes || 0);
+          const price = Number(v.leogo_price_kes ?? base);
+          return '<div class="review-details"><div><small>Variation</small><b>' + escapeHtml(v.variant_name || '') + '</b></div><div><small>Seller price</small><b>' + formatMoney(base) + '</b></div>'
+            + '<label><small>LEOGO customer price (KSh)</small><input data-leogo-variant-id="' + escapeHtml(v.variant_id || '') + '" data-seller-base="' + base + '" type="number" min="' + base + '" step="0.01" required value="' + price + '"></label></div>';
+        }).join('');
+      pricingPanel.querySelector('#reviewLeogoPrice')?.addEventListener('input', event => {
+        const value = Number(event.target.value);
+        pricingPanel.querySelector('#reviewLeogoMarkup').textContent = Number.isFinite(value) ? formatMoney(value - sellerPrice) : '—';
+      });
+    }
+    $('#reviewDetails').after(pricingPanel);
     $('#reviewNotes').value = '';
     setFormStatus($('#reviewStatus'));
     const underReview = $('[data-review-action="under_review"]');
@@ -1680,7 +1704,23 @@
         }
         rpcArgs.p_service_fee_percent=fee;
       }
-      const { error } = await db.rpc(rpcName, rpcArgs);
+      if (item.kind === 'seller_product' && decision === 'approve') {
+        const input = $('#reviewLeogoPrice');
+        const base = Number(item.payload?.price_kes || 0);
+        const price = Number(input?.value);
+        const variants = Array.from(document.querySelectorAll('[data-leogo-variant-id]')).map(input => ({
+          variant_id: input.dataset.leogoVariantId,
+          leogo_price_kes: Number(input.value),
+          seller_base: Number(input.dataset.sellerBase)
+        }));
+        if (!Number.isFinite(price) || price < base || variants.some(v => !v.variant_id || !Number.isFinite(v.leogo_price_kes) || v.leogo_price_kes < v.seller_base)) {
+          setFormStatus($('#reviewStatus'), 'LEOGO prices must be valid and cover each Seller price.', 'error');
+          return;
+        }
+        rpcArgs.p_leogo_price_kes = price;
+        rpcArgs.p_variant_prices = variants.map(({variant_id,leogo_price_kes}) => ({variant_id,leogo_price_kes}));
+      }
+      const { error } = await db.rpc(item.kind === 'seller_product' && decision === 'approve' ? 'admin_review_seller_product_priced' : rpcName, rpcArgs);
       if (error) { setFormStatus($('#reviewStatus'), friendlyError(error), 'error'); return; }
       closeModals();
       globalStatus(
