@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="admin.css?v=staff-function-assignments-20261023">
   <link rel="stylesheet" href="seller-mobile-list.css?v=seller-name-width-20261018">
   <link rel="stylesheet" href="wallet-payouts.css?v=cash-isolation-1">
-  <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-trend-collapse-1">
+  <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-bulk-safe-repair-20261105">
   <link rel="stylesheet" href="cyber.css?v=cyber-admin-6">
   <link rel="stylesheet" href="health.css?v=health-specialist-v1">
   <link rel="stylesheet" href="flash-sales.css?v=flash-sale-v1">
@@ -1857,13 +1857,14 @@
         <div class="form-status" id="diagnosticsFindingStatus" aria-live="polite"></div>
         <div id="diagnosticsAffectedRecords" class="diagnostics-affected-records"><div class="empty-mini">Loading affected records…</div></div>
         <div class="diagnostics-phase3-auth">
-          <div><strong>Protected verification / repair</strong><span>Enter the 6-digit System Diagnosis PIN. The PIN is required again for every repair action.</span></div>
+          <div><strong>Protected verification / repair</strong><span>Enter the 6-digit System Diagnosis PIN. Enter the 6-digit PIN once for this batch; it is rechecked for every selected repair. Each repair is audited and verified separately.</span></div>
           <input id="diagnosticsPhase3Pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" placeholder="Diagnostic PIN">
         </div>
       </div>
       <footer>
         <button class="secondary" data-diagnostics-close type="button">Close</button>
         <button id="diagnosticsVerifyCheck" type="button">Verify This Check</button>
+        <button id="diagnosticsApplySelectedRepairs" type="button" hidden disabled>Apply Selected Repairs (0)</button>
       </footer>
     </section>
   </div>
@@ -1934,7 +1935,7 @@
 <script src="payment-verification-proof.js?v=payment-notification-proof-1" defer></script>
   <script src="payment-reference-lookup.js?v=wallet-deposit-review-link-1" defer></script>
   <script src="vacant-houses.js?v=property-sale-rent-v1" defer></script>
-  <script src="system-diagnostics.js?v=diagnosis-safety-1" defer></script>
+  <script src="system-diagnostics.js?v=diagnostics-bulk-safe-repair-20261105" defer></script>
   <script src="assisted-shopping.js?v=diagnosis-safety-1" defer></script>
   <script src="loyalty-rewards.js?v=global-refresh-20261022" defer></script><script src="feedback-testimonials.js?v=feedback-testimonials-v1" defer></script>
   <script src="email-notifications.js?v=messaging-safety-20261017" defer></script>

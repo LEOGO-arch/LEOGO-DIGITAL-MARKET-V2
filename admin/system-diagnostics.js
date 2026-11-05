@@ -4,7 +4,7 @@
   const db=window.leogoAdminDb;
   const $=(selector,root=document)=>root.querySelector(selector);
   const $$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
-  const state={configured:false,lastResult:null,latestRun:null,runtimeHours:24,currentFinding:null,monitoring:null,monitoringTrendVisible:4};
+  const state={configured:false,lastResult:null,latestRun:null,runtimeHours:24,currentFinding:null,monitoring:null,monitoringTrendVisible:4,repairBatchRunning:false};
 
   const access=()=>window.leogoAdminAccess?.()||{};
   const rpc=async(name,args)=>{
@@ -210,6 +210,7 @@
   };
 
   const closeFindingModal=()=>{
+    if(state.repairBatchRunning)return;
     const modal=$('#diagnosticsFindingModal');
     if(modal)modal.hidden=true;
     state.currentFinding=null;
@@ -237,19 +238,141 @@
 
     const host=$('#diagnosticsAffectedRecords');
     const rows=Array.isArray(data.records)?data.records:[];
-    host.innerHTML=rows.length?rows.map((record,index)=>{
+    const safeCount=rows.filter((record)=>policy.repair_mode==='safe'&&record.repairable&&record.target_key&&record.repair_action).length;
+    const toolbar=safeCount?`
+      <div class="diagnostics-bulk-repair-toolbar">
+        <label><input type="checkbox" data-repair-select-all> Select all safe repairs (${safeCount})</label>
+        <span data-repair-selection-count>0 selected</span>
+      </div>
+    `:'';
+    host.innerHTML=rows.length?toolbar+rows.map((record,index)=>{
       const entries=Object.entries(record).filter(([key])=>!['target_key','repair_action','repairable'].includes(key));
-      const safe=policy.repair_mode==='safe'&&record.repairable&&record.repair_action;
+      const safe=policy.repair_mode==='safe'&&record.repairable&&record.target_key&&record.repair_action;
       return `
         <article class="diagnostics-affected-record">
           <header><strong>Affected record ${index+1}</strong>${safe?'<span class="diagnostics-state healthy">SAFE ACTION AVAILABLE</span>':''}</header>
           <div class="diagnostics-record-grid">
             ${entries.map(([key,value])=>`<div><small>${escapeHtml(humanizeKey(key))}</small><span>${escapeHtml(displayValue(value))}</span></div>`).join('')}
           </div>
-          ${safe?`<button class="diagnostics-safe-repair" type="button" data-repair-target="${escapeHtml(record.target_key)}" data-repair-action="${escapeHtml(record.repair_action)}">Apply Safe Repair</button>`:''}
+          ${safe?`<label class="diagnostics-repair-select"><input type="checkbox" data-repair-select="${index}" aria-label="Select affected record ${index+1} for safe repair"> Select for batch repair</label><button class="diagnostics-safe-repair" type="button" data-repair-target="${escapeHtml(record.target_key)}" data-repair-action="${escapeHtml(record.repair_action)}">Apply Safe Repair</button>`:''}
         </article>
       `;
     }).join(''):'<div class="diagnostics-repair-empty"><strong>No affected records.</strong><span>This check is currently healthy.</span></div>';
+    updateRepairSelectionUi();
+  };
+
+  const updateRepairSelectionUi=()=>{
+    const host=$('#diagnosticsAffectedRecords');
+    const selections=host?$$('[data-repair-select]',host):[];
+    const selected=selections.filter((input)=>input.checked);
+    const selectAll=host?.querySelector('[data-repair-select-all]');
+    if(selectAll){
+      selectAll.checked=selections.length>0&&selected.length===selections.length;
+      selectAll.indeterminate=selected.length>0&&selected.length<selections.length;
+    }
+    const countNode=host?.querySelector('[data-repair-selection-count]');
+    if(countNode)countNode.textContent=selected.length+' selected';
+    const button=$('#diagnosticsApplySelectedRepairs');
+    if(button){
+      button.hidden=!selections.length;
+      button.disabled=!selected.length||state.repairBatchRunning;
+      button.textContent=state.repairBatchRunning?'Applying selected repairs…':'Apply Selected Repairs ('+selected.length+')';
+    }
+  };
+
+  const applySelectedSafeRepairs=async()=>{
+    const finding=state.currentFinding;
+    const pin=$('#diagnosticsPhase3Pin')?.value.trim()||'';
+    if(!finding?.check_id||finding.policy?.repair_mode!=='safe'){
+      setStatus($('#diagnosticsFindingStatus'),'This finding is not approved for automated repair.','error');
+      return;
+    }
+    if(!validatePin(pin)){
+      setStatus($('#diagnosticsFindingStatus'),'Enter the 6-digit System Diagnosis PIN before applying repairs.','error');
+      return;
+    }
+    const host=$('#diagnosticsAffectedRecords');
+    const selectedIndexes=host?$$('[data-repair-select]:checked',host).map((input)=>Number(input.dataset.repairSelect)):[];
+    const records=Array.isArray(finding.records)?finding.records:[];
+    const selected=[];
+    const seen=new Set();
+    for(const index of selectedIndexes){
+      if(!Number.isInteger(index)||index<0||index>=records.length)continue;
+      const record=records[index];
+      if(!record?.repairable||!record.target_key||!record.repair_action)continue;
+      const key=String(record.target_key)+'\\u0000'+String(record.repair_action);
+      if(seen.has(key))continue;
+      seen.add(key);
+      selected.push(record);
+    }
+    if(!selected.length){
+      setStatus($('#diagnosticsFindingStatus'),'Select at least one available safe repair.','error');
+      return;
+    }
+    if(state.repairBatchRunning)return;
+    const approved=window.confirm(`Apply ${selected.length} selected allowlisted safe repair(s)? Each repair will be PIN-checked, saved in the immutable audit, and verified separately.`);
+    if(!approved)return;
+
+    state.repairBatchRunning=true;
+    updateRepairSelectionUi();
+    const inputs=host?$$('input[type="checkbox"]',host):[];
+    inputs.forEach((input)=>{input.disabled=true;});
+    const singleButtons=host?$$('[data-repair-target]',host):[];
+    singleButtons.forEach((item)=>{item.disabled=true;});
+    let applied=0;
+    let failure='';
+    let allHealthy=true;
+    try{
+      for(const record of selected){
+        setStatus($('#diagnosticsFindingStatus'),`Applying repair ${applied+1} of ${selected.length}…`);
+        const {data,error}=await rpc('admin_apply_system_diagnostic_repair',{
+          p_pin:pin,p_check_id:finding.check_id,p_target_key:record.target_key,p_action:record.repair_action
+        });
+        if(error)throw error;
+        if(!data?.ok){
+          failure=parseAuthFailure(data)||data?.message||`Repair ${applied+1} was not applied.`;
+          break;
+        }
+        applied+=1;
+        allHealthy=allHealthy&&Boolean(data.verification?.healthy);
+      }
+      $('#diagnosticsPhase3Pin').value='';
+      if(applied){
+        setStatus(
+          $('#diagnosticsFindingStatus'),
+          failure?`${applied} of ${selected.length} repair(s) applied and verified before stopping: ${failure}`:
+            allHealthy?`${applied} repair(s) applied; the finding is verified Healthy. Run Full Diagnosis to refresh the overall score.`:
+            `${applied} repair(s) applied and verified. Other affected records remain; review them before rerunning Full Diagnosis.`,
+          failure||!allHealthy?'error':'success'
+        );
+        await Promise.all([
+          loadFindingDetails(finding.check_id,false),
+          loadRepairHistory(),
+          loadRuntimeIssues()
+        ]);
+      }else{
+        setStatus($('#diagnosticsFindingStatus'),failure||'No repairs were applied.','error');
+      }
+    }catch(error){
+      $('#diagnosticsPhase3Pin').value='';
+      setStatus(
+        $('#diagnosticsFindingStatus'),
+        applied?`${applied} of ${selected.length} repair(s) applied before stopping: ${friendly(error)}`:friendly(error),
+        'error'
+      );
+      if(applied){
+        await Promise.all([
+          loadFindingDetails(finding.check_id,false),
+          loadRepairHistory(),
+          loadRuntimeIssues()
+        ]).catch(()=>{});
+      }
+    }finally{
+      state.repairBatchRunning=false;
+      updateRepairSelectionUi();
+      inputs.forEach((input)=>{input.disabled=false;});
+      singleButtons.forEach((item)=>{item.disabled=false;});
+    }
   };
 
   const loadFindingDetails=async(checkId,focusPin=false)=>{
@@ -275,6 +398,7 @@
   };
 
   const verifyCurrentFinding=async()=>{
+    if(state.repairBatchRunning)return;
     const finding=state.currentFinding;
     if(!finding?.check_id)return;
     const pin=$('#diagnosticsPhase3Pin').value.trim();
@@ -311,6 +435,7 @@
   };
 
   const applySafeRepair=async(targetKey,action,button)=>{
+    if(state.repairBatchRunning)return;
     const finding=state.currentFinding;
     if(!finding?.check_id||!targetKey||!action)return;
     const pin=$('#diagnosticsPhase3Pin').value.trim();
@@ -758,6 +883,13 @@
       const verify=event.target.closest('[data-diagnostics-verify-open]');
       if(verify)loadFindingDetails(verify.dataset.diagnosticsVerifyOpen,true);
     });
+    $('#diagnosticsAffectedRecords')?.addEventListener('change',(event)=>{
+      if(event.target.matches('[data-repair-select-all]')){
+        $$('[data-repair-select]',$('#diagnosticsAffectedRecords')).forEach((input)=>{input.checked=event.target.checked;});
+      }
+      updateRepairSelectionUi();
+    });
+    $('#diagnosticsApplySelectedRepairs')?.addEventListener('click',applySelectedSafeRepairs);
     $('#diagnosticsFindingModal')?.addEventListener('click',(event)=>{
       if(event.target.closest('[data-diagnostics-close]'))closeFindingModal();
       const repair=event.target.closest('[data-repair-target]');
