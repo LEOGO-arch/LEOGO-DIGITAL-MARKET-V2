@@ -644,3 +644,24 @@ begin
   );
 end $function$
 ;
+
+CREATE OR REPLACE FUNCTION public.admin_get_leogo_markup_financial_report()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+select case when private.is_leogo_admin('reports.view') or private.is_leogo_admin('settlements.read')
+then jsonb_build_object(
+ 'leogo_markup_verified_kes',coalesce(sum(i.leogo_markup_kes) filter(where o.payment_status='verified_paid' and o.order_status<>'cancelled' and not exists(select 1 from public.wallet_checkout_payments wp where wp.order_id=o.id and wp.status='refunded')),0),
+ 'leogo_marketplace_commission_verified_kes',coalesce((select sum(o2.service_fee_kes) from public.marketplace_orders o2 where o2.payment_status='verified_paid' and o2.order_status<>'cancelled' and not exists(select 1 from public.wallet_checkout_payments wp2 where wp2.order_id=o2.id and wp2.status='refunded')),0),
+ 'leogo_markup_earned_delivered_kes',coalesce(sum(i.leogo_markup_kes) filter(where o.payment_status='verified_paid' and o.order_status='delivered'),0),
+ 'generated_at',now()
+)
+else null end
+from public.marketplace_orders o
+left join public.marketplace_order_items i on i.order_id=o.id
+$function$
+;
+revoke all on function public.admin_get_leogo_markup_financial_report() from public,anon;
+grant execute on function public.admin_get_leogo_markup_financial_report() to authenticated;
