@@ -163,7 +163,7 @@ CREATE OR REPLACE FUNCTION public.admin_set_product_leogo_prices(p_product_id uu
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-declare v_product public.seller_products%rowtype; v_entry jsonb; v_id uuid; v_price numeric; v_expected integer; v_seen integer:=0; v_before jsonb;
+declare v_product public.seller_products%rowtype; v_entry jsonb; v_id uuid; v_price numeric; v_expected integer; v_seen integer:=0; v_before jsonb; v_seen_ids uuid[]:='{}'::uuid[];
 begin
   if (select auth.uid()) is null or not private.is_leogo_admin('approvals.manage') then
     raise exception 'Product approval permission required';
@@ -173,7 +173,7 @@ begin
   if v_product.product_approval_status not in ('pending','under_review','changes_requested') then
     raise exception 'Only products pending approval can be priced';
   end if;
-  if p_price is null or p_price < v_product.price_kes then
+  if p_price is null or p_price < v_product.price_kes or p_price<>round(p_price,2) then
     raise exception 'LEOGO product price must cover the Seller price';
   end if;
   if jsonb_typeof(coalesce(p_variants,'[]'::jsonb)) <> 'array' then raise exception 'Invalid variation price list'; end if;
@@ -183,7 +183,9 @@ begin
   for v_entry in select value from jsonb_array_elements(p_variants) loop
     v_id:=nullif(v_entry->>'variant_id','')::uuid;
     v_price:=nullif(v_entry->>'leogo_price_kes','')::numeric;
-    if v_id is null or v_price is null or v_seen>=v_expected then raise exception 'Invalid variant price'; end if;
+    if v_id is null or v_price is null or v_price<>round(v_price,2) or v_seen>=v_expected then raise exception 'Invalid variant price'; end if;
+    if v_id=any(v_seen_ids) then raise exception 'Each variation price must be supplied exactly once'; end if;
+    v_seen_ids:=array_append(v_seen_ids,v_id);
     update public.seller_product_variants
     set leogo_price_kes=v_price,updated_at=now()
     where id=v_id and product_id=p_product_id and price_kes<=v_price;
