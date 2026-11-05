@@ -223,6 +223,7 @@ begin
   from (
     select (to_jsonb(p) - 'leogo_price_kes' - 'price_kes' - ARRAY['product_review_notes','product_reviewed_by','product_reviewed_at','flash_sale_admin_notes','flash_sale_reviewed_by','flash_sale_reviewed_at']::text[])||jsonb_build_object(
       'price_kes',coalesce(p.leogo_price_kes,p.price_kes),
+      'flash_sale_price_kes',case when p.flash_sale_price_kes is null then null else least(p.price_kes,p.flash_sale_price_kes)+(coalesce(p.leogo_price_kes,p.price_kes)-p.price_kes) end,
       'seller_name',s.business_name,
       'category_code',c.code,
       'category_name',coalesce(nullif(p.custom_category_name,''),c.name),
@@ -320,7 +321,7 @@ CREATE OR REPLACE FUNCTION public.customer_marketplace_products()
 AS $function$
   select p.id,p.seller_id,s.business_name,p.product_name,coalesce(p.leogo_price_kes,p.price_kes),p.availability_status,p.quantity_available,
     p.measurement_unit,p.accepts_lipa_pole_pole,p.lipa_pole_pole_first_deposit_kes,p.lipa_pole_pole_max_days,
-    p.product_details,p.main_image_path,p.flash_sale_requested,p.flash_sale_price_kes,p.flash_sale_status
+    p.product_details,p.main_image_path,p.flash_sale_requested,case when p.flash_sale_price_kes is null then null else least(p.price_kes,p.flash_sale_price_kes)+(coalesce(p.leogo_price_kes,p.price_kes)-p.price_kes) end,p.flash_sale_status
   from public.seller_products p
   join public.seller_accounts s on s.user_id=p.seller_id
   join public.product_categories c on c.id=p.category_id
