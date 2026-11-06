@@ -4259,7 +4259,8 @@
             </div>
           </div>
           <div class="admin-product-facts">
-            <span><small>Price</small><strong>${formatMoney(product.price_kes)}</strong></span>
+            <span><small>Seller Price</small><strong>${formatMoney(product.price_kes)}</strong></span>
+            <span><small>LEOGO Price</small><strong>${formatMoney(product.leogo_price_kes ?? product.price_kes)}</strong></span>
             <span><small>Stock</small><strong>${Number(product.quantity_available || 0)} ${escapeHtml(product.measurement_unit || '')}</strong></span>
             <span><small>Updated</small><strong>${formatDate(product.updated_at, true)}</strong></span>
             <span><small>Seller status</small><strong>${escapeHtml(product.seller_status || '—')}</strong></span>
@@ -4267,6 +4268,7 @@
           <p class="admin-product-description">${escapeHtml(product.product_details || '')}</p>
           ${variantHtml}
           <div class="admin-catalogue-actions">
+            <button type="button" data-admin-view-product="${escapeHtml(product.id)}">View Product</button>
             <button type="button" data-seller-record="${escapeHtml(product.seller_id)}">View Seller</button>
             ${nextAction}
           </div>
@@ -4298,7 +4300,57 @@
       });
     }));
 
+    $$('[data-admin-view-product]', box).forEach((button) => button.addEventListener('click', () => {
+      const product = state.catalogueProducts.find(item => item.id === button.dataset.adminViewProduct);
+      if (product) openCatalogueProduct(product);
+    }));
     $$('[data-seller-record]', box).forEach((button) => button.addEventListener('click', () => openSellerRecord(button.dataset.sellerRecord)));
+  };
+
+  const openCatalogueProduct = (product) => {
+    document.getElementById('adminCatalogueProductModal')?.remove();
+    const sellerPrice = Number(product.price_kes || 0);
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    const modal = document.createElement('div');
+    modal.id = 'adminCatalogueProductModal';
+    modal.className = 'admin-catalogue-product-overlay';
+    modal.innerHTML = `<section class="admin-catalogue-product-dialog" role="dialog" aria-modal="true" aria-label="View product">
+      <header><div><small>PRODUCT DETAILS</small><h2>${escapeHtml(product.product_name)}</h2></div><button type="button" data-product-close aria-label="Close">✕</button></header>
+      <p>Seller: <strong>${escapeHtml(product.seller_name || 'Unknown Seller')}</strong> · ${escapeHtml(product.product_approval_status || '')}</p>
+      <form id="adminCataloguePriceForm">
+        <div class="admin-catalogue-price-row"><label>Seller selling price (KSh)<input type="number" value="${sellerPrice}" disabled></label>
+        <label>LEOGO customer selling price (KSh)<input name="leogo_price" type="number" min="${sellerPrice}" step="0.01" required value="${Number(product.leogo_price_kes ?? sellerPrice)}"></label></div>
+        ${variants.map(variant => `<div class="admin-catalogue-price-row"><label>${escapeHtml(variant.variant_name)} · seller price<input value="${Number(variant.price_kes || 0)}" disabled></label>
+        <label>LEOGO variant price (KSh)<input data-catalogue-variant="${escapeHtml(variant.id)}" data-seller-price="${Number(variant.price_kes || 0)}" type="number" min="${Number(variant.price_kes || 0)}" step="0.01" required value="${Number(variant.leogo_price_kes ?? variant.price_kes ?? 0)}"></label></div>`).join('')}
+        <p class="admin-catalogue-price-note">The customer sees the LEOGO price. The seller's base price remains unchanged; LEOGO markup and marketplace commission are accounted for separately.</p>
+        <p class="admin-catalogue-price-status" role="status"></p>
+        <div class="admin-catalogue-actions"><button type="submit">Save LEOGO Price</button><button type="button" data-product-seller>View Seller</button><button type="button" data-product-close>Close</button></div>
+      </form>
+    </section>`;
+    document.body.append(modal);
+    const close = () => modal.remove();
+    modal.querySelectorAll('[data-product-close]').forEach(button => button.addEventListener('click', close));
+    modal.querySelector('[data-product-seller]').addEventListener('click', () => {close();openSellerRecord(product.seller_id);});
+    modal.addEventListener('click', event => {if (event.target === modal) close();});
+    modal.querySelector('form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const button = form.querySelector('[type="submit"]');
+      const status = form.querySelector('[role="status"]');
+      const leogoPrice = Number(form.elements.leogo_price.value);
+      const prices = [...form.querySelectorAll('[data-catalogue-variant]')].map(input => ({variant_id:input.dataset.catalogueVariant,leogo_price_kes:Number(input.value),seller_price:Number(input.dataset.sellerPrice)}));
+      if (!Number.isFinite(leogoPrice) || leogoPrice < sellerPrice || Math.round(leogoPrice*100)!==leogoPrice*100 || prices.some(v => !Number.isFinite(v.leogo_price_kes) || v.leogo_price_kes<v.seller_price || Math.round(v.leogo_price_kes*100)!==v.leogo_price_kes*100)) {
+        status.textContent = 'Enter valid LEOGO prices at or above each seller price, with at most two decimal places.';
+        return;
+      }
+      await withButtonLock(button,'Saving…',async()=>{
+        const {error} = await db.rpc('admin_update_product_leogo_prices', {p_product_id:product.id,p_price:leogoPrice,p_variants:prices.map(({variant_id,leogo_price_kes})=>({variant_id,leogo_price_kes}))});
+        if(error){status.textContent=friendlyError(error);return;}
+        status.textContent='LEOGO prices saved. Refresh the customer catalogue to see the new prices.';
+        await Promise.all([loadCatalogue(),loadAuditLog()]);
+        globalStatus('LEOGO selling prices updated.');
+      });
+    });
   };
 
   const personalSaleMediaUrl = (path) => {
