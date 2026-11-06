@@ -4324,13 +4324,24 @@
         <label>LEOGO variant price (KSh)<input data-catalogue-variant="${escapeHtml(variant.id)}" data-seller-price="${Number(variant.price_kes || 0)}" type="number" min="${Number(variant.price_kes || 0)}" step="0.01" required value="${Number(variant.leogo_price_kes ?? variant.price_kes ?? 0)}"></label></div>`).join('')}
         <p class="admin-catalogue-price-note">The customer sees the LEOGO price. The seller's base price remains unchanged; LEOGO markup and marketplace commission are accounted for separately.</p>
         <p class="admin-catalogue-price-status" role="status"></p>
-        <div class="admin-catalogue-actions"><button type="submit">Save LEOGO Price</button><button type="button" data-product-seller>View Seller</button><button type="button" data-product-close>Close</button></div>
+        <div class="admin-catalogue-actions"><button type="submit">Save LEOGO Price</button><button type="button" data-product-seller>View Seller</button><button type="button" data-product-listing class="${product.listing_status === 'suspended' ? '' : 'danger'}">${product.listing_status === 'suspended' ? 'Reactivate Listing' : 'Suspend Listing'}</button><button type="button" data-product-close>Close</button></div>
       </form>
     </section>`;
     document.body.append(modal);
     const close = () => modal.remove();
     modal.querySelectorAll('[data-product-close]').forEach(button => button.addEventListener('click', close));
     modal.querySelector('[data-product-seller]').addEventListener('click', () => {close();openSellerRecord(product.seller_id);});
+    modal.querySelector('[data-product-listing]').addEventListener('click', async event => {
+      const status = product.listing_status === 'suspended' ? 'active' : 'suspended';
+      if (!window.confirm((status === 'suspended' ? 'Suspend' : 'Reactivate') + ' "' + product.product_name + '"?')) return;
+      await withButtonLock(event.currentTarget, 'Updating…', async () => {
+        const {error} = await db.rpc('admin_set_seller_product_listing_status',{p_product_id:product.id,p_status:status});
+        if (error) {modal.querySelector('[role="status"]').textContent=friendlyError(error);return;}
+        close();
+        await Promise.all([loadCatalogue(),loadSellers(),loadAuditLog()]);
+        globalStatus(status === 'suspended' ? 'Product suspended.' : 'Product reactivated.');
+      });
+    });
     modal.addEventListener('click', event => {if (event.target === modal) close();});
     modal.querySelector('form').addEventListener('submit', async event => {
       event.preventDefault();
