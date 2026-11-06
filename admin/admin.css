@@ -254,6 +254,17 @@
 .admin-catalogue-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .admin-catalogue-actions button{border:1px solid #cbd5e1;border-radius:9px;background:#eef3f9;color:#07152f;padding:9px 11px;font-weight:800;cursor:pointer}
 .admin-catalogue-actions button.danger{background:#fff0f0;color:#a02222;border-color:#f0c6c6}
+.admin-catalogue-product-overlay{position:fixed;inset:0;z-index:10020;background:rgba(5,19,45,.68);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.admin-catalogue-product-dialog{width:min(680px,100%);max-height:90vh;overflow:auto;background:white;border-radius:18px;padding:22px;box-shadow:0 20px 80px #07152f55;color:#07152f}
+.admin-catalogue-product-dialog>header{display:flex;align-items:start;justify-content:space-between;gap:12px}
+.admin-catalogue-product-dialog h2{margin:3px 0 8px}.admin-catalogue-product-dialog>header small{color:#e46a0a;font-weight:800}
+.admin-catalogue-product-dialog>header button{background:#edf2f7;border:1px solid #cbd5e1;border-radius:9px;padding:8px 12px;cursor:pointer}
+.admin-catalogue-price-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+.admin-catalogue-price-row label{display:grid;gap:6px;font-size:12px;font-weight:700}
+.admin-catalogue-price-row input{width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:10px;font:inherit;box-sizing:border-box}
+.admin-catalogue-price-row input:disabled{background:#f1f5f9;color:#536276}
+.admin-catalogue-price-note{font-size:12px;color:#526179}.admin-catalogue-price-status{font-size:12px;color:#9a3412}
+@media(max-width:650px){.admin-catalogue-price-row{grid-template-columns:1fr}}
 .admin-catalogue-category-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
 .admin-category-card{border:1px solid var(--line);border-radius:14px;background:#fff;padding:13px}
 .admin-category-card header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.admin-category-card header strong{display:block}.admin-category-card header small{display:block;color:var(--muted);font-size:9px;margin-top:3px}
