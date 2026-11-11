@@ -1,32 +1,35 @@
-# LEOGO Weekend Shopping — staging design and verification
+# LEOGO Weekend Shopping — staging implementation and financial safeguards
 
-## Scope
-This feature is independent of Group/Global Orders, Market Day, Flash Sale, Lipa Pole Pole and the normal Savings Wallet. Its `weekend_shopping_*` records do **not** use or update wallet balances, marketplace orders, seller settlements, or real payment accounts.
+## Current scope
+Weekend Shopping has a distinct per-cycle funding ledger, separate from the normal LEOGO Savings Wallet and Group/Global Orders. All features are **staging only** (Supabase project `uxikemfrzqatsbqutida`, draft PR #345). Production remains unchanged.
 
-## Customer journey
-1. From the customer cart, choose **Add to Weekend Shopping**.
-2. Select a preferred delivery date and either **One-time** or **Weekly recurring**.
-3. The server takes immutable item name, seller price, LEOGO customer price, quantity and variation snapshots from approved live catalogue records. Customer-submitted prices are ignored.
-4. The customer can submit multiple partial-payment *references*. Each starts as `pending`; no balance is credited merely because the customer submits a claim.
-5. An authorized LEOGO Admin verifies a reference. The cycle's dedicated verified amount increases in a locked database transaction. A fully funded cycle becomes `funded`.
-6. Admin may mark a fully funded cycle `release_ready` only on/after its scheduled date. **No production fulfilment, payment transfer or marketplace order creation is yet connected.**
-7. Weekly plans can generate their next weekly cycle explicitly, only when the previous cycle is funded, and never auto-charge the customer. Each cycle has separate funding and payment records.
+## Connected staging journey
+1. From the customer cart, choose **Add cart to Weekend Shopping**. The staged customer panel uses its own staging login and never uses production authentication for this feature.
+2. Select a delivery date, once or weekly, receiver name, contact, and delivery zone. Only CBD, estate and outside-town options are currently offered; pickup station selection is not yet built.
+3. The server validates seller approval, product and variation availability, and computes customer item prices, marketplace service fee, and delivery fee from `customer_market_day_checkout_quote`. It takes product prices from the server, not browser fields. It rejects currently active promotions or free-delivery subsidies whose future benefit cannot be reliably guaranteed.
+4. A **quoted** cycle has its own target. Customer partial-payment references remain pending until explicitly reviewed by an authorized staging Admin. Pending claims count against the amount that can be newly claimed, but never increase verified funds.
+5. After a fully verified cycle reaches its selected delivery date, Admin can mark it `release_ready`. Pending claims must be resolved and no partial funding can release.
+6. The signed-in customer can trigger `customer_release_weekend_order`. The server requires Admin authorization, verifies account ownership, pricing, quantity, fee totals, seller price snapshots, and stock; calls existing `customer_create_marketplace_order` to reserve stock and create seller sub-orders; marks the resulting payment method `weekend_savings` and status `verified_paid`. All steps occur in one transaction. A repeated request returns the same order without reserving stock again.
+7. The existing marketplace seller/order functions continue from the created order. **Seller transfer remains manual and verified by LEOGO.**
+8. Weekly plans require the prior cycle to be fully funded; the next is generated explicitly and is requoted against current pricing and fees. Any mismatch blocks the next cycle and requires a new quoted plan.
 
-## Financial safeguards and implementation still required
-- Staging ledger is *an internal verification record*, **not a regulated money-custody account**. No real money must be collected or represented as received by this feature until payment account instructions, reconciliation, refunds, and compliance review are integrated.
-- The initial version snapshots the approved catalogue's regular prices; seller Flash Sale, Market Day, delivery-zone fees, service fees and changes to seller stock/price need a complete server-side quotation and fulfilment check before launch.
-- Seller payout stays manual and must run only through verified existing seller-settlement rules after order completion.
-- In production, the current `release_ready` action alone does not create a marketplace order, lock inventory, or dispatch a rider. Implement an audited, idempotent transition with order snapshot and delivery pipeline.
-- Admin review/listing UI, customer cart shortcut, dedicated Weekend Shopping dashboard, schedule change/cancellation policy, notifications, audit entries, and refunds are not yet integrated.
-- A weekly cycle is not an obligation to pay automatically; the plan can be paused/cancelled as a separate future workflow. Before production, re-quote each new cycle and obtain customer consent to changed prices.
-- Do not merge this PR or migrate production until an authenticated customer and Admin can complete end-to-end staging tests.
+## Essential safety limitations before production
+- Staging has **no bank/Paybill/Till or SACCO transaction lookup connected** to payment verification. Admin manually approving a customer reference is not independent proof of funds. **Do not use this for real money.**
+- Do not call or expose weekend order release as a real production payment until independent financial reconciliation and approved payment-account mapping exist.
+- Future-date stock and price are not reserved at the time a plan is funded. If stock, seller price, LEOGO price, delivery fee or promotions change, release fails atomically and LEOGO must arrange a repricing/credit/refund path.
+- Payment reversals, cancellations, schedule changes, customer reminders, refund authorizations, payment dispute tracking, and robust launch accounting reports are **not implemented**.
+- Deliveries are not scheduled automatically with riders or sorting centers; release creates a normal order only on/after the chosen date, and normal delivery preparation begins then. To guarantee delivery on a chosen date, integrate advance preparation and scheduled rider dispatch safely.
+- Staging UI code sits in a draft GitHub branch; no dedicated hosted preview is yet published. Customer and Admin JS parse successfully, but **browser-based authenticated UI tests are outstanding**.
+- Current staging payment review permits Admin approval of manually entered references. Require evidence-backed reconciliation before enabling production.
 
-## Checks executed 11 Nov 2026
-- Four new tables have RLS enabled with ownership-scoped authenticated read policies.
-- Anonymous access to financial RPCs is revoked; authenticated non-admin cannot approve or release payments.
-- Staging transaction test created a weekly plan worth KSh 200, submitted KSh 80 pending, verified that balance remained KSh 0 and blocked early release/another cycle.
-- Follow-up transaction test rejected a second pending KSh 150 reference against KSh 120 remaining, accepted an exact KSh 120 payment claim, left the balance unverified, and rolled back all fixtures.
-- Corrected the uninitialized variation-record defect found in the first test.
+## Verified tests
+- Owner-scoped RLS enabled on all four Weekend Shopping tables; anonymous RPC execution revoked.
+- Unauthenticated plan and payment actions rejected; non-admin release authorization rejected.
+- Transactionally tested a KSh 200 weekly plan and claims of KSh 80 plus KSh 120. Neither pending claim credited funds; over-claim was rejected.
+- Staged quoted shopping calculated service and local delivery fees from existing marketplace settings.
+- A funded cycle with Admin release authorization created a standard marketplace order using the accepted seller price and delivery charges.
+- Retrying release returned the original order; stock was reduced **exactly once** and seller subtotal remained correct.
+- Tests used SQL transactions that were rolled back, leaving no synthetic payment or order records.
 
-## Deployment state
-Database foundation applied **only** to LEOGO Phase 1 Staging (`uxikemfrzqatsbqutida`); no production migration.
+## Deployment rule
+Keep [Draft PR #345](https://github.com/LEOGO-arch/LEOGO-DIGITAL-MARKET-V2/pull/345) unmerged until the remaining payment evidence, refunds, scheduled dispatch, financial reporting and full browser-authenticated acceptance tests succeed.
