@@ -17,7 +17,7 @@
  <button type="button" id="weekendAdminSignOut">Sign out</button></div>
  <p id="weekendAdminNotice" role="status" aria-live="polite"></p>
  <button type="button" id="weekendAdminRefresh">Refresh pending payments</button>
- <div id="weekendAdminRows"></div><h3>Funded Weekend Shopping cycles</h3><button type="button" id="weekendAdminReadyRefresh">Refresh funded cycles</button><div id="weekendAdminReadyRows"></div>`;
+ <div id="weekendAdminRows"></div><h3>Weekend Shopping financial reconciliation</h3><p id="weekendAdminSummary">Sign in to see reconciliation totals.</p><h3>Funded Weekend Shopping cycles</h3><button type="button" id="weekendAdminReadyRefresh">Refresh funded cycles</button><div id="weekendAdminReadyRows"></div>`;
  document.querySelector('main')?.append(section);
  const $=id=>document.getElementById(id),say=t=>{$('weekendAdminNotice').textContent=t;};
  const load=async()=>{
@@ -34,6 +34,12 @@
    </article>`).join('');
  };
 
+ const loadSummary=async()=>{
+   const {data,error}=await db.rpc('admin_weekend_shopping_reconciliation');
+   if(error){say(error.message);return;}
+   if(!data){$('weekendAdminSummary').textContent='An authorized LEOGO staging Admin login is required.';return;}
+   $('weekendAdminSummary').textContent='Cycles: '+data.total_cycles+' · Verified savings: KSh '+data.verified_funding_kes+' · Pending claims: KSh '+data.pending_payment_claims_kes+' · Release-ready: '+data.release_ready_cycles+' · Released marketplace orders: '+data.released_cycles+' · Seller subtotals: KSh '+data.released_seller_subtotals_kes;
+ };
  const loadReady=async()=>{
    const {data,error}=await db.rpc('admin_list_weekend_ready');
    if(error){say(error.message);return;}
@@ -47,22 +53,22 @@
   btn.disabled=true;
   const {error}=await db.rpc('admin_mark_weekend_release_ready',{p_cycle_id:btn.dataset.weekendReady});
   say(error?error.message:'Released for customer checkout into existing Marketplace order processing.');
-  await loadReady();
+  await loadReady();await loadSummary();
   btn.disabled=false;
  });
  $('weekendAdminSignIn').addEventListener('click',async()=>{
    const {error}=await db.auth.signInWithPassword({email:$('weekendAdminEmail').value.trim(),password:$('weekendAdminPassword').value});
-   $('weekendAdminPassword').value='';say(error?error.message:'Staging sign-in succeeded.');if(!error){await load();await loadReady();}
+   $('weekendAdminPassword').value='';say(error?error.message:'Staging sign-in succeeded.');if(!error){await load();await loadReady();await loadSummary();}
  });
  $('weekendAdminSignOut').addEventListener('click',async()=>{await db.auth.signOut();$('weekendAdminRows').replaceChildren();say('Signed out of staging.');});
- $('weekendAdminRefresh').addEventListener('click',()=>{void load();void loadReady();});
+ $('weekendAdminRefresh').addEventListener('click',()=>{void load();void loadReady();void loadSummary();});
  $('weekendAdminRows').addEventListener('click',async(e)=>{
    const button=e.target.closest('[data-weekend-verify]');if(!button)return;
    const approved=button.dataset.approved==='true';
    if(approved&&!confirm('Have you independently verified this transaction with the staging payment records? Do not approve from a customer-provided reference alone.'))return;
    button.disabled=true;
    const {error}=await db.rpc('admin_review_weekend_payment',{p_payment_id:button.dataset.weekendVerify,p_approve:approved});
-   say(error?error.message:(approved?'Staging reference verified.':'Reference rejected.'));await load();button.disabled=false;
+   say(error?error.message:(approved?'Staging reference verified.':'Reference rejected.'));await load();await loadSummary();await loadReady();button.disabled=false;
  });
- db.auth.getSession().then(({data})=>{if(data?.session){void load();void loadReady();}});
+ db.auth.getSession().then(({data})=>{if(data?.session){void load();void loadReady();void loadSummary();}});
 })();
