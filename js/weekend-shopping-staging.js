@@ -48,7 +48,7 @@
   `;
   document.head.append(styles);
   shell.insertAdjacentElement('afterend',box);
-  const $(id)=>document.getElementById(id);
+  const $=(id)=>document.getElementById(id);
   const note=(s)=>{$('weekendStageNotice').textContent=s;};
   const open=()=>{$('weekendStageForm').hidden=false;$('weekendStageLogin').hidden=false;};
   $('weekendStageToggle').addEventListener('click',()=>{open();void load();});
