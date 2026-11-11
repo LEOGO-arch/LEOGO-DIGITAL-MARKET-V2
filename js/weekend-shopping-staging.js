@@ -78,6 +78,8 @@
       ${(p.weekend_shopping_cycles||[]).map(c=>`
         <div>Cycle ${esc(c.cycle_no)} · ${esc(c.delivery_date)} · ${esc(c.status)}<br>
         Items: ${money(c.items_total_kes)} · Service: ${money(c.service_fee_kes)} · Delivery: ${money(c.delivery_fee_kes)}<br>Saved: ${money(c.verified_paid_kes)} / ${money(c.amount_due_kes)}
+        ${c.status==='release_ready'?'<button type="button" data-weekend-release="'+esc(c.id)+'">Create verified marketplace order</button>':''}
+        ${c.released_order_id?'<small>Order: '+esc(c.released_order_id)+'</small>':''}
         <div><input aria-label="Partial amount" data-amount="${esc(c.id)}" type="number" min="1" step="0.01" placeholder="Amount KSh">
         <input aria-label="Payment reference" data-reference="${esc(c.id)}" placeholder="Payment reference (test only)">
         <button type="button" data-weekend-payment="${esc(c.id)}">Submit reference</button></div>
@@ -108,7 +110,8 @@
   $('weekendStagePlans').addEventListener('click',async(e)=>{
     const pay=e.target.closest('[data-weekend-payment]');
     const next=e.target.closest('[data-weekend-next]');
-    if(!pay&&!next)return;
+    const release=e.target.closest('[data-weekend-release]');
+    if(!pay&&!next&&!release)return;
     e.target.disabled=true;
     try{
       let error;
@@ -118,11 +121,13 @@
         const reference=box.querySelector('[data-reference="'+id+'"]')?.value.trim();
         if(!Number.isFinite(amount)||amount<=0||!reference)throw Error('Enter a positive amount and payment reference.');
         ({error}=await client.rpc('customer_submit_weekend_payment',{p_cycle_id:id,p_amount:amount,p_reference:reference}));
+      }else if(release){
+        ({error}=await client.rpc('customer_release_weekend_order',{p_cycle_id:release.dataset.weekendRelease}));
       }else{
         ({error}=await client.rpc('customer_generate_next_weekend_cycle',{p_plan_id:next.dataset.weekendNext}));
       }
       if(error)throw error;
-      note(pay?'Reference sent for Admin verification. No funds credited yet.':'Next weekly cycle created.');
+      note(pay?'Reference sent for Admin verification. No funds credited yet.':release?'Verified marketplace order created.':'Next weekly cycle created.');
       await load();
     }catch(err){note(err.message);}finally{e.target.disabled=false;}
   });
