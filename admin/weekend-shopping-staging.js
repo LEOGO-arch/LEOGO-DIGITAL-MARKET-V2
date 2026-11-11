@@ -17,7 +17,7 @@
  <button type="button" id="weekendAdminSignOut">Sign out</button></div>
  <p id="weekendAdminNotice" role="status" aria-live="polite"></p>
  <button type="button" id="weekendAdminRefresh">Refresh pending payments</button>
- <div id="weekendAdminRows"></div>`;
+ <div id="weekendAdminRows"></div><h3>Funded Weekend Shopping cycles</h3><button type="button" id="weekendAdminReadyRefresh">Refresh funded cycles</button><div id="weekendAdminReadyRows"></div>`;
  document.querySelector('main')?.append(section);
  const $=id=>document.getElementById(id),say=t=>{$('weekendAdminNotice').textContent=t;};
  const load=async()=>{
@@ -33,12 +33,29 @@
    <button type="button" data-weekend-verify="${html(p.payment_id)}" data-approved="false">Reject reference</button>
    </article>`).join('');
  };
+
+ const loadReady=async()=>{
+   const {data,error}=await db.rpc('admin_list_weekend_ready');
+   if(error){say(error.message);return;}
+   if(!Array.isArray(data)||!data.length){$('weekendAdminReadyRows').innerHTML='<p>No funded Weekend Shopping cycles requiring release.</p>';return;}
+   $('weekendAdminReadyRows').innerHTML=data.map(c=>'<article style="padding:14px;border:1px solid #d5dfed;margin:10px 0;border-radius:12px"><strong>'+html(c.customer)+'</strong><p>Delivery: '+html(c.delivery_date)+' · '+html(c.county)+' / '+html(c.delivery_zone)+'</p><p>Verified savings: KSh '+html(c.verified_paid_kes)+' / '+html(c.amount_due_kes)+'</p><p>Status: '+html(c.status)+'</p>'+(c.status==='funded'?'<button type="button" data-weekend-ready="'+html(c.cycle_id)+'">Authorize customer order release</button>':'Awaiting customer order creation')+'</article>').join('');
+ };
+ $('weekendAdminReadyRefresh').addEventListener('click',()=>void loadReady());
+ $('weekendAdminReadyRows').addEventListener('click',async(e)=>{
+  const btn=e.target.closest('[data-weekend-ready]');if(!btn)return;
+  if(!confirm('Authorize release only after independently reconciling every installment and confirming the delivery date has arrived. Continue?'))return;
+  btn.disabled=true;
+  const {error}=await db.rpc('admin_mark_weekend_release_ready',{p_cycle_id:btn.dataset.weekendReady});
+  say(error?error.message:'Released for customer checkout into existing Marketplace order processing.');
+  await loadReady();
+  btn.disabled=false;
+ });
  $('weekendAdminSignIn').addEventListener('click',async()=>{
    const {error}=await db.auth.signInWithPassword({email:$('weekendAdminEmail').value.trim(),password:$('weekendAdminPassword').value});
-   $('weekendAdminPassword').value='';say(error?error.message:'Staging sign-in succeeded.');if(!error)await load();
+   $('weekendAdminPassword').value='';say(error?error.message:'Staging sign-in succeeded.');if(!error){await load();await loadReady();}
  });
  $('weekendAdminSignOut').addEventListener('click',async()=>{await db.auth.signOut();$('weekendAdminRows').replaceChildren();say('Signed out of staging.');});
- $('weekendAdminRefresh').addEventListener('click',()=>void load());
+ $('weekendAdminRefresh').addEventListener('click',()=>{void load();void loadReady();});
  $('weekendAdminRows').addEventListener('click',async(e)=>{
    const button=e.target.closest('[data-weekend-verify]');if(!button)return;
    const approved=button.dataset.approved==='true';
@@ -47,5 +64,5 @@
    const {error}=await db.rpc('admin_review_weekend_payment',{p_payment_id:button.dataset.weekendVerify,p_approve:approved});
    say(error?error.message:(approved?'Staging reference verified.':'Reference rejected.'));await load();button.disabled=false;
  });
- db.auth.getSession().then(({data})=>{if(data?.session)void load();});
+ db.auth.getSession().then(({data})=>{if(data?.session){void load();void loadReady();}});
 })();
