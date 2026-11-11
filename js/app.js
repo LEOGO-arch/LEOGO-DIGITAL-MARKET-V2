@@ -5487,7 +5487,7 @@
         publicServiceProviderList.insertAdjacentHTML('beforeend','<div class="partner-share-filter-banner"><div><strong>'+receiptEscape(selectedPublicServiceProviderName)+'</strong><small>Shared LEOGO Service Provider · approved services</small></div><button type="button" data-clear-service-provider-share>View all providers</button></div>');
       }
       if(!visibleServices.length){
-        publicServiceProviderList.insertAdjacentHTML('beforeend','<div class="service-provider-public-empty">Approved services will appear here after provider listings are approved.</div>');
+        publicServiceProviderList.insertAdjacentHTML('beforeend','<div class="service-provider-public-empty">No services are currently available. Please check back soon.</div>');
       }else{
         visibleServices.forEach((item)=>publicServiceProviderList.appendChild(createPublicServiceCard(item)));
       }
