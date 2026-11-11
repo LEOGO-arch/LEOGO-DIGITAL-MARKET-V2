@@ -22,7 +22,7 @@
     <div id="weekendStageForm" hidden>
       <label>Delivery date <input id="weekendStageDate" type="date" required></label>
       <label>Schedule <select id="weekendStageCadence"><option value="once">One-time order</option><option value="weekly">Repeat every week</option></select></label>
-      <p class="weekend-hint">Each weekly delivery has a separate target. No automatic charges or deliveries.</p>
+      <label>Receiver name <input id="weekendStageReceiver" required></label><label>Contact phone <input id="weekendStagePhone" type="tel" required></label><label>Delivery zone <select id="weekendStageZone"><option value="cbd">CBD</option><option value="estate">Estate</option><option value="outside">Outside town</option></select></label><label>County <input id="weekendStageCounty" required></label><label>Sub-county <input id="weekendStageSubCounty"></label><label>Estate <input id="weekendStageEstate"></label><label>Landmark <input id="weekendStageLandmark"></label><p class="weekend-hint">Server-calculated delivery and service fees. No automatic payment.</p>
       <button type="button" id="weekendStageCreate" class="weekend-action">Save Weekend Shopping plan</button>
     </div>
     <div id="weekendStageLogin" hidden>
@@ -68,7 +68,7 @@
     const auth=await session();
     if(!auth){note('Sign in with a LEOGO STAGING account to view your Weekend Shopping plans.');$('weekendStagePlans').replaceChildren();return;}
     const {data:plans,error}=await client.from('weekend_shopping_plans')
-      .select('id,cadence,delivery_date,status,weekend_shopping_cycles(id,cycle_no,delivery_date,amount_due_kes,verified_paid_kes,status)')
+      .select('id,cadence,delivery_date,status,weekend_shopping_cycles(id,cycle_no,delivery_date,items_total_kes,service_fee_kes,delivery_fee_kes,amount_due_kes,verified_paid_kes,status,released_order_id)')
       .order('created_at',{ascending:false}).limit(20);
     if(error){note(error.message);return;}
     const target=$('weekendStagePlans');
@@ -77,7 +77,7 @@
       <div>Preferred delivery: ${esc(p.delivery_date)}</div>
       ${(p.weekend_shopping_cycles||[]).map(c=>`
         <div>Cycle ${esc(c.cycle_no)} · ${esc(c.delivery_date)} · ${esc(c.status)}<br>
-        Saved: ${money(c.verified_paid_kes)} / ${money(c.amount_due_kes)}
+        Items: ${money(c.items_total_kes)} · Service: ${money(c.service_fee_kes)} · Delivery: ${money(c.delivery_fee_kes)}<br>Saved: ${money(c.verified_paid_kes)} / ${money(c.amount_due_kes)}
         <div><input aria-label="Partial amount" data-amount="${esc(c.id)}" type="number" min="1" step="0.01" placeholder="Amount KSh">
         <input aria-label="Payment reference" data-reference="${esc(c.id)}" placeholder="Payment reference (test only)">
         <button type="button" data-weekend-payment="${esc(c.id)}">Submit reference</button></div>
@@ -99,7 +99,7 @@
       if(!await session())throw Error('Sign in to staging first.');
       const items=cartItems(),date=$('weekendStageDate').value,cadence=$('weekendStageCadence').value;
       if(!date)throw Error('Select a preferred delivery date.');
-      const {error}=await client.rpc('customer_create_weekend_shopping',{p_items:items,p_date:date,p_cadence:cadence});
+      const {error}=await client.rpc('customer_create_weekend_shopping_quoted',{p_items:items,p_date:date,p_cadence:cadence,p_receiver_name:$('weekendStageReceiver').value.trim(),p_contact_number:$('weekendStagePhone').value.trim(),p_delivery_zone:$('weekendStageZone').value,p_county:$('weekendStageCounty').value.trim(),p_sub_county:$('weekendStageSubCounty').value.trim(),p_estate:$('weekendStageEstate').value.trim(),p_landmark:$('weekendStageLandmark').value.trim()});
       if(error)throw error;
       note('Weekend Shopping plan saved in staging. This is not a paid order.');
       await load();
