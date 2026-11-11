@@ -9,7 +9,11 @@
   container.id = 'lipa-rent-pole-pole';
   container.className = 'section rent-pole-pole';
   container.innerHTML = `<div class="rent-intro"><div><small>LEOGO WALLET • PROPERTY</small><h2>🏡 Lipa Rent Pole Pole</h2><p>Apply to pay your rent in instalments through LEOGO. Applications, landlord accounts and terms must be verified before any rent collection or settlement.</p></div><button type="button" id="rentOpenWallet">My Rent Applications</button></div>
-    <form id="rentApplicationForm" class="rent-form" data-requires-auth>
+    <article class="rent-apply-shortcut">
+      <div><span aria-hidden="true">🏡</span><div><h3>Apply for Rent Instalments</h3><p>Open the application when you are ready. The form stays hidden until you select it.</p></div></div>
+      <button type="button" id="rentToggleApplication" aria-controls="rentApplicationForm" aria-expanded="false">Open Application Form</button>
+    </article>
+    <form id="rentApplicationForm" class="rent-form" data-requires-auth hidden>
       <h3>Apply for Rent Instalments</h3>
       <div class="rent-fields">
         <label>Full legal name<input name="full_name" maxlength="150" required autocomplete="name"></label>
@@ -54,6 +58,18 @@
   });
   document.querySelectorAll('[data-wallet-tab]:not([data-wallet-tab="rent"])').forEach(b => b.addEventListener('click',() => { walletPanel.hidden=true; walletPanel.classList.remove('active'); rentTab?.classList.remove('active'); rentTab?.setAttribute('aria-selected','false'); }));
   const form = document.getElementById('rentApplicationForm');
+  const toggleApplication = document.getElementById('rentToggleApplication');
+  const setApplicationOpen = (open, scroll = false) => {
+    form.hidden = !open;
+    toggleApplication.setAttribute('aria-expanded', String(open));
+    toggleApplication.textContent = open ? 'Hide Application Form' : 'Open Application Form';
+    if (scroll) (open ? form : toggleApplication).scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  toggleApplication.addEventListener('click', () => setApplicationOpen(form.hidden, true));
+  // The wallet's explicit Apply link should open the form, unlike the general
+  // category shortcut which simply scrolls visitors to the compact card.
+  document.getElementById('rentApplyAgain')?.addEventListener('click', () => setApplicationOpen(true));
+  propertyButton.addEventListener('click', () => setApplicationOpen(true));
   const status = document.getElementById('rentApplicationStatus');
   const county = document.getElementById('rentCounty');
   const sub = document.getElementById('rentSubCounty');

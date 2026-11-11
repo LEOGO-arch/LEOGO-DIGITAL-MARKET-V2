@@ -3,6 +3,13 @@
 .rent-intro h2{font-size:clamp(1.6rem,4vw,2.6rem);margin:8px 0}.rent-intro p{max-width:640px;line-height:1.5}
 .rent-intro button,.rent-form button[type=submit]{border:0;border-radius:12px;padding:13px 20px;background:#ffce37;color:#182344;font-weight:800;cursor:pointer}
 .rent-form{margin:20px 0;padding:25px;border:1px solid #dedff0;border-radius:18px;background:#fff;box-shadow:0 10px 30px #18234b12}
+.rent-form[hidden]{display:none!important}
+.rent-apply-shortcut{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:18px 0;padding:20px 24px;border:1px solid #dfe2f1;border-radius:18px;background:#fff;box-shadow:0 10px 30px #18234b12}
+.rent-apply-shortcut>div{display:flex;align-items:center;gap:14px;flex:1 1 260px}
+.rent-apply-shortcut>div>span{font-size:2rem;background:#fff4cd;border-radius:14px;padding:12px}
+.rent-apply-shortcut h3{margin:0 0 5px;color:#182344}.rent-apply-shortcut p{margin:0;color:#5c6680;font-size:.9rem;line-height:1.4}
+.rent-apply-shortcut button{border:0;border-radius:12px;padding:13px 19px;background:#172d69;color:white;font-weight:800;cursor:pointer}
+.rent-apply-shortcut button:focus-visible{outline:3px solid #ffce37;outline-offset:3px}
 .rent-form h3{margin:0 0 18px}.rent-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px}
 .rent-form label{display:flex;flex-direction:column;gap:6px;font-size:.92rem;font-weight:650;margin-bottom:14px}
 .rent-form input:not([type=checkbox]),.rent-form select,.rent-form textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #c5c8df;border-radius:9px;padding:11px;background:#fff;color:#172342;font:inherit}
