@@ -17,7 +17,7 @@
  <button type="button" id="weekendAdminSignOut">Sign out</button></div>
  <p id="weekendAdminNotice" role="status" aria-live="polite"></p>
  <button type="button" id="weekendAdminRefresh">Refresh pending payments</button>
- <div id="weekendAdminRows"></div><h3>Weekend Shopping financial reconciliation</h3><p id="weekendAdminSummary">Sign in to see reconciliation totals.</p><h3>Funded Weekend Shopping cycles</h3><button type="button" id="weekendAdminReadyRefresh">Refresh funded cycles</button><div id="weekendAdminReadyRows"></div><h3>Cancellation refunds</h3><button type="button" id="weekendRefundRefresh">Refresh refunds</button><div id="weekendRefundRows"></div>`;
+ <h3>Weekend Shopping receiving account</h3><select id="weekendAccountSelect"></select><button type="button" id="weekendAccountAssign">Assign selected account</button><div id="weekendAdminRows"></div><h3>Weekend Shopping financial reconciliation</h3><p id="weekendAdminSummary">Sign in to see reconciliation totals.</p><h3>Funded Weekend Shopping cycles</h3><button type="button" id="weekendAdminReadyRefresh">Refresh funded cycles</button><div id="weekendAdminReadyRows"></div><h3>Released order — rider assignment</h3><p>Use the released Weekend Shopping cycle ID and an active LEOGO rider user ID. Assignment is blocked before the delivery date.</p><input id="weekendRiderCycle" placeholder="Released cycle ID"><input id="weekendRiderUser" placeholder="Rider user ID"><button type="button" id="weekendRiderAssign">Assign rider through marketplace</button><h3>Cancellation refunds</h3><button type="button" id="weekendRefundRefresh">Refresh refunds</button><div id="weekendRefundRows"></div>`;
  document.querySelector('main')?.append(section);
  const $=id=>document.getElementById(id),say=t=>{$('weekendAdminNotice').textContent=t;};
  const load=async()=>{
@@ -40,11 +40,27 @@
    if(!data){$('weekendAdminSummary').textContent='An authorized LEOGO staging Admin login is required.';return;}
    $('weekendAdminSummary').textContent='Cycles: '+data.total_cycles+' · Verified savings: KSh '+data.verified_funding_kes+' · Pending claims: KSh '+data.pending_payment_claims_kes+' · Release-ready: '+data.release_ready_cycles+' · Released marketplace orders: '+data.released_cycles+' · Seller subtotals: KSh '+data.released_seller_subtotals_kes;
  };
+ const loadAccounts=async()=>{
+   const {data,error}=await db.rpc('admin_weekend_receiving_accounts');
+   if(error){say(error.message);return;}
+   $('weekendAccountSelect').innerHTML='<option value="">Choose an active staging account</option>'+(data||[]).map(a=>'<option value="'+html(a.id)+'" '+(a.assigned?'selected':'')+'>'+html(a.name)+' · '+html(a.type)+'</option>').join('');
+ };
+ $('weekendAccountAssign').addEventListener('click',async()=>{
+   const id=$('weekendAccountSelect').value;if(!id)return;
+   if(!confirm('Assign this receiving account to Weekend Shopping in staging only?'))return;
+   const {error}=await db.rpc('admin_assign_weekend_receiving_account',{p_account_id:id});
+   say(error?error.message:'Weekend Shopping receiving account assigned.');await loadAccounts();
+ });
  const loadRefunds=async()=>{
    const {data,error}=await db.rpc('admin_list_weekend_refunds');
    if(error){say(error.message);return;}
    $('weekendRefundRows').innerHTML=(data||[]).map(r=>'<article><p>KSh '+html(r.amount_kes)+' · '+html(r.status)+' · '+html(r.reason)+'</p>'+(r.status==='requested'?'<button data-refund="'+html(r.id)+'" data-action="approve">Approve refund</button>':r.status==='approved'?'<button data-refund="'+html(r.id)+'" data-action="complete">Record completed refund</button>':'')+'</article>').join('')||'<p>No refund requests.</p>';
  };
+ $('weekendRiderAssign').addEventListener('click',async()=>{
+   const cycle=$('weekendRiderCycle').value.trim(),rider=$('weekendRiderUser').value.trim();if(!cycle||!rider)return;
+   const {error}=await db.rpc('admin_assign_weekend_rider',{p_cycle_id:cycle,p_rider_id:rider});
+   say(error?error.message:'Existing marketplace rider assignment created.');
+ });
  $('weekendRefundRefresh').addEventListener('click',()=>void loadRefunds());
  $('weekendRefundRows').addEventListener('click',async e=>{
    const b=e.target.closest('[data-refund]');if(!b)return;
@@ -82,14 +98,14 @@
  });
  $('weekendAdminSignIn').addEventListener('click',async()=>{
    const {error}=await db.auth.signInWithPassword({email:$('weekendAdminEmail').value.trim(),password:$('weekendAdminPassword').value});
-   $('weekendAdminPassword').value='';say(error?error.message:'Staging sign-in succeeded.');if(!error){await load();await loadReady();await loadSummary();await loadRefunds();}
+   $('weekendAdminPassword').value='';say(error?error.message:'Staging sign-in succeeded.');if(!error){await load();await loadReady();await loadSummary();await loadRefunds();await loadAccounts();}
  });
  $('weekendAdminSignOut').addEventListener('click',async()=>{await db.auth.signOut();$('weekendAdminRows').replaceChildren();$('weekendAdminReadyRows').replaceChildren();$('weekendRefundRows').replaceChildren();$('weekendAdminSummary').textContent='Sign in to see reconciliation totals.';say('Signed out of staging.');});
- $('weekendAdminRefresh').addEventListener('click',()=>{void load();void loadReady();void loadSummary();});
+ $('weekendAdminRefresh').addEventListener('click',()=>{void load();void loadReady();void loadSummary();void loadAccounts();void loadRefunds();});
  $('weekendAdminRows').addEventListener('click',async(e)=>{
    const evidenceButton=e.target.closest('[data-weekend-evidence]');
    if(evidenceButton){
-     const account=prompt('Assigned Weekend Shopping receiving account UUID');if(!account)return;
+     const account=$('weekendAccountSelect').value;if(!account){say('Assign or select the authorized receiving account first.');return;}
      const reference=prompt('Matched provider transaction reference');if(!reference)return;
      const amount=prompt('Amount independently received in KSh');if(!amount)return;
      const received=prompt('Receipt timestamp ISO format, e.g. 2026-11-12T08:00:00+03:00');if(!received)return;
