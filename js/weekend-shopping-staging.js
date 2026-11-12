@@ -2,6 +2,7 @@
 // This module uses a separate staging Supabase session and cannot submit a live payment.
 (() => {
   'use strict';
+  if(document.body?.dataset.weekendTest!=='customer')return;
   const STAGING_URL='https://uxikemfrzqatsbqutida.supabase.co';
   const STAGING_KEY='sb_publishable_4eMZCkb3NOGEtR664VOpXQ_IkWgDRM1';
   const client=window.supabase?.createClient?.(STAGING_URL,STAGING_KEY,{
@@ -56,7 +57,9 @@
 
   const session=async()=>{const {data}=await client.auth.getSession();return data?.session||null;};
   const cartItems=()=>{
-    let cart=[];try{cart=JSON.parse(localStorage.getItem('leogo_marketplace_cart_v1')||'[]');}catch{}
+    const qty=Number(document.getElementById('weekendTestQty')?.value||0);
+    if(!Number.isInteger(qty)||qty<1||qty>10)throw Error('Choose 1 to 10 staging test items.');
+    const cart=[{productId:'3c69be82-a433-4496-b729-58e452f6a0a2',quantity:qty}];
     if(!Array.isArray(cart))return [];
     if(cart.some(i=>i?.sourceType==='health_medicine'))throw Error('Health & Medicine items require the existing checkout and cannot be scheduled here.');
     const lines=cart.filter(i=>i.productId&&Number.isInteger(Number(i.quantity))&&Number(i.quantity)>0)
