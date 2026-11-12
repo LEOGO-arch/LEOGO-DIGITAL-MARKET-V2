@@ -32,7 +32,7 @@
       <button type="button" id="weekendStageSignOut">Sign out of staging</button>
     </div>
     <p role="status" id="weekendStageNotice" aria-live="polite"></p>
-    <div id="weekendStagePlans"></div>`;
+    <div id="weekendStageReminders"></div><div id="weekendStagePlans"></div>`;
   const styles=document.createElement('style');
   styles.textContent=`
   .weekend-stage{padding:18px;margin:18px 0;border:1px solid #e3e8ef;border-radius:16px;background:#f8fafc;color:#0a2345}
@@ -66,7 +66,9 @@
   };
   const load=async()=>{
     const auth=await session();
-    if(!auth){note('Sign in with a LEOGO STAGING account to view your Weekend Shopping plans.');$('weekendStagePlans').replaceChildren();return;}
+    if(!auth){note('Sign in with a LEOGO STAGING account to view your Weekend Shopping plans.');$('weekendStagePlans').replaceChildren();$('weekendStageReminders').replaceChildren();return;}
+    const reminders=await client.rpc('customer_weekend_reminders');
+    $('weekendStageReminders').innerHTML=reminders.error?'':(reminders.data||[]).map(r=>'<div class="weekend-cycle"><strong>Delivery reminder: '+esc(r.delivery_date)+'</strong><p>'+esc(r.message)+' Remaining: '+money(r.remaining_kes)+'</p></div>').join('');
     const {data:plans,error}=await client.from('weekend_shopping_plans')
       .select('id,cadence,delivery_date,status,weekend_shopping_cycles(id,cycle_no,delivery_date,items_total_kes,service_fee_kes,delivery_fee_kes,amount_due_kes,verified_paid_kes,status,released_order_id)')
       .order('created_at',{ascending:false}).limit(20);
