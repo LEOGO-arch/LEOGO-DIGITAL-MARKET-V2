@@ -1,6 +1,7 @@
 // LEOGO Weekend Shopping Admin staging queue; separate from production Admin auth.
 (()=>{
  'use strict';
+ if(document.body?.dataset.weekendTest!=='admin')return;
  const url='https://uxikemfrzqatsbqutida.supabase.co';
  const key='sb_publishable_4eMZCkb3NOGEtR664VOpXQ_IkWgDRM1';
  const db=window.supabase?.createClient?.(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'leogo-weekend-admin-staging-auth-v1'}});
