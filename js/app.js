@@ -3219,6 +3219,7 @@
       && product.availability_status === 'available'
       && (hasVariants ? effectiveVariantStock > 0 : effectiveProductStock > 0);
     const imageUrl = sellerProductMediaUrl(product.main_image_path);
+    const thumbnailUrl = sellerProductMediaUrl(window.leogoPublicImages?.thumbPath(product.main_image_path)) || imageUrl;
     const galleryPaths=Array.isArray(product.gallery_image_paths)?product.gallery_image_paths.filter(Boolean):[];
     const galleryImages=[product.main_image_path,...galleryPaths]
       .filter(Boolean)
@@ -3230,7 +3231,7 @@
           '<div class="live-product-detail-label">Product Gallery</div>'+
           '<div class="live-product-gallery">'+
             galleryImages.map((image,index)=>'<button type="button" class="live-product-gallery-thumb '+(index===0?'active':'')+'" data-product-gallery-image="'+receiptEscape(image.url)+'" aria-label="View product photo '+(index+1)+'">'+
-              '<img src="'+receiptEscape(image.url)+'" alt="'+receiptEscape(product.product_name)+' photo '+(index+1)+'">'+
+              '<img src="'+receiptEscape(image.url)+'" alt="'+receiptEscape(product.product_name)+' photo '+(index+1)+'" loading="lazy" decoding="async">'+
             '</button>').join('')+
           '</div>'+
         '</div>'
@@ -3261,7 +3262,7 @@
           const variantImage = sellerProductMediaUrl(variant.image_path);
           const variantEffectivePrice=sellerEffectivePrice(product,variant.price_kes);
           return '<button type="button" class="live-product-variant-option" data-product-variant="'+receiptEscape(variant.id)+'" data-product-id="'+receiptEscape(product.id)+'" data-variant-name="'+receiptEscape(variant.variant_name)+'" data-variant-price="'+Number(variantEffectivePrice || 0)+'" data-variant-stock="'+Number(variantEffectiveStock || 0)+'" data-variant-image="'+receiptEscape(variantImage)+'" '+(variantAvailable?'':'disabled')+'>'+
-            (variantImage?'<img src="'+receiptEscape(variantImage)+'" alt="">':'')+
+            (variantImage?'<img src="'+receiptEscape(variantImage)+'" alt="" loading="lazy" decoding="async">':'')+
             '<span><b>'+receiptEscape(variant.variant_name)+'</b><small>'+money(variantEffectivePrice)+(flashActive?' <s>'+money(variant.price_kes)+'</s>':'')+'</small></span>'+
           '</button>';
         }).join('')+'</div><p class="live-variant-selection-note" data-variant-selection-note>Select one variant before adding to cart.</p></div>'
@@ -3282,7 +3283,7 @@
     return '<article class="live-product-card live-product-card-compact" data-live-product-card="'+receiptEscape(product.id)+'" data-has-variants="'+(hasVariants?'true':'false')+'">'+
       '<div class="live-product-image" data-live-product-image>'+
         (imageUrl
-          ? '<img src="'+receiptEscape(imageUrl)+'" alt="'+receiptEscape(product.product_name)+'">'
+          ? '<img src="'+receiptEscape(thumbnailUrl)+'" data-full-image="'+receiptEscape(imageUrl)+'" alt="'+receiptEscape(product.product_name)+'" loading="lazy" decoding="async">'
           : '<span>'+categoryIcon(product.category_code)+'</span>')+
       '</div>'+
       '<div class="live-product-body">'+
@@ -3847,6 +3848,7 @@
       if(ownCartStart && card.dataset.hasVariants==='true') ownCartStart.textContent='Add to Cart';
 
       details.hidden=!opening;
+      if(opening){const image=card.querySelector('[data-live-product-image] img[data-full-image]');if(image?.dataset.fullImage)image.src=image.dataset.fullImage;}
       detailsButton.setAttribute('aria-expanded',String(opening));
       detailsButton.textContent=opening?'Hide Details':'View Details';
       return;
