@@ -18,5 +18,5 @@ async function optimize(file,{max=1280,quality=.82,target=250*1024}={}){
  }finally{bitmap.close();}
 }
 window.leogoPublicImages={optimize,dimensions,thumbPath,mediaPaths};
-document.addEventListener('error',event=>{const img=event.target;if(img?.tagName==='IMG'&&img.dataset.fullImage&&img.src!==img.dataset.fullImage){img.src=img.dataset.fullImage;}},true);
+document.addEventListener('error',event=>{const img=event.target;if(img?.tagName==='IMG'&&img.dataset.fullImage&&!img.dataset.originalPublicMedia&&img.src!==img.dataset.fullImage){img.src=img.dataset.fullImage;}},true);
 })();
