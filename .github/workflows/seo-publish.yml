@@ -25,7 +25,7 @@ jobs:
         with:
           ref: main
       - name: Test static SEO generator
-        run: node --test .github/seo/render.test.mjs
+        run: node --test .github/seo/render.test.mjs .github/seo/business.test.mjs
       - name: Generate current catalogue
         run: node .github/seo/publish.mjs --production
       - name: Validate change scope
