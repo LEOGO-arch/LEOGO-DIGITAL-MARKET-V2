@@ -8,3 +8,20 @@ test("production product page escapes data and uses live pricing",()=>{const f=b
 test("sitemap covers home, catalogue, category, product; removal is reflected",()=>{const f=build([row],"https://leogo.co.ke");assert.ok(f["sitemap.xml"].includes("https://leogo.co.ke/</loc>"));assert.ok(f["sitemap.xml"].includes("/categories/groceries/"));assert.ok(f["sitemap.xml"].includes(row.id));assert.ok(!build([],"https://leogo.co.ke")["sitemap.xml"].includes(row.id));assert.ok(!build([],"https://leogo.co.ke")[path]);assert.ok(Object.keys(f).every(k=>k==="sitemap.xml"||k.startsWith("seo-catalogue/")));});
 test("reject restricted categories, duplicate IDs and invalid price",()=>{assert.throws(()=>validate([{...row,category:"alcoholic_leogo_bar"}]));assert.throws(()=>validate([row,row]));assert.throws(()=>validate([{...row,current_price_kes:-1}]));assert.throws(()=>build([row],"https://evil.example"));assert.throws(()=>liveSource("sb_secret_test"));});
 test("variant price is not invented",()=>{assert.equal(validate([{...row,current_price_kes:null,regular_price_kes:null,availability:"check_live"}])[0].current_price_kes,null);});
+
+test("live price and eligibility gate", async()=>{
+ const source=liveSource("sb_publishable_test");
+ async function simulate(rows,ok=true){
+  const link={hidden:true,href:""},status={textContent:""},h1={textContent:"Test"},metas=[];
+  const el={dataset:{productId:row.id},querySelectorAll:()=>[link]};
+  const document={querySelector:s=>s==="h1"?h1:el,getElementById:s=>s==="live-status"?status:link,createElement:()=>({}),head:{append:m=>metas.push(m)},title:"Test"};
+  const fetch=async(url,opts)=>{assert.ok(url.startsWith("https://dzdciuqkqixwutvtfotj.supabase.co/"));assert.equal(opts.headers.apikey,"sb_publishable_test");return {ok,json:async()=>rows};};
+  new Function("document","fetch",source)(document,fetch);
+  for(let i=0;i<10;i++)await Promise.resolve();
+  return {link,status,h1,metas};
+ }
+ let state=await simulate([row]);assert.match(state.status.textContent,/KSh 100/);assert.equal(state.link.hidden,false);assert.match(state.link.href,/product_category=groceries/);
+ state=await simulate([{...row,current_price_kes:null,availability:"check_live"}]);assert.match(state.status.textContent,/Select options/);assert.doesNotMatch(state.status.textContent,/KSh/);
+ state=await simulate([]);assert.equal(state.link.hidden,true);assert.match(state.status.textContent,/no longer available/);assert.equal(state.metas[0].content,"noindex");
+ state=await simulate([],false);assert.equal(state.link.hidden,true);assert.match(state.status.textContent,/Live price unavailable/);
+});
