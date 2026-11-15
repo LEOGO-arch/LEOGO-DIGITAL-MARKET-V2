@@ -3,12 +3,13 @@ import path from "node:path";
 import os from "node:os";
 import {build,liveSource} from "./render.mjs";
 import {extend,liveSource as businessLiveSource} from "./business.mjs";
+import {verifyPublication} from "./integrity.mjs";
 const root=process.cwd(),args=process.argv.slice(2);
 function writeFiles(dir,files){for(const [name,body] of Object.entries(files)){if(name!=="sitemap.xml"&&!name.startsWith("seo-catalogue/"))throw Error("Unexpected output path");const dest=path.resolve(dir,name);if(!dest.startsWith(path.resolve(dir)+path.sep))throw Error("Invalid output path");fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,body,"utf8");}}
 if(args[0]==="--fixture"){
  if(args.length!==4||args[2]!=="--output")throw Error("Use --fixture FILE --output NEW_DIRECTORY");
  const output=path.resolve(args[3]);if(output===root||output.startsWith(root+path.sep)||fs.existsSync(output))throw Error("Staging output must be a new directory outside repository");
- const rows=JSON.parse(fs.readFileSync(args[1],"utf8"));writeFiles(output,extend(build(rows,"https://staging.invalid",true),[],"https://staging.invalid",true));console.log("Staging preview generated; no repository files changed.");
+ const fixture=JSON.parse(fs.readFileSync(args[1],"utf8"));const rows=Array.isArray(fixture)?fixture:fixture.products;const business=Array.isArray(fixture)?[]:fixture.businesses;const images=Array.isArray(fixture)?[]:fixture.categoryImages||[];const files=extend(build(rows,"https://staging.invalid",true),business,"https://staging.invalid",true,images);verifyPublication(files,"https://staging.invalid");writeFiles(output,files);console.log("Staging preview generated; no repository files changed.");
 }else{
  if(args.length!==1||args[0]!=="--production")throw Error("Explicit --production required");
  if(!fs.existsSync(path.join(root,".github/seo/render.mjs")))throw Error("Run from LEOGO repository root");
@@ -26,6 +27,8 @@ if(args[0]==="--fixture"){
  const categoryImages=await imageRes.json();
  if(!Array.isArray(categoryImages))throw Error("Invalid category images");
  const files=extend(build(rows,"https://leogo.co.ke"),businessRows,"https://leogo.co.ke",false,categoryImages);files["seo-catalogue/live.js"]=liveSource(key);files["seo-catalogue/business/live.js"]=businessLiveSource(key);
+ const verified=verifyPublication(files,"https://leogo.co.ke");
+ console.log("Verified "+verified.urls+" sitemap URLs and "+verified.pages+" generated pages; "+businessRows.length+" eligible businesses.");
  const oldSitemap=fs.readFileSync(path.join(root,"sitemap.xml"),"utf8");
  const oldUrls=[...oldSitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]);
  if(!oldUrls.length||!oldUrls.includes("https://leogo.co.ke/")||oldUrls.some(u=>u!=="https://leogo.co.ke/"&&!u.startsWith("https://leogo.co.ke/seo-catalogue/")))throw Error("Existing sitemap contains unmanaged URLs; review required");
