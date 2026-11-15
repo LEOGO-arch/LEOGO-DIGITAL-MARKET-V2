@@ -480,9 +480,10 @@
       const draft=crypto.randomUUID();
       for(let i=0;i<files.length;i++){
         const file=files[i];
-        const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
-        const path=user.id+'/'+draft+'/'+Date.now()+'-'+i+'.'+ext;
-        const {error}=await client.storage.from(BUCKET).upload(path,file,{contentType:file.type||'image/jpeg',upsert:false});
+        if(file.size>10*1024*1024)throw Error('Choose a property photo below 10 MB.');
+        const optimized=await window.leogoPublicImages.optimize(file);
+        const path=user.id+'/'+draft+'/'+Date.now()+'-'+i+'-opt.webp';
+        const {error}=await client.storage.from(BUCKET).upload(path,optimized,{contentType:'image/webp',upsert:false,cacheControl:'86400'});
         if(error)throw error;
         uploaded.push(path);
       }
