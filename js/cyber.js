@@ -147,7 +147,7 @@ const renderShops=()=>{
     const img=publicImage(s.profile_picture_path);
     return `
       <article class="cyber-shop-card">
-        <div class="cyber-shop-photo">${img?'<img src="'+esc(img)+'" alt="'+esc(s.business_name)+'">':'🖥️'}</div>
+        <div class="cyber-shop-photo">${img?'<img loading="lazy" decoding="async" src="'+esc(img)+'" alt="'+esc(s.business_name)+'">':'🖥️'}</div>
         <div class="cyber-shop-body">
           <strong>${esc(s.business_name)}</strong><small>📍 ${esc(s.location_details)}, ${esc(s.town)}, ${esc(s.county)}</small>
           <p>${esc(s.business_description||'Approved Cyber Services partner on LEOGO.')}</p>
@@ -175,7 +175,7 @@ const renderCatalogue=()=>{
       return `<article class="cyber-item-card ${item.flash_sale?'cyber-item-flash':''}"><header><h4>${esc(item.service_name)}</h4><span class="badge">${esc(item.service_category.replaceAll('_',' '))}</span></header>${flash}<p>${esc(item.description||'')}</p><span class="price">${price}</span>${item.requires_file_upload?'<small>📎 File upload required</small>':''}<button type="button" data-order-cyber-service="${item.id}">Order Service</button></article>`;
     }
     const img=publicImage(item.image_path);
-    return `<article class="cyber-item-card"><div class="cyber-product-img">${img?'<img src="'+esc(img)+'" alt="'+esc(item.product_name)+'">':'🛍️'}</div><header><h4>${esc(item.product_name)}</h4><span class="badge">${esc(item.quantity_available)} available</span></header><p>${esc(item.description||'')}</p><span class="price">${money(item.price_kes)} / ${esc(item.measurement_unit)}</span><button type="button" data-order-cyber-product="${item.id}">Buy Item</button></article>`;
+    return `<article class="cyber-item-card"><div class="cyber-product-img">${img?'<img loading="lazy" decoding="async" src="'+esc(img)+'" alt="'+esc(item.product_name)+'">':'🛍️'}</div><header><h4>${esc(item.product_name)}</h4><span class="badge">${esc(item.quantity_available)} available</span></header><p>${esc(item.description||'')}</p><span class="price">${money(item.price_kes)} / ${esc(item.measurement_unit)}</span><button type="button" data-order-cyber-product="${item.id}">Buy Item</button></article>`;
   }).join(''):'<div class="cyber-empty" style="grid-column:1/-1">No approved '+activeTab+' from this Cyber yet.</div>';
   $$('[data-order-cyber-service]').forEach(b=>b.addEventListener('click',()=>openOrder('service',services.find(s=>s.id===b.dataset.orderCyberService))));
   $$('[data-order-cyber-product]').forEach(b=>b.addEventListener('click',()=>openOrder('product',products.find(p=>p.id===b.dataset.orderCyberProduct))));
