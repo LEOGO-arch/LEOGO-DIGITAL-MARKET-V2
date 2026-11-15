@@ -108,8 +108,16 @@ const setPin=(lat,lng,mapLink='')=>{
   $('#cyberPinStatus').textContent='✓ Shop location pinned: '+Number(lat).toFixed(6)+', '+Number(lng).toFixed(6);
 };
 
-const upload=(bucket,file,prefix)=>{
-  if(!file)return Promise.resolve(null);
+const upload=async(bucket,file,prefix)=>{
+  if(!file)return null;
+  if(bucket==='cyber-public-media'){
+    if(file.size>10*1024*1024)throw Error('Choose a public photo below 10 MB.');
+    const optimized=await window.leogoPublicImages.optimize(file);
+    const path=user.id+'/'+prefix+'-'+crypto.randomUUID()+'-opt.webp';
+    const {error}=await client.storage.from(bucket).upload(path,optimized,{upsert:false,contentType:'image/webp',cacheControl:'86400'});
+    if(error)throw error;
+    return path;
+  }
   const ext=(file.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
   const path=user.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
   return client.storage.from(bucket).upload(path,file,{upsert:false}).then(({error})=>{
