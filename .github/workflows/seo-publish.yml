@@ -1,5 +1,9 @@
 name: Refresh LEOGO public SEO catalogue
 on:
+  pull_request:
+    paths:
+      - '.github/seo/**'
+      - '.github/workflows/seo-publish.yml'
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
@@ -16,8 +20,17 @@ concurrency:
   group: leogo-seo-publish
   cancel-in-progress: false
 jobs:
+  verify:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: node --test .github/seo/*.test.mjs
   refresh:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -25,7 +38,7 @@ jobs:
         with:
           ref: main
       - name: Test static SEO generator
-        run: node --test .github/seo/render.test.mjs .github/seo/business.test.mjs
+        run: node --test .github/seo/*.test.mjs
       - name: Generate current catalogue
         run: node .github/seo/publish.mjs --production
       - name: Validate change scope
