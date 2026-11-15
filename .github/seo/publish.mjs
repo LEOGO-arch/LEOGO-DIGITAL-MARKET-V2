@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import {execFileSync} from "node:child_process";
 import {build,liveSource} from "./render.mjs";
 import {extend,liveSource as businessLiveSource} from "./business.mjs";
 import {verifyPublication} from "./integrity.mjs";
@@ -34,6 +35,6 @@ if(args[0]==="--fixture"){
  if(!oldUrls.length||!oldUrls.includes("https://leogo.co.ke/")||oldUrls.some(u=>u!=="https://leogo.co.ke/"&&!u.startsWith("https://leogo.co.ke/seo-catalogue/")))throw Error("Existing sitemap contains unmanaged URLs; review required");
  const target=path.join(root,"seo-catalogue");if(fs.existsSync(target)&&(!fs.existsSync(path.join(target,".generated"))||fs.readFileSync(path.join(target,".generated"),"utf8")!=="LEOGO SEO generator v2\n"))throw Error("Refusing to replace unmanaged catalogue");
  const temp=fs.mkdtempSync(path.join(root,".seo-build-"));
- try{writeFiles(temp,files);const backup=path.join(temp,"backup");if(fs.existsSync(target))fs.renameSync(target,backup);try{fs.renameSync(path.join(temp,"seo-catalogue"),target);fs.renameSync(path.join(temp,"sitemap.xml"),path.join(root,"sitemap.xml"));}catch(e){if(fs.existsSync(backup)){fs.rmSync(target,{recursive:true,force:true});fs.renameSync(backup,target);}throw e;}}finally{fs.rmSync(temp,{recursive:true,force:true});}
+ try{writeFiles(temp,files);const inventory=[...rows.flatMap(r=>[r.image_path,...(r.gallery||[]),...(r.variants||[]).map(v=>v.image_path)].map(path=>({bucket:"seller-product-media",path}))),...businessRows.map(r=>({bucket:r.image_bucket,path:r.image_path})),...categoryImages.map(r=>({bucket:"category-public-media",path:r.image_path}))];execFileSync("python3",[path.join(root,".github/seo/optimize-media.py"),temp,target],{input:JSON.stringify(inventory),stdio:["pipe","inherit","inherit"],timeout:240000});const backup=path.join(temp,"backup");if(fs.existsSync(target))fs.renameSync(target,backup);try{fs.renameSync(path.join(temp,"seo-catalogue"),target);fs.renameSync(path.join(temp,"sitemap.xml"),path.join(root,"sitemap.xml"));}catch(e){if(fs.existsSync(backup)){fs.rmSync(target,{recursive:true,force:true});fs.renameSync(backup,target);}throw e;}}finally{fs.rmSync(temp,{recursive:true,force:true});}
  console.log("Prepared "+rows.length+" eligible products. Only seo-catalogue/ and sitemap.xml changed.");
 }
