@@ -120,7 +120,7 @@
       const location = [property.public_location, property.town].filter(Boolean).join(', ');
       return `<article class="leogo-stay-card-v3">
         <div class="leogo-stay-photo-v3">
-          ${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(property.property_name)}">` : '<span class="leogo-stay-placeholder-v3">🏨</span>'}
+          ${image ? `<img loading="lazy" decoding="async" src="${escapeHtml(image)}" alt="${escapeHtml(property.property_name)}">` : '<span class="leogo-stay-placeholder-v3">🏨</span>'}
           <b class="leogo-stay-type-v3">${escapeHtml(typeLabel(property.property_type))}</b>
         </div>
         <div class="leogo-stay-info-v3">
@@ -227,7 +227,7 @@
       const rating = unitRating(unit);
       const minimum = unitMinimumRate(unit);
       return `<article class="accommodation-room-card">
-        <div class="accommodation-room-card-image">${images[0] ? `<img src="${escapeHtml(images[0])}" alt="${escapeHtml(unit.unit_name)}">` : '<span>🛏️</span>'}<b>${escapeHtml(unit.room_category || 'Room')}</b></div>
+        <div class="accommodation-room-card-image">${images[0] ? `<img loading="lazy" decoding="async" src="${escapeHtml(images[0])}" alt="${escapeHtml(unit.unit_name)}">` : '<span>🛏️</span>'}<b>${escapeHtml(unit.room_category || 'Room')}</b></div>
         <div class="accommodation-room-card-copy">
           <div class="accommodation-room-card-title"><div><span>${escapeHtml(unit.room_category || 'Room')}</span><h4>${escapeHtml(unit.unit_name)}</h4></div><strong>${escapeHtml(rating.label)}</strong></div>
           <p>${escapeHtml(unit.description || 'View room details, gallery and available rates before booking.')}</p>
@@ -264,7 +264,7 @@
       ? `<img src="${escapeHtml(images[0])}" alt="${escapeHtml(selectedUnit.unit_name)}">`
       : '<span>🛏️</span>';
     elements.roomGallery.innerHTML = images.length
-      ? images.map((image, index) => `<button type="button" data-room-gallery-image="${escapeHtml(image)}" class="${index === 0 ? 'active' : ''}"><img src="${escapeHtml(image)}" alt="${escapeHtml(selectedUnit.unit_name)} photo ${index + 1}"></button>`).join('')
+      ? images.map((image, index) => `<button type="button" data-room-gallery-image="${escapeHtml(image)}" class="${index === 0 ? 'active' : ''}"><img loading="lazy" decoding="async" src="${escapeHtml(image)}" alt="${escapeHtml(selectedUnit.unit_name)} photo ${index + 1}"></button>`).join('')
       : '<div class="accommodation-room-no-gallery">No additional room photos yet.</div>';
 
     elements.roomRates.innerHTML = (selectedUnit.rates || []).length
