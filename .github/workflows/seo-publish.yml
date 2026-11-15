@@ -39,6 +39,8 @@ jobs:
           ref: main
       - name: Test static SEO generator
         run: node --test .github/seo/*.test.mjs
+      - name: Install pinned image encoder
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
       - name: Generate current catalogue
         run: node .github/seo/publish.mjs --production
       - name: Validate change scope
