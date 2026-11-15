@@ -4,10 +4,15 @@ from PIL import Image, ImageOps
 BASE = "https://dzdciuqkqixwutvtfotj.supabase.co/storage/v1/object/public/"
 BUCKETS = {"seller-product-media", "service-provider-public-media", "cyber-public-media", "accommodation-public-media", "transport-public-media", "vacant-house-public-media", "category-public-media"}
 Image.MAX_IMAGE_PIXELS = 40_000_000
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+OPENER = urllib.request.build_opener(NoRedirect())
 def valid(bucket, path):
     return bucket in BUCKETS and isinstance(path, str) and len(path) <= 600 and all(re.fullmatch(r"[A-Za-z0-9_. -]+", p) and p not in (".", "..") for p in path.split("/")) and re.search(r"\.(jpg|jpeg|png|webp|avif|gif)$", path, re.I)
 def variants(data):
     with Image.open(io.BytesIO(data)) as raw:
+        if raw.width * raw.height > Image.MAX_IMAGE_PIXELS or getattr(raw, 'is_animated', False): return {}
         image = ImageOps.exif_transpose(raw).convert("RGBA" if "A" in raw.getbands() or "transparency" in raw.info else "RGB")
         result = {}
         for kind, size, quality, target in (("thumb",360,76,55*1024),("full",1280,82,250*1024)):
@@ -44,7 +49,7 @@ def main():
             for v in cached.values(): (output/pathlib.Path(v).name).write_bytes((previous/"optimized-media"/pathlib.Path(v).name).read_bytes())
             manifest[url]=cached; reused+=1; continue
         try:
-            with urllib.request.urlopen(url, timeout=15) as response:
+            with OPENER.open(url, timeout=15) as response:
                 if response.geturl()!=url: raise ValueError("Unexpected redirect")
                 data=response.read(10*1024*1024+1)
             if len(data)>10*1024*1024: raise ValueError("Image exceeds limit")
