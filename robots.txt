@@ -1,0 +1,4 @@
+User-agent: *
+Disallow:
+
+Sitemap: https://leogo.co.ke/sitemap.xml
