@@ -21,7 +21,11 @@ if(args[0]==="--fixture"){
  const businessRes=await fetch("https://dzdciuqkqixwutvtfotj.supabase.co/rest/v1/rpc/seo_public_business_v1",{method:"POST",headers:{apikey:key,"Content-Type":"application/json"},body:"{}",signal:AbortSignal.timeout(30000)});
  if(!businessRes.ok)throw Error("Business catalogue request failed: "+businessRes.status);
  const businessRows=await businessRes.json();
- const files=extend(build(rows,"https://leogo.co.ke"),businessRows,"https://leogo.co.ke");files["seo-catalogue/live.js"]=liveSource(key);files["seo-catalogue/business/live.js"]=businessLiveSource(key);
+ const imageRes=await fetch("https://dzdciuqkqixwutvtfotj.supabase.co/rest/v1/rpc/customer_category_images",{method:"POST",headers:{apikey:key,"Content-Type":"application/json"},body:"{}",signal:AbortSignal.timeout(30000)});
+ if(!imageRes.ok)throw Error("Category images request failed: "+imageRes.status);
+ const categoryImages=await imageRes.json();
+ if(!Array.isArray(categoryImages))throw Error("Invalid category images");
+ const files=extend(build(rows,"https://leogo.co.ke"),businessRows,"https://leogo.co.ke",false,categoryImages);files["seo-catalogue/live.js"]=liveSource(key);files["seo-catalogue/business/live.js"]=businessLiveSource(key);
  const oldSitemap=fs.readFileSync(path.join(root,"sitemap.xml"),"utf8");
  const oldUrls=[...oldSitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]);
  if(!oldUrls.length||!oldUrls.includes("https://leogo.co.ke/")||oldUrls.some(u=>u!=="https://leogo.co.ke/"&&!u.startsWith("https://leogo.co.ke/seo-catalogue/")))throw Error("Existing sitemap contains unmanaged URLs; review required");
