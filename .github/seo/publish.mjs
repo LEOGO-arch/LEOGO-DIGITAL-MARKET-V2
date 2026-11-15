@@ -14,7 +14,7 @@ if(args[0]==="--fixture"){
  const auth=fs.readFileSync(path.join(root,"js/auth.js"),"utf8");
  const key=auth.match(/const PUBLISHABLE_KEY\s*=\s*['"](sb_publishable_[A-Za-z0-9_-]+)['"]/)?.[1];
  if(!key||!auth.includes("dzdciuqkqixwutvtfotj.supabase.co"))throw Error("Expected production public frontend configuration");
- const res=await fetch("https://dzdciuqkqixwutvtfotj.supabase.co/rest/v1/rpc/seo_static_catalogue_v2",{method:"POST",headers:{apikey:key,"Content-Type":"application/json"},body:"{}",signal:AbortSignal.timeout(30000)});
+ const res=await fetch("https://dzdciuqkqixwutvtfotj.supabase.co/rest/v1/rpc/seo_branded_catalogue_v3",{method:"POST",headers:{apikey:key,"Content-Type":"application/json"},body:"{}",signal:AbortSignal.timeout(30000)});
  if(!res.ok)throw Error("Catalogue request failed: "+res.status);
  const rows=await res.json(),files=build(rows,"https://leogo.co.ke");files["seo-catalogue/live.js"]=liveSource(key);
  const oldSitemap=fs.readFileSync(path.join(root,"sitemap.xml"),"utf8");
