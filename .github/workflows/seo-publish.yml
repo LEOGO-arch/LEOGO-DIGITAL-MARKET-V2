@@ -1,0 +1,57 @@
+name: Refresh LEOGO public SEO catalogue
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish generated files to main (false = dry run)'
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  pages: write
+concurrency:
+  group: leogo-seo-publish
+  cancel-in-progress: false
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: main
+      - name: Test static SEO generator
+        run: node --test .github/seo/render.test.mjs
+      - name: Generate current catalogue
+        run: node .github/seo/publish.mjs --production
+      - name: Validate change scope
+        shell: bash
+        run: |
+          git add -A -- seo-catalogue sitemap.xml
+          while IFS= read -r file; do
+            case "$file" in seo-catalogue/*|sitemap.xml) ;; *) echo "Unexpected file"; exit 1;; esac
+          done < <(git diff --cached --name-only)
+          git diff --cached --stat
+      - name: Publish and request existing Pages build
+        if: github.event_name == 'schedule' || inputs.publish == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          git config user.name 'LEOGO SEO Automation'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ! git diff --cached --quiet; then
+            git commit -m 'Refresh public LEOGO SEO catalogue'
+            git push origin HEAD:main
+          fi
+          # GITHUB_TOKEN pushes do not automatically trigger branch-based Pages.
+          # Request a build explicitly if the deployed commit is not current.
+          current="$(git rev-parse HEAD)"
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/pages/builds/latest" --jq '.commit + ":" + .status' || true)"
+          if [ "$latest" != "$current:built" ]; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null
+          fi
