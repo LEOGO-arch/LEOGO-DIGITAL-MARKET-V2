@@ -3848,6 +3848,7 @@
       if(ownCartStart && card.dataset.hasVariants==='true') ownCartStart.textContent='Add to Cart';
 
       details.hidden=!opening;
+      if(opening){const image=card.querySelector('[data-live-product-image] img[data-full-image]');if(image?.dataset.fullImage)image.src=image.dataset.fullImage;}
       detailsButton.setAttribute('aria-expanded',String(opening));
       detailsButton.textContent=opening?'Hide Details':'View Details';
       return;
