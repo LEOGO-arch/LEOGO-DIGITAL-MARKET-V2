@@ -4,6 +4,13 @@ on:
     paths:
       - '.github/seo/**'
       - '.github/workflows/seo-publish.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/seo/optimize-media.py'
+      - '.github/seo/media-rewrite.mjs'
+      - '.github/seo/publish.mjs'
+      - '.github/workflows/seo-publish.yml'
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
@@ -55,7 +62,7 @@ jobs:
           done < <(git diff --cached --name-only)
           git diff --cached --stat
       - name: Publish and request existing Pages build
-        if: github.event_name == 'schedule' || inputs.publish == true
+        if: github.event_name == 'schedule' || github.event_name == 'push' || inputs.publish == true
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
