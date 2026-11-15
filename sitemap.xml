@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- LEOGO SEO generator v2 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://leogo.co.ke/</loc>
-  </url>
+  <url><loc>https://leogo.co.ke/</loc></url>
+  <url><loc>https://leogo.co.ke/seo-catalogue/</loc></url>
+  <url><loc>https://leogo.co.ke/seo-catalogue/categories/electronics_bcfe08f/</loc></url>
+  <url><loc>https://leogo.co.ke/seo-catalogue/categories/groceries/</loc></url>
+  <url><loc>https://leogo.co.ke/seo-catalogue/categories/food_drinks/</loc></url>
+  <url><loc>https://leogo.co.ke/seo-catalogue/categories/garments_clothes_footwear/</loc></url>
+  <url><loc>https://leogo.co.ke/seo-catalogue/products/0cfbfa01-23ea-4b78-a7f3-7cdefc807405/</loc></url>
+  <url><loc>https://leogo.co.ke/seo-catalogue/products/79872edb-3856-49ab-a0bb-df6e6960bd26/</loc></url>
+  <url><loc>https://leogo.co.ke/seo-catalogue/products/ac1456a0-39a8-4b3b-b92e-e0329831950e/</loc></url>
+  <url><loc>https://leogo.co.ke/seo-catalogue/products/fe449fa9-f949-473c-b6b3-e1064a714b27/</loc></url>
 </urlset>
