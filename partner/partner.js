@@ -1136,7 +1136,7 @@ $('#deleteSelectedSellerData').addEventListener('click',async()=>{
     const result=data||{};
     const mediaPaths=Array.isArray(result.deleted_product_media_paths)?result.deleted_product_media_paths:[];
     if(mediaPaths.length){
-      const {error:storageError}=await client.storage.from('seller-product-media').remove(mediaPaths);
+      const {error:storageError}=await client.storage.from('seller-product-media').remove(window.leogoPublicImages.mediaPaths(mediaPaths));
       if(storageError)console.warn('Some deleted product media could not be removed:',storageError.message);
     }
     selectedSellerProducts.clear();selectedSellerNotifications.clear();
@@ -1648,10 +1648,15 @@ function addVariantRow(v={}){
 async function uploadImage(file,prefix){
   if(!file)return null;
   if(file.size>6291456)throw new Error('Each image must be 6 MB or smaller.');
-  const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
-  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
-  const {error}=await client.storage.from('seller-product-media').upload(path,file,{upsert:false});
-  if(error)throw error;return path;
+  const images=window.leogoPublicImages;
+  const full=await images.optimize(file),thumb=await images.optimize(file,{max:360,quality:.76,target:55*1024});
+  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'-opt.webp';
+  const thumbnail=images.thumbPath(path),bucket=client.storage.from('seller-product-media');
+  const {error}=await bucket.upload(path,full,{upsert:false,contentType:'image/webp',cacheControl:'86400'});
+  if(error)throw error;
+  const result=await bucket.upload(thumbnail,thumb,{upsert:false,contentType:'image/webp',cacheControl:'86400'});
+  if(result.error){await bucket.remove([path]).catch(()=>{});throw result.error;}
+  return path;
 }
 const publicUrl=path=>path?client.storage.from('seller-product-media').getPublicUrl(path).data.publicUrl:'';
 function sellerMediaMarkup(path,alt='',variant=false){
@@ -2172,7 +2177,7 @@ $('#sellerProductForm').addEventListener('submit',async e=>{
     }
   }catch(err){
     if(!saveCommitted&&uploadedThisAttempt.length){
-      try{await client.storage.from('seller-product-media').remove(uploadedThisAttempt);}catch(cleanupError){console.warn('Media cleanup failed',cleanupError);}
+      try{await client.storage.from('seller-product-media').remove(window.leogoPublicImages.mediaPaths(uploadedThisAttempt));}catch(cleanupError){console.warn('Media cleanup failed',cleanupError);}
     }
     console.error('Seller product save failed:',err);
     status($('#productFormStatus'),err?.message||'Product could not be saved.','error');
@@ -2367,9 +2372,9 @@ async function uploadProviderPublicPhoto(file){
   if(!file)return null;
   if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Profile picture must be JPG, PNG or WEBP.');
   if(file.size>5242880)throw new Error('Profile picture must be 5 MB or smaller.');
-  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
-  const path=currentUser.id+'/profile-'+crypto.randomUUID()+'.'+ext;
-  const {error}=await client.storage.from('service-provider-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  const optimized=await window.leogoPublicImages.optimize(file);
+  const path=currentUser.id+'/profile-'+crypto.randomUUID()+'.'+'webp';
+  const {error}=await client.storage.from('service-provider-public-media').upload(path,optimized,{upsert:false,contentType:'image/webp',cacheControl:'86400'});
   if(error)throw error;
   return path;
 }
@@ -3875,9 +3880,9 @@ async function uploadAccommodationPublicPhoto(file){
   if(!file)return null;
   if(file.size>8*1024*1024)throw new Error('Accommodation profile picture must be 8 MB or smaller.');
   if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Accommodation profile picture must be JPG, PNG or WEBP.');
-  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
-  const path=currentUser.id+'/provider-profile-'+crypto.randomUUID()+'.'+ext;
-  const {error}=await client.storage.from('accommodation-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  const optimized=await window.leogoPublicImages.optimize(file);
+  const path=currentUser.id+'/provider-profile-'+crypto.randomUUID()+'.'+'webp';
+  const {error}=await client.storage.from('accommodation-public-media').upload(path,optimized,{upsert:false,contentType:'image/webp',cacheControl:'86400'});
   if(error)throw error;
   return path;
 }
@@ -3885,9 +3890,9 @@ async function uploadAccommodationListingPhoto(file,prefix='property'){
   if(!file)return null;
   if(file.size>8*1024*1024)throw new Error('Each Accommodation photo must be 8 MB or smaller.');
   if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Accommodation photos must be JPG, PNG or WEBP.');
-  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
-  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
-  const {error}=await client.storage.from('accommodation-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  const optimized=await window.leogoPublicImages.optimize(file);
+  const path=currentUser.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+'webp';
+  const {error}=await client.storage.from('accommodation-public-media').upload(path,optimized,{upsert:false,contentType:'image/webp',cacheControl:'86400'});
   if(error)throw error;
   const {data}=client.storage.from('accommodation-public-media').getPublicUrl(path);
   return data?.publicUrl||null;
@@ -5087,9 +5092,9 @@ async function uploadTransportVehiclePhoto(file){
   if(!file)return null;
   if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Vehicle profile picture must be JPG, PNG or WEBP.');
   if(file.size>5242880)throw new Error('Vehicle profile picture must be 5 MB or smaller.');
-  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
-  const path=currentUser.id+'/vehicle-'+crypto.randomUUID()+'.'+ext;
-  const {error}=await client.storage.from('transport-public-media').upload(path,file,{upsert:false,contentType:file.type});
+  const optimized=await window.leogoPublicImages.optimize(file);
+  const path=currentUser.id+'/vehicle-'+crypto.randomUUID()+'.'+'webp';
+  const {error}=await client.storage.from('transport-public-media').upload(path,optimized,{upsert:false,contentType:'image/webp',cacheControl:'86400'});
   if(error)throw error;
   return path;
 }
