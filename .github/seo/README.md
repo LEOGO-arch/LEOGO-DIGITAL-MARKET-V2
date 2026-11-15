@@ -12,3 +12,6 @@ The renderer validates an explicit category allowlist. New categories must be re
 
 ## Rollback and future hosting
 Disable the refresh workflow before reverting this release. Restore the homepage-only sitemap and remove only generated seo-catalogue/ files, then publish and verify Pages. Keep current Cloudflare DNS and HTTPS. The Cloudflare Worker migration remains a separate future release. GitHub Pages is temporary development/testing infrastructure; review its commercial use restrictions before launch.
+
+## Branded catalogue upgrade
+The v3 read-only projection extends v2 with approved public product media, descriptions and active variants. Static HTML contains product and option names and approved media paths; prices and descriptions are loaded live. Gallery images must exist in the public seller-product-media bucket and be under the seller's own folder. Variant selection previews the image and price, then customers choose the option again in the original marketplace. Staging previews omit production media and purchasing links. Rebuild removes ineligible static pages on the next successful run. Do not add seller-private documents or credentials. Existing checkout remains authoritative.
