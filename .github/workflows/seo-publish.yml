@@ -40,7 +40,10 @@ jobs:
       - name: Test static SEO generator
         run: node --test .github/seo/*.test.mjs
       - name: Install pinned image encoder
-        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+        run: |
+          python3 -m venv /tmp/leogo-seo-venv
+          /tmp/leogo-seo-venv/bin/pip install --disable-pip-version-check Pillow==11.3.0
+          echo /tmp/leogo-seo-venv/bin >> "$GITHUB_PATH"
       - name: Generate current catalogue
         run: node .github/seo/publish.mjs --production
       - name: Validate change scope
