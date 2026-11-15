@@ -40,7 +40,7 @@ def main():
     manifest, failed, reused, processed = {},0,0,0
     for row in rows:
         bucket,path = row.get("bucket"),row.get("path")
-        if not valid(bucket,path) or path.endswith("-opt.webp") or path.endswith("-thumb.webp"): continue
+        if not valid(bucket,path) or (bucket=="seller-product-media" and path.endswith("-opt.webp")) or path.endswith("-thumb.webp"): continue
         url=BASE+bucket+"/"+"/".join(quote(p,safe="") for p in path.split("/"))
         if url in manifest: continue
         digest=hashlib.sha256(url.encode()).hexdigest()
