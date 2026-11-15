@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {build,validate,liveSource} from "./render.mjs";
+import {build,validate,liveSource,media} from "./render.mjs";
 const row={id:"3c69be82-a433-4496-b729-58e452f6a0a2",name:"Tomatoes <script>bad</script>",category:"groceries",category_name:"Groceries",availability:"available",regular_price_kes:110,current_price_kes:100,private_field:"secret"};
 const path="seo-catalogue/products/"+row.id+"/index.html";
 test("staging is noindex and excludes production shopping links",()=>{const f=build([row],"https://staging.invalid",true);assert.ok(f[path].includes("noindex,nofollow"));assert.ok(!f[path].includes("leogo.co.ke"));assert.ok(!f[path].includes("shop-link"));});
@@ -14,7 +14,7 @@ test("live price and eligibility gate", async()=>{
  async function simulate(rows,ok=true){
   const link={hidden:true,href:""},status={textContent:""},h1={textContent:"Test"},metas=[];
   const el={dataset:{productId:row.id},querySelectorAll:()=>[link]};
-  const document={querySelector:s=>s==="h1"?h1:el,getElementById:s=>s==="live-status"?status:link,createElement:()=>({}),head:{append:m=>metas.push(m)},title:"Test"};
+  const document={querySelector:s=>s==="h1"?h1:el,querySelectorAll:()=>[],getElementById:s=>s==="live-status"?status:s==="shop-link"?link:null,createElement:()=>({}),head:{append:m=>metas.push(m)},title:"Test"};
   const fetch=async(url,opts)=>{assert.ok(url.startsWith("https://dzdciuqkqixwutvtfotj.supabase.co/"));assert.equal(opts.headers.apikey,"sb_publishable_test");return {ok,json:async()=>rows};};
   new Function("document","fetch",source)(document,fetch);
   for(let i=0;i<10;i++)await Promise.resolve();
@@ -25,3 +25,5 @@ test("live price and eligibility gate", async()=>{
  state=await simulate([]);assert.equal(state.link.hidden,true);assert.match(state.status.textContent,/no longer available/);assert.equal(state.metas[0].content,"noindex");
  state=await simulate([],false);assert.equal(state.link.hidden,true);assert.match(state.status.textContent,/Live price unavailable/);
 });
+
+test("branded cards use approved image paths and escape options",()=>{const p={...row,image_path:"2a73a05d-0915-4ab2-bbc8-ef60e099ac80/main-test.jpg",gallery:[],variants:[{name:"Red <b>",price_kes:100,available:true}]};const f=build([p],"https://leogo.co.ke");assert.ok(f[path].includes("main-test.jpg"));assert.ok(f[path].includes("Red &lt;b&gt;"));assert.ok(f["seo-catalogue/index.html"].includes("data-catalogue-card"));assert.ok(f["seo-catalogue/catalogue.css"].includes("grid-template-columns"));assert.ok(!build([p],"https://staging.invalid",true)[path].includes("supabase.co"));assert.equal(media("https://evil.test/a.jpg"),"");assert.equal(media("2a73a05d-0915-4ab2-bbc8-ef60e099ac80/../x.jpg"),"");});
