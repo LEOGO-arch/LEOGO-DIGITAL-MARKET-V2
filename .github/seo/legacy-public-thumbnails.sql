@@ -27,21 +27,24 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.admin_list_missing_product_thumbnails(integer) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.admin_list_missing_product_thumbnails(integer) TO authenticated;
+CREATE FUNCTION private.is_catalogue_thumbnail_target(p_name text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
+WITH paths AS (
+ SELECT p.main_image_path path FROM public.seller_products p
+ UNION ALL SELECT unnest(p.gallery_image_paths) FROM public.seller_products p
+ UNION ALL SELECT v.image_path FROM public.seller_product_variants v
+)
+SELECT EXISTS (
+ SELECT 1 FROM paths WHERE path IS NOT NULL AND
+ (CASE WHEN path LIKE '%-opt.webp' THEN regexp_replace(path,'-opt\\.webp$','-thumb.webp') ELSE path||'-thumb.webp' END)=p_name
+);
+$$;
+REVOKE ALL ON FUNCTION private.is_catalogue_thumbnail_target(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.is_catalogue_thumbnail_target(text) TO authenticated;
 CREATE POLICY "LEOGO admin add derived product thumbnails" ON storage.objects
 FOR INSERT TO authenticated WITH CHECK (
  bucket_id='seller-product-media'
  AND private.is_leogo_admin('products.manage')
- AND name ~ '^[0-9a-f-]{36}/[A-Za-z0-9][A-Za-z0-9_.-]+-thumb\.webp$'
- AND EXISTS (
-  SELECT 1 FROM public.seller_products p
-  WHERE (
-   CASE WHEN p.main_image_path LIKE '%-opt.webp' THEN regexp_replace(p.main_image_path,'-opt\.webp$','-thumb.webp')
-        ELSE p.main_image_path||'-thumb.webp' END
-  )=name OR EXISTS (
-   SELECT 1 FROM unnest(p.gallery_image_paths) g
-   WHERE (CASE WHEN g LIKE '%-opt.webp' THEN regexp_replace(g,'-opt\.webp$','-thumb.webp') ELSE g||'-thumb.webp' END)=name)
- )
- OR EXISTS (SELECT 1 FROM public.seller_product_variants v WHERE
-  (CASE WHEN v.image_path LIKE '%-opt.webp' THEN regexp_replace(v.image_path,'-opt\.webp$','-thumb.webp') ELSE v.image_path||'-thumb.webp' END)=name)
- )
+ AND name ~ '^[0-9a-f-]{36}/[A-Za-z0-9][A-Za-z0-9_.-]+-thumb\\.webp$'
+ AND private.is_catalogue_thumbnail_target(name)
 );
