@@ -28,6 +28,6 @@ export function merchantItems(rows){
 }
 export function merchantFeed(rows){
  const items=merchantItems(rows);
- const nodes=items.map(p=>\`<item><g:id>\${xml(p.id)}</g:id><title>\${xml(p.title)}</title><description>\${xml(p.description)}</description><link>\${xml(p.link)}</link><g:image_link>\${xml(p.image)}</g:image_link><g:availability>in_stock</g:availability><g:condition>new</g:condition><g:price>\${xml(p.price)}</g:price></item>\`).join("\n");
+ const nodes=items.map(p=>`<item><g:id>${xml(p.id)}</g:id><title>${xml(p.title)}</title><description>${xml(p.description)}</description><link>${xml(p.link)}</link><g:image_link>${xml(p.image)}</g:image_link><g:availability>in_stock</g:availability><g:price>${xml(p.price)}</g:price></item>`).join("\n");
  return '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0"><channel><title>LEOGO Digital Market - Kenya</title><link>https://leogo.co.ke/</link><description>Approved, eligible LEOGO products with stable current KES prices.</description>\n'+nodes+'\n</channel></rss>\n';
 }
