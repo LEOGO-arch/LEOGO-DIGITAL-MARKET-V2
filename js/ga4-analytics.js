@@ -82,8 +82,18 @@
     document.body.appendChild(banner);
     const preferences = button('Analytics privacy settings',()=>{banner.hidden = false;});
     preferences.setAttribute('aria-label','Change optional analytics consent');
-    preferences.style.cssText += ';position:fixed;z-index:1899;right:12px;bottom:12px;font-size:11px;opacity:.85';
-    document.body.appendChild(preferences);
+    // Keep consent controls available without covering the customer's mobile navigation.
+    preferences.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;background:transparent;color:inherit;border:1px solid currentColor;border-radius:8px;padding:7px 10px;font:600 12px system-ui;cursor:pointer;margin:8px 0';
+    const footer = document.querySelector('.site-footer') || document.querySelector('footer');
+    if (footer) {
+      const wrap = document.createElement('div');
+      wrap.className = 'leogo-analytics-preferences';
+      wrap.appendChild(preferences);
+      footer.appendChild(wrap);
+    } else {
+      // Even on unexpected page layouts, avoid a fixed overlay.
+      document.body.appendChild(preferences);
+    }
     banner.hidden = readChoice() !== null;
     if (readChoice() === 'accepted') start();
   }
