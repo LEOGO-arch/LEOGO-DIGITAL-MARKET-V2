@@ -4,12 +4,13 @@ import os from "node:os";
 import {build,liveSource} from "./render.mjs";
 import {extend,liveSource as businessLiveSource} from "./business.mjs";
 import {verifyPublication} from "./integrity.mjs";
+import {merchantFeed,merchantItems} from "./merchant.mjs";
 const root=process.cwd(),args=process.argv.slice(2);
 function writeFiles(dir,files){for(const [name,body] of Object.entries(files)){if(name!=="sitemap.xml"&&!name.startsWith("seo-catalogue/"))throw Error("Unexpected output path");const dest=path.resolve(dir,name);if(!dest.startsWith(path.resolve(dir)+path.sep))throw Error("Invalid output path");fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,body,"utf8");}}
 if(args[0]==="--fixture"){
  if(args.length!==4||args[2]!=="--output")throw Error("Use --fixture FILE --output NEW_DIRECTORY");
  const output=path.resolve(args[3]);if(output===root||output.startsWith(root+path.sep)||fs.existsSync(output))throw Error("Staging output must be a new directory outside repository");
- const fixture=JSON.parse(fs.readFileSync(args[1],"utf8"));const rows=Array.isArray(fixture)?fixture:fixture.products;const business=Array.isArray(fixture)?[]:fixture.businesses;const images=Array.isArray(fixture)?[]:fixture.categoryImages||[];const files=extend(build(rows,"https://staging.invalid",true),business,"https://staging.invalid",true,images);verifyPublication(files,"https://staging.invalid");writeFiles(output,files);console.log("Staging preview generated; no repository files changed.");
+ const fixture=JSON.parse(fs.readFileSync(args[1],"utf8"));const rows=Array.isArray(fixture)?fixture:fixture.products;const business=Array.isArray(fixture)?[]:fixture.businesses;const images=Array.isArray(fixture)?[]:fixture.categoryImages||[];const files=extend(build(rows,"https://staging.invalid",true),business,"https://staging.invalid",true,images);files["seo-catalogue/google-merchant-feed.xml"]=merchantFeed([]);verifyPublication(files,"https://staging.invalid");writeFiles(output,files);console.log("Staging preview generated; no repository files changed.");
 }else{
  if(args.length!==1||args[0]!=="--production")throw Error("Explicit --production required");
  if(!fs.existsSync(path.join(root,".github/seo/render.mjs")))throw Error("Run from LEOGO repository root");
@@ -30,8 +31,9 @@ if(args[0]==="--fixture"){
  if(!derivativeRes.ok)throw Error("Optimized image manifest request failed: "+derivativeRes.status);
  const derivatives=await derivativeRes.json();
  if(!Array.isArray(derivatives))throw Error("Invalid optimized image manifest");
- const files=extend(build(rows,"https://leogo.co.ke",false,derivatives),businessRows,"https://leogo.co.ke",false,categoryImages);files["seo-catalogue/live.js"]=liveSource(key);files["seo-catalogue/business/live.js"]=businessLiveSource(key);
+ const files=extend(build(rows,"https://leogo.co.ke",false,derivatives),businessRows,"https://leogo.co.ke",false,categoryImages);files["seo-catalogue/live.js"]=liveSource(key);files["seo-catalogue/business/live.js"]=businessLiveSource(key);files["seo-catalogue/google-merchant-feed.xml"]=merchantFeed(rows);
  const verified=verifyPublication(files,"https://leogo.co.ke");
+ console.log("Merchant Center feed includes "+merchantItems(rows).length+" conservative, in-stock, fixed-price listings.");
  console.log("Verified "+verified.urls+" sitemap URLs and "+verified.pages+" generated pages; "+businessRows.length+" eligible businesses.");
  const oldSitemap=fs.readFileSync(path.join(root,"sitemap.xml"),"utf8");
  const oldUrls=[...oldSitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]);
