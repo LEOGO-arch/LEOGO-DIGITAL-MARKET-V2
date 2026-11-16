@@ -32,7 +32,7 @@ test('without a valid measurement ID the integration is completely inert',()=>{
     const h=run(id);assert.equal(h.nodes.length,0);assert.equal(h.requests.length,0);
     assert.equal(h.writes.length,0);assert.equal(h.window.gtag,undefined);
   }
-  assert.match(homepage,/src="js\/ga4-analytics\.js[^"]*" data-measurement-id="" defer/);
+  assert.match(homepage,/src="js\/ga4-analytics\.js[^"]*" data-measurement-id="G-7D8FPNLPJQ" defer/);
   assert.match(homepage,/src="js\/customer-traffic\.js/);
 });
 test('decline prevents Google tag and persists the choice',()=>{
