@@ -120,7 +120,7 @@
       const location = [property.public_location, property.town].filter(Boolean).join(', ');
       return `<article class="leogo-stay-card-v3">
         <div class="leogo-stay-photo-v3">
-          ${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(property.property_name)}">` : '<span class="leogo-stay-placeholder-v3">🏨</span>'}
+          ${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(property.property_name)}" loading="lazy" decoding="async">` : '<span class="leogo-stay-placeholder-v3">🏨</span>'}
           <b class="leogo-stay-type-v3">${escapeHtml(typeLabel(property.property_type))}</b>
         </div>
         <div class="leogo-stay-info-v3">
@@ -227,7 +227,7 @@
       const rating = unitRating(unit);
       const minimum = unitMinimumRate(unit);
       return `<article class="accommodation-room-card">
-        <div class="accommodation-room-card-image">${images[0] ? `<img src="${escapeHtml(images[0])}" alt="${escapeHtml(unit.unit_name)}">` : '<span>🛏️</span>'}<b>${escapeHtml(unit.room_category || 'Room')}</b></div>
+        <div class="accommodation-room-card-image">${images[0] ? `<img src="${escapeHtml(images[0])}" alt="${escapeHtml(unit.unit_name)}" loading="lazy" decoding="async">` : '<span>🛏️</span>'}<b>${escapeHtml(unit.room_category || 'Room')}</b></div>
         <div class="accommodation-room-card-copy">
           <div class="accommodation-room-card-title"><div><span>${escapeHtml(unit.room_category || 'Room')}</span><h4>${escapeHtml(unit.unit_name)}</h4></div><strong>${escapeHtml(rating.label)}</strong></div>
           <p>${escapeHtml(unit.description || 'View room details, gallery and available rates before booking.')}</p>
@@ -261,10 +261,10 @@
       : '<span>Room amenities will be confirmed by the property.</span>';
 
     elements.roomMainPhoto.innerHTML = images[0]
-      ? `<img src="${escapeHtml(images[0])}" alt="${escapeHtml(selectedUnit.unit_name)}">`
+      ? `<img src="${escapeHtml(images[0])}" alt="${escapeHtml(selectedUnit.unit_name)}" loading="lazy" decoding="async">`
       : '<span>🛏️</span>';
     elements.roomGallery.innerHTML = images.length
-      ? images.map((image, index) => `<button type="button" data-room-gallery-image="${escapeHtml(image)}" class="${index === 0 ? 'active' : ''}"><img src="${escapeHtml(image)}" alt="${escapeHtml(selectedUnit.unit_name)} photo ${index + 1}"></button>`).join('')
+      ? images.map((image, index) => `<button type="button" data-room-gallery-image="${escapeHtml(image)}" class="${index === 0 ? 'active' : ''}"><img src="${escapeHtml(image)}" alt="${escapeHtml(selectedUnit.unit_name)} photo ${index + 1}" loading="lazy" decoding="async"></button>`).join('')
       : '<div class="accommodation-room-no-gallery">No additional room photos yet.</div>';
 
     elements.roomRates.innerHTML = (selectedUnit.rates || []).length
@@ -368,7 +368,7 @@
     elements.profileName.textContent = selectedProperty.property_name;
     elements.profileLocation.textContent = `📍 ${selectedProperty.public_location}, ${selectedProperty.town}, ${selectedProperty.county}`;
     elements.profileDescription.textContent = selectedProperty.description;
-    elements.cover.innerHTML = image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(selectedProperty.property_name)}">` : '<span>🏨</span>';
+    elements.cover.innerHTML = image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(selectedProperty.property_name)}" loading="lazy" decoding="async">` : '<span>🏨</span>';
     const publicAmenities=[...(selectedProperty.amenities||[])];
     if(selectedProperty.parking_available) publicAmenities.push('Parking');
     if(selectedProperty.wifi_available) publicAmenities.push('Wi-Fi');
@@ -467,7 +467,7 @@
   elements.roomGallery?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-room-gallery-image]');
     if (!button || !selectedUnit) return;
-    elements.roomMainPhoto.innerHTML = `<img src="${escapeHtml(button.dataset.roomGalleryImage)}" alt="${escapeHtml(selectedUnit.unit_name)}">`;
+    elements.roomMainPhoto.innerHTML = `<img src="${escapeHtml(button.dataset.roomGalleryImage)}" alt="${escapeHtml(selectedUnit.unit_name)}" loading="lazy" decoding="async">`;
     elements.roomGallery.querySelectorAll('button').forEach((item) => item.classList.toggle('active', item === button));
   });
   elements.bookSelectedRoom?.addEventListener('click', beginRoomBooking);

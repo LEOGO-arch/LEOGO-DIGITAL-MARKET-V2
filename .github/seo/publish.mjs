@@ -26,7 +26,11 @@ if(args[0]==="--fixture"){
  if(!imageRes.ok)throw Error("Category images request failed: "+imageRes.status);
  const categoryImages=await imageRes.json();
  if(!Array.isArray(categoryImages))throw Error("Invalid category images");
- const files=extend(build(rows,"https://leogo.co.ke"),businessRows,"https://leogo.co.ke",false,categoryImages);files["seo-catalogue/live.js"]=liveSource(key);files["seo-catalogue/business/live.js"]=businessLiveSource(key);
+ const derivativeRes=await fetch("https://dzdciuqkqixwutvtfotj.supabase.co/rest/v1/rpc/public_catalogue_image_derivatives",{method:"POST",headers:{apikey:key,"Content-Type":"application/json"},body:"{}",signal:AbortSignal.timeout(30000)});
+ if(!derivativeRes.ok)throw Error("Optimized image manifest request failed: "+derivativeRes.status);
+ const derivatives=await derivativeRes.json();
+ if(!Array.isArray(derivatives))throw Error("Invalid optimized image manifest");
+ const files=extend(build(rows,"https://leogo.co.ke",false,derivatives),businessRows,"https://leogo.co.ke",false,categoryImages);files["seo-catalogue/live.js"]=liveSource(key);files["seo-catalogue/business/live.js"]=businessLiveSource(key);
  const verified=verifyPublication(files,"https://leogo.co.ke");
  console.log("Verified "+verified.urls+" sitemap URLs and "+verified.pages+" generated pages; "+businessRows.length+" eligible businesses.");
  const oldSitemap=fs.readFileSync(path.join(root,"sitemap.xml"),"utf8");

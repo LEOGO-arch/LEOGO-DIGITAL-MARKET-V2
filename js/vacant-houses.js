@@ -205,7 +205,7 @@
         l.parking_available?'Parking':null,l.gated_compound?'Gated':null
       ].filter(Boolean);
       return '<article class="vh-card">'+
-        '<div class="vh-card-photo">'+(img?'<img src="'+esc(img)+'" alt="'+esc(l.title)+'" loading="lazy">':'<span>🏠</span>')+'<b>'+(forSale?'FOR SALE':'FOR RENT')+'</b></div>'+
+        '<div class="vh-card-photo">'+(img?'<img src="'+esc(img)+'" alt="'+esc(l.title)+'" loading="lazy" decoding="async">':'<span>🏠</span>')+'<b>'+(forSale?'FOR SALE':'FOR RENT')+'</b></div>'+
         '<div class="vh-card-body"><span>'+esc(typeLabel(l.house_type))+'</span><h3>'+esc(l.title)+'</h3>'+
         '<p>📍 '+esc(l.area_estate)+', '+esc(l.sub_county)+', '+esc(l.county)+'</p>'+
         '<strong>'+esc(money(forSale?l.sale_price_kes:l.monthly_rent_kes))+(forSale?' <small>asking price</small>':' <small>/ month</small>')+'</strong>'+
@@ -227,7 +227,7 @@
       : '<div><small>Monthly rent</small><strong>'+esc(money(listing.monthly_rent_kes))+'</strong></div>'+
         '<div><small>Deposit</small><strong>'+esc(money(listing.deposit_kes))+'</strong></div>';
     $('vhModalBody').innerHTML=
-      '<div class="vh-detail-gallery">'+(photos.length?photos.map((u,i)=>'<img src="'+esc(u)+'" alt="Property photo '+(i+1)+'">').join(''):'<div class="vh-photo-placeholder">🏠</div>')+'</div>'+
+      '<div class="vh-detail-gallery">'+(photos.length?photos.map((u,i)=>'<img src="'+esc(u)+'" alt="Property photo '+(i+1)+'" loading="lazy" decoding="async">').join(''):'<div class="vh-photo-placeholder">🏠</div>')+'</div>'+
       '<div class="vh-detail-grid">'+priceFacts+
       '<div><small>Type</small><strong>'+esc(typeLabel(listing.house_type))+'</strong></div>'+
       '<div><small>General location</small><strong>'+esc(listing.area_estate+', '+listing.sub_county+', '+listing.county)+'</strong></div></div>'+
@@ -480,9 +480,10 @@
       const draft=crypto.randomUUID();
       for(let i=0;i<files.length;i++){
         const file=files[i];
-        const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
-        const path=user.id+'/'+draft+'/'+Date.now()+'-'+i+'.'+ext;
-        const {error}=await client.storage.from(BUCKET).upload(path,file,{contentType:file.type||'image/jpeg',upsert:false});
+        if(file.size>10*1024*1024)throw Error('Each property photo must be 10 MB or smaller.');
+        const optimized=await window.leogoPublicImages.optimize(file);
+        const path=user.id+'/'+draft+'/'+Date.now()+'-'+i+'.webp';
+        const {error}=await client.storage.from(BUCKET).upload(path,optimized,{contentType:'image/webp',cacheControl:'86400',upsert:false});
         if(error)throw error;
         uploaded.push(path);
       }

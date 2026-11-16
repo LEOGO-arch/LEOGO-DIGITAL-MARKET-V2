@@ -2913,6 +2913,12 @@
     .replace('Footwares', 'Footwears')
     .replace('Market Place', 'Market Place');
 
+  let publicProductImageDerivatives=new Map();
+  const sellerPublicImagePath=(path,mode='detail')=>{
+    if(!path)return '';
+    const derived=publicProductImageDerivatives.get(String(path));
+    return (mode==='thumbnail'?derived?.thumbnail_path:derived?.optimized_path)||String(path);
+  };
   const sellerProductMediaUrl = (path) => {
     const client = window.leogoAuth?.client;
     if (!client || !path) return '';
@@ -3218,13 +3224,13 @@
     const available = ordinaryOrderAvailable
       && product.availability_status === 'available'
       && (hasVariants ? effectiveVariantStock > 0 : effectiveProductStock > 0);
-    const imageUrl = sellerProductMediaUrl(product.main_image_path);
-    const thumbnailUrl = sellerProductMediaUrl(window.leogoPublicImages?.thumbPath(product.main_image_path)) || imageUrl;
+    const imageUrl = sellerProductMediaUrl(sellerPublicImagePath(product.main_image_path));
+    const thumbnailUrl = sellerProductMediaUrl(publicProductImageDerivatives.get(String(product.main_image_path||''))?.thumbnail_path || window.leogoPublicImages?.thumbPath(product.main_image_path)) || imageUrl;
     const galleryPaths=Array.isArray(product.gallery_image_paths)?product.gallery_image_paths.filter(Boolean):[];
     const galleryImages=[product.main_image_path,...galleryPaths]
       .filter(Boolean)
       .filter((path,index,rows)=>rows.indexOf(path)===index)
-      .map((path)=>({path,url:sellerProductMediaUrl(path)}))
+      .map((path)=>({path,url:sellerProductMediaUrl(sellerPublicImagePath(path))}))
       .filter((image)=>image.url);
     const galleryMarkup=galleryImages.length>1
       ? '<div class="live-product-detail-section live-product-gallery-section">'+
@@ -3259,7 +3265,7 @@
       ? '<div class="live-product-variant-picker"><small>Choose variant</small><div class="live-product-variants">'+activeVariants.map((variant) => {
           const variantEffectiveStock=sellerEffectiveStock(product,variant.quantity_available);
           const variantAvailable = variantEffectiveStock > 0;
-          const variantImage = sellerProductMediaUrl(variant.image_path);
+          const variantImage = sellerProductMediaUrl(sellerPublicImagePath(variant.image_path));
           const variantEffectivePrice=sellerEffectivePrice(product,variant.price_kes);
           return '<button type="button" class="live-product-variant-option" data-product-variant="'+receiptEscape(variant.id)+'" data-product-id="'+receiptEscape(product.id)+'" data-variant-name="'+receiptEscape(variant.variant_name)+'" data-variant-price="'+Number(variantEffectivePrice || 0)+'" data-variant-stock="'+Number(variantEffectiveStock || 0)+'" data-variant-image="'+receiptEscape(variantImage)+'" '+(variantAvailable?'':'disabled')+'>'+
             (variantImage?'<img src="'+receiptEscape(variantImage)+'" alt="" loading="lazy" decoding="async">':'')+
@@ -3564,12 +3570,18 @@
 
     if (liveCatalogueStatus) liveCatalogueStatus.textContent = 'Loading approved marketplace listings…';
 
-    const [categoryResult,productResult,personalSaleResult,flashSaleResult] = await Promise.all([
+    const [categoryResult,productResult,personalSaleResult,flashSaleResult,derivativeResult] = await Promise.all([
       client.rpc('customer_product_categories'),
       client.rpc('customer_marketplace_catalogue'),
       client.rpc('customer_public_personal_sales'),
-      client.rpc('customer_public_partner_flash_sales')
+      client.rpc('customer_public_partner_flash_sales'),
+      client.rpc('public_catalogue_image_derivatives')
     ]);
+    publicProductImageDerivatives=derivativeResult.error?new Map():new Map(
+      (Array.isArray(derivativeResult.data)?derivativeResult.data:[])
+        .filter(r=>r&&typeof r.source_path==='string')
+        .map(r=>[r.source_path,r])
+    );
 
     if (categoryResult.error) {
       if (liveCatalogueStatus) liveCatalogueStatus.textContent = 'Product categories could not load: '+categoryResult.error.message;
