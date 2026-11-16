@@ -108,14 +108,16 @@ const setPin=(lat,lng,mapLink='')=>{
   $('#cyberPinStatus').textContent='✓ Shop location pinned: '+Number(lat).toFixed(6)+', '+Number(lng).toFixed(6);
 };
 
-const upload=(bucket,file,prefix)=>{
-  if(!file)return Promise.resolve(null);
-  const ext=(file.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
+const upload=async(bucket,file,prefix)=>{
+  if(!file)return null;
+  const publicImage=bucket==='cyber-public-media';
+  if(publicImage&&file.size>10*1024*1024)throw Error('Public image must be 10 MB or smaller.');
+  const body=publicImage?await window.leogoPublicImages.optimize(file):file;
+  const ext=publicImage?'webp':(file.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
   const path=user.id+'/'+prefix+'-'+crypto.randomUUID()+'.'+ext;
-  return client.storage.from(bucket).upload(path,file,{upsert:false}).then(({error})=>{
-    if(error)throw error;
-    return path;
-  });
+  const {error}=await client.storage.from(bucket).upload(path,body,{upsert:false,contentType:publicImage?'image/webp':file.type||undefined,...(publicImage?{cacheControl:'86400'}:{})});
+  if(error)throw error;
+  return path;
 };
 
 const accountStatusCopy=(s)=>{
