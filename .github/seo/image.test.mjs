@@ -30,7 +30,8 @@ test("derived filenames support legacy images and new uploads without path trave
  assert.equal(images.thumbPath("../secret.jpg"),null);
  assert.equal(images.thumbPath("bad.js"),null);
  assert.equal(images.thumbPath("another-folder/../../private.jpg"),null);
- assert.equal(Array.from(images.mediaPaths([id+"/main-old.jpg"])).length,2);
+ assert.equal(Array.from(images.mediaPaths([id+"/main-old.jpg"])).length,3);
+ assert.equal(images.optimizedPath(id+"/main-old.jpg"),id+"/main-old.jpg-opt.webp");
 });
 test("SEO catalogue uses legacy thumbnails with full-size fallback",()=>{
  const name=id+"/main-old.png";
@@ -53,7 +54,9 @@ test("Cyber and property public uploads are compressed; verification uploads are
  assert.ok(property.includes("cacheControl:'86400'"));
  const admin=fs.readFileSync("admin/product-image-backfill.js","utf8");
  new Function(admin);
- assert.ok(admin.includes("admin_list_missing_product_thumbnails"));
- assert.ok(admin.includes("target!==optimizer.thumbPath(src)"));
+ assert.ok(admin.includes("admin_list_missing_product_media_derivatives"));
+ assert.ok(admin.includes("thumb!==optimizer.thumbPath(src)"));
  assert.ok(admin.includes("upsert:false"));
 });
+
+test("verified media manifest supplies optimized detail images without rewriting originals",()=>{const source=id+"/legacy.png";const rows=[{id,name:"Shoes",category:"groceries",category_name:"Groceries",availability:"available",regular_price_kes:500,current_price_kes:500,image_path:source,variants:[]}];const manifest=[{source_path:source,optimized_path:source+"-opt.webp",thumbnail_path:source+"-thumb.webp"}];const f=build(rows,"https://leogo.co.ke",false,manifest);assert.ok(f["seo-catalogue/index.html"].includes(source+"-thumb.webp"));assert.ok(f["seo-catalogue/products/"+id+"/index.html"].includes(source+"-opt.webp"));});
