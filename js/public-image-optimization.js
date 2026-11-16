@@ -2,7 +2,8 @@
 const types=new Set(['image/jpeg','image/png','image/webp']);
 function dimensions(w,h,max){const scale=Math.min(1,max/Math.max(w,h));return [Math.max(1,Math.round(w*scale)),Math.max(1,Math.round(h*scale))];}
 function thumbPath(path){if(typeof path!=='string'||!/^[-0-9a-f]{36}\/[A-Za-z0-9][A-Za-z0-9_.-]+\.(?:jpe?g|png|webp)$/i.test(path)||path.includes('..')||path.endsWith('-thumb.webp'))return null;return /-opt\.webp$/.test(path)?path.replace(/-opt\.webp$/,'-thumb.webp'):path+'-thumb.webp';}
-function mediaPaths(paths){return [...new Set(paths.flatMap(p=>[p,thumbPath(p)].filter(Boolean)))];}
+function optimizedPath(path){if(typeof path!=='string'||!/^[-0-9a-f]{36}\/[A-Za-z0-9][A-Za-z0-9_.-]+\.(?:jpe?g|png|webp)$/i.test(path)||path.includes('..')||path.endsWith('-thumb.webp'))return null;return path.endsWith('-opt.webp')?path:path+'-opt.webp';}
+function mediaPaths(paths){return [...new Set(paths.flatMap(p=>[p,thumbPath(p),optimizedPath(p)].filter(Boolean)))];}
 async function optimize(file,{max=1280,quality=.82,target=250*1024}={}){
  if(!types.has(file.type))throw Error('Choose a JPEG, PNG or WebP image.');
  const bitmap=await createImageBitmap(file);try{
@@ -17,6 +18,6 @@ async function optimize(file,{max=1280,quality=.82,target=250*1024}={}){
  }
  }finally{bitmap.close();}
 }
-window.leogoPublicImages={optimize,dimensions,thumbPath,mediaPaths};
+window.leogoPublicImages={optimize,dimensions,thumbPath,optimizedPath,mediaPaths};
 document.addEventListener('error',event=>{const img=event.target;if(img?.tagName==='IMG'&&img.dataset.fullImage&&img.src!==img.dataset.fullImage){img.src=img.dataset.fullImage;}},true);
 })();
