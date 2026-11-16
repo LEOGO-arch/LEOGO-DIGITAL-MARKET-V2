@@ -1,0 +1,18 @@
+name: Verify optional LEOGO Analytics
+on:
+  pull_request:
+    paths:
+      - 'js/ga4-analytics.js'
+      - 'tests/ga4-analytics.test.mjs'
+      - 'docs/google-analytics-setup.md'
+      - 'index.html'
+      - '.github/workflows/ga4-verify.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: node --test tests/ga4-analytics.test.mjs
