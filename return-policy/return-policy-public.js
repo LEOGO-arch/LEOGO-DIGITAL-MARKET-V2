@@ -35,7 +35,7 @@
      const response=await fetch(url,{method:'POST',headers:{'apikey':key,'Content-Type':'application/json'},body:'{}',signal:controller.signal,cache:'no-store'});
      if(!response.ok)throw Error('Unable to load published policy');
      const policy=await response.json();
-     if(!policy || typeof policy.body!=='string'||!policy.title||!policy.summary)return;
+     if(!policy || Number(policy.publication_version)<=1 || typeof policy.body!=='string'||!policy.title||!policy.summary)return;
      const body=document.getElementById('returnPolicyDynamic');
      body.replaceChildren(build(policy.body));
      document.getElementById('returnPolicyPublicTitle').textContent=policy.title;
