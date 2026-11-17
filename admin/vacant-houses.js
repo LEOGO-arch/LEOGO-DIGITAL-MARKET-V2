@@ -101,7 +101,7 @@
         '<div class="vh-admin-photo">'+(img?'<img src="'+esc(img)+'" alt="'+esc(l.title)+'">':'<span>🏠</span>')+'</div>'+
         '<div class="vh-admin-copy"><div class="vh-admin-card-head"><div><span>'+esc(l.listing_reference)+' · '+(forSale?'FOR SALE':'FOR RENT')+'</span><h4>'+esc(l.title)+'</h4></div><b>'+esc(label(l.approval_status))+' · '+esc(availability)+'</b></div>'+
         '<div class="vh-admin-facts"><span><small>'+priceLabel+'</small>'+esc(money(price))+'</span><span><small>General area</small>'+esc(l.area_estate+', '+l.sub_county+', '+l.county)+'</span><span><small>Submitter</small>'+esc(l.submitter_name||'Customer')+' · '+esc(label(l.submitter_role))+'</span></div>'+
-        '<details><summary>Property & private verification details</summary><div class="vh-admin-private">'+saleDetails+'<p><b>Contact:</b> '+esc(l.contact_name||'—')+' · '+esc(l.contact_phone||'—')+'</p><p><b>Exact address:</b> '+esc(l.exact_address||'—')+'</p><p><b>Landmark:</b> '+esc(l.landmark||'—')+'</p><p><b>Coordinates:</b> '+esc(l.latitude??'—')+', '+esc(l.longitude??'—')+'</p>'+(l.maps_link?'<p><a href="'+esc(l.maps_link)+'" target="_blank" rel="noopener">Open submitted map link ↗</a></p>':'')+'<p>'+esc(l.description||'')+'</p></div></details>'+
+        '<details><summary>Property & private verification details</summary><div class="vh-admin-private">'+saleDetails+'<p><b>Contact:</b> '+esc(l.contact_name||'—')+' · '+esc(l.contact_phone||'—')+'</p><p><b>Exact address:</b> '+esc(l.exact_address||'—')+'</p><p><b>Landmark:</b> '+esc(l.landmark||'—')+'</p><p><b>Coordinates:</b> '+esc(l.latitude??'—')+', '+esc(l.longitude??'—')+'</p>'+(l.maps_link?'<p><a href="'+esc(l.maps_link)+'" target="_blank" rel="noopener">Open submitted map link ↗</a></p>':'')+'<p>'+esc(l.description||'')+'</p>'+(l.video_path?'<div class="vh-admin-video-container"><button type="button" data-vh-video="'+esc(l.id)+'">▶ Preview submitted video</button></div>':'')+'</div></details>'+
         (Number(l.voucher_amount_kes)>0?'<div class="vh-admin-voucher">🎁 '+esc(money(l.voucher_amount_kes))+' Shopping Voucher credited</div>':'')+
         '<div class="vh-admin-actions">'+
           (pending?'<button data-vh-review="'+esc(l.id)+'" data-action="approve" class="approve">Approve & Publish</button><button data-vh-review="'+esc(l.id)+'" data-action="under_review">Under Review</button><button data-vh-review="'+esc(l.id)+'" data-action="reject" class="reject">Reject</button>':'')+
@@ -176,6 +176,22 @@
   });
 
   $('#vhAdminListingList').addEventListener('click',async ev=>{
+    const preview=ev.target.closest('[data-vh-video]');
+    if(preview){
+      const listing=state.listings.find(item=>item.id===preview.dataset.vhVideo);
+      if(!listing?.video_path)return;
+      preview.disabled=true;
+      try{
+        const {data,error}=await db.storage.from('vacant-house-videos').createSignedUrl(listing.video_path,600);
+        if(error)throw error;
+        const video=document.createElement('video');
+        video.controls=true;video.playsInline=true;video.preload='metadata';
+        video.className='vh-admin-video';video.src=data.signedUrl;
+        video.setAttribute('aria-label','Submitted property video for review');
+        preview.replaceWith(video);
+      }catch(error){preview.disabled=false;setStatus(error.message||'Unable to preview property video.','error');}
+      return;
+    }
     const review=ev.target.closest('[data-vh-review]');
     const status=ev.target.closest('[data-vh-status]');
     try{
