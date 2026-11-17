@@ -7,6 +7,7 @@
   if (!client) return;
 
   const BUCKET = 'vacant-house-public-media';
+  const VIDEO_BUCKET = 'vacant-house-videos';
   const state = {
     settings: { is_enabled:true, voucher_enabled:false, submission_voucher_kes:0, viewing_access_fee_kes:300, max_photos:8 },
     listings: [],
@@ -161,7 +162,8 @@
           <label><span>Longitude <b>Private</b></span><input name="longitude" id="vhLongitude" type="number" step="0.0000001" min="-180" max="180"></label>
           <div class="vh-pin-row wide"><button id="vhPinLocation" type="button">📍 Pin Current Location</button><span id="vhPinStatus">Optional, but recommended for accurate viewing directions.</span></div>
           <label class="wide"><span>Description</span><textarea name="description" minlength="10" maxlength="3000" rows="4" required placeholder="Describe the property and the important details a renter or buyer should know."></textarea></label>
-          <label class="wide"><span>Property photos (1–<b id="vhMaxPhotos">8</b>)</span><input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required></label>
+          <label class="wide"><span>Property photos (1–<b id="vhMaxPhotos">8</b>, required)</span><input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required></label>
+          <label class="wide"><span>Property video (optional, 1 MP4 or WebM, up to 20 MB)</span><input name="video" type="file" accept="video/mp4,video/webm"><small>Show a walkthrough of the rooms or property. Video appears only after Admin approval.</small></label>
         </div>
         <div class="vh-check-grid">
           <label><input name="furnished" type="checkbox"> Furnished</label>
@@ -171,7 +173,7 @@
           <label><input name="gated_compound" type="checkbox"> Gated compound</label>
         </div>
         <label class="vh-consent"><input name="contact_reveal_consent" type="checkbox" required> I authorize LEOGO to reveal this exact location and contact details only to a signed-in customer whose viewing/access payment has been verified by LEOGO.</label>
-        <div class="vh-private-note">🔒 Exact location and contact details are not returned by the public listing API. Property photos and the general area are public only after Admin approval.</div>
+        <div class="vh-private-note">🔒 Exact location and contact details are not returned by the public listing API. Property photos, optional video and the general area are public only after Admin approval.</div>
         <div id="vhSubmitStatus" class="vh-status" role="status" aria-live="polite"></div>
         <button id="vhSubmitButton" class="vh-primary" type="submit">Submit for Admin Approval</button>
       </form>
@@ -261,6 +263,22 @@
       '<button class="vh-primary" id="vhRequestAccess" type="button">Request Viewing & Unlock Details · '+esc(money(state.settings.viewing_access_fee_kes))+'</button>'+
       '<div id="vhAccessArea"></div>';
     open(modal);
+    // Video is fetched only for an approved public listing. Private uploads
+    // cannot be streamed or listed before LEOGO Admin approval.
+    try{
+      const {data:videoPath,error:videoLookupError}=await client.rpc('public_get_approved_vacant_house_video',{p_listing_id:listing.id});
+      if(!videoLookupError && videoPath && state.selected?.id===listing.id){
+        const {data:signed,error:signedError}=await client.storage.from(VIDEO_BUCKET).createSignedUrl(videoPath,600);
+        if(!signedError && signed?.signedUrl && state.selected?.id===listing.id){
+          const host=$('vhModalBody');
+          const video=document.createElement('video');
+          video.controls=true;video.preload='metadata';video.playsInline=true;
+          video.className='vh-detail-video';video.src=signed.signedUrl;
+          video.setAttribute('aria-label','Property walkthrough video');
+          host?.querySelector('.vh-detail-gallery')?.after(video);
+        }
+      }
+    }catch(e){console.warn('Optional property video unavailable:',e?.message||e);}
     $('vhRequestAccess').addEventListener('click',()=>startAccess(listing).catch(e=>renderAccessError(e)));
   };
 
@@ -493,6 +511,7 @@
     const button=$('vhSubmitButton');
     const form=ev.currentTarget;
     let uploaded=[];
+    let uploadedVideo=null;
     try{
       const user=await requireUser();
       const fd=new FormData(form);
@@ -511,6 +530,16 @@
         const {error}=await client.storage.from(BUCKET).upload(path,optimized,{contentType:'image/webp',cacheControl:'86400',upsert:false});
         if(error)throw error;
         uploaded.push(path);
+      }
+      const video=form.elements.video.files?.[0]||null;
+      if(video){
+        if(!['video/mp4','video/webm'].includes(video.type))throw Error('Choose an MP4 or WebM property video.');
+        if(video.size<=0 || video.size>20*1024*1024)throw Error('Property video must be 20 MB or smaller.');
+        notify(submitStatus,'Uploading property video…');
+        const extension=video.type==='video/webm'?'webm':'mp4';
+        uploadedVideo=user.id+'/'+draft+'/'+crypto.randomUUID()+'.'+extension;
+        const {error:videoError}=await client.storage.from(VIDEO_BUCKET).upload(uploadedVideo,video,{contentType:video.type,cacheControl:'3600',upsert:false});
+        if(videoError)throw videoError;
       }
       notify(submitStatus,'Submitting property to LEOGO Admin…');
       const payload={
@@ -531,11 +560,12 @@
         furnished:fd.has('furnished'),water_available:fd.has('water_available'),
         electricity_available:fd.has('electricity_available'),parking_available:fd.has('parking_available'),
         gated_compound:fd.has('gated_compound'),contact_reveal_consent:fd.has('contact_reveal_consent'),
-        photo_paths:uploaded
+        photo_paths:uploaded,video_path:uploadedVideo
       };
       const {data,error}=await client.rpc('customer_submit_vacant_house',{p_data:payload});
       if(error)throw error;
       uploaded=[];
+      uploadedVideo=null;
       notify(submitStatus,'Submitted successfully. Reference '+data.listing_reference+'. LEOGO Admin will review it before publication.'+
         (Number(data.voucher_on_approval_kes)>0?' If approved, '+money(data.voucher_on_approval_kes)+' will be credited as a Shopping Voucher.':''),'success');
       form.reset();
@@ -544,6 +574,7 @@
       await loadMine();
     }catch(e){
       if(uploaded.length)client.storage.from(BUCKET).remove(uploaded).catch(()=>{});
+      if(uploadedVideo)client.storage.from(VIDEO_BUCKET).remove([uploadedVideo]).catch(()=>{});
       notify(submitStatus,e.message||'Could not submit property.','error');
     }finally{button.disabled=false;}
   });
