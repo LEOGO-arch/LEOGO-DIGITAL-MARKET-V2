@@ -38,12 +38,12 @@ export function merchantItems(rows){
     const price=money(v.price_kes),image=media(v.image_path)||media(p.image_path);
     if(!price||!image)continue;
     // Public projection returns the final LEOGO variant selling price including approved discounts.
-    const id=p.id+"-"+createHash("sha256").update(name.toLowerCase()).digest("hex").slice(0,16);
+    const id=p.id+"-"+createHash("sha256").update(name.toLowerCase()).digest("hex").slice(0,12);
     const dim=dimension(p.category,name);
     const item={id,title:clean(title+" - "+name,150),description,price,image,
       link:link+"?variant="+encodeURIComponent(name),group:p.id,groupTitle:title,
       dimension:dim};
-    if(ids.has(id))throw Error("Merchant variant id collision");
+    if(id.length>50||ids.has(id))throw Error("Invalid or duplicate Merchant variant id");
     ids.add(id);items.push(item);
    }
    continue;
