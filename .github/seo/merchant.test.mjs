@@ -24,6 +24,8 @@ test("generate two independently priced and linked color variants",()=>{
  assert.match(xml,/variant=Black/);
  assert.equal(items[0].group,p.id);
  assert.notEqual(items[0].id,items[1].id);
+ assert.ok(items.every(item=>item.id.length<=50));
+ assert.deepEqual(merchantItems([p]).map(item=>item.id),items.map(item=>item.id));
 });
 test("size and food flavor attributes use distinct variant options",()=>{
  const shoe={...good,category:"garments_clothes_footwear",variants:[{name:"Size 41",available:true,price_kes:3500,image_path:image}]};
