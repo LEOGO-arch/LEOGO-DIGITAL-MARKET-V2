@@ -50,7 +50,6 @@ begin
   end if;
 
   v_photos:=coalesce(array(select jsonb_array_elements_text(coalesce(p_data->'photo_paths','[]'::jsonb))),'{}'::text[]);
-  if coalesce(array_length(v_photos,1),0)<1 then raise exception 'Add at least one property photo'; end if;
   if coalesce(array_length(v_photos,1),0)>v_settings.max_photos then raise exception 'Too many property photos'; end if;
   if exists(select 1 from unnest(v_photos) p where split_part(p,'/',1)<>v_user::text) then
     raise exception 'Property photo path is not owned by this customer';
@@ -65,6 +64,8 @@ begin
       raise exception 'Property video upload is missing or does not belong to you';
     end if;
   end if;
+
+  if coalesce(array_length(v_photos,1),0)=0 and v_video is null then raise exception 'Add at least one property photo or video'; end if;
 
   if coalesce((p_data->>'contact_reveal_consent')::boolean,false) is not true then
     raise exception 'Consent is required before LEOGO can reveal contact and exact location to verified interested customers';
