@@ -1235,7 +1235,7 @@
 
       <section class="admin-panel" data-admin-panel="settings">
         <div class="section-head"><div><span>ADMINISTRATION</span><h2>System Settings</h2><p>Official business information, payment destinations, fees and reserved system modules.</p></div></div>
-        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button id="adminSecuritySettingsTab" data-settings-panel="security" hidden>Admin Security</button><button data-settings-panel="email">Email Notifications</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="agreements">Partner Terms &amp; Agreements</button><button data-settings-panel="orders">Order Rules</button><button data-settings-panel="lipa">Lipa Pole Pole</button><button id="dataManagementSettingsTab" data-settings-panel="data" hidden>Data Cleanup &amp; Retention</button><button data-settings-panel="reserved">More Settings</button></div>
+        <div class="settings-tabs" id="settingsTabs"><button class="active" data-settings-panel="business">Business Details</button><button id="adminSecuritySettingsTab" data-settings-panel="security" hidden>Admin Security</button><button data-settings-panel="email">Email Notifications</button><button data-settings-panel="theme">Customer Theme</button><button data-settings-panel="locations">Counties &amp; Sub-Counties</button><button data-settings-panel="payments">Payment Accounts</button><button data-settings-panel="assignments">Function Assignments</button><button data-settings-panel="fees">Fees &amp; Charges</button><button data-settings-panel="agreements">Partner Terms &amp; Agreements</button><button data-settings-panel="returnpolicy">Return &amp; Refund Policy</button><button data-settings-panel="orders">Order Rules</button><button data-settings-panel="lipa">Lipa Pole Pole</button><button id="dataManagementSettingsTab" data-settings-panel="data" hidden>Data Cleanup &amp; Retention</button><button data-settings-panel="reserved">More Settings</button></div>
 
         <div class="settings-panel active" data-settings-content="business">
           <form class="settings-form" id="businessSettingsForm">
@@ -1515,6 +1515,28 @@
               <div class="table-card"><div class="responsive-table"><table><thead id="dataTableHead"></thead><tbody id="dataTableBody"></tbody></table></div></div>
             </section>
           </div>
+        </div>
+                <div class="settings-panel" data-settings-content="returnpolicy">
+          <section class="form-section-head"><div><span>POLICY</span><div><h3>Return, Refund &amp; Exchange Policy</h3><p>Edit a draft and publish separately. Customers see only the latest published terms. Changes are recorded by version.</p></div></div></section>
+          <div class="form-status" id="returnPolicyAdminStatus" role="status" aria-live="polite"></div>
+          <form id="returnPolicyAdminForm" class="settings-form">
+            <div class="form-grid">
+              <label class="wide"><span>Policy title</span><input id="returnPolicyTitle" maxlength="180" required></label>
+              <label><span>Effective date</span><input id="returnPolicyEffectiveDate" type="date" required></label>
+              <label class="wide"><span>Who and what the policy applies to</span><textarea id="returnPolicyApplicability" rows="3" maxlength="1500" required></textarea></label>
+              <label class="wide"><span>At a glance summary</span><textarea id="returnPolicySummary" rows="5" maxlength="2500" required></textarea></label>
+              <label class="wide"><span>Full policy text (use ## for section headings, blank lines between paragraphs, and • for lists)</span><textarea id="returnPolicyBody" rows="22" maxlength="30000" required spellcheck="true" style="font-family:ui-monospace,monospace;line-height:1.6"></textarea></label>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0">
+              <button type="button" id="returnPolicyReload">Reload Published/Draft</button>
+              <button type="button" id="returnPolicyPreview">Preview Draft</button>
+              <button type="submit" id="returnPolicySaveDraft">Save Draft</button>
+              <button type="button" id="returnPolicyPublish" class="primary">Publish to Customer Website</button>
+            </div>
+            <p id="returnPolicyVersion" class="meta">Open this tab to load the current policy.</p>
+          </form>
+          <section id="returnPolicyPreviewBox" hidden style="background:#fff;border:1px solid #dde4ee;padding:20px;border-radius:12px;margin:16px 0;white-space:pre-wrap;line-height:1.65"></section>
+          <p>Public policy page: <a href="../return-policy/" target="_blank" rel="noopener">View customer Return, Refund &amp; Exchange Policy</a></p>
         </div>
         <div class="settings-panel" data-settings-content="reserved">
           <div class="reserved-settings-grid active-settings-grid">
@@ -1933,6 +1955,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-three-documents-20261016" defer></script>
   <script src="admin.js?v=catalogue-pricing-20261106" defer></script>
+  <script src="return-policy-editor.js?v=admin-policy-v1" defer></script>
 <script src="payment-verification-proof.js?v=payment-notification-proof-1" defer></script>
   <script src="payment-reference-lookup.js?v=wallet-deposit-review-link-1" defer></script>
   <script src="vacant-houses.js?v=property-video-20261117" defer></script>
