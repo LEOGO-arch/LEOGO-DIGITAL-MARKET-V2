@@ -79,16 +79,24 @@
     <div id="vhPublicStatus" class="vh-status"></div>
     <div id="vhGrid" class="vh-grid"></div>
     <section class="vh-mine" id="vhMine" hidden>
-      <div class="vh-mine-head"><div><span>MY PROPERTY</span><h3>Submissions &amp; Viewing Access</h3></div><button id="vhRefreshMine" type="button">↻ Refresh</button></div>
+      <div class="vh-mine-head"><div><span>MY PROPERTY ACCOUNT</span><h3>Property &amp; Viewing Activity</h3><p>Only your own submissions and viewing requests appear here.</p></div><button id="vhRefreshMine" type="button">↻ Refresh</button></div>
       <div class="vh-mine-columns">
-        <div><h4>My Property Submissions</h4><div id="vhMySubmissions" class="vh-mine-list"></div></div>
-        <div><h4>My Viewing Requests</h4><div id="vhMyRequests" class="vh-mine-list"></div></div>
+        <details class="vh-profile-card"><summary>🏠 My Property Submissions</summary><div id="vhMySubmissions" class="vh-mine-list"></div></details>
+        <details class="vh-profile-card"><summary>🔎 My Viewing Requests</summary><div id="vhMyRequests" class="vh-mine-list"></div></details>
       </div>
     </section>`;
 
   const accommodation=document.querySelector('#accommodation');
   if(accommodation) accommodation.before(section);
   else document.querySelector('main')?.append(section);
+
+  // Private property records belong inside Account & Profile, never on the
+  // public property browsing page. Move the same nodes: no duplicate IDs,
+  // data requests, approval controls or viewing workflows are introduced.
+  const accountPanel=document.querySelector('.customer-view[data-customer-panel="account"]');
+  const minePanel=section.querySelector('#vhMine');
+  if(accountPanel && minePanel) accountPanel.append(minePanel);
+  else if(minePanel) minePanel.hidden=true;
 
   const modal=document.createElement('div');
   modal.className='vh-modal';
