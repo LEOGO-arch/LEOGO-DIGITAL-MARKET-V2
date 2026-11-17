@@ -3161,6 +3161,32 @@
     });
   };
 
+  // Keep the homepage compact, while retaining every Admin-managed category.
+  // Shuffle once per page load; refreshing creates a new six-card selection.
+  let homeCategoriesShuffled = false;
+  const shuffleHomeCategories = () => {
+    if (!exploreCategoryGrid || homeCategoriesShuffled) return;
+    const cards = Array.from(exploreCategoryGrid.querySelectorAll(':scope > .category-card'));
+    if (!cards.length) return;
+    for (let i = cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
+    cards.forEach((card) => exploreCategoryGrid.appendChild(card));
+    homeCategoriesShuffled = true;
+  };
+  const toggleHomeCategories = (event) => {
+    event?.preventDefault?.();
+    if (!exploreCategoryGrid) return;
+    const expanded = exploreCategoryGrid.dataset.compact === 'false';
+    exploreCategoryGrid.dataset.compact = expanded ? 'true' : 'false';
+    if (viewAllProductCategories) {
+      viewAllProductCategories.textContent = expanded ? 'View all' : 'Show less';
+      viewAllProductCategories.setAttribute('aria-expanded', String(!expanded));
+    }
+    if (expanded) document.getElementById('explore-leogo')?.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
   const syncCustomerCategoryCards = () => {
     if (!exploreCategoryGrid || !marketplaceCategories.length) return;
     const firstSystemCard = exploreCategoryGrid.querySelector('[data-system-category]');
@@ -3182,6 +3208,7 @@
 
       if (category.code !== 'alcoholic_leogo_bar') card.href = '#live-product-catalogue';
     });
+    shuffleHomeCategories();
   };
 
   const productRatingStars = (rating) => {
@@ -3985,7 +4012,7 @@
   bindHomeSellerGrid(popularNearYouSellerGrid);
   bindHomeSellerGrid(featuredLocalSellerRow);
   showAllLiveProducts?.addEventListener('click', showMoreMarketplace);
-  viewAllProductCategories?.addEventListener('click', openGeneralMarketplace);
+  viewAllProductCategories?.addEventListener('click', toggleHomeCategories);
   personalSalesSeeMore?.addEventListener('click', openGeneralMarketplace);
   popularNearYouViewAll?.addEventListener('click', openGeneralMarketplace);
   featuredLocalSellersViewAll?.addEventListener('click', openGeneralMarketplace);
