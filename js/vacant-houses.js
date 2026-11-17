@@ -100,7 +100,8 @@
   // The dashboard shortcut cards open each customer's original account data
   // without duplicating records or moving anything onto the public homepage.
   const propertyPanels=minePanel?.querySelectorAll('.vh-profile-card')||[];
-  const openPropertyDashboardCard=(kind)=>{
+  const openPropertyDashboardCard=async(kind)=>{
+    if(!state.user)await loadMine().catch(()=>{});
     const index=kind==='submissions'?0:kind==='viewings'?1:-1;
     if(index<0 || !propertyPanels[index] || !state.user){
       document.querySelector('[data-open-customer-view="auth"]')?.click();
