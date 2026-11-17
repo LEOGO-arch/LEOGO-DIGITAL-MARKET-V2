@@ -3350,6 +3350,7 @@
           (reviewCount
             ? '<div class="live-product-detail-section live-product-review-section"><div class="live-product-detail-label">Reviews & Ratings ('+reviewCount+')</div>'+publicProductReviewsHtml(product)+'</div>'
             : '<div class="live-product-detail-section live-product-no-reviews"><span>No approved reviews yet.</span></div>')+
+          '<a class="return-policy-product-card" href="/return-policy/"><span class="return-policy-product-icon" aria-hidden="true">↩</span><span class="return-policy-product-copy"><strong>Returns, refunds &amp; support</strong><small>Read our return policy, eligibility, and how to contact LEOGO support.</small></span><span class="return-policy-product-arrow" aria-hidden="true">›</span></a>'+
         '</div>'+
       '</div>'+
     '</article>';
