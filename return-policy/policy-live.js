@@ -22,7 +22,14 @@
   article.replaceChildren(eyebrow,h1,meta,summary);
   for(const item of data.sections){
    const h=document.createElement('h2');h.textContent=item.heading;
-   const p=document.createElement('p');p.className='policy-editable-text';p.textContent=item.body;
+   const p=document.createElement('p');p.className='policy-editable-text';
+   const words=String(item.body||'').split(/(https:\/\/[^\s]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|0700 192 545)/g);
+   for(const w of words){
+    if(/^https:\/\//.test(w)){const a=document.createElement('a');a.href=w;a.rel='noopener';a.textContent=w;p.append(a);}
+    else if(/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(w)){const a=document.createElement('a');a.href='mailto:'+w;a.textContent=w;p.append(a);}
+    else if(w==='0700 192 545'){const a=document.createElement('a');a.href='tel:+254700192545';a.textContent=w;p.append(a);}
+    else p.append(document.createTextNode(w));
+   }
    article.append(h,p);
   }
  };
