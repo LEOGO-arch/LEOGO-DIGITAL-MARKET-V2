@@ -162,7 +162,7 @@
           <label><span>Longitude <b>Private</b></span><input name="longitude" id="vhLongitude" type="number" step="0.0000001" min="-180" max="180"></label>
           <div class="vh-pin-row wide"><button id="vhPinLocation" type="button">📍 Pin Current Location</button><span id="vhPinStatus">Optional, but recommended for accurate viewing directions.</span></div>
           <label class="wide"><span>Description</span><textarea name="description" minlength="10" maxlength="3000" rows="4" required placeholder="Describe the property and the important details a renter or buyer should know."></textarea></label>
-          <label class="wide"><span>Property photos (1–<b id="vhMaxPhotos">8</b>, required)</span><input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required></label>
+          <label class="wide"><span>Property photos (up to <b id="vhMaxPhotos">8</b>)</span><input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
           <label class="wide"><span>Property video (optional, 1 MP4 or WebM, up to 20 MB)</span><input name="video" type="file" accept="video/mp4,video/webm"><small>Show a walkthrough of the rooms or property. Video appears only after Admin approval.</small></label>
         </div>
         <div class="vh-check-grid">
@@ -517,7 +517,8 @@
       const fd=new FormData(form);
       const files=[...(form.elements.photos.files||[])];
       const max=Number(state.settings.max_photos||8);
-      if(!files.length)throw new Error('Add at least one property photo.');
+      const selectedVideo=form.elements.video.files?.[0]||null;
+      if(!files.length && !selectedVideo)throw new Error('Add property photos or a video.');
       if(files.length>max)throw new Error('Add no more than '+max+' property photos.');
       button.disabled=true;
       notify(submitStatus,'Uploading property photos…');
@@ -531,7 +532,7 @@
         if(error)throw error;
         uploaded.push(path);
       }
-      const video=form.elements.video.files?.[0]||null;
+      const video=selectedVideo;
       if(video){
         if(!['video/mp4','video/webm'].includes(video.type))throw Error('Choose an MP4 or WebM property video.');
         if(video.size<=0 || video.size>20*1024*1024)throw Error('Property video must be 20 MB or smaller.');
