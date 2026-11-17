@@ -59,7 +59,14 @@ begin
   v_video:=nullif(btrim(coalesce(p_data->>'video_path','')),'');
   if v_video is not null then
     if split_part(v_video,'/',1)<>v_user::text
-       or v_video !~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}\\.(mp4|webm)
+       or array_length(string_to_array(v_video,'/'),1)<>3
+       or (right(v_video,4)<>'.mp4' and right(v_video,5)<>'.webm')
+       or not exists(select 1 from storage.objects o where o.bucket_id='vacant-house-videos' and o.name=v_video) then
+      raise exception 'Property video upload is missing or does not belong to you';
+    end if;
+  end if;
+
+  if coalesce((p_data->>'contact_reveal_consent')::boolean,false) is not true then
     raise exception 'Consent is required before LEOGO can reveal contact and exact location to verified interested customers';
   end if;
 
