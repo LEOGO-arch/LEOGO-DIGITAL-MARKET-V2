@@ -90,13 +90,30 @@
   if(accommodation) accommodation.before(section);
   else document.querySelector('main')?.append(section);
 
-  // Private property records belong inside Account & Profile, never on the
-  // public property browsing page. Move the same nodes: no duplicate IDs,
-  // data requests, approval controls or viewing workflows are introduced.
-  const accountPanel=document.querySelector('.customer-view[data-customer-panel="account"]');
+  // Private property records belong inside the signed-in Customer Dashboard,
+  // not the public property homepage or the personal profile edit screen.
+  const dashboardPanel=document.querySelector('.customer-view[data-customer-panel="dashboard"]');
   const minePanel=section.querySelector('#vhMine');
-  if(accountPanel && minePanel) accountPanel.append(minePanel);
+  if(dashboardPanel && minePanel) dashboardPanel.append(minePanel);
   else if(minePanel) minePanel.hidden=true;
+
+  // The dashboard shortcut cards open each customer's original account data
+  // without duplicating records or moving anything onto the public homepage.
+  const propertyPanels=minePanel?.querySelectorAll('.vh-profile-card')||[];
+  const openPropertyDashboardCard=async(kind)=>{
+    if(!state.user)await loadMine().catch(()=>{});
+    const index=kind==='submissions'?0:kind==='viewings'?1:-1;
+    if(index<0 || !propertyPanels[index] || !state.user){
+      document.querySelector('[data-open-customer-view="auth"]')?.click();
+      return;
+    }
+    propertyPanels.forEach((panel,i)=>{panel.open=i===index;});
+    minePanel.hidden=false;
+    propertyPanels[index].scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  document.querySelectorAll('[data-vh-dashboard-open]').forEach(button=>{
+    button.addEventListener('click',()=>openPropertyDashboardCard(button.dataset.vhDashboardOpen));
+  });
 
   const modal=document.createElement('div');
   modal.className='vh-modal';
