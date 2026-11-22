@@ -900,6 +900,12 @@ body.accommodation-modal-open{overflow:hidden}
 
 /* Private Customer Care person-to-person chat */
 .customer-chat-title{align-items:flex-start}
+.customer-chat-title-actions{display:grid;justify-items:end;gap:8px}
+.customer-care-new-thread{border:1px solid #ff7800;border-radius:9px;background:#fff4e8;color:#a94c00;padding:9px 11px;font-size:9px;font-weight:900;cursor:pointer;white-space:nowrap}
+.customer-care-new-thread:disabled{opacity:.65;cursor:wait}
+.customer-care-history{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:10px 12px;border:1px solid #dce4ee;border-radius:10px;background:#fff;color:#526078;font-size:12px;font-weight:800}
+.customer-care-history select{flex:1;min-width:0;padding:9px 10px;border:1px solid #dce4ee;border-radius:8px;background:#fff;color:#07152f;font:inherit}
+.customer-care-compose[hidden],.customer-care-history[hidden]{display:none!important}
 .customer-chat-secure{display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border-radius:999px;background:#edf9f2;color:#17633c;font-size:8px;font-weight:900;white-space:nowrap}
 .customer-care-chat{display:grid;grid-template-rows:auto auto minmax(260px,1fr) auto;min-height:520px;max-height:calc(100vh - 210px);border:1px solid #dce4ee;border-radius:16px;background:#fff;overflow:hidden}
 .customer-care-chat-head{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#07152f;color:#fff}
