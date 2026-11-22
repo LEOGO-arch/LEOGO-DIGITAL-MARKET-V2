@@ -24,7 +24,7 @@
         <label>Deposit, if applicable (KSh)<input name="deposit_amount" type="number" min="0" max="10000000" step="0.01" value="0"></label>
         <label>Rent billing terms<select name="payment_frequency" required><option value="monthly">Monthly</option><option value="quarterly">Quarterly (3 months)</option><option value="four_months">Every 4 months</option><option value="half_yearly">Half-yearly (6 months)</option><option value="annually">Annually (12 months)</option></select></label>
         <label>Preferred instalment payment schedule<select name="preferred_installment_cadence" required><option value="">Choose your preference</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
-        <label>Preferred minimum amount per instalment (KSh)<input name="preferred_minimum_installment" type="number" min="1" max="10000000" step="0.01" required placeholder="e.g. 500"></label>
+        <label>Preferred minimum amount per instalment (KSh)<input name="preferred_minimum_installment" type="number" min="1" max="10000000" step="0.01" required placeholder="Enter amount" aria-describedby="rentInstallmentGuidance"><small id="rentInstallmentGuidance" class="rent-installment-guidance" aria-live="polite">Enter monthly rent and choose a schedule to see the minimum.</small></label>
         <label>County<select name="county" id="rentCounty" required><option value="">Loading counties…</option></select></label>
         <label>Sub-county<select name="sub_county" id="rentSubCounty" required disabled><option value="">Choose county first</option></select></label>
         <label>Estate / Area<input name="estate" maxlength="150" required></label>
@@ -81,6 +81,39 @@
   const mapPinButton = document.getElementById('rentUseCurrentLocation');
   const mapPinStatus = document.getElementById('rentMapPinStatus');
   let subcounties = [];
+
+  const minimumInstallmentFor = (monthlyRent, cadence) => {
+    const periodsPerMonth = { daily:31, weekly:4, monthly:1 }[cadence];
+    if (!periodsPerMonth || !Number.isFinite(monthlyRent) || monthlyRent <= 0) return null;
+    return Math.ceil(monthlyRent / periodsPerMonth);
+  };
+  const monthlyRentInput = form.elements.namedItem('monthly_rent');
+  const cadenceInput = form.elements.namedItem('preferred_installment_cadence');
+  const minimumInstallmentInput = form.elements.namedItem('preferred_minimum_installment');
+  const installmentGuidance = document.getElementById('rentInstallmentGuidance');
+  const syncInstallmentMinimum = () => {
+    const minimum = minimumInstallmentFor(Number(monthlyRentInput.value), cadenceInput.value);
+    if (minimum === null) {
+      minimumInstallmentInput.min = '1';
+      installmentGuidance.textContent = monthlyRentInput.value && Number(monthlyRentInput.value) > 0
+        ? 'Choose a payment schedule to calculate its minimum installment.'
+        : 'Enter monthly rent and choose a schedule to see the minimum.';
+      minimumInstallmentInput.setCustomValidity('');
+      return;
+    }
+    minimumInstallmentInput.min = String(minimum);
+    installmentGuidance.textContent = 'Minimum for this schedule: KSh ' + minimum.toLocaleString('en-KE') + ' per installment.';
+    const entered = Number(minimumInstallmentInput.value);
+    minimumInstallmentInput.setCustomValidity(
+      minimumInstallmentInput.value && entered < minimum
+        ? 'The minimum installment for this schedule is KSh ' + minimum.toLocaleString('en-KE') + ' or more.'
+        : ''
+    );
+  };
+  monthlyRentInput.addEventListener('input', syncInstallmentMinimum);
+  cadenceInput.addEventListener('change', syncInstallmentMinimum);
+  minimumInstallmentInput.addEventListener('input', syncInstallmentMinimum);
+  syncInstallmentMinimum();
 
   const loadOptions = async () => {
     const [types, counties, subs] = await Promise.all([
@@ -158,7 +191,12 @@
       const fd = new FormData(form);
       const minInstalment = Number(fd.get('preferred_minimum_installment'));
       const monthlyRent = Number(fd.get('monthly_rent'));
-      if (!['daily','weekly','monthly'].includes(String(fd.get('preferred_installment_cadence'))) || !Number.isFinite(minInstalment) || minInstalment <= 0 || minInstalment > monthlyRent) throw new Error('Choose daily, weekly or monthly instalments and a minimum amount no higher than your monthly rent.');
+      const cadence = String(fd.get('preferred_installment_cadence') || '');
+      const requiredMinimum = minimumInstallmentFor(monthlyRent, cadence);
+      if (requiredMinimum === null) throw new Error('Enter a valid monthly rent and choose daily, weekly or monthly instalments.');
+      if (!Number.isFinite(minInstalment) || minInstalment < requiredMinimum) {
+        throw new Error('The minimum installment for ' + cadence + ' payments is KSh ' + requiredMinimum.toLocaleString('en-KE') + ' or more.');
+      }
       const photo = fd.get('portrait');
       if (!(photo instanceof File) || !['image/jpeg','image/png','image/webp'].includes(photo.type) || photo.size > 2*1024*1024 || !photo.size) throw new Error('Select a JPG, PNG or WebP photograph of up to 2MB.');
       button.disabled = true;
