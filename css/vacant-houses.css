@@ -21,3 +21,11 @@
 @media(min-width:901px){.vh-filters{grid-template-columns:1fr 2fr repeat(5,minmax(0,1fr)) auto}}
 
 .vh-location-suggestion{display:block;margin:-4px 0 8px;color:#53657d;font-size:11px}.vh-location-suggestion[hidden]{display:none!important}
+
+
+/* Customer property details use clear, labeled groups on desktop and mobile. */
+.vh-detail-section{margin:14px 0 18px}
+.vh-detail-section>h3{margin:0 0 8px;color:#071b3d;font-size:15px}
+.vh-detail-section .vh-detail-grid{margin:0}
+.vh-description-section{padding:12px;border:1px solid #e3eaf2;border-radius:12px;background:#fbfcfe}
+.vh-description-section .vh-description{margin:0;white-space:pre-wrap}
