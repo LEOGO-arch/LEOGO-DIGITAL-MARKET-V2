@@ -1077,6 +1077,7 @@
   const customerCareNewConversation=document.getElementById('customerCareNewConversation');
   const customerCareHistoryWrap=document.getElementById('customerCareHistoryWrap');
   const customerCareConversationHistory=document.getElementById('customerCareConversationHistory');
+  const customerCareReadStatus=document.getElementById('customerCareReadStatus');
   const mobileChatUnread=document.getElementById('mobileChatUnread');
 
   let customerCareThread=null;
@@ -1095,6 +1096,18 @@
       day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',
       timeZone:'Africa/Nairobi'
     }).format(date);
+  };
+
+  const customerChatReadState=(thread)=>{
+    const customerMessageAt=Date.parse(thread?.last_customer_message_at||'');
+    if(!Number.isFinite(customerMessageAt)){
+      return {type:'empty',option:'No messages',detail:'No customer message in this conversation yet.'};
+    }
+    const staffReadAt=Date.parse(thread?.staff_last_read_at||'');
+    if(Number.isFinite(staffReadAt)&&staffReadAt>=customerMessageAt){
+      return {type:'seen',option:'Seen',detail:'Seen by LEOGO Customer Care'};
+    }
+    return {type:'unseen',option:'Not seen',detail:'Sent · Not yet seen by LEOGO Customer Care'};
   };
 
   const renderCustomerCareChat=()=>{
@@ -1119,16 +1132,24 @@
       customerCareChatForm.hidden=!customerCareThread||customerCareThread.status==='closed';
     }
     if(customerCareHistoryWrap&&customerCareConversationHistory){
-      customerCareHistoryWrap.hidden=customerCareThreads.length<2;
+      customerCareHistoryWrap.hidden=customerCareThreads.length<1;
       customerCareConversationHistory.innerHTML=customerCareThreads.map((thread,index)=>{
         const title=thread.last_message_preview
           ? thread.last_message_preview.slice(0,72)
           : (thread.status==='closed'?'Closed conversation':'New conversation');
         const date=customerChatFormatTime(thread.last_message_at||thread.created_at);
+        const readState=customerChatReadState(thread);
         const selected=thread.thread_id===customerCareThread?.thread_id?' selected':'';
         return '<option value="'+receiptEscape(thread.thread_id)+'"'+selected+'>Conversation '+
-          (customerCareThreads.length-index)+(date?' · '+receiptEscape(date):'')+' · '+receiptEscape(title)+'</option>';
+          (customerCareThreads.length-index)+' · '+readState.option+(date?' · '+receiptEscape(date):'')+' · '+receiptEscape(title)+'</option>';
       }).join('');
+      const selectedThreadSummary=customerCareThreads.find(thread=>thread.thread_id===customerCareThread?.thread_id);
+      const readState=selectedThreadSummary?customerChatReadState(selectedThreadSummary):null;
+      if(customerCareReadStatus){
+        customerCareReadStatus.hidden=!readState;
+        customerCareReadStatus.textContent=readState?.detail||'';
+        customerCareReadStatus.className='customer-care-read-state'+(readState?' '+readState.type:'');
+      }
     }
     if(customerCareAssignment){
       if(!customerCareThread){
