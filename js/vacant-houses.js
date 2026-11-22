@@ -609,9 +609,21 @@
     if(!navigator.geolocation){status.textContent='Location is not supported on this device.';return;}
     status.textContent='Getting current location…';
     navigator.geolocation.getCurrentPosition(pos=>{
-      $('vhLatitude').value=pos.coords.latitude.toFixed(7);
-      $('vhLongitude').value=pos.coords.longitude.toFixed(7);
-      status.textContent='✓ Exact coordinates pinned. They remain private until viewing access is verified.';
+      const latitude=Number(pos.coords.latitude);
+      const longitude=Number(pos.coords.longitude);
+      if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||
+        latitude < -90||latitude > 90||longitude < -180||longitude > 180){
+        status.textContent='Could not verify GPS coordinates. Please try again.';
+        return;
+      }
+      const lat=latitude.toFixed(7);
+      const lng=longitude.toFixed(7);
+      $('vhLatitude').value=lat;
+      $('vhLongitude').value=lng;
+      // The exact Google Maps pin is protected with the existing private
+      // location fields and only revealed after verified viewing access.
+      $('vhMapsLink').value='https://www.google.com/maps?q='+lat+','+lng;
+      status.textContent='✓ Coordinates and Google Maps link pinned automatically. Both stay private until viewing access is verified.';
     },err=>{status.textContent=err.message||'Could not get location.';},{enableHighAccuracy:true,timeout:15000});
   });
 
