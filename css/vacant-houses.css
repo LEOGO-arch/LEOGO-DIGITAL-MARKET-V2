@@ -15,3 +15,5 @@
 @media(max-width:650px){.customer-view[data-customer-panel="dashboard"] .vh-mine-columns{grid-template-columns:1fr}.customer-view[data-customer-panel="dashboard"] .vh-mine-head{flex-wrap:wrap}}
 
 .vh-detail-video{display:block;width:100%;max-height:380px;object-fit:contain;margin:14px auto;background:#081b32;border-radius:12px}.vh-submit-form input[type="file"]{max-width:100%}.vh-submit-form label.wide small{display:block;margin-top:6px;color:#58677a;line-height:1.45}
+
+.vh-submit-form [hidden]{display:none!important}

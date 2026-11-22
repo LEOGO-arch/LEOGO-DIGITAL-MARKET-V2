@@ -480,6 +480,16 @@
     form.elements.deposit_kes.required=!forSale;
     form.elements.available_from.required=!forSale;
     form.elements.sale_price_kes.required=forSale;
+    if(forSale){
+      form.elements.monthly_rent_kes.value='';
+      form.elements.deposit_kes.value='';
+      form.elements.available_from.value='';
+    }else{
+      form.elements.sale_price_kes.value='';
+      form.elements.property_size_text.value='';
+      form.elements.ownership_note.value='';
+      if(!form.elements.available_from.value)form.elements.available_from.value=new Date().toISOString().slice(0,10);
+    }
   };
 
   $('vhListingPurpose').addEventListener('change',syncListingPurposeFields);
@@ -489,7 +499,7 @@
     try{
       await requireUser();
       const form=$('vhSubmitForm');
-      if(!form.elements.available_from.value)form.elements.available_from.value=new Date().toISOString().slice(0,10);
+      if(form.elements.listing_purpose.value==='rent'&&!form.elements.available_from.value)form.elements.available_from.value=new Date().toISOString().slice(0,10);
       notify(submitStatus,'');
       open(submitModal);
     }catch(e){notify(publicStatus,e.message,'error');}
