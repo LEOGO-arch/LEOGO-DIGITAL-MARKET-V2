@@ -11,7 +11,10 @@
 <body>
 <header class="staff-header">
   <a href="../"><img src="../assets/images/leogo-official-logo.jpg" alt="LEOGO"><span><b>LEOGO DIGITAL MARKET</b><small>Staff Portal</small></span></a>
-  <button id="staffLogout" type="button" hidden>Sign Out</button>
+  <div class="staff-header-actions">
+    <button id="staffChangePasswordOpen" type="button" hidden>Change Password</button>
+    <button id="staffLogout" type="button" hidden>Sign Out</button>
+  </div>
 </header>
 
 <main>
@@ -51,6 +54,20 @@
       <button type="submit">Save Password</button>
     </form>
     <p id="staffPasswordStatus" class="status"></p>
+  </section>
+
+  <section class="staff-login" id="staffChangePassword" hidden>
+    <span>ACCOUNT SECURITY</span>
+    <h1>Change your password</h1>
+    <p>Choose a private password for your LEOGO Staff account. This updates only your account.</p>
+    <form id="staffChangePasswordForm">
+      <label>New password<input id="staffChangeNewPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label>
+      <label>Confirm password<input id="staffChangeConfirmPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label>
+      <small class="password-help">Use at least 10 characters with uppercase, lowercase, a number and a symbol.</small>
+      <button type="submit">Update Password</button>
+    </form>
+    <button id="staffChangePasswordCancel" class="text-action" type="button">Back to staff workspace</button>
+    <p id="staffChangePasswordStatus" class="status" role="status"></p>
   </section>
 
   <section class="staff-login staff-routing" id="staffRouting" hidden>
@@ -116,6 +133,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
 <script src="../js/assisted-shopping-pdf.js?v=assisted-three-documents-20261016" defer></script>
-<script src="staff.js?v=rider-completion-20261014" defer></script>
+<script src="staff.js?v=staff-self-service-password-20261122" defer></script>
 </body>
 </html>

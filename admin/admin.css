@@ -425,10 +425,11 @@
 .staff-form-grid label{display:grid;gap:5px}
 .staff-form-grid label>span{font-size:9px;font-weight:900;color:#556277;text-transform:uppercase;letter-spacing:.04em}
 .staff-form-grid input,.staff-form-grid select{width:100%;min-width:0;border:1px solid #d1d9e5;border-radius:10px;background:#fff;color:#07152f;padding:10px 11px;font:inherit}
-.staff-password-field{grid-template-columns:1fr auto;align-items:end}
-.staff-password-field>span{grid-column:1/-1}
-.staff-password-field input{grid-column:1}
-.staff-password-field button{grid-column:2;border:1px solid #cfd8e4;background:#eef3f8;color:#07152f;border-radius:9px;padding:10px 12px;font-weight:800;cursor:pointer}
+.staff-initial-password,.staff-password-field{display:grid;gap:5px;align-content:start;min-width:0;padding:10px 11px;border:1px solid #dbe3ed;border-radius:11px;background:#f8fafc}
+.staff-initial-password>span,.staff-password-field>span{font-size:9px;font-weight:900;color:#556277;text-transform:uppercase;letter-spacing:.04em}
+.staff-initial-password input{width:100%;min-width:0;border:1px solid #d1d9e5;border-radius:10px;background:#fff;color:#07152f;padding:10px 11px;font:inherit}
+.staff-password-field strong{font-size:12px;line-height:1.35;color:#07152f}
+.staff-password-help{font-size:10px;line-height:1.45;color:#687488}
 .staff-role-description{display:grid;gap:3px;padding:10px 11px;border-left:3px solid #ff7800;border-radius:9px;background:#fff8f1}
 .staff-role-description strong{font-size:11px;color:#07152f}
 .staff-role-description span{font-size:9px;line-height:1.45;color:#687488}

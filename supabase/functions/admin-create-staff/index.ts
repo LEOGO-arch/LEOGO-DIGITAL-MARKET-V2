@@ -179,6 +179,18 @@ Deno.serve(async (req: Request) => {
     const phone = String(body.phone || "").trim();
     const countyCode = String(body.county_code || "").trim();
     const subCountyCode = String(body.sub_county_code || "").trim();
+    const initialPassword = typeof body.initial_password === "string" ? body.initial_password : "";
+
+    if (body.initial_password != null && typeof body.initial_password !== "string") {
+      return json({ ok:false, stage:"validation", error:"Initial password must be text." }, 400);
+    }
+    if (initialPassword && (
+      initialPassword.length < 10 || initialPassword.length > 128 ||
+      !/[A-Z]/.test(initialPassword) || !/[a-z]/.test(initialPassword) ||
+      !/[0-9]/.test(initialPassword) || !/[^A-Za-z0-9]/.test(initialPassword)
+    )) {
+      return json({ ok:false, stage:"validation", error:"Initial password must be 10–128 characters and include uppercase, lowercase, a number, and a symbol." }, 400);
+    }
 
     if (!["admin_staff","rider"].includes(accountKind)) {
       return json({ ok:false, stage:"validation", error:"Choose a supported staff account type." }, 400);
@@ -266,6 +278,17 @@ Deno.serve(async (req: Request) => {
     const staffUser = inviteData.user;
     createdUserId = staffUser.id;
 
+    if (initialPassword) {
+      const { error: passwordError } = await admin.auth.admin.updateUserById(staffUser.id, {
+        password: initialPassword,
+      });
+      if (passwordError) {
+        await admin.auth.admin.deleteUser(staffUser.id);
+        createdUserId = null;
+        return errorPayload("initial_password", passwordError, 400);
+      }
+    }
+
     if (accountKind === "admin_staff") {
       const { error: profileError } = await admin.from("admin_users").insert({
         user_id: staffUser.id,
@@ -333,6 +356,7 @@ Deno.serve(async (req: Request) => {
       metadata: {
         created_via: "admin_staff_management",
         invitation_sent: true,
+        initial_password_set: Boolean(initialPassword),
         activation_portal: STAFF_PORTAL_SETUP_URL,
       },
     });
@@ -354,6 +378,7 @@ Deno.serve(async (req: Request) => {
       sub_county: String(subCountyRow.name || ""),
       status: "active",
       invitation_sent: true,
+      initial_password_set: Boolean(initialPassword),
       warning: auditError
         ? "Account created and invitation sent, but its creation audit entry could not be written."
         : null,

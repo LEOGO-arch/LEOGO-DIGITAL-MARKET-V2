@@ -601,6 +601,8 @@
 
     const securityTab=$('#adminSecuritySettingsTab');
     if(securityTab) securityTab.hidden=!isSuperAdmin();
+    const staffPasswordLink=$('#adminStaffPasswordLink');
+    if(staffPasswordLink) staffPasswordLink.hidden=!state.admin||state.admin.status!=='active'||isSuperAdmin();
     const securityPanel=$('#adminSecuritySettingsPanel');
     if(securityPanel && !isSuperAdmin()) securityPanel.classList.remove('active');
     const dataTab=$('#dataManagementSettingsTab');
@@ -1855,6 +1857,10 @@
   const selectedPermissionValues = (container) =>
     normalizeStaffPermissionValues([...(container?.querySelectorAll('input[data-staff-permission]:checked') || [])].map((input) => input.value));
 
+  const isStrongStaffPassword = (value = '') =>
+    value.length >= 10 && value.length <= 128 &&
+    /[A-Z]/.test(value) && /[a-z]/.test(value) && /[0-9]/.test(value) && /[^A-Za-z0-9]/.test(value);
+
   const presetForRole = (role) => state.staffRolePresets.find((preset) => preset.code === role);
 
   const syncPermissionDependencies = (container) => {
@@ -2373,6 +2379,7 @@
       phone:($('#staffPhone')?.value||'').trim(),
       county_code:$('#staffCounty')?.value||'',
       sub_county_code:$('#staffSubCounty')?.value||'',
+      initial_password:($('#staffInitialPassword')?.value||''),
       role_code:kind==='admin_staff'?$('#staffRole')?.value:'rider',
       department:kind==='admin_staff'?($('#staffDepartment')?.value||'').trim():'Delivery',
       job_title:kind==='admin_staff'?($('#staffJobTitle')?.value||'').trim():'LEOGO Rider',
@@ -2382,6 +2389,11 @@
       id_number:kind==='rider'?($('#staffIdNumber')?.value||'').trim():'',
       license_number:kind==='rider'?($('#staffLicenseNumber')?.value||'').trim():''
     };
+
+    if(body.initial_password&&!isStrongStaffPassword(body.initial_password)){
+      setFormStatus(statusBox,'Use at least 10 characters with uppercase, lowercase, a number and a symbol for the initial password.','error');
+      return;
+    }
 
     await withButtonLock(createButton,'Creating Account…',async()=>{
       try{
@@ -2415,7 +2427,7 @@
           return;
         }
 
-        let documentMessage='Staff account created successfully. Activation email sent to '+body.email+'.';
+        let documentMessage='Staff account created successfully. Activation email sent to '+body.email+(data.initial_password_set?' An initial password was set; share it privately with the staff member.':'')+'.';
         let documentStatus='success';
 
         if(data.user_id&&(passportFile||idFile)){
