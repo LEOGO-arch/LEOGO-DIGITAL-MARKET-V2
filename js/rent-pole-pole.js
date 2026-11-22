@@ -28,7 +28,11 @@
         <label>County<select name="county" id="rentCounty" required><option value="">Loading counties…</option></select></label>
         <label>Sub-county<select name="sub_county" id="rentSubCounty" required disabled><option value="">Choose county first</option></select></label>
         <label>Estate / Area<input name="estate" maxlength="150" required></label>
-        <label>Map pin or location URL (optional)<input name="map_pin" maxlength="400" placeholder="https://maps.google.com/..."></label>
+        <label class="rent-map-pin-field">Map pin or location URL (optional)
+          <input name="map_pin" maxlength="400" placeholder="https://maps.google.com/...">
+          <button type="button" id="rentUseCurrentLocation" class="rent-map-pin-button">📍 Use my current location</button>
+          <small id="rentMapPinStatus" class="rent-map-pin-status" role="status" aria-live="polite">Your browser will ask for permission only after you tap the location button.</small>
+        </label>
         <label>Landlord payment account (optional)<input name="landlord_account" maxlength="180" placeholder="Name, bank/till/paybill, account reference"></label>
       </div>
       <label class="rent-consent"><input type="checkbox" name="reminder_opt_in" value="yes"> I would like to receive optional rent instalment reminders when LEOGO enables them.</label>
@@ -73,6 +77,9 @@
   const status = document.getElementById('rentApplicationStatus');
   const county = document.getElementById('rentCounty');
   const sub = document.getElementById('rentSubCounty');
+  const mapPinInput = form.elements.namedItem('map_pin');
+  const mapPinButton = document.getElementById('rentUseCurrentLocation');
+  const mapPinStatus = document.getElementById('rentMapPinStatus');
   let subcounties = [];
 
   const loadOptions = async () => {
@@ -89,6 +96,41 @@
   county.addEventListener('change', () => {
     sub.innerHTML = '<option value="">Select sub-county</option>' + subcounties.filter(s => s.county_code === county.value).map(s => `<option value="${escapeHtml(s.code)}">${escapeHtml(s.name)}</option>`).join('');
     sub.disabled = !county.value;
+  });
+  mapPinButton.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      mapPinStatus.textContent = 'This browser cannot access device location. You can paste a Google Maps link instead.';
+      return;
+    }
+    mapPinButton.disabled = true;
+    mapPinButton.textContent = 'Finding your location…';
+    mapPinStatus.textContent = 'Waiting for your device location permission. The pin will be added to this application only if you submit it.';
+    navigator.geolocation.getCurrentPosition(position => {
+      const latitude = Number(position.coords.latitude);
+      const longitude = Number(position.coords.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+        mapPinStatus.textContent = 'Your device returned an invalid location. Please try again or paste a Maps link.';
+      } else {
+        const mapUrl = new URL('https://www.google.com/maps/search/');
+        mapUrl.searchParams.set('api', '1');
+        mapUrl.searchParams.set('query', `${latitude.toFixed(6)},${longitude.toFixed(6)}`);
+        mapPinInput.value = mapUrl.href;
+        mapPinInput.dispatchEvent(new Event('input', {bubbles:true}));
+        mapPinStatus.textContent = 'Location pin added. Check the Maps link before submitting.';
+      }
+      mapPinButton.disabled = false;
+      mapPinButton.textContent = '📍 Use my current location';
+    }, error => {
+      mapPinStatus.textContent = error.code === 1
+        ? 'Location permission was denied. Allow location access in browser settings, or paste a Maps link instead.'
+        : error.code === 2
+          ? 'Your device could not determine its location. Check GPS/location settings and try again.'
+          : error.code === 3
+            ? 'Location lookup timed out. Try again where GPS reception is better, or paste a Maps link.'
+            : 'Location could not be retrieved. Try again or paste a Maps link.';
+      mapPinButton.disabled = false;
+      mapPinButton.textContent = '📍 Use my current location';
+    }, {enableHighAccuracy:true,timeout:15000,maximumAge:60000});
   });
   const currentUser = async () => (await client.auth.getUser()).data?.user;
   const refresh = async () => {
