@@ -24,3 +24,7 @@
 .rent-application-item{display:flex;flex-direction:column;gap:5px;border:1px solid #e0e2ee;border-radius:12px;padding:12px;margin:10px 0}
 .rent-application-item span{color:#556078}.rent-pole-pole-card{background:linear-gradient(140deg,#fff8dd,#ede7ff)}
 @media(max-width:600px){.rent-pole-pole{padding:12px}.rent-form{padding:15px}.rent-intro{padding:20px}}
+
+
+.rent-installment-guidance{display:block;margin-top:5px;color:#53617e;font-size:.84rem;font-weight:550;line-height:1.45}
+.rent-form input[aria-describedby="rentInstallmentGuidance"]:invalid{border-color:#b4232f}
