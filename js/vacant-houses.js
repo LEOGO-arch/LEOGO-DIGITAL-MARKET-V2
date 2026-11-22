@@ -488,6 +488,7 @@
       form.elements.sale_price_kes.value='';
       form.elements.property_size_text.value='';
       form.elements.ownership_note.value='';
+      if(!form.elements.available_from.value)form.elements.available_from.value=new Date().toISOString().slice(0,10);
     }
   };
 
