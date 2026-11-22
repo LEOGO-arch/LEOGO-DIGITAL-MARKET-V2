@@ -905,6 +905,10 @@ body.accommodation-modal-open{overflow:hidden}
 .customer-care-new-thread:disabled{opacity:.65;cursor:wait}
 .customer-care-history{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:10px 12px;border:1px solid #dce4ee;border-radius:10px;background:#fff;color:#526078;font-size:12px;font-weight:800}
 .customer-care-history select{flex:1;min-width:0;padding:9px 10px;border:1px solid #dce4ee;border-radius:8px;background:#fff;color:#07152f;font:inherit}
+.customer-care-read-state{flex:0 0 100%;display:inline-flex;align-items:center;gap:5px;margin-left:0;padding:6px 9px;border-radius:999px;background:#fff3e5;color:#995000;font-size:10px;font-weight:800}
+.customer-care-read-state[hidden]{display:none!important}
+.customer-care-read-state.seen{background:#eaf7ee;color:#17633c}
+.customer-care-read-state.empty{background:#f1f4f8;color:#667386}
 .customer-care-compose[hidden],.customer-care-history[hidden]{display:none!important}
 .customer-chat-secure{display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border-radius:999px;background:#edf9f2;color:#17633c;font-size:8px;font-weight:900;white-space:nowrap}
 .customer-care-chat{display:grid;grid-template-rows:auto auto minmax(260px,1fr) auto;min-height:520px;max-height:calc(100vh - 210px);border:1px solid #dce4ee;border-radius:16px;background:#fff;overflow:hidden}
