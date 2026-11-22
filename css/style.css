@@ -938,7 +938,7 @@ body.accommodation-modal-open{overflow:hidden}
 .mobile-chat-link{position:relative}
 .mobile-chat-link>b{position:absolute;top:5px;right:18%;min-width:16px;height:16px;border-radius:999px;background:#ff7800;color:#fff;font-size:8px;display:grid;place-items:center;padding:0 4px}
 @media(max-width:700px){
-  .customer-care-chat{min-height:calc(100vh - 190px);max-height:calc(100vh - 190px);border-radius:12px}
+  .customer-care-chat{grid-template-rows:auto auto minmax(100px,1fr) auto;height:calc(100dvh - 380px);min-height:360px;max-height:650px;border-radius:12px}
   .customer-care-message{max-width:88%}
   .customer-care-compose{padding-bottom:12px}
 }
