@@ -13,6 +13,11 @@
     listings: [],
     mySubmissions: [],
     myRequests: [],
+    counties: [],
+    subcounties: [],
+    locationFiltersTouched: false,
+    submissionLocationTouched: false,
+    suggestedLocation: null,
     user: null,
     selected: null
   };
@@ -64,7 +69,8 @@
     <form class="vh-filters" id="vhFilters">
       <select id="vhPurpose"><option value="">Rent &amp; Sale</option><option value="rent">For Rent</option><option value="sale">For Sale</option></select>
       <input id="vhSearch" type="search" placeholder="Search estate, town or description">
-      <input id="vhCounty" type="text" placeholder="County e.g. Siaya">
+      <select id="vhCounty" aria-label="Filter by county"><option value="">All counties</option></select>
+      <select id="vhSubCounty" aria-label="Filter by sub-county" disabled><option value="">All sub-counties</option></select>
       <select id="vhType">
         <option value="">All house types</option>
         <option value="single_room">Single Room</option><option value="bedsitter">Bedsitter</option>
@@ -77,6 +83,7 @@
       <input id="vhMaxPrice" type="number" min="0" step="100" placeholder="Max price">
       <button type="submit">Search Houses</button>
     </form>
+    <small id="vhLocationSuggestion" class="vh-location-suggestion" hidden></small>
     <div id="vhPublicStatus" class="vh-status"></div>
     <div id="vhGrid" class="vh-grid"></div>
     <section class="vh-mine" id="vhMine" hidden>
@@ -148,9 +155,9 @@
           <label id="vhPropertySizeField" hidden><span>Property size <small>(optional)</small></span><input name="property_size_text" maxlength="120" placeholder="e.g. 50 x 100 ft, 0.5 acre"></label>
           <label id="vhOwnershipField" hidden><span>Ownership / title information <small>(optional)</small></span><input name="ownership_note" maxlength="300" placeholder="e.g. Title deed available"></label>
           <label id="vhAvailableFromField"><span>Available from</span><input name="available_from" type="date" required></label>
-          <label><span>County</span><input name="county" maxlength="80" required></label>
-          <label><span>Sub-County / Town</span><input name="sub_county" maxlength="100" required></label>
-          <label><span>Estate / General area</span><input name="area_estate" maxlength="160" required></label>
+          <label><span>County</span><select name="county" id="vhSubmitCounty" required><option value="">Select county</option></select></label>
+          <label><span>Sub-County</span><select name="sub_county" id="vhSubmitSubCounty" required disabled><option value="">Choose a county first</option></select></label>
+          <label><span>Estate / General area</span><input name="area_estate" id="vhAreaEstate" maxlength="160" required></label>
           <label><span>Bedrooms</span><input name="bedrooms" type="number" min="0" max="30" value="1" required></label>
           <label><span>Bathrooms</span><input name="bathrooms" type="number" min="0" max="30" value="1" required></label>
           <label><span>Contact name</span><input name="contact_name" maxlength="120" required></label>
@@ -183,6 +190,79 @@
   const $=id=>document.getElementById(id);
   const grid=$('vhGrid'), publicStatus=$('vhPublicStatus'), submitStatus=$('vhSubmitStatus');
 
+  const setCountyOptions=(select,label,selectedCode='')=>{
+    if(!select)return;
+    select.innerHTML='<option value="">'+esc(label)+'</option>'+state.counties.map(item=>
+      '<option value="'+esc(item.code)+'">'+esc(item.name)+'</option>'
+    ).join('');
+    if(selectedCode&&state.counties.some(item=>item.code===selectedCode))select.value=selectedCode;
+  };
+  const setSubcountyOptions=(select,countyCode,label,selectedCode='')=>{
+    if(!select)return;
+    const rows=state.subcounties.filter(item=>item.county_code===countyCode);
+    select.disabled=!countyCode;
+    select.innerHTML='<option value="">'+esc(label)+'</option>'+rows.map(item=>
+      '<option value="'+esc(item.code)+'">'+esc(item.name)+'</option>'
+    ).join('');
+    if(selectedCode&&rows.some(item=>item.code===selectedCode))select.value=selectedCode;
+  };
+  const selectedCountyName=(select)=>state.counties.find(item=>item.code===select?.value)?.name||'';
+  const selectedSubcountyName=(select)=>{
+    const countySelect=select?.id==='vhSubmitSubCounty'?$('vhSubmitCounty'):$ ('vhCounty');
+    return state.subcounties.find(item=>item.code===select?.value&&item.county_code===countySelect?.value)?.name||'';
+  };
+  const renderLocationDirectory=()=>{
+    setCountyOptions($('vhCounty'),'All counties',$('vhCounty')?.value||'');
+    setSubcountyOptions($('vhSubCounty'),$('vhCounty')?.value||'','All sub-counties',$('vhSubCounty')?.value||'');
+    setCountyOptions($('vhSubmitCounty'),'Select county',$('vhSubmitCounty')?.value||'');
+    setSubcountyOptions($('vhSubmitSubCounty'),$('vhSubmitCounty')?.value||'','Choose a county first',$('vhSubmitSubCounty')?.value||'');
+  };
+  const loadLocationDirectory=async()=>{
+    const [countyResult,subcountyResult]=await Promise.all([
+      client.from('kenya_counties').select('code,name').eq('is_active',true).order('name'),
+      client.from('kenya_subcounties').select('code,county_code,name').eq('is_active',true).order('name')
+    ]);
+    if(countyResult.error)throw countyResult.error;
+    if(subcountyResult.error)throw subcountyResult.error;
+    state.counties=countyResult.data||[];
+    state.subcounties=subcountyResult.data||[];
+    renderLocationDirectory();
+  };
+  const loadCustomerLocationSuggestion=async()=>{
+    const user=await getUser().catch(()=>null);
+    if(!user){
+      state.suggestedLocation=null;
+      $('vhLocationSuggestion').hidden=true;
+      if(!state.locationFiltersTouched){$('vhCounty').value='';setSubcountyOptions($('vhSubCounty'),'','All sub-counties');}
+      if(!state.submissionLocationTouched){$('vhSubmitCounty').value='';setSubcountyOptions($('vhSubmitSubCounty'),'','Choose a county first');$('vhAreaEstate').value='';}
+      return;
+    }
+    const {data,error}=await client.from('customer_profiles')
+      .select('county,sub_county,county_code,sub_county_code,estate')
+      .eq('user_id',user.id).maybeSingle();
+    if(error||!data)return;
+    const countyCode=state.counties.find(item=>item.code===data.county_code)?.code||
+      state.counties.find(item=>item.name.toLocaleLowerCase()===String(data.county||'').toLocaleLowerCase())?.code||'';
+    const subcountyCode=state.subcounties.find(item=>item.code===data.sub_county_code&&item.county_code===countyCode)?.code||
+      state.subcounties.find(item=>item.county_code===countyCode&&item.name.toLocaleLowerCase()===String(data.sub_county||'').toLocaleLowerCase())?.code||'';
+    state.suggestedLocation={countyCode,subcountyCode,estate:data.estate||''};
+    const suggestedCounty=state.counties.find(item=>item.code===countyCode)?.name||'';
+    const suggestedSubcounty=state.subcounties.find(item=>item.code===subcountyCode&&item.county_code===countyCode)?.name||'';
+    $('vhLocationSuggestion').hidden=!suggestedCounty;
+    $('vhLocationSuggestion').textContent=suggestedCounty
+      ? 'Suggested near your saved location: '+[suggestedSubcounty,suggestedCounty].filter(Boolean).join(', ')+'. Change the location filters to explore other areas.'
+      : '';
+    if(!state.locationFiltersTouched){
+      $('vhCounty').value=countyCode;
+      setSubcountyOptions($('vhSubCounty'),countyCode,'All sub-counties',subcountyCode);
+    }
+    if(!state.submissionLocationTouched){
+      $('vhSubmitCounty').value=countyCode;
+      setSubcountyOptions($('vhSubmitSubCounty'),countyCode,'Select sub-county',subcountyCode);
+      if(state.suggestedLocation.estate&&!$('vhAreaEstate').value)$('vhAreaEstate').value=state.suggestedLocation.estate;
+    }
+  };
+
   const close=(node)=>{node.hidden=true;document.body.classList.remove('vh-lock');};
   const open=(node)=>{node.hidden=false;document.body.classList.add('vh-lock');};
 
@@ -203,14 +283,17 @@
   const loadPublic=async()=>{
     const {data,error}=await client.rpc('public_list_property_marketplace',{
       p_search:$('vhSearch').value.trim()||null,
-      p_county:$('vhCounty').value.trim()||null,
+      p_county:selectedCountyName($('vhCounty'))||null,
       p_house_type:$('vhType').value||null,
       p_listing_purpose:$('vhPurpose').value||null,
       p_min_price:$('vhMinPrice').value?Number($('vhMinPrice').value):null,
       p_max_price:$('vhMaxPrice').value?Number($('vhMaxPrice').value):null
     });
     if(error)throw error;
-    state.listings=Array.isArray(data)?data:[];
+    const subcountyName=selectedSubcountyName($('vhSubCounty')).toLocaleLowerCase();
+    state.listings=(Array.isArray(data)?data:[]).filter(listing=>
+      !subcountyName||String(listing.sub_county||'').toLocaleLowerCase()===subcountyName
+    );
     renderPublic();
   };
 
@@ -463,6 +546,22 @@
     ev.preventDefault();
     loadPublic().catch(e=>notify(publicStatus,e.message,'error'));
   });
+  $('vhCounty').addEventListener('change',()=>{
+    state.locationFiltersTouched=true;
+    $('vhLocationSuggestion').hidden=true;
+    setSubcountyOptions($('vhSubCounty'),$('vhCounty').value,'All sub-counties');
+    loadPublic().catch(e=>notify(publicStatus,e.message,'error'));
+  });
+  $('vhSubCounty').addEventListener('change',()=>{
+    state.locationFiltersTouched=true;
+    $('vhLocationSuggestion').hidden=true;
+    loadPublic().catch(e=>notify(publicStatus,e.message,'error'));
+  });
+  $('vhSubmitCounty').addEventListener('change',()=>{
+    state.submissionLocationTouched=true;
+    setSubcountyOptions($('vhSubmitSubCounty'),$('vhSubmitCounty').value,'Select sub-county');
+  });
+  $('vhSubmitSubCounty').addEventListener('change',()=>{state.submissionLocationTouched=true;});
 
   $('vhRefreshMine').addEventListener('click',()=>loadMine().catch(e=>console.error(e)));
 
@@ -561,8 +660,8 @@
         sale_price_kes:Number(fd.get('sale_price_kes')||0),
         property_size_text:String(fd.get('property_size_text')||'').trim(),
         ownership_note:String(fd.get('ownership_note')||'').trim(),
-        available_from:String(fd.get('available_from')||''),county:String(fd.get('county')||'').trim(),
-        sub_county:String(fd.get('sub_county')||'').trim(),area_estate:String(fd.get('area_estate')||'').trim(),
+        available_from:String(fd.get('available_from')||''),county:selectedCountyName($('vhSubmitCounty')),
+        sub_county:selectedSubcountyName($('vhSubmitSubCounty')),area_estate:String(fd.get('area_estate')||'').trim(),
         bedrooms:Number(fd.get('bedrooms')||0),bathrooms:Number(fd.get('bathrooms')||0),
         contact_name:String(fd.get('contact_name')||'').trim(),contact_phone:String(fd.get('contact_phone')||'').trim(),
         exact_address:String(fd.get('exact_address')||'').trim(),landmark:String(fd.get('landmark')||'').trim(),
@@ -580,6 +679,11 @@
       notify(submitStatus,'Submitted successfully. Reference '+data.listing_reference+'. LEOGO Admin will review it before publication.'+
         (Number(data.voucher_on_approval_kes)>0?' If approved, '+money(data.voucher_on_approval_kes)+' will be credited as a Shopping Voucher.':''),'success');
       form.reset();
+      state.submissionLocationTouched=false;
+      const suggestedCounty=state.suggestedLocation?.countyCode||'';
+      $('vhSubmitCounty').value=suggestedCounty;
+      setSubcountyOptions($('vhSubmitSubCounty'),suggestedCounty,suggestedCounty?'Select sub-county':'Choose a county first',state.suggestedLocation?.subcountyCode||'');
+      if(state.suggestedLocation?.estate)$('vhAreaEstate').value=state.suggestedLocation.estate;
       form.elements.available_from.value=new Date().toISOString().slice(0,10);
       syncListingPurposeFields();
       await loadMine();
@@ -591,6 +695,13 @@
   });
 
   const initialize=async()=>{
+    try{
+      await loadLocationDirectory();
+      await loadCustomerLocationSuggestion();
+    }catch(error){
+      console.warn('LEOGO property location options could not load:',error);
+      notify(publicStatus,'Location options are temporarily unavailable. Refresh and try again.','error');
+    }
     const [settingsResult,publicResult]=await Promise.allSettled([
       loadSettings(),
       loadPublic()
@@ -607,7 +718,10 @@
     state.myRequests=[];
     $('vhMine').hidden=true;
     renderMine();
-    setTimeout(()=>loadMine(),0);
+    setTimeout(async()=>{
+      await loadMine();
+      try{await loadCustomerLocationSuggestion();await loadPublic();}catch(error){console.warn('Property location suggestions could not refresh:',error);}
+    },0);
   });
   window.addEventListener('hashchange',()=>{if(location.hash==='#vacant-houses')loadPublic().catch(()=>{});});
   initialize();

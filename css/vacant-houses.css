@@ -17,3 +17,7 @@
 .vh-detail-video{display:block;width:100%;max-height:380px;object-fit:contain;margin:14px auto;background:#081b32;border-radius:12px}.vh-submit-form input[type="file"]{max-width:100%}.vh-submit-form label.wide small{display:block;margin-top:6px;color:#58677a;line-height:1.45}
 
 .vh-submit-form [hidden]{display:none!important}
+
+@media(min-width:901px){.vh-filters{grid-template-columns:1fr 2fr repeat(5,minmax(0,1fr)) auto}}
+
+.vh-location-suggestion{display:block;margin:-4px 0 8px;color:#53657d;font-size:11px}.vh-location-suggestion[hidden]{display:none!important}
