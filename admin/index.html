@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#071b3d">
   <meta name="description" content="LEOGO DIGITAL MARKET Admin Control Center">
   <title>LEOGO Admin Control Center</title>
-  <link rel="stylesheet" href="admin.css?v=catalogue-pricing-20261106">
+  <link rel="stylesheet" href="admin.css?v=staff-initial-password-20261122">
   <link rel="stylesheet" href="seller-mobile-list.css?v=seller-name-width-20261018">
   <link rel="stylesheet" href="wallet-payouts.css?v=cash-isolation-1">
   <link rel="stylesheet" href="system-diagnostics.css?v=diagnostics-bulk-safe-repair-20261105">
@@ -130,6 +130,7 @@
             </section>
           </div>
           <a href="../" target="_blank" rel="noopener">Customer Front ↗</a>
+          <a id="adminStaffPasswordLink" href="../staff/?security=1" aria-label="Open staff password change" hidden>My Password</a>
           <div class="admin-identity"><b id="adminInitials">LA</b><div><strong id="adminDisplayName">LEOGO Admin</strong><small id="adminRole">Admin</small></div></div>
           <button class="logout-button" id="adminLogout" type="button" title="Sign out">⇥</button>
         </div>
@@ -1585,7 +1586,8 @@
                 <label><span>Phone</span><input id="staffPhone" type="tel" autocomplete="off" placeholder="e.g. 0712 345 678"></label>
                 <label><span>County</span><select id="staffCounty" required><option value="">Choose county</option></select></label>
                 <label><span>Sub-County</span><select id="staffSubCounty" required disabled><option value="">Choose county first</option></select></label>
-                <div class="staff-password-field"><span>Account activation</span><strong>Activation email will be sent automatically</strong><small class="staff-password-help">The staff member will open the secure LEOGO link and create their own private password. Admin does not need to know the password.</small></div>
+                <label class="staff-initial-password"><span>Initial password <small>(optional)</small></span><input id="staffInitialPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" placeholder="Leave blank to let staff create one"><small class="staff-password-help">Use 10+ characters with uppercase, lowercase, a number and a symbol. The staff member can change it later in the Staff Portal.</small></label>
+                <div class="staff-password-field"><span>Account activation</span><strong>Secure activation email will still be sent</strong><small class="staff-password-help">If you set an initial password, share it with the staff member privately. LEOGO does not include it in the email or save it in staff records.</small></div>
               </div>
 
               <div class="staff-private-document-section">
@@ -1623,7 +1625,7 @@
                 </div>
               </div>
 
-              <div class="staff-security-note"><span>🔒</span><p><strong>Security:</strong> Staff accounts cannot create another Super Admin from this screen. Suspended accounts remain in the audit history. Share temporary passwords privately; password-reset/change controls can be added as a separate security workflow.</p></div>
+              <div class="staff-security-note"><span>🔒</span><p><strong>Security:</strong> Staff accounts cannot create another Super Admin from this screen. Suspended accounts remain in the audit history. Any initial password is sent only through the protected account service and is never written to the audit log.</p></div>
               <div id="createStaffStatus" class="form-status" aria-live="polite"></div>
               <button id="createStaffButton" class="primary-button staff-create-button" type="submit">Create Staff Account</button>
             </form>
@@ -1954,7 +1956,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="../js/assisted-shopping-pdf.js?v=assisted-three-documents-20261016" defer></script>
-  <script src="admin.js?v=catalogue-pricing-20261106" defer></script>
+  <script src="admin.js?v=staff-initial-password-20261122" defer></script>
   <script src="return-policy-editor.js?v=admin-policy-v1" defer></script>
 <script src="payment-verification-proof.js?v=payment-notification-proof-1" defer></script>
   <script src="payment-reference-lookup.js?v=wallet-deposit-review-link-1" defer></script>

@@ -67,3 +67,5 @@
 #riderExchangeList button:disabled,#riderAftersalesList button:disabled{opacity:.55;cursor:not-allowed}
 #riderApp .rider-filters button{border-radius:30px;min-height:40px;padding:8px 13px;font-weight:700}
 @media(max-width:700px){#riderTaskShortcuts{gap:7px!important}#riderTaskShortcuts a{flex:1 1 42%;justify-content:center;text-align:center;padding:10px 9px!important}#riderAftersalesPanel{margin:12px 0!important}#riderExchangeList .rider-work-card,#riderAftersalesList .rider-job-card{padding:12px!important}}
+/* Keep the staff self-service action buttons together on narrow screens. */
+.staff-header-actions{display:flex;gap:8px;align-items:center}

@@ -38,6 +38,7 @@ let user=null,staff=null,jobs=[],assistedLists=[],filter='active',authEvent='';
 
 const setupMode=()=>new URLSearchParams(window.location.search).get('setup')==='1';
 const recoveryMode=()=>new URLSearchParams(window.location.search).get('recovery')==='1';
+const securityMode=()=>new URLSearchParams(window.location.search).get('security')==='1';
 const requestedOrderId=()=>new URLSearchParams(window.location.search).get('order')||'';
 
 const setStatus=(selector,msg='',type='')=>{
@@ -51,6 +52,7 @@ function show(mode){
   $('#staffLogin').hidden=mode!=='login';
   $('#staffForgot').hidden=mode!=='forgot';
   $('#staffPasswordSetup').hidden=mode!=='password';
+  $('#staffChangePassword').hidden=mode!=='change-password';
   $('#staffRouting').hidden=mode!=='routing';
   $('#staffAccessDenied').hidden=mode!=='denied';
   $('#riderApp').hidden=mode!=='app'||staff?.staff_role!=='rider';
@@ -58,6 +60,7 @@ function show(mode){
   $('#riderAftersalesPanel').hidden=mode!=='app'||staff?.staff_role!=='rider';
   $('#riderTaskShortcuts').hidden=mode!=='app'||staff?.staff_role!=='rider';
   $('#staffLogout').hidden=['login','forgot','password'].includes(mode);
+  $('#staffChangePasswordOpen').hidden=mode!=='app'&&mode!=='change-password';
 }
 
 function configurePasswordScreen(){
@@ -86,6 +89,10 @@ async function routeStaffAccount(){
     .eq('user_id',user.id).maybeSingle();
 
   if(!adminResult.error && adminResult.data?.status==='active'){
+    if(securityMode()){
+      show('change-password');
+      return;
+    }
     window.location.replace('../admin/');
     return;
   }
@@ -95,6 +102,12 @@ async function routeStaffAccount(){
 
   if(staffResult.error||!staffResult.data||staffResult.data.status!=='active'){
     show('denied');
+    return;
+  }
+
+  if(securityMode()){
+    staff=staffResult.data;
+    show('change-password');
     return;
   }
 
@@ -595,6 +608,50 @@ $('#staffPasswordForm').addEventListener('submit',async e=>{
   const {data}=await client.auth.getSession();
   await handleSession(data.session,'PASSWORD_UPDATED');
 
+  button.disabled=false;
+  button.textContent=original;
+});
+
+$('#staffChangePasswordOpen').addEventListener('click',()=>{
+  $('#staffChangeNewPassword').value='';
+  $('#staffChangeConfirmPassword').value='';
+  setStatus('#staffChangePasswordStatus');
+  show('change-password');
+});
+
+$('#staffChangePasswordCancel').addEventListener('click',()=>show('app'));
+
+$('#staffChangePasswordForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const button=e.submitter;
+  const original=button.textContent;
+  const password=$('#staffChangeNewPassword').value;
+  const confirmPassword=$('#staffChangeConfirmPassword').value;
+
+  if(!strongPassword(password)){
+    setStatus('#staffChangePasswordStatus','Use at least 10 characters with uppercase, lowercase, a number and a symbol.','error');
+    return;
+  }
+  if(password!==confirmPassword){
+    setStatus('#staffChangePasswordStatus','The two passwords do not match.','error');
+    return;
+  }
+
+  button.disabled=true;
+  button.textContent='Updating…';
+  setStatus('#staffChangePasswordStatus','Updating your password…');
+
+  const {error}=await client.auth.updateUser({password});
+  if(error){
+    setStatus('#staffChangePasswordStatus',error.message,'error');
+    button.disabled=false;
+    button.textContent=original;
+    return;
+  }
+
+  $('#staffChangeNewPassword').value='';
+  $('#staffChangeConfirmPassword').value='';
+  setStatus('#staffChangePasswordStatus','Password updated. Use the new password the next time you sign in.','success');
   button.disabled=false;
   button.textContent=original;
 });
