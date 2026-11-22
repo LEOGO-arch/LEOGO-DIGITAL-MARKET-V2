@@ -336,12 +336,19 @@
         (listing.ownership_note?'<div><small>Ownership / title</small><strong>'+esc(listing.ownership_note)+'</strong></div>':'')
       : '<div><small>Monthly rent</small><strong>'+esc(money(listing.monthly_rent_kes))+'</strong></div>'+
         '<div><small>Deposit</small><strong>'+esc(money(listing.deposit_kes))+'</strong></div>';
+    const propertyFacts=
+      '<div><small>Property name</small><strong>'+esc(listing.title||'—')+'</strong></div>'+
+      '<div><small>Property type</small><strong>'+esc(typeLabel(listing.house_type))+'</strong></div>'+
+      '<div><small>County</small><strong>'+esc(listing.county||'—')+'</strong></div>'+
+      '<div><small>Sub-county</small><strong>'+esc(listing.sub_county||'—')+'</strong></div>'+
+      '<div><small>Estate / general area</small><strong>'+esc(listing.area_estate||'—')+'</strong></div>'+
+      (listing.bedrooms!==null&&listing.bedrooms!==undefined?'<div><small>Bedrooms</small><strong>'+esc(listing.bedrooms)+'</strong></div>':'')+
+      (listing.bathrooms!==null&&listing.bathrooms!==undefined?'<div><small>Bathrooms</small><strong>'+esc(listing.bathrooms)+'</strong></div>':'');
     $('vhModalBody').innerHTML=
       '<div class="vh-detail-gallery">'+(photos.length?photos.map((u,i)=>'<img src="'+esc(u)+'" alt="Property photo '+(i+1)+'" loading="lazy" decoding="async">').join(''):'<div class="vh-photo-placeholder">🏠</div>')+'</div>'+
-      '<div class="vh-detail-grid">'+priceFacts+
-      '<div><small>Type</small><strong>'+esc(typeLabel(listing.house_type))+'</strong></div>'+
-      '<div><small>General location</small><strong>'+esc(listing.area_estate+', '+listing.sub_county+', '+listing.county)+'</strong></div></div>'+
-      '<p class="vh-description">'+esc(listing.description)+'</p>'+
+      '<section class="vh-detail-section"><h3>Property details</h3><div class="vh-detail-grid">'+propertyFacts+'</div></section>'+
+      '<section class="vh-detail-section"><h3>'+(forSale?'Price details':'Rent & deposit')+'</h3><div class="vh-detail-grid">'+priceFacts+'</div></section>'+
+      '<section class="vh-detail-section vh-description-section"><h3>Description</h3><p class="vh-description">'+esc(listing.description||'No description provided.')+'</p></section>'+
       '<div class="vh-privacy-gate"><span>🔒</span><div><strong>Exact location & contact protected</strong><p>Pay the Admin-set viewing/access fee of '+esc(money(state.settings.viewing_access_fee_kes))+' and submit your payment reference. After LEOGO verifies it, the exact address, map pin and owner/agent contact are unlocked for you.</p></div></div>'+
       '<button class="vh-primary" id="vhRequestAccess" type="button">Request Viewing & Unlock Details · '+esc(money(state.settings.viewing_access_fee_kes))+'</button>'+
       '<div id="vhAccessArea"></div>';
