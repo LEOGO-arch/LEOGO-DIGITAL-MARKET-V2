@@ -905,10 +905,6 @@ body.accommodation-modal-open{overflow:hidden}
 .customer-care-new-thread:disabled{opacity:.65;cursor:wait}
 .customer-care-history{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:10px 12px;border:1px solid #dce4ee;border-radius:10px;background:#fff;color:#526078;font-size:12px;font-weight:800}
 .customer-care-history select{flex:1;min-width:0;padding:9px 10px;border:1px solid #dce4ee;border-radius:8px;background:#fff;color:#07152f;font:inherit}
-.customer-care-read-state{flex:0 0 100%;display:inline-flex;align-items:center;gap:5px;margin-left:0;padding:6px 9px;border-radius:999px;background:#fff3e5;color:#995000;font-size:10px;font-weight:800}
-.customer-care-read-state[hidden]{display:none!important}
-.customer-care-read-state.seen{background:#eaf7ee;color:#17633c}
-.customer-care-read-state.empty{background:#f1f4f8;color:#667386}
 .customer-care-compose[hidden],.customer-care-history[hidden]{display:none!important}
 .customer-chat-secure{display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border-radius:999px;background:#edf9f2;color:#17633c;font-size:8px;font-weight:900;white-space:nowrap}
 .customer-care-chat{display:grid;grid-template-rows:auto auto minmax(260px,1fr) auto;min-height:520px;max-height:calc(100vh - 210px);border:1px solid #dce4ee;border-radius:16px;background:#fff;overflow:hidden}
@@ -931,6 +927,10 @@ body.accommodation-modal-open{overflow:hidden}
 .customer-care-message-meta strong{font-size:7.5px}
 .customer-care-message-meta span{font-size:7px;opacity:.76;white-space:nowrap}
 .customer-care-message p{margin:0;font-size:9.5px;line-height:1.45;overflow-wrap:anywhere}
+.customer-care-message-receipt{justify-self:end;margin-top:1px;font-size:7px;font-weight:800;line-height:1.2;opacity:.78}
+.customer-care-message-receipt.read{color:#e9fff0}
+.customer-care-message-receipt.unread{color:#fff0dc}
+.customer-care-message-receipt.sent{color:#f7f7f7}
 .customer-care-compose{display:grid;gap:5px;padding:10px;border-top:1px solid #e2e8f0;background:#fff}
 .customer-care-compose>label{font-size:8px;font-weight:900;color:#637085}
 .customer-care-compose>div{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:end}

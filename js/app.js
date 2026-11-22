@@ -1077,12 +1077,12 @@
   const customerCareNewConversation=document.getElementById('customerCareNewConversation');
   const customerCareHistoryWrap=document.getElementById('customerCareHistoryWrap');
   const customerCareConversationHistory=document.getElementById('customerCareConversationHistory');
-  const customerCareReadStatus=document.getElementById('customerCareReadStatus');
   const mobileChatUnread=document.getElementById('mobileChatUnread');
 
   let customerCareThread=null;
   let customerCareThreads=[];
   let customerCareMessages=[];
+  let customerCareMessageReceipts={};
   let customerCarePollTimer=null;
   let customerCareLoading=false;
   let customerCareLoadSequence=0;
@@ -1096,18 +1096,6 @@
       day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',
       timeZone:'Africa/Nairobi'
     }).format(date);
-  };
-
-  const customerChatReadState=(thread)=>{
-    const customerMessageAt=Date.parse(thread?.last_customer_message_at||'');
-    if(!Number.isFinite(customerMessageAt)){
-      return {type:'empty',option:'No messages',detail:'No customer message in this conversation yet.'};
-    }
-    const staffReadAt=Date.parse(thread?.staff_last_read_at||'');
-    if(Number.isFinite(staffReadAt)&&staffReadAt>=customerMessageAt){
-      return {type:'seen',option:'Seen',detail:'Seen by LEOGO Customer Care'};
-    }
-    return {type:'unseen',option:'Not seen',detail:'Sent · Not yet seen by LEOGO Customer Care'};
   };
 
   const renderCustomerCareChat=()=>{
@@ -1138,18 +1126,10 @@
           ? thread.last_message_preview.slice(0,72)
           : (thread.status==='closed'?'Closed conversation':'New conversation');
         const date=customerChatFormatTime(thread.last_message_at||thread.created_at);
-        const readState=customerChatReadState(thread);
         const selected=thread.thread_id===customerCareThread?.thread_id?' selected':'';
         return '<option value="'+receiptEscape(thread.thread_id)+'"'+selected+'>Conversation '+
-          (customerCareThreads.length-index)+' · '+readState.option+(date?' · '+receiptEscape(date):'')+' · '+receiptEscape(title)+'</option>';
+          (customerCareThreads.length-index)+(date?' · '+receiptEscape(date):'')+' · '+receiptEscape(title)+'</option>';
       }).join('');
-      const selectedThreadSummary=customerCareThreads.find(thread=>thread.thread_id===customerCareThread?.thread_id);
-      const readState=selectedThreadSummary?customerChatReadState(selectedThreadSummary):null;
-      if(customerCareReadStatus){
-        customerCareReadStatus.hidden=!readState;
-        customerCareReadStatus.textContent=readState?.detail||'';
-        customerCareReadStatus.className='customer-care-read-state'+(readState?' '+readState.type:'');
-      }
     }
     if(customerCareAssignment){
       if(!customerCareThread){
@@ -1172,9 +1152,15 @@
     }
     customerCareMessageList.innerHTML=customerCareMessages.map((message)=>{
       const mine=message.sender_role==='customer';
+      const receipt=customerCareMessageReceipts[message.message_id]||{};
+      const receiptLabel=receipt.read_at
+        ? 'Read · '+receiptEscape(customerChatFormatTime(receipt.read_at))
+        : receipt.delivered_at?'Delivered · Unread':'Sent';
+      const receiptClass=receipt.read_at?'read':receipt.delivered_at?'unread':'sent';
       return '<article class="customer-care-message '+(mine?'customer':'staff')+'">'+
         '<div class="customer-care-message-meta"><strong>'+(mine?'You':'LEOGO Customer Care')+'</strong><span>'+receiptEscape(customerChatFormatTime(message.created_at))+'</span></div>'+
         '<p>'+receiptEscape(message.body).replace(/\n/g,'<br>')+'</p>'+
+        (mine?'<small class="customer-care-message-receipt '+receiptClass+'">'+receiptLabel+'</small>':'')+
       '</article>';
     }).join('');
   };
@@ -1195,17 +1181,22 @@
         : await client.rpc('customer_open_support_chat');
       if(threadResult.error) throw threadResult.error;
       const resolvedThread=threadResult.data?.exists===false?null:(threadResult.data||null);
-      const [messageResult,historyResult]=await Promise.all([
+      const [messageResult,historyResult,receiptResult]=await Promise.all([
         resolvedThread
           ? client.rpc('customer_list_support_messages_for_thread',{p_thread_id:resolvedThread.thread_id})
           : Promise.resolve({data:[],error:null}),
-        client.rpc('customer_list_support_chat_threads')
+        client.rpc('customer_list_support_chat_threads'),
+        resolvedThread
+          ? client.rpc('customer_list_support_message_receipts',{p_thread_id:resolvedThread.thread_id})
+          : Promise.resolve({data:[],error:null})
       ]);
       if(messageResult.error) throw messageResult.error;
       if(historyResult.error) throw historyResult.error;
+      if(receiptResult.error) throw receiptResult.error;
       if(loadSequence!==customerCareLoadSequence || window.leogoAuth?.getUser?.()?.id!==activeUserId) return;
       customerCareThread=resolvedThread;
       customerCareMessages=Array.isArray(messageResult.data)?messageResult.data:[];
+      customerCareMessageReceipts=Object.fromEntries((Array.isArray(receiptResult.data)?receiptResult.data:[]).map((receipt)=>[receipt.message_id,receipt]));
       customerCareThreads=Array.isArray(historyResult.data)?historyResult.data:[];
       renderCustomerCareChat();
       const chatIsVisible=customerShellModal?.classList.contains('is-open')
@@ -1219,6 +1210,9 @@
         if(loadSequence!==customerCareLoadSequence || window.leogoAuth?.getUser?.()?.id!==activeUserId) return;
         if(customerCareThread){
           customerCareThread.unread_count=0;
+          const refreshedReceipts=await client.rpc('customer_list_support_message_receipts',{p_thread_id:customerCareThread.thread_id});
+          if(refreshedReceipts.error) throw refreshedReceipts.error;
+          customerCareMessageReceipts=Object.fromEntries((Array.isArray(refreshedReceipts.data)?refreshedReceipts.data:[]).map((receipt)=>[receipt.message_id,receipt]));
           renderCustomerCareChat();
         }
       }
@@ -1298,6 +1292,7 @@
       if(!data?.thread_id)throw Error('Customer Care could not start a new conversation.');
       customerCareThread=data;
       customerCareMessages=[];
+      customerCareMessageReceipts={};
       renderCustomerCareChat();
       await loadCustomerSupportChat({threadId:data.thread_id,scroll:true,markRead:true});
     }catch(error){
@@ -1324,6 +1319,7 @@
         customerCareThread=null;
         customerCareThreads=[];
         customerCareMessages=[];
+        customerCareMessageReceipts={};
         renderCustomerCareChat();
       }
     },120);
