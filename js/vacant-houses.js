@@ -13,6 +13,7 @@
     listings: [],
     mySubmissions: [],
     myRequests: [],
+    riderViewings: [],
     counties: [],
     subcounties: [],
     locationFiltersTouched: false,
@@ -388,15 +389,87 @@
 
   const unlockedFor=listingId=>state.myRequests.find(r=>r.listing_id===listingId && ['verified','waived'].includes(r.payment_status));
 
-  const showUnlocked=request=>{
+  const riderViewingFor=access=>state.riderViewings.find(r=>r.viewing_request_id===access.id);
+  const renderRiderViewingStatus=r=>{
+    if(!r)return '';
+    return '<div class="vh-rider-request-status"><strong>🚗 LEOGO Rider request · '+esc(statusLabel(r.status))+'</strong>'+
+      '<span>Viewing ride fee: '+esc(money(r.fee_amount_kes))+' · Payment: '+esc(statusLabel(r.payment_status))+'</span>'+
+      (r.preferred_viewing_at?'<span>Requested time: '+esc(new Date(r.preferred_viewing_at).toLocaleString('en-KE'))+'</span>':'')+
+      (r.rider_name?'<span>Assigned Rider: '+esc(r.rider_name)+(r.rider_phone?' · <a href="tel:'+esc(r.rider_phone)+'">'+esc(r.rider_phone)+'</a>':'')+'</span>':'')+
+      (r.admin_notes?'<small>LEOGO: '+esc(r.admin_notes)+'</small>':'')+
+      '<small>LEOGO will assign a Rider after any required ride fee is verified.</small></div>';
+  };
+  const showUnlocked=(request,includeRiderAction=true)=>{
     const map=safeUrl(request.maps_link);
+    const rider=riderViewingFor(request);
+    const canRequest=!rider||rider.payment_status==='rejected'||rider.status==='cancelled';
+    const riderControls=rider
+      ? renderRiderViewingStatus(rider)+(includeRiderAction&&canRequest?'<button type="button" class="vh-secondary" data-vh-rider-request="'+esc(request.id)+'">Request LEOGO Rider</button>':'')
+      : includeRiderAction
+        ? '<div class="vh-rider-request-prompt"><strong>Need transport to view this property?</strong><p>Request a LEOGO Rider to accompany you for the physical viewing. Admin sets whether the rider fee is free or a standard fee.</p><button type="button" class="vh-secondary" data-vh-rider-request="'+esc(request.id)+'">Request LEOGO Rider</button></div>'
+        : '';
     return '<div class="vh-unlocked"><div class="vh-unlocked-head">✓ VERIFIED VIEWING ACCESS</div>'+
       '<p><b>Contact:</b> '+esc(request.contact_name||'—')+' · <a href="tel:'+esc(request.contact_phone||'')+'">'+esc(request.contact_phone||'—')+'</a></p>'+
       '<p><b>Exact address:</b> '+esc(request.exact_address||'—')+'</p>'+
       (request.landmark?'<p><b>Landmark:</b> '+esc(request.landmark)+'</p>':'')+
       (map?'<a class="vh-map-link" href="'+esc(map)+'" target="_blank" rel="noopener">📍 Open Exact Location</a>':'')+
       ((!map && request.latitude!=null && request.longitude!=null)?'<a class="vh-map-link" href="https://www.google.com/maps?q='+encodeURIComponent(request.latitude+','+request.longitude)+'" target="_blank" rel="noopener">📍 Open Coordinates</a>':'')+
-      '<small>Your payment unlocked viewing information only. It is not rent, a tenancy deposit, or a property purchase payment.</small></div>';
+      '<small>Your property access payment only unlocks viewing details. It is not rent, a tenancy deposit, or a property purchase payment.</small></div>'+
+      '<div class="vh-rider-request-area" id="vhRiderAccessArea-'+esc(request.id)+'">'+riderControls+'</div>';
+  };
+
+  const startRiderRequest=async viewingRequestId=>{
+    await requireUser();
+    const host=document.getElementById('vhRiderAccessArea-'+viewingRequestId);
+    if(!host)throw new Error('Open the verified property viewing details again to request a Rider.');
+    const {data:quote,error}=await client.rpc('public_get_vacant_house_rider_quote',{p_viewing_request_id:viewingRequestId});
+    if(error)throw error;
+    const existing=quote?.existing_request||null;
+    if(existing && existing.status!=='cancelled' && existing.payment_status!=='rejected'){
+      const current=state.riderViewings.find(r=>r.viewing_request_id===viewingRequestId)||{...existing,viewing_request_id:viewingRequestId};
+      host.innerHTML=renderRiderViewingStatus(current);
+      return;
+    }
+    const fee=Number(quote?.fee_amount_kes||0);
+    const account=quote?.payment_account||null;
+    const priorNote=existing?.payment_status==='rejected'
+      ? '<div class="vh-existing-request"><strong>Previous rider fee was not verified.</strong><span>'+esc(existing.admin_notes||'Please check the reference and try again.')+'</span></div>'
+      : '';
+    host.innerHTML=priorNote+
+      '<form class="vh-access-form vh-rider-access-form">'+
+      '<h4>Request LEOGO Rider for Physical Viewing</h4>'+
+      '<p>'+(fee>0?'Standard LEOGO Rider fee: <strong>'+esc(money(fee))+'</strong>. Pay to the LEOGO account below and submit the payment reference for Admin verification.':'The current Admin rule makes this LEOGO Rider physical viewing free.')+' This request is separate from the property viewing/access fee.</p>'+
+      (fee>0?paymentDestination(account):'<div class="vh-payment-box"><strong>No rider fee currently required</strong></div>')+
+      (fee>0?'<label><span>M-Pesa / payment reference</span><textarea name="payment_reference" minlength="6" maxlength="300" required placeholder="Paste the payment confirmation/reference"></textarea></label>':'')+
+      '<label><span>Preferred physical viewing date &amp; time</span><input name="preferred_viewing_at" type="datetime-local" required></label>'+
+      '<label><span>Message to LEOGO Rider or Admin <small>(optional)</small></span><textarea name="message" maxlength="1000" rows="2" placeholder="Add any useful viewing or pickup instructions"></textarea></label>'+
+      '<label class="vh-consent"><input name="consent" type="checkbox" required> I understand the Rider fee rule and that the Rider request is subject to LEOGO assignment and confirmation.</label>'+
+      '<div class="vh-status" data-vh-rider-form-status></div>'+
+      '<button class="vh-primary" type="submit" '+(fee>0&&!account?'disabled':'')+'>'+(fee>0?'Submit Rider Fee for Verification':'Request Free LEOGO Rider')+'</button></form>';
+    const copy=host.querySelector('#vhCopyPayment');
+    if(copy)copy.addEventListener('click',async()=>{
+      const value=host.querySelector('#vhPaymentNumber')?.textContent||'';
+      await navigator.clipboard?.writeText(value);
+      copy.textContent='Copied';
+    });
+    host.querySelector('form')?.addEventListener('submit',async ev=>{
+      ev.preventDefault();
+      if(!ev.currentTarget.reportValidity())return;
+      const status=ev.currentTarget.querySelector('[data-vh-rider-form-status]');
+      notify(status,fee>0?'Submitting Rider fee for Admin verification…':'Submitting free Rider request…');
+      const fd=new FormData(ev.currentTarget);
+      const preferred=fd.get('preferred_viewing_at');
+      const {error:submitError}=await client.rpc('customer_submit_vacant_house_rider_viewing_request',{
+        p_viewing_request_id:viewingRequestId,
+        p_payment_reference:fee>0?String(fd.get('payment_reference')||'').trim():null,
+        p_preferred_viewing_at:preferred?new Date(String(preferred)).toISOString():null,
+        p_message:String(fd.get('message')||'').trim()||null
+      });
+      if(submitError){notify(status,submitError.message,'error');return;}
+      await loadMine();
+      const rider=state.riderViewings.find(r=>r.viewing_request_id===viewingRequestId);
+      host.innerHTML=rider?renderRiderViewingStatus(rider):'<div class="vh-status success">LEOGO Rider request submitted.</div>';
+    });
   };
 
   const startAccess=async listing=>{
@@ -404,7 +477,7 @@
     await loadMine();
     const unlocked=unlockedFor(listing.id);
     if(unlocked){
-      $('vhAccessArea').innerHTML=showUnlocked(unlocked);
+      $('vhAccessArea').innerHTML=showUnlocked(unlocked,true);
       return;
     }
     const {data,error}=await client.rpc('customer_get_vacant_house_access_quote',{p_listing_id:listing.id});
@@ -455,7 +528,7 @@
       await loadMine();
       const nowUnlocked=unlockedFor(listing.id);
       if(nowUnlocked){
-        $('vhAccessArea').innerHTML=showUnlocked(nowUnlocked);
+        $('vhAccessArea').innerHTML=showUnlocked(nowUnlocked,true);
       }else{
         notify(status,'Payment/reference submitted. LEOGO Admin will verify it before exact location and contact are revealed.','success');
         ev.currentTarget.querySelector('button[type="submit"]').disabled=true;
@@ -475,6 +548,7 @@
         $('vhMine').hidden=true;
         state.mySubmissions=[];
         state.myRequests=[];
+        state.riderViewings=[];
         renderMine();
         return;
       }
@@ -490,20 +564,24 @@
         renderMine();
         return;
       }
-      const [subs,reqs]=await Promise.all([
+      const [subs,reqs,riderRows]=await Promise.all([
         client.rpc('customer_get_my_vacant_house_submissions'),
-        client.rpc('customer_get_my_vacant_house_viewing_requests')
+        client.rpc('customer_get_my_vacant_house_viewing_requests'),
+        client.rpc('customer_get_my_vacant_house_rider_viewings')
       ]);
       if(version!==mineLoadVersion||state.user?.id!==user.id)return;
       if(subs.error)throw subs.error;
       if(reqs.error)throw reqs.error;
+      if(riderRows.error)throw riderRows.error;
       state.mySubmissions=Array.isArray(subs.data)?subs.data:[];
       state.myRequests=Array.isArray(reqs.data)?reqs.data:[];
+      state.riderViewings=Array.isArray(riderRows.data)?riderRows.data:[];
       renderMine();
     }catch(error){
       if(version!==mineLoadVersion)return;
       state.mySubmissions=[];
       state.myRequests=[];
+      state.riderViewings=[];
       renderMine();
       console.warn('Property account records could not load:',error);
     }
@@ -527,10 +605,19 @@
     rh.innerHTML=state.myRequests.length?state.myRequests.map(r=>
       '<article><div><span>'+esc(r.request_reference)+' · '+(r.listing_purpose==='sale'?'FOR SALE':'FOR RENT')+'</span><strong>'+esc(r.title)+'</strong><small>'+esc(statusLabel(r.payment_status))+' · '+esc(money(r.fee_amount_kes))+'</small>'+
       (r.admin_notes?'<em>Admin: '+esc(r.admin_notes)+'</em>':'')+
-      (['verified','waived'].includes(r.payment_status)?showUnlocked(r):'<b>🔒 Exact location and contact remain locked until payment verification.</b>')+
+      (['verified','waived'].includes(r.payment_status)?showUnlocked(r,false):'<b>🔒 Exact location and contact remain locked until payment verification.</b>')+
       '</div></article>'
     ).join(''):'<div class="vh-empty-mini">No viewing requests yet.</div>';
   };
+
+  section.addEventListener('click',ev=>{
+    const button=ev.target.closest('[data-vh-rider-request]');
+    if(!button)return;
+    startRiderRequest(button.dataset.vhRiderRequest).catch(error=>{
+      const host=document.getElementById('vhRiderAccessArea-'+button.dataset.vhRiderRequest);
+      if(host)host.insertAdjacentHTML('beforeend','<div class="vh-status error">'+esc(error?.message||'Could not request a LEOGO Rider.')+'</div>');
+    });
+  });
 
   grid.addEventListener('click',ev=>{
     const button=ev.target.closest('[data-vh-detail]');
