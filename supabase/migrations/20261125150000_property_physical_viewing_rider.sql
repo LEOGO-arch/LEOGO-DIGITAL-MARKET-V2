@@ -296,12 +296,12 @@ begin
   left join public.leogo_staff rs on rs.user_id=r.assigned_rider_id;
 
   select coalesce(jsonb_agg(jsonb_build_object(
-    'user_id',s.user_id,'display_name',s.display_name,'phone',s.phone,
+    'user_id',s.user_id,'display_name',s.display_name,'phone',s.phone,'status',s.status,
     'county_code',s.county_code,'sub_county_code',s.sub_county_code,
     'vehicle_type',s.vehicle_type,'vehicle_registration',s.vehicle_registration
   ) order by s.display_name),'[]'::jsonb)
   into v_riders from public.leogo_staff s
-  where s.staff_role='rider' and s.status='active' and s.availability_status in ('available','on_duty');
+  where s.staff_role='rider' and s.status='active' and s.availability_status='available';
 
   return jsonb_build_object(
     'settings',coalesce(v_settings,'{}'::jsonb),
@@ -438,7 +438,7 @@ begin
   end if;
   select * into v_rider from public.leogo_staff
   where user_id=p_rider_id and staff_role='rider' and status='active'
-    and availability_status in ('available','on_duty');
+    and availability_status='available';
   if not found then raise exception 'Choose an active available LEOGO Rider'; end if;
   select * into v_listing from public.vacant_house_listings where id=v_row.listing_id;
 
