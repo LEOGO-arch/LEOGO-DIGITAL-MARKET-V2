@@ -34,7 +34,7 @@ const deliveryStatusLabel=status=>({
   failed:'Failed'
 }[status]||String(status||'').replaceAll('_',' '));
 
-let user=null,staff=null,jobs=[],assistedLists=[],filter='active',authEvent='';
+let user=null,staff=null,jobs=[],propertyViewingJobs=[],assistedLists=[],filter='active',authEvent='';
 
 const setupMode=()=>new URLSearchParams(window.location.search).get('setup')==='1';
 const recoveryMode=()=>new URLSearchParams(window.location.search).get('recovery')==='1';
@@ -339,13 +339,38 @@ async function loadRiderAftersales(){
  }
 }
 $('#refreshRiderAftersales')?.addEventListener('click',()=>{loadRiderAftersales();loadExchangeRiderJobs();});
+$('#refreshRiderPropertyViewings')?.addEventListener('click',loadJobs);
+$('#riderPropertyViewingList')?.addEventListener('click',async event=>{
+ const button=event.target.closest('[data-property-viewing-status]');
+ if(!button)return;
+ button.disabled=true;
+ const note=$('[data-property-viewing-note="'+CSS.escape(button.dataset.propertyViewingId)+'"]')?.value||'';
+ try{
+  const {error}=await client.rpc('rider_update_vacant_house_viewing_status',{
+   p_request_id:button.dataset.propertyViewingId,p_status:button.dataset.propertyViewingStatus,p_notes:note.trim()||null
+  });
+  if(error)throw error;
+  setStatus('#riderPropertyViewingStatus','Property viewing status updated.','success');
+  await loadJobs();
+ }catch(error){
+  setStatus('#riderPropertyViewingStatus',error.message||'Could not update the property viewing.','error');
+  button.disabled=false;
+ }
+});
 
 async function loadJobs(){
   setStatus('#riderStatus');
-  const [jobsResult,sortingPickupResult]=await Promise.all([
+  const [jobsResult,sortingPickupResult,propertyViewingResult]=await Promise.all([
     client.rpc('rider_list_delivery_jobs_v4'),
-    client.rpc('rider_list_sorting_center_pickups')
+    client.rpc('rider_list_sorting_center_pickups'),
+    client.rpc('rider_list_vacant_house_viewing_jobs')
   ]);
+  if(propertyViewingResult.error){
+    propertyViewingJobs=[];
+    setStatus('#riderPropertyViewingStatus',propertyViewingResult.error.message,'error');
+  }else{
+    propertyViewingJobs=Array.isArray(propertyViewingResult.data)?propertyViewingResult.data:[];
+  }
   if(jobsResult.error){setStatus('#riderStatus',jobsResult.error.message,'error');return;}
   const sortingPickups=new Map((sortingPickupResult.error?[]:sortingPickupResult.data||[]).map(row=>[row.order_id,row]));
   jobs=(jobsResult.data||[]).map(job=>({...job,sorting_center_pickup:sortingPickups.get(job.order_id)||null}));
@@ -360,7 +385,26 @@ async function loadJobs(){
   }
 }
 
+function renderPropertyViewingJobs(){
+ const container=$('#riderPropertyViewingList');if(!container)return;
+ if(!propertyViewingJobs.length){container.innerHTML='<div class="empty">No property viewing escort requests assigned.</div>';return;}
+ const statusLabel={assigned:'Assigned',accepted:'Accepted',en_route:'On the way',arrived:'Arrived at property',completed:'Viewing completed'};
+ container.innerHTML=propertyViewingJobs.map(job=>{
+   const next={assigned:['accepted','Accept Viewing'],accepted:['en_route','Start Trip'],en_route:['arrived','Arrived at Property'],arrived:['completed','Complete Viewing']}[job.status];
+   const map=job.maps_link&&/^https?:/i.test(job.maps_link)?'<a class="rider-viewing-map" href="'+esc(job.maps_link)+'" target="_blank" rel="noopener">📍 Open Property Location</a>':'<a class="rider-viewing-map" href="https://www.google.com/maps?q='+encodeURIComponent(job.latitude+','+job.longitude)+'" target="_blank" rel="noopener">📍 Open Map Coordinates</a>';
+   return '<article class="rider-viewing-job"><header><div><span>PROPERTY VIEWING · '+esc(job.request_reference)+'</span><h3>'+esc(job.listing_title||'Property')+'</h3></div><b>'+esc(statusLabel[job.status]||job.status)+'</b></header>'+
+     '<p><strong>Customer:</strong> '+esc(job.customer_name||'Customer')+(job.customer_phone?' · <a href="tel:'+esc(job.customer_phone)+'">'+esc(job.customer_phone)+'</a>':'')+'</p>'+
+     '<p><strong>Requested:</strong> '+esc(fmt(job.preferred_viewing_at))+'</p>'+
+     '<p><strong>Area:</strong> '+esc([job.area_estate,job.sub_county,job.county].filter(Boolean).join(', '))+'</p>'+
+     '<p><strong>Exact address:</strong> '+esc(job.exact_address||'—')+(job.landmark?' · Landmark: '+esc(job.landmark):'')+'</p>'+
+     (job.customer_message?'<p><strong>Customer message:</strong> '+esc(job.customer_message)+'</p>':'')+
+     map+'<label class="rider-viewing-note"><span>Update note <small>(optional)</small></span><textarea data-property-viewing-note="'+esc(job.request_id)+'" maxlength="1000" rows="2" placeholder="Add an arrival, route or viewing update"></textarea></label>'+
+     (next?'<button type="button" data-property-viewing-status="'+next[0]+'" data-property-viewing-id="'+esc(job.request_id)+'">'+next[1]+'</button>':'<strong class="rider-viewing-complete">✓ Physical viewing completed</strong>')+
+     '</article>';
+ }).join('');
+}
 function render(){
+ renderPropertyViewingJobs();
   $('#riderAssignedCount').textContent=jobs.filter(j=>j.status==='assigned').length;
   $('#riderPickedCount').textContent=jobs.filter(j=>['picked_up','arrived_sorting_center','sorting_received','ready_for_dispatch'].includes(j.status)).length;
   $('#riderTransitCount').textContent=jobs.filter(j=>['on_the_way','delivered_to_pickup_station','ready_for_pickup'].includes(j.status)).length;
