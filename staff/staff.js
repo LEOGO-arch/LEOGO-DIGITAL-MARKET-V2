@@ -387,6 +387,7 @@ async function loadJobs(){
 
 function renderPropertyViewingJobs(){
  const container=$('#riderPropertyViewingList');if(!container)return;
+ const count=$('#riderPropertyViewingCount');if(count)count.textContent=String(propertyViewingJobs.filter(j=>!['completed','cancelled'].includes(j.status)).length);
  if(!propertyViewingJobs.length){container.innerHTML='<div class="empty">No property viewing escort requests assigned.</div>';return;}
  const statusLabel={assigned:'Assigned',accepted:'Accepted',en_route:'On the way',arrived:'Arrived at property',completed:'Viewing completed'};
  container.innerHTML=propertyViewingJobs.map(job=>{
