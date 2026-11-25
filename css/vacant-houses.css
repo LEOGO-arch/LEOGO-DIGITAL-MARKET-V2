@@ -29,3 +29,7 @@
 .vh-detail-section .vh-detail-grid{margin:0}
 .vh-description-section{padding:12px;border:1px solid #e3eaf2;border-radius:12px;background:#fbfcfe}
 .vh-description-section .vh-description{margin:0;white-space:pre-wrap}
+
+/* Keep listing photos inside their fixed frame so they cannot cover property details. */
+.vh-card-photo{overflow:hidden;isolation:isolate}
+.vh-card-photo>img{position:absolute;inset:0;display:block;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;object-fit:cover;object-position:center}
