@@ -320,7 +320,7 @@
         '<p>📍 '+esc(l.area_estate)+', '+esc(l.sub_county)+', '+esc(l.county)+'</p>'+
         '<strong>'+esc(money(forSale?l.sale_price_kes:l.monthly_rent_kes))+(forSale?' <small>asking price</small>':' <small>/ month</small>')+'</strong>'+
         '<div class="vh-facts">'+facts.slice(0,5).map(f=>'<i>'+esc(f)+'</i>').join('')+'</div>'+
-        '<button type="button" data-vh-detail="'+esc(l.id)+'">View Property</button></div></article>';
+        '<button type="button" data-vh-detail="'+esc(l.id)+'">View Details &amp; Request Viewing</button></div></article>';
     }).join('');
   };
 
