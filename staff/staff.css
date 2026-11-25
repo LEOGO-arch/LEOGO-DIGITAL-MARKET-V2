@@ -69,3 +69,20 @@
 @media(max-width:700px){#riderTaskShortcuts{gap:7px!important}#riderTaskShortcuts a{flex:1 1 42%;justify-content:center;text-align:center;padding:10px 9px!important}#riderAftersalesPanel{margin:12px 0!important}#riderExchangeList .rider-work-card,#riderAftersalesList .rider-job-card{padding:12px!important}}
 /* Keep the staff self-service action buttons together on narrow screens. */
 .staff-header-actions{display:flex;gap:8px;align-items:center}
+
+.rider-property-viewing-panel{margin:18px 0;padding:16px;background:#f7f9fc;border:1px solid #dfe6ef;border-radius:14px}
+.rider-property-viewing-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.rider-property-viewing-head h2{margin:4px 0}
+.rider-property-viewing-head h2 small{display:inline-grid;place-items:center;min-width:25px;height:25px;padding:0 6px;border-radius:99px;background:#ff7900;color:#fff;font-size:12px}
+.rider-property-viewing-list{display:grid;gap:12px}
+.rider-viewing-job{display:grid;gap:8px;padding:14px;border:1px solid #dce4ed;border-radius:12px;background:#fff}
+.rider-viewing-job header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.rider-viewing-job header span{font-size:10px;font-weight:900;color:#ff7900}
+.rider-viewing-job h3{margin:3px 0}
+.rider-viewing-job p{margin:0;line-height:1.45}
+.rider-viewing-map{width:max-content;border-radius:8px;background:#16803e;color:#fff!important;text-decoration:none;font-weight:800;padding:9px 12px}
+.rider-viewing-note{display:grid;gap:5px;font-size:12px;font-weight:700}
+.rider-viewing-note textarea{width:100%;border:1px solid #d5dfeb;border-radius:8px;padding:9px;font:inherit}
+.rider-viewing-job>button{justify-self:start;border:0;border-radius:9px;background:#071b3d;color:#fff;font-weight:900;padding:10px 14px;cursor:pointer}
+.rider-viewing-complete{color:#16803e}
+@media(max-width:600px){.rider-property-viewing-panel{padding:10px}.rider-viewing-job header{display:grid}}
