@@ -33,3 +33,13 @@
 /* Keep listing photos inside their fixed frame so they cannot cover property details. */
 .vh-card-photo{overflow:hidden;isolation:isolate}
 .vh-card-photo>img{position:absolute;inset:0;display:block;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;object-fit:cover;object-position:center}
+
+/* Rider escort request appears only after verified property viewing access. */
+.vh-rider-request-area{display:grid;gap:9px;margin-top:10px}
+.vh-rider-request-prompt,.vh-rider-request-status{display:grid;gap:7px;padding:12px;border:1px solid #dce4ed;border-radius:12px;background:#f7f9fc}
+.vh-rider-request-prompt strong,.vh-rider-request-status strong{color:#071b3d}
+.vh-rider-request-prompt p{margin:0;color:#59697e;line-height:1.5}
+.vh-rider-request-status span,.vh-rider-request-status small{color:#59697e}
+.vh-rider-access-form{border-color:#bed3ef;background:#fbfdff}
+.vh-rider-request-area>.vh-secondary{justify-self:start;border:0;border-radius:9px;background:#ff7900;color:#fff;font-weight:900;padding:10px 14px;cursor:pointer}
+@media(max-width:600px){.vh-rider-request-area{gap:7px}.vh-rider-access-form{padding:10px}}
