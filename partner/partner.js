@@ -6046,6 +6046,18 @@ client.auth.onAuthStateChange((event,s)=>{
     return;
   }
 
+  // Returning from a mobile file picker can emit SIGNED_IN for the current user.
+  // Keep the provider form mounted so its selected files and fields survive.
+  if(
+    activeRole==='service_provider' &&
+    s?.user &&
+    currentUser?.id===s.user.id &&
+    ['SIGNED_IN','INITIAL_SESSION'].includes(event)
+  ){
+    currentUser=s.user;
+    return;
+  }
+
   if(
     activeRole==='accommodation' &&
     accommodationReg &&
