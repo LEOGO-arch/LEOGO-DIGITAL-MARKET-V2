@@ -2061,7 +2061,7 @@
             (isOwner
               ?'<span class="staff-owner-protected">🔒 Owner account protected</span>'
               :'<button type="button" data-manage-staff="'+escapeHtml(staff.user_id)+'" data-staff-kind="'+escapeHtml(staff.account_kind)+'">Manage Access</button>'+
-               '<button type="button" data-send-staff-access="'+escapeHtml(staff.user_id)+'" data-staff-email="'+escapeHtml(staff.email||'')+'">Send Access Email</button>')+
+               '<button type="button" data-send-staff-access="'+escapeHtml(staff.user_id)+'" data-staff-email="'+escapeHtml(staff.email||'')+'">Send Access Email</button>'+(isSuperAdmin()?'<div class="staff-link-recovery-card" style="margin-top:10px;padding:10px 12px;border:1px solid #f1c58e;border-radius:10px;background:#fff8ef;display:grid;gap:7px"><small style="font-weight:700;color:#71440d">Activation email not received?</small><button type="button" data-copy-staff-link="'+escapeHtml(staff.user_id)+'" data-staff-email="'+escapeHtml(staff.email||'')+'">Link not received? Copy &amp; send</button><small style="color:#6b7280">Creates a fresh secure password link. Send it privately to this staff member.</small></div>':'') )+
           '</div>'+
         '</div>'+
       '</article>';
@@ -2092,6 +2092,61 @@
 
     Array.from(list.querySelectorAll('[data-manage-staff]')).forEach((button)=>button.addEventListener('click',()=>{
       openStaffEditor(button.dataset.manageStaff,button.dataset.staffKind);
+    }));
+    Array.from(list.querySelectorAll('[data-copy-staff-link]')).forEach((button)=>button.addEventListener('click',async()=>{
+      if(!isSuperAdmin()){
+        globalStatus('Super Admin access required to create a staff access link.','error');
+        return;
+      }
+      const userId=(button.dataset.copyStaffLink||'').trim();
+      const email=(button.dataset.staffEmail||'').trim();
+      if(!userId||!email){
+        globalStatus('This staff account is missing its account reference or email address.','error');
+        return;
+      }
+      const original=button.textContent;
+      button.disabled=true;
+      button.textContent='Generating secure link…';
+      try{
+        const {data:{session},error:sessionError}=await db.auth.getSession();
+        if(sessionError||!session?.access_token) throw new Error('Your Admin session is not available. Sign in again and retry.');
+        const response=await fetch(PROJECT_URL+'/functions/v1/admin-generate-staff-activation-link',{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'apikey':PUBLISHABLE_KEY,
+            'Authorization':'Bearer '+session.access_token
+          },
+          body:JSON.stringify({staff_user_id:userId})
+        });
+        const rawText=await response.text();
+        let data=null;
+        try{data=rawText?JSON.parse(rawText):null;}catch{data={error:rawText||('Staff link service returned HTTP '+response.status)};}
+        if(!response.ok||!data?.ok) throw new Error(data?.error||('Secure link request failed (HTTP '+response.status+').'));
+        const actionLink=String(data.action_link||'');
+        const parsedLink=new URL(actionLink);
+        if(parsedLink.protocol!=='https:') throw new Error('The generated link was not a secure HTTPS URL.');
+        let copied=false;
+        try{
+          if(navigator.clipboard?.writeText){
+            await navigator.clipboard.writeText(actionLink);
+            copied=true;
+          }
+        }catch{}
+        if(!copied){
+          const manualCopy=window.prompt('Copy this secure password link and send it privately to '+email+':',actionLink);
+          if(manualCopy===null){
+            globalStatus('The secure link was generated but not copied. Select this action again to generate a fresh link.','error');
+            return;
+          }
+        }
+        globalStatus('Secure staff password link copied. Send it privately to '+email+'.','success');
+      }catch(error){
+        globalStatus('Staff password link could not be generated: '+friendlyError(error),'error');
+      }finally{
+        button.disabled=false;
+        button.textContent=original;
+      }
     }));
     Array.from(list.querySelectorAll('[data-send-staff-access]')).forEach((button)=>button.addEventListener('click',async()=>{
       const email=(button.dataset.staffEmail||'').trim();
