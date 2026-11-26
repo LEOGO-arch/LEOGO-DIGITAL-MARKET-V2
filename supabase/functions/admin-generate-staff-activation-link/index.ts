@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
   try {
     const projectUrl = Deno.env.get("SUPABASE_URL") || "";
     const secretKey = readSecretKey();
-    const token = (req.headers.get("Authorization") || "").replace(/^Bearer\\s+/i, "").trim();
+    const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
     if (!projectUrl || !secretKey) {
       return json({ ok: false, error: "Secure staff link service is not configured." }, 500);
     }
