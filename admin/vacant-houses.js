@@ -18,7 +18,7 @@
     <div class="section-head"><div><span>PROPERTY MARKET</span><h2>Houses &amp; Property</h2><p>Approve property for rent or sale, configure Shopping Vouchers and viewing/access fees, verify payments, and control listing status.</p></div><button id="vhAdminRefresh" class="primary-button" type="button">↻ Refresh Property</button></div>
     <div class="vh-admin-summary">
       <article><span>Pending Listings</span><strong id="vhAdminPending">0</strong><small>Needs review</small></article>
-      <article><span>Live Listings</span><strong id="vhAdminLive">0</strong><small>Rent + sale</small></article>
+      <article><span>Live Listings</span><strong id="vhAdminLive">0</strong><small>Rent + sale</small><button id="vhAdminManageLiveBtn" type="button">Manage listings ↓</button></article>
       <article><span>Occupied / Sold</span><strong id="vhAdminOccupied">0</strong><small>Hidden from public</small></article>
       <article><span>Payment Review</span><strong id="vhAdminPayments">0</strong><small>Viewing access fees</small></article>
       <article><span>Access Granted</span><strong id="vhAdminGranted">0</strong><small>Verified/waived</small></article>
@@ -191,6 +191,7 @@
   };
 
   $('#vhAdminRefresh').addEventListener('click',load);
+  $('#vhAdminManageLiveBtn').addEventListener('click',()=>$('#vhAdminLiveListingList').scrollIntoView({behavior:'smooth',block:'center'}));
   $('#vhAdminListingFilter').addEventListener('change',renderListings);
   $('#vhAdminLiveFilter').addEventListener('change',renderLiveListings);
   $('#vhAdminPaymentFilter').addEventListener('change',renderRequests);
