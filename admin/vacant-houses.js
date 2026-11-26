@@ -8,7 +8,7 @@
   const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
   const label=v=>String(v||'').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
   const photoUrl=path=>{try{return db.storage.from('vacant-house-public-media').getPublicUrl(path).data.publicUrl||'';}catch{return '';}};
-  let state={settings:{},summary:{},listings:[],viewing_requests:[],payment_accounts:[]};
+  let state={settings:{},summary:{},listings:[],viewing_requests:[],rider_requests:[],payment_accounts:[]};
   let loading=false;
 
   const host=document.createElement('section');
@@ -31,6 +31,9 @@
         <label><span>Submission Shopping Voucher (KSh)</span><input id="vhAdminVoucher" type="number" min="0" max="1000000" step="1" required></label>
         <label><span>Viewing / exact-location access fee (KSh)</span><input id="vhAdminFee" type="number" min="0" max="1000000" step="1" required></label>
         <label><span>Viewing fee payment account</span><select id="vhAdminPaymentAccount"><option value="">Select active payment account</option></select></label>
+        <hr class="vh-admin-divider">
+        <label class="switch-label"><input id="vhAdminRiderEnabled" type="checkbox"><span>Allow customers with verified viewing access to request a LEOGO rider</span></label>
+        <label><span>Physical viewing rider escort fee (KSh; enter 0 to make it free)</span><input id="vhAdminRiderFee" type="number" min="0" max="1000000" step="1" value="0" required></label>
         <button class="primary-button" type="submit">Save Property Settings</button>
       </form>
       <div id="vhAdminSettingsStatus" class="form-status"></div>
@@ -43,6 +46,10 @@
       <section class="content-card">
         <div class="card-head"><div><span>VIEWING PAYMENTS</span><h3>Exact Location Access</h3><p>Verify the submitted payment reference before the customer can receive landlord/agent contact and exact location.</p></div><select id="vhAdminPaymentFilter"><option value="attention">Needs verification</option><option value="all">All requests</option><option value="verified">Verified</option><option value="rejected">Rejected</option></select></div>
         <div id="vhAdminRequestList" class="vh-admin-list"><div class="loading-card">Loading viewing requests…</div></div>
+      </section>
+      <section class="content-card">
+        <div class="card-head"><div><span>PHYSICAL VIEWING ESCORT</span><h3>LEOGO Rider Requests</h3><p>Verify escort payments, confirm requests, assign the rider and update completion.</p></div></div>
+        <div id="vhAdminRiderRequestList" class="vh-admin-list"><div class="loading-card">Loading rider requests…</div></div>
       </section>
     </div>
     <div id="vhAdminStatus" class="form-status"></div>`;
@@ -64,6 +71,8 @@
     $('#vhAdminVoucherEnabled').checked=Boolean(s.voucher_enabled);
     $('#vhAdminVoucher').value=Number(s.submission_voucher_kes||0);
     $('#vhAdminFee').value=Number(s.viewing_access_fee_kes||0);
+    $('#vhAdminRiderEnabled').checked=Boolean(s.rider_enabled);
+    $('#vhAdminRiderFee').value=Number(s.rider_fee_kes||0);
     const select=$('#vhAdminPaymentAccount');
     select.innerHTML='<option value="">Select active payment account</option>'+state.payment_accounts.map(a=>
       '<option value="'+esc(a.id)+'">'+esc(a.display_name||a.account_name||a.business_name||a.account_type)+'</option>'
@@ -134,7 +143,28 @@
     ).join('');
   };
 
-  const render=()=>{renderSummary();renderSettings();renderListings();renderRequests();};
+  const renderRiderRequests=()=>{
+    const list=$('#vhAdminRiderRequestList');
+    const rows=state.rider_requests||[];
+    if(!rows.length){list.innerHTML='<div class="loading-card">No LEOGO rider requests yet.</div>';return;}
+    list.innerHTML=rows.map(r=>{
+      const actions=[];
+      if(r.payment_status==='submitted')actions.push('<button data-vh-rider-action="verify_payment" data-id="'+esc(r.id)+'" class="approve">Verify escort payment</button><button data-vh-rider-action="reject_payment" data-id="'+esc(r.id)+'" class="reject">Reject payment</button>');
+      if(['verified','not_required'].includes(r.payment_status)&&!['assigned','completed','cancelled'].includes(r.request_status))actions.push('<button data-vh-rider-action="assign" data-id="'+esc(r.id)+'">Assign rider</button>');
+      if(r.request_status==='assigned')actions.push('<button data-vh-rider-action="complete" data-id="'+esc(r.id)+'" class="approve">Mark completed</button>');
+      if(!['completed','cancelled'].includes(r.request_status))actions.push('<button data-vh-rider-action="cancel" data-id="'+esc(r.id)+'" class="reject">Cancel</button>');
+      return '<article class="vh-admin-request"><div class="vh-admin-card-head"><div><span>'+esc(r.request_reference||r.listing_reference)+' · '+esc(label(r.request_status))+'</span><h4>'+esc(r.title)+'</h4></div><b>'+esc(label(r.payment_status))+'</b></div>'+
+        '<p><strong>'+esc(r.customer_name||'Customer')+'</strong> · '+esc(r.customer_phone||'No saved phone')+'</p>'+
+        '<div class="vh-admin-payment-ref"><small>Escort fee</small><strong>'+esc(money(r.fee_amount_kes))+'</strong><small>Payment reference</small><code>'+esc(r.payment_reference||'Not required')+'</code></div>'+
+        (r.preferred_viewing_at?'<p>Requested viewing: '+esc(new Date(r.preferred_viewing_at).toLocaleString('en-KE'))+'</p>':'')+
+        (r.customer_message?'<p>Customer note: '+esc(r.customer_message)+'</p>':'')+
+        (r.assigned_rider_name?'<p><strong>Rider:</strong> '+esc(r.assigned_rider_name)+' · '+esc(r.assigned_rider_phone||'')+'</p>':'')+
+        (r.admin_notes?'<p>Admin note: '+esc(r.admin_notes)+'</p>':'')+
+        '<div class="vh-admin-actions">'+actions.join('')+'</div></article>';
+    }).join('');
+  };
+
+  const render=()=>{renderSummary();renderSettings();renderListings();renderRequests();renderRiderRequests();};
 
   const load=async()=>{
     if(loading)return;
@@ -143,7 +173,10 @@
     try{
       const {data,error}=await db.rpc('admin_get_vacant_house_dashboard');
       if(error)throw error;
-      state={...state,...(data||{})};
+      const {data:riderData,error:riderError}=await db.rpc('admin_get_vacant_house_rider_dashboard');
+      if(riderError)throw riderError;
+      state={...state,...(data||{}),rider_requests:riderData?.rider_requests||[]};
+      state.settings={...(state.settings||{}),rider_enabled:Boolean(riderData?.settings?.enabled),rider_fee_kes:Number(riderData?.settings?.fee_kes||0)};
       render();
       setStatus('Property marketplace synchronized.','success');
     }catch(e){setStatus(e.message||'Property marketplace could not load.','error');}
@@ -165,6 +198,11 @@
         p_viewing_access_fee_kes:Number($('#vhAdminFee').value||0)
       });
       if(error)throw error;
+      const {error:riderError}=await db.rpc('admin_save_vacant_house_rider_rules',{
+        p_enabled:$('#vhAdminRiderEnabled').checked,
+        p_fee_kes:Number($('#vhAdminRiderFee').value||0)
+      });
+      if(riderError)throw riderError;
       const account=$('#vhAdminPaymentAccount').value;
       if(account && account!==String(state.settings.payment_account_id||'')){
         const assigned=await db.rpc('admin_assign_payment_account',{p_function_code:'vacant_house_viewing',p_account_id:account});
@@ -215,6 +253,33 @@
         await load();
       }
     }catch(e){setStatus(e.message||'Action failed.','error');}
+  });
+
+  $('#vhAdminRiderRequestList').addEventListener('click',async ev=>{
+    const button=ev.target.closest('[data-vh-rider-action]');
+    if(!button)return;
+    const action=button.dataset.vhRiderAction;
+    let notes='',riderName=null,riderPhone=null;
+    if(action==='reject_payment')notes=window.prompt('Reason the rider escort payment was not verified:','')||'';
+    if(action==='assign'){
+      riderName=window.prompt('LEOGO rider full name:','');
+      if(!riderName)return;
+      riderPhone=window.prompt('LEOGO rider phone number:','');
+      if(!riderPhone)return;
+      notes=window.prompt('Optional note for the customer:','')||'';
+    }
+    if(action==='cancel')notes=window.prompt('Reason for cancelling this rider request:','')||'';
+    if(['reject_payment','cancel'].includes(action)&&!notes.trim())return;
+    try{
+      button.disabled=true;
+      const {error}=await db.rpc('admin_review_vacant_house_rider_request',{
+        p_request_id:button.dataset.id,p_action:action,p_notes:notes||null,
+        p_rider_name:riderName,p_rider_phone:riderPhone
+      });
+      if(error)throw error;
+      setStatus('LEOGO rider request updated.','success');
+      await load();
+    }catch(error){button.disabled=false;setStatus(error.message||'Could not update rider request.','error');}
   });
 
   $('#vhAdminRequestList').addEventListener('click',async ev=>{
