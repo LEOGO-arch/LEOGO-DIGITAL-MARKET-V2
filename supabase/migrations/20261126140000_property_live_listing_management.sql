@@ -18,7 +18,8 @@ declare v_rows jsonb;
 begin
   if not private.is_leogo_admin('approvals.read')
      and not private.is_leogo_admin('approvals.manage')
-     and not private.is_leogo_admin('settings.manage') then
+     and not private.is_leogo_admin('settings.manage')
+     and not private.is_leogo_admin('fees.manage') then
     raise exception 'Property listing management permission required';
   end if;
 
