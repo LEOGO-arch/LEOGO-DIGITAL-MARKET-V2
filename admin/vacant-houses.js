@@ -136,8 +136,8 @@
       const actions=deleted
         ? '<button data-vh-live-action="restore" data-id="'+esc(l.id)+'" class="approve">Restore Listing</button>'
         : suspended
-          ? '<button data-vh-live-action="restore" data-id="'+esc(l.id)+'" class="approve">Restore Listing</button><button data-vh-live-action="delete" data-id="'+esc(l.id)+'" class="reject">Remove Listing</button>'
-          : '<button data-vh-live-action="suspend" data-id="'+esc(l.id)+'">Suspend Listing</button><button data-vh-live-action="delete" data-id="'+esc(l.id)+'" class="reject">Remove Listing</button>';
+          ? '<button data-vh-live-action="restore" data-id="'+esc(l.id)+'" class="approve">Restore Listing</button><button data-vh-live-action="delete" data-id="'+esc(l.id)+'" class="reject">Delete Listing</button>'
+          : '<button data-vh-live-action="suspend" data-id="'+esc(l.id)+'">Suspend Listing</button><button data-vh-live-action="delete" data-id="'+esc(l.id)+'" class="reject">Delete Listing</button>';
       return '<article class="vh-admin-request"><div class="vh-admin-card-head"><div><span>'+esc(l.listing_reference)+' · '+(sale?'FOR SALE':'FOR RENT')+'</span><h4>'+esc(l.title)+'</h4></div><b>'+esc(status)+'</b></div>'+
         '<p><strong>'+esc(price)+'</strong> · '+esc([l.area_estate,l.sub_county,l.county].filter(Boolean).join(', '))+'</p>'+
         (l.admin_notes?'<p>Admin note: '+esc(l.admin_notes)+'</p>':'')+
@@ -201,7 +201,7 @@
     const action=button.dataset.vhLiveAction;
     const listing=state.live_listings.find(item=>item.id===button.dataset.id);
     if(!listing)return;
-    if(action==='delete'&&!window.confirm('Remove "'+listing.title+'" from the customer property marketplace? Its viewing and payment history will be retained.'))return;
+    if(action==='delete'&&!window.confirm('Delete "'+listing.title+'" from the customer property marketplace? Its viewing and payment history will be retained.'))return;
     const notes=action==='suspend'?window.prompt('Optional reason for suspending this listing:',''):
       action==='delete'?window.prompt('Optional note for the audit record:',''):'';
     try{
