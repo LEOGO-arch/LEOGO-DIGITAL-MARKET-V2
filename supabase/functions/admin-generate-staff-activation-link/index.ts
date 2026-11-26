@@ -6,8 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const STAFF_PORTAL_RECOVERY_URL =
-  "https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/staff/?recovery=1";
+const STAFF_PORTAL_SETUP_URL =
+  "https://leogo-arch.github.io/LEOGO-DIGITAL-MARKET-V2/staff/?setup=1";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -84,23 +84,25 @@ Deno.serve(async (req: Request) => {
       return json({ ok: false, error: "A valid staff account is required." }, 400);
     }
 
-    const [adminRecord, riderRecord] = await Promise.all([
-      admin.from("admin_users").select("user_id,display_name,role,status").eq("user_id", staffUserId).maybeSingle(),
-      admin.from("leogo_staff").select("user_id,display_name,staff_role,status").eq("user_id", staffUserId).maybeSingle(),
-    ]);
-    if (adminRecord.error || riderRecord.error) {
-      return json({ ok: false, error: "Could not verify the staff account." }, 500);
+    const publicKey = req.headers.get("apikey") || "";
+    if (!publicKey) return json({ ok: false, error: "Admin session is missing its public API key." }, 401);
+    const callerDb = createClient(projectUrl, publicKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    });
+    const { data: staffDirectory, error: directoryError } = await callerDb.rpc("admin_list_staff_directory");
+    if (directoryError) {
+      console.error("Could not verify staff directory:", errorText(directoryError));
+      return json({ ok: false, error: "Could not verify the staff account in the Admin staff directory." }, 500);
     }
-    const target = adminRecord.data
-      ? { ...adminRecord.data, account_kind: "admin_staff" }
-      : riderRecord.data
-      ? { ...riderRecord.data, account_kind: "rider" }
-      : null;
+    const target = (Array.isArray(staffDirectory) ? staffDirectory : [])
+      .find((entry: Record<string, unknown>) => String(entry.user_id || "") === staffUserId);
+
     if (!target || target.status !== "active") {
       return json({ ok: false, error: "This active staff account could not be found." }, 404);
     }
-    if (target.account_kind === "admin_staff" && target.role === "super_admin") {
-      return json({ ok: false, error: "Owner account recovery links cannot be copied here." }, 403);
+    if (target.account_kind === "admin_staff" && target.role_code === "super_admin") {
+      return json({ ok: false, error: "Owner account activation links cannot be copied here." }, 403);
     }
 
     const { data: targetData, error: targetError } = await admin.auth.admin.getUserById(staffUserId);
@@ -110,17 +112,17 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: generated, error: generateError } = await admin.auth.admin.generateLink({
-      type: "recovery",
+      type: "invite",
       email: staffUser.email,
-      options: { redirectTo: STAFF_PORTAL_RECOVERY_URL },
+      options: { redirectTo: STAFF_PORTAL_SETUP_URL },
     });
     if (generateError) {
-      console.error("Could not generate staff recovery link:", errorText(generateError));
-      return json({ ok: false, error: "Could not create a fresh staff password link. Try Send Access Email or contact Admin support." }, 400);
+      console.error("Could not generate staff activation link:", errorText(generateError));
+      return json({ ok: false, error: "Could not create a fresh staff activation link. Try Send Access Email or contact Admin support." }, 400);
     }
     const actionLink = String(generated?.properties?.action_link || "");
     if (!actionLink || !actionLink.startsWith("https://")) {
-      return json({ ok: false, error: "The identity service did not return a secure recovery link." }, 500);
+      return json({ ok: false, error: "The identity service did not return a secure activation link." }, 500);
     }
 
     const { error: auditError } = await admin.from("admin_audit_log").insert({
@@ -132,18 +134,18 @@ Deno.serve(async (req: Request) => {
       after_data: {
         display_name: target.display_name || staffUser.user_metadata?.full_name || "",
         email: staffUser.email,
-        link_type: "password_recovery",
+        link_type: "activation_invite",
       },
       metadata: { delivery: "admin_copy_and_send", secret_link_stored: false },
     });
     if (auditError) {
-      console.error("Staff recovery link audit failed:", errorText(auditError));
+      console.error("Staff activation link audit failed:", errorText(auditError));
       return json({ ok: false, error: "The staff link was generated but could not be recorded in the Audit Log. The link was not released; retry once logging is available." }, 500);
     }
 
     return json({ ok: true, action_link: actionLink });
   } catch (error) {
-    console.error("Staff recovery link request failed:", errorText(error));
+    console.error("Staff activation link request failed:", errorText(error));
     return json({ ok: false, error: errorText(error) }, 500);
   }
 });
