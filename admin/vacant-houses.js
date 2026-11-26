@@ -8,7 +8,7 @@
   const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{maximumFractionDigits:2});
   const label=v=>String(v||'').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
   const photoUrl=path=>{try{return db.storage.from('vacant-house-public-media').getPublicUrl(path).data.publicUrl||'';}catch{return '';}};
-  let state={settings:{},summary:{},listings:[],viewing_requests:[],payment_accounts:[]};
+  let state={settings:{},summary:{},listings:[],live_listings:[],viewing_requests:[],payment_accounts:[]};
   let loading=false;
 
   const host=document.createElement('section');
@@ -23,6 +23,11 @@
       <article><span>Payment Review</span><strong id="vhAdminPayments">0</strong><small>Viewing access fees</small></article>
       <article><span>Access Granted</span><strong id="vhAdminGranted">0</strong><small>Verified/waived</small></article>
     </div>
+    <section class="content-card vh-live-management">
+      <div class="card-head"><div><span>LIVE LISTINGS MANAGEMENT</span><h3>Manage Published Property</h3><p>Find a live property to suspend it, restore a suspended listing, or remove it from customer view while retaining its viewing and payment history.</p></div>
+        <select id="vhAdminLiveFilter" aria-label="Filter live property listings"><option value="active">Live listings</option><option value="suspended">Suspended</option><option value="deleted">Removed</option><option value="all">All listings</option></select></div>
+      <div id="vhAdminLiveListingList" class="vh-admin-list"><div class="loading-card">Loading live property listings…</div></div>
+    </section>
     <section class="content-card vh-admin-settings">
       <div class="card-head"><div><span>ADMIN CONTROLS</span><h3>Property Market Rules</h3><p>The submission reward is credited as non-withdrawable LEOGO Shopping Voucher points only after Admin approves the property.</p></div></div>
       <form id="vhAdminSettingsForm" class="vh-admin-settings-form">
@@ -110,6 +115,37 @@
     }).join('');
   };
 
+  const liveListingMatches=l=>{
+    const filter=$('#vhAdminLiveFilter')?.value||'active';
+    if(filter==='deleted')return Boolean(l.deleted_at);
+    if(filter==='suspended')return l.approval_status==='suspended'&&!l.deleted_at;
+    if(filter==='active')return l.approval_status==='approved'&&!l.deleted_at;
+    return true;
+  };
+
+  const renderLiveListings=()=>{
+    const list=$('#vhAdminLiveListingList');
+    const rows=(state.live_listings||[]).filter(liveListingMatches);
+    if(!rows.length){list.innerHTML='<div class="loading-card">No listings in this filter.</div>';return;}
+    list.innerHTML=rows.map(l=>{
+      const deleted=Boolean(l.deleted_at);
+      const suspended=l.approval_status==='suspended'&&!deleted;
+      const sale=l.listing_purpose==='sale';
+      const price=sale?money(l.sale_price_kes):money(l.monthly_rent_kes)+' / month';
+      const status=deleted?'Removed from customer view':suspended?'Suspended':label(l.availability_status);
+      const actions=deleted
+        ? '<button data-vh-live-action="restore" data-id="'+esc(l.id)+'" class="approve">Restore Listing</button>'
+        : suspended
+          ? '<button data-vh-live-action="restore" data-id="'+esc(l.id)+'" class="approve">Restore Listing</button><button data-vh-live-action="delete" data-id="'+esc(l.id)+'" class="reject">Remove Listing</button>'
+          : '<button data-vh-live-action="suspend" data-id="'+esc(l.id)+'">Suspend Listing</button><button data-vh-live-action="delete" data-id="'+esc(l.id)+'" class="reject">Remove Listing</button>';
+      return '<article class="vh-admin-request"><div class="vh-admin-card-head"><div><span>'+esc(l.listing_reference)+' · '+(sale?'FOR SALE':'FOR RENT')+'</span><h4>'+esc(l.title)+'</h4></div><b>'+esc(status)+'</b></div>'+
+        '<p><strong>'+esc(price)+'</strong> · '+esc([l.area_estate,l.sub_county,l.county].filter(Boolean).join(', '))+'</p>'+
+        (l.admin_notes?'<p>Admin note: '+esc(l.admin_notes)+'</p>':'')+
+        (deleted?'<p>This listing is hidden from customers. Its viewing requests and payment history are retained.</p>':'')+
+        '<div class="vh-admin-actions">'+actions+'</div></article>';
+    }).join('');
+  };
+
   const requestMatches=r=>{
     const f=$('#vhAdminPaymentFilter')?.value||'attention';
     if(f==='all')return true;
@@ -134,16 +170,20 @@
     ).join('');
   };
 
-  const render=()=>{renderSummary();renderSettings();renderListings();renderRequests();};
+  const render=()=>{renderSummary();renderSettings();renderListings();renderLiveListings();renderRequests();};
 
   const load=async()=>{
     if(loading)return;
     loading=true;
     setStatus('Loading property marketplace…');
     try{
-      const {data,error}=await db.rpc('admin_get_vacant_house_dashboard');
+      const [{data,error},{data:liveListings,error:liveError}]=await Promise.all([
+        db.rpc('admin_get_vacant_house_dashboard'),
+        db.rpc('admin_get_vacant_house_live_listings')
+      ]);
       if(error)throw error;
-      state={...state,...(data||{})};
+      if(liveError)throw liveError;
+      state={...state,...(data||{}),live_listings:Array.isArray(liveListings)?liveListings:[]};
       render();
       setStatus('Property marketplace synchronized.','success');
     }catch(e){setStatus(e.message||'Property marketplace could not load.','error');}
@@ -152,7 +192,28 @@
 
   $('#vhAdminRefresh').addEventListener('click',load);
   $('#vhAdminListingFilter').addEventListener('change',renderListings);
+  $('#vhAdminLiveFilter').addEventListener('change',renderLiveListings);
   $('#vhAdminPaymentFilter').addEventListener('change',renderRequests);
+
+  $('#vhAdminLiveListingList').addEventListener('click',async ev=>{
+    const button=ev.target.closest('[data-vh-live-action]');
+    if(!button)return;
+    const action=button.dataset.vhLiveAction;
+    const listing=state.live_listings.find(item=>item.id===button.dataset.id);
+    if(!listing)return;
+    if(action==='delete'&&!window.confirm('Remove "'+listing.title+'" from the customer property marketplace? Its viewing and payment history will be retained.'))return;
+    const notes=action==='suspend'?window.prompt('Optional reason for suspending this listing:',''):
+      action==='delete'?window.prompt('Optional note for the audit record:',''):'';
+    try{
+      button.disabled=true;
+      const {error}=await db.rpc('admin_manage_vacant_house_listing',{
+        p_listing_id:listing.id,p_action:action,p_notes:String(notes||'').trim()||null
+      });
+      if(error)throw error;
+      setStatus(action==='delete'?'Listing removed from customer view. History was retained.':action==='suspend'?'Listing suspended.':'Listing restored.','success');
+      await load();
+    }catch(error){button.disabled=false;setStatus(error.message||'Could not update this listing.','error');}
+  });
 
   $('#vhAdminSettingsForm').addEventListener('submit',async ev=>{
     ev.preventDefault();
