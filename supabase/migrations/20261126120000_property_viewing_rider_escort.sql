@@ -289,4 +289,21 @@ $function$;
 revoke all on function public.customer_get_my_vacant_house_viewing_requests() from public,anon;
 grant execute on function public.customer_get_my_vacant_house_viewing_requests() to authenticated;
 
+create or replace function public.public_get_vacant_house_settings()
+returns jsonb language sql stable security definer set search_path=''
+as $function$
+  select jsonb_build_object(
+    'is_enabled',s.is_enabled,
+    'voucher_enabled',s.voucher_enabled,
+    'submission_voucher_kes',case when s.voucher_enabled then s.submission_voucher_kes else 0 end,
+    'viewing_access_fee_kes',s.viewing_access_fee_kes,
+    'max_photos',s.max_photos,
+    'rider_escort_enabled',s.rider_escort_enabled,
+    'rider_escort_fee_kes',case when s.rider_escort_enabled then s.rider_escort_fee_kes else 0 end
+  )
+  from public.vacant_house_settings s where s.id=1;
+$function$;
+revoke all on function public.public_get_vacant_house_settings() from public;
+grant execute on function public.public_get_vacant_house_settings() to anon,authenticated;
+
 notify pgrst,'reload schema';
