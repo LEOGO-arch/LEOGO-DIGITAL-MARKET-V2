@@ -152,7 +152,6 @@
       if(r.payment_status==='submitted')actions.push('<button data-vh-rider-action="verify_payment" data-id="'+esc(r.id)+'" class="approve">Verify escort payment</button><button data-vh-rider-action="reject_payment" data-id="'+esc(r.id)+'" class="reject">Reject payment</button>');
       if(['verified','not_required'].includes(r.payment_status)&&!['assigned','completed','cancelled'].includes(r.request_status))actions.push('<button data-vh-rider-action="assign" data-id="'+esc(r.id)+'">Assign rider</button>');
       if(r.request_status==='assigned')actions.push('<button data-vh-rider-action="complete" data-id="'+esc(r.id)+'" class="approve">Mark completed</button>');
-      if(!['completed','cancelled'].includes(r.request_status))actions.push('<button data-vh-rider-action="cancel" data-id="'+esc(r.id)+'" class="reject">Cancel</button>');
       return '<article class="vh-admin-request"><div class="vh-admin-card-head"><div><span>'+esc(r.request_reference||r.listing_reference)+' · '+esc(label(r.request_status))+'</span><h4>'+esc(r.title)+'</h4></div><b>'+esc(label(r.payment_status))+'</b></div>'+
         '<p><strong>'+esc(r.customer_name||'Customer')+'</strong> · '+esc(r.customer_phone||'No saved phone')+'</p>'+
         '<div class="vh-admin-payment-ref"><small>Escort fee</small><strong>'+esc(money(r.fee_amount_kes))+'</strong><small>Payment reference</small><code>'+esc(r.payment_reference||'Not required')+'</code></div>'+
@@ -268,8 +267,7 @@
       if(!riderPhone)return;
       notes=window.prompt('Optional note for the customer:','')||'';
     }
-    if(action==='cancel')notes=window.prompt('Reason for cancelling this rider request:','')||'';
-    if(['reject_payment','cancel'].includes(action)&&!notes.trim())return;
+    if(action==='reject_payment'&&!notes.trim())return;
     try{
       button.disabled=true;
       const {error}=await db.rpc('admin_review_vacant_house_rider_request',{
