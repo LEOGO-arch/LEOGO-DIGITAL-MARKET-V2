@@ -204,7 +204,7 @@ begin
   if not private.is_leogo_admin('approvals.manage') and not private.is_leogo_admin('payments.manage') then
     raise exception 'Approval or payment permission required';
   end if;
-  if p_action not in ('verify_payment','reject_payment','confirm','assign','complete','cancel') then raise exception 'Unsupported rider request action'; end if;
+  if p_action not in ('verify_payment','reject_payment','confirm','assign','complete') then raise exception 'Unsupported rider request action'; end if;
   if p_action='reject_payment' and char_length(btrim(coalesce(p_notes,'')))<3 then raise exception 'Give a reason for rejecting this payment'; end if;
   if p_action='assign' and (char_length(btrim(coalesce(p_rider_name,'')))<2 or char_length(btrim(coalesce(p_rider_phone,'')))<7) then
     raise exception 'Enter the assigned LEOGO rider name and phone number';
